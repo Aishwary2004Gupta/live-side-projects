@@ -85,6 +85,16 @@ function createTextTexture(text, font, size, color, fontWeight = "100") {
   return new THREE.CanvasTexture(canvas);
 }
 
+const fonts = [
+  "Blanquotey",
+  "Playfair Display",
+  "Rubik",
+  "Space Mono",
+  "Pacifico",
+  "Courier New"
+];
+let currentFontIndex = 0;
+
 function initializeScene(texture) {
   scene = new THREE.Scene();
 
@@ -124,19 +134,21 @@ function initializeScene(texture) {
   textContainer.appendChild(renderer.domElement);
 }
 
-function reloadTexture() {
-  const newTexture = createTextTexture(
-    "aishwary",
-    "Blanquotey",
-    null,
-    "#ffffff",
-    "100"
-  );
+function reloadTexture(font) {
+  // dispose previous texture (if any) to avoid leaks
+  const prevTexture = planeMesh.material.uniforms.u_texture.value;
+  if (prevTexture && prevTexture.dispose) {
+    prevTexture.dispose();
+  }
+
+  const newTexture = createTextTexture("aishwary", font, null, "#ffffff", "100");
+  newTexture.needsUpdate = true;
   planeMesh.material.uniforms.u_texture.value = newTexture;
+  planeMesh.material.needsUpdate = true;
 }
 
 initializeScene(
-  createTextTexture("aishwary", "Blanquotey", null, "#ffffff", "100")
+  createTextTexture("aishwary", fonts[currentFontIndex], null, "#ffffff", "100")
 );
 
 function animateScene() {
@@ -164,6 +176,17 @@ textContainer.addEventListener("mousemove", handleMouseMove);
 textContainer.addEventListener("mouseenter", handleMouseEnter);
 textContainer.addEventListener("mouseleave", handleMouseLeave);
 
+textContainer.addEventListener("dblclick", () => {
+  changeFont(1);
+});
+
+window.addEventListener("keydown", (e) => {
+  if (e.code === "Space" && window.innerWidth >= 768) {
+    e.preventDefault();
+    changeFont(1);
+  }
+});
+
 function handleMouseMove(event) {
   easeFactor = 0.035;
   let rect = textContainer.getBoundingClientRect();
@@ -188,6 +211,20 @@ function handleMouseLeave() {
   targetMousePosition = { ...prevPosition };
 }
 
+async function changeFont(step = 1) {
+  currentFontIndex = (currentFontIndex + step + fonts.length) % fonts.length;
+  const fontName = fonts[currentFontIndex];
+
+  // attempt to ensure font is ready for canvas rendering
+  try {
+    await document.fonts.load(`16px "${fontName}"`);
+  } catch (err) {
+    // ignore load errors, still attempt to render
+  }
+
+  reloadTexture(fontName);
+}
+
 window.addEventListener("resize", onWindowResize, false);
 
 function onWindowResize() {
@@ -200,5 +237,5 @@ function onWindowResize() {
 
   renderer.setSize(window.innerWidth, window.innerHeight);
 
-  reloadTexture();
+  reloadTexture(fonts[currentFontIndex]);
 }

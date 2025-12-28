@@ -85,30 +85,20 @@ function createTextTexture(text, font, size, color, fontWeight = "100") {
   return new THREE.CanvasTexture(canvas);
 }
 
-const fonts = [
-  "Blanquotey",
-  "verdana",
-  "Arial",
-  "Georgia",
-  "Times New Roman",
-  "Comic Sans MS",
-  "Playfair Display",
-  "Rubik",
-  "Space Mono",
-  "Pacifico",
-  "Courier New"
-];
-
 // const fonts = [
-//   "Inter",
-//   "Poppins",
-//   "DM Sans",
-//   "Manrope",
-//   "Montserrat",
-//   "Plus Jakarta Sans",
-//   "Satoshi",
-//   "Urbanist"
-// ]; 
+//   "Blanquotey",
+//   "verdana",
+//   "Arial",
+//   "Georgia",
+//   "Times New Roman",
+//   "Comic Sans MS",
+//   "Playfair Display",
+//   "Rubik",
+//   "Space Mono",
+//   "Pacifico",
+//   "Courier New"
+// ];
+
 let currentFontIndex = 0;
 
 function initializeScene(texture) {

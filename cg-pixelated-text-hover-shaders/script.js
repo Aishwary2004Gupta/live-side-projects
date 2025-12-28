@@ -88,15 +88,15 @@ function createTextTexture(text, font, size, color, fontWeight = "100") {
 const fonts = [
   "Pacifico",
   "Blanquotey",
-  "verdana",
-  "Arial",
-  "Georgia",
+  // "verdana",
+  // "Arial",
+  // "Georgia",
   "Times New Roman",
   "Comic Sans MS",
-  "Playfair Display",
+  // "Playfair Display",
   "Rubik",
   "Space Mono",
-  "Courier New"
+  // "Courier New"
 ];
 
 let currentFontIndex = 0;

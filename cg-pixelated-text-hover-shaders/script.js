@@ -86,7 +86,6 @@ function createTextTexture(text, font, size, color, fontWeight = "100") {
 }
 
 const fonts = [
-  "Disney",
   "Pacifico",
   "Blanquotey",
   // "verdana",

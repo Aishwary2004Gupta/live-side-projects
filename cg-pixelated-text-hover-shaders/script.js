@@ -98,6 +98,17 @@ function createTextTexture(text, font, size, color, fontWeight = "100") {
 //   "Pacifico",
 //   "Courier New"
 // ];
+
+const fonts = [
+  "Inter",
+  "Poppins",
+  "DM Sans",
+  "Manrope",
+  "Montserrat",
+  "Plus Jakarta Sans",
+  "Satoshi",
+  "Urbanist"
+]; 
 let currentFontIndex = 0;
 
 function initializeScene(texture) {

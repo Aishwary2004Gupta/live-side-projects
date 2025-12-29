@@ -86,14 +86,15 @@ function createTextTexture(text, font, size, color, fontWeight = "100") {
 }
 
 const fonts = [
+  "Bebas Neue",
   "Abril Fatface",
-  "Cinzel",      
+  "Blanquotey",
+  // "Cinzel",      
   "Pacifico",
   "Playball",
   "Papyrus",
   "Impact",
-  "Blanquotey",
-  "Rubik",
+  // "Ru/bik",
 ];
 
 let currentFontIndex = 0;
@@ -144,14 +145,14 @@ function reloadTexture(font) {
     prevTexture.dispose();
   }
 
-  const newTexture = createTextTexture("aishwary", font, null, "#ffffff", "100");
+  const newTexture = createTextTexture("Aishwary", font, null, "#ffffff", "100");
   newTexture.needsUpdate = true;
   planeMesh.material.uniforms.u_texture.value = newTexture;
   planeMesh.material.needsUpdate = true;
 }
 
 initializeScene(
-  createTextTexture("aishwary", fonts[currentFontIndex], null, "#ffffff", "100")
+  createTextTexture("Aishwary", fonts[currentFontIndex], null, "#ffffff", "100")
 );
 
 function animateScene() {

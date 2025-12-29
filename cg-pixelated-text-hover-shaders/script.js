@@ -86,6 +86,7 @@ function createTextTexture(text, font, size, color, fontWeight = "100") {
 }
 
 const fonts = [
+  "Press Start 2P",
   "UnifrakturCook",
   "Bebas Neue",
   "Abril Fatface",
@@ -153,7 +154,7 @@ function reloadTexture(font) {
 }
 
 initializeScene(
-  createTextTexture("Distort Fonts", fonts[currentFontIndex], null, "#ffffff", "100")
+  createTextTexture("Distort", fonts[currentFontIndex], null, "#ffffff", "100")
 );
 
 function animateScene() {

@@ -53,9 +53,8 @@ function createTextTexture(text, font, size, color, fontWeight = "100") {
   ctx.fillStyle = color || "#ffffff";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-  // target visual height (fraction of viewport height)
-  const targetCssTextHeight = cssHeight * 0.18; // 18% of viewport height
-  let fontSizePx = Math.max(12, Math.floor(targetCssTextHeight * dpr));
+  // initial font size based on canvas width (allows fonts to differ naturally)
+  let fontSizePx = Math.max(12, Math.floor(canvas.width * 0.12));
 
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
@@ -81,7 +80,7 @@ function createTextTexture(text, font, size, color, fontWeight = "100") {
   ctx.fillStyle = "#1a1a1a";
   ctx.lineWidth = Math.max(1, fontSizePx * 0.02);
 
-  // draw several strokes for the slight bold outline look
+  // draw strokes and fill
   for (let i = 0; i < 2; i++) {
     ctx.strokeText(text, 0, 0);
   }

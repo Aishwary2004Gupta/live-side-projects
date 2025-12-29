@@ -97,6 +97,7 @@ function createTextTexture(text, font, size, color, fontWeight = "100") {
 }
 
 const fonts = [
+  "Nosifer",
   "Abril Fatface",
   "Press Start 2P",
   "UnifrakturCook",
@@ -114,7 +115,6 @@ const fonts = [
   "Fredericka the Great",
   "Rye",
   "IM Fell English SC",
-  "Nosifer",
   "Major Mono Display",
   "Luckiest Guy"
 ];

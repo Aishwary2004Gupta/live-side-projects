@@ -102,12 +102,10 @@ const fonts = [
   "Bebas Neue",
   "Abril Fatface",
   "Blanquotey",
-  // "Cinzel",      
   "Pacifico",
   "Playball",
   "Papyrus",
   "Impact",
-  // "Ru/bik",
 ];
 
 let currentFontIndex = 0;

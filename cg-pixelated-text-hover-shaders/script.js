@@ -147,7 +147,7 @@ function reloadTexture(font) {
     prevTexture.dispose();
   }
 
-  const newTexture = createTextTexture("Distort Text", font, null, "#ffffff", "100");
+  const newTexture = createTextTexture("Distort", font, null, "#ffffff", "100");
   newTexture.needsUpdate = true;
   planeMesh.material.uniforms.u_texture.value = newTexture;
   planeMesh.material.needsUpdate = true;

@@ -38,51 +38,63 @@ const fragmentShader = `
 `;
 
 function createTextTexture(text, font, size, color, fontWeight = "100") {
+  // create high-DPR canvas
+  const dpr = Math.max(1, window.devicePixelRatio || 1);
   const canvas = document.createElement("canvas");
   const ctx = canvas.getContext("2d");
 
-  const canvasWidth = window.innerWidth * 2;
-  const canvasHeight = window.innerHeight * 2;
+  const cssWidth = window.innerWidth;
+  const cssHeight = window.innerHeight;
 
-  canvas.width = canvasWidth;
-  canvas.height = canvasHeight;
+  canvas.width = Math.floor(cssWidth * dpr);
+  canvas.height = Math.floor(cssHeight * dpr);
 
+  // background
   ctx.fillStyle = color || "#ffffff";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-  const fontSize = size || Math.floor(canvasWidth * 2);
+  // target visual height (fraction of viewport height)
+  const targetCssTextHeight = cssHeight * 0.18; // 18% of viewport height
+  let fontSizePx = Math.max(12, Math.floor(targetCssTextHeight * dpr));
 
-  ctx.fillStyle = "#1a1a1a";
-  ctx.font = `${fontWeight} ${fontSize}px "${font || "Blanquotey"}"`;
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
 
-  ctx.imageSmoothingEnabled = true;
-  ctx.imageSmoothingQuality = "high";
+  // max allowed width so it doesn't touch edges (keep margins)
+  const maxAllowedWidth = canvas.width * 0.8; // 10% margin each side
 
-  const textMetrics = ctx.measureText(text);
-  const textWidth = textMetrics.width;
+  // reduce font size until width fits
+  ctx.font = `${fontWeight} ${fontSizePx}px "${font || "Blanquotey"}"`;
+  let metrics = ctx.measureText(text);
+  while (metrics.width > maxAllowedWidth && fontSizePx > 10) {
+    fontSizePx = Math.floor(fontSizePx * 0.95);
+    ctx.font = `${fontWeight} ${fontSizePx}px "${font || "Blanquotey"}"`;
+    metrics = ctx.measureText(text);
+  }
 
-  const scaleFactor = Math.min(1, (canvasWidth * 1) / textWidth);
-  const aspectCorrection = canvasWidth / canvasHeight;
+  // center drawing
+  ctx.save();
+  ctx.translate(canvas.width / 2, canvas.height / 2);
 
-  ctx.setTransform(
-    scaleFactor,
-    0,
-    0,
-    scaleFactor / aspectCorrection,
-    canvasWidth / 2,
-    canvasHeight / 2
-  );
-
+  // stroke + fill with sizes proportional to fontSizePx
   ctx.strokeStyle = "#1a1a1a";
-  ctx.lineWidth = fontSize * 0.005;
-  for (let i = 0; i < 3; i++) {
+  ctx.fillStyle = "#1a1a1a";
+  ctx.lineWidth = Math.max(1, fontSizePx * 0.02);
+
+  // draw several strokes for the slight bold outline look
+  for (let i = 0; i < 2; i++) {
     ctx.strokeText(text, 0, 0);
   }
   ctx.fillText(text, 0, 0);
 
-  return new THREE.CanvasTexture(canvas);
+  ctx.restore();
+
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.needsUpdate = true;
+  tex.minFilter = THREE.LinearFilter;
+  tex.magFilter = THREE.LinearFilter;
+
+  return tex;
 }
 
 const fonts = [

@@ -90,7 +90,6 @@ const fonts = [
   "Papyrus",
   "Impact",
   "Blanquotey",
-  "Comic Sans MS",
   "Rubik",
   "Space Mono",
 ];

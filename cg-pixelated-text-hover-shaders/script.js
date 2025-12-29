@@ -87,9 +87,9 @@ function createTextTexture(text, font, size, color, fontWeight = "100") {
 
 const fonts = [
   "Pacifico",
-  "Space Grotesk",
+  "Papyrus",
+  "Impact",
   "Blanquotey",
-  "Times New Roman",
   "Comic Sans MS",
   "Rubik",
   "Space Mono",

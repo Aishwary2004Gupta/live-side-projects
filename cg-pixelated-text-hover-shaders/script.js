@@ -86,7 +86,7 @@ function createTextTexture(text, font, size, color, fontWeight = "100") {
 }
 
 const fonts = [
-  "UnifrakturCook",
+  "Abril Fatface",
   "Cinzel",      
   "Pacifico",
   "Playball",

@@ -146,14 +146,14 @@ function reloadTexture(font) {
     prevTexture.dispose();
   }
 
-  const newTexture = createTextTexture("Aishwary", font, null, "#ffffff", "100");
+  const newTexture = createTextTexture("Distort Text", font, null, "#ffffff", "100");
   newTexture.needsUpdate = true;
   planeMesh.material.uniforms.u_texture.value = newTexture;
   planeMesh.material.needsUpdate = true;
 }
 
 initializeScene(
-  createTextTexture("Aishwary", fonts[currentFontIndex], null, "#ffffff", "100")
+  createTextTexture("Distort Fonts", fonts[currentFontIndex], null, "#ffffff", "100")
 );
 
 function animateScene() {

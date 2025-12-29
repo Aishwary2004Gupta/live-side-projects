@@ -97,16 +97,28 @@ function createTextTexture(text, font, size, color, fontWeight = "100") {
 }
 
 const fonts = [
+  "Abril Fatface",
   "Press Start 2P",
   "UnifrakturCook",
-  "Bebas Neue",
-  "Abril Fatface",
-  "Blanquotey",
-  "Pacifico",
   "Playball",
-  "Papyrus",
-  "Impact",
+  "Pacifico",
+  "Bebas Neue",
+  "Space Mono",
+  "Rubik",
+  "Cinzel",
+  "Orbitron",
+  "Lobster",
+  "Permanent Marker",
+  "VT323",
+  "Monoton",
+  "Fredericka the Great",
+  "Rye",
+  "IM Fell English SC",
+  "Nosifer",
+  "Major Mono Display",
+  "Luckiest Guy"
 ];
+
 
 let currentFontIndex = 0;
 

@@ -86,12 +86,14 @@ function createTextTexture(text, font, size, color, fontWeight = "100") {
 }
 
 const fonts = [
+  "UnifrakturCook",
+  "Cinzel",      
   "Pacifico",
+  "Playball",
   "Papyrus",
   "Impact",
   "Blanquotey",
   "Rubik",
-  "Space Mono",
 ];
 
 let currentFontIndex = 0;

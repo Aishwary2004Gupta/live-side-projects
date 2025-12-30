@@ -52,42 +52,75 @@ async function loadAnyGoogleFont(fontName) {
   if (loadedFonts.has(fontName)) return;
 
   const id = "gf-" + fontName.replace(/\s+/g, "-");
+  const familyParam = fontName.replace(/\s+/g, "+");
+  const url = `https://fonts.googleapis.com/css2?family=${familyParam}&display=swap`;
+
+  // Try to fetch the CSS and load the actual font file (woff2) via FontFace API for deterministic loading
+  try {
+    const res = await fetch(url, { mode: 'cors' });
+    if (res.ok) {
+      const css = await res.text();
+
+      // Prefer woff2 URL if available
+      let match = css.match(/url\((https:[^)]+\.woff2[^)]*)\)\s+format\('woff2'\)/i);
+      if (!match) {
+        // fallback: take the first url(...) occurrence
+        match = css.match(/url\((https?:\/\/[^)]+)\)/i);
+      }
+
+      if (match) {
+        const woffUrl = match[1].replace(/"|'/g, "");
+
+        try {
+          const fontFace = new FontFace(fontName, `url(${woffUrl})`, {
+            style: 'normal',
+            weight: '400',
+            display: 'swap'
+          });
+
+          // Load and add to document.fonts so document.fonts.load() will resolve quickly
+          await fontFace.load();
+          document.fonts.add(fontFace);
+          loadedFonts.add(fontName);
+
+          // Also add stylesheet link for normal browser usage (non-blocking)
+          if (!document.getElementById(id)) {
+            const link = document.createElement('link');
+            link.id = id;
+            link.rel = 'stylesheet';
+            link.href = url;
+            link.crossOrigin = 'anonymous';
+            document.head.appendChild(link);
+          }
+
+          return; // success
+        } catch (innerErr) {
+          // continue to fallback path
+          console.warn('FontFace load failed for', fontName, innerErr);
+        }
+      }
+    }
+  } catch (err) {
+    console.warn('Failed to fetch Google Fonts CSS for', fontName, err);
+  }
+
+  // Fallback: inject stylesheet and wait for the font to be available
   if (!document.getElementById(id)) {
-    const url =
-      "https://fonts.googleapis.com/css2?family=" +
-      fontName.replace(/\s+/g, "+") +
-      "&display=swap";
-
-    // Request the font ASAP using preload and swap to stylesheet on load.
-    const preload = document.createElement("link");
-    preload.rel = "preload";
-    preload.as = "style";
-    preload.href = url;
-    preload.crossOrigin = "anonymous";
-    document.head.appendChild(preload);
-
     const link = document.createElement("link");
     link.id = id;
     link.rel = "stylesheet";
     link.href = url;
     link.crossOrigin = "anonymous";
-    // Prevent render-blocking until it's loaded
-    link.media = "print";
-    link.onload = () => {
-      link.media = "all";
-    };
     document.head.appendChild(link);
-
-    // Fallback for no-JS
-    const noscript = document.createElement("noscript");
-    noscript.innerHTML = `<link rel="stylesheet" href="${url}">`;
-    document.head.appendChild(noscript);
   }
 
-  // Wait for this specific font to be available before continuing.
-  await document.fonts.load(`16px "${fontName}"`);
-  // Ensure the font face set has been updated (non-blocking for other fonts)
-  await document.fonts.ready;
+  // Wait specifically for this font to be usable, then mark it loaded
+  try {
+    await document.fonts.load(`16px "${fontName}"`);
+    await document.fonts.ready;
+  } catch (e) {
+    console.warn('document.fonts.load failed for', fontName, e);
+  }
 
   loadedFonts.add(fontName);
 } 
@@ -122,10 +155,10 @@ function createTextTexture(text, font) {
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
 
-  ctx.font = `100 ${fontSize}px "${font}"`;
+  ctx.font = `400 ${fontSize}px "${font}"`;
   while (ctx.measureText(text).width > canvas.width * 0.8) {
     fontSize *= 0.95;
-    ctx.font = `100 ${fontSize}px "${font}"`;
+    ctx.font = `400 ${fontSize}px "${font}"`;
   }
 
   ctx.translate(canvas.width / 2, canvas.height / 2);

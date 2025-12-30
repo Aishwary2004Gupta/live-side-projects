@@ -118,12 +118,12 @@ function createTextTexture(text, font) {
    FONT LIST
 ======================= */
 const fonts = [
+  "Bungee Shade",
   "VT323",
   "Permanent Marker",
   "Lobster",
   "Orbitron",
   "Cinzel",
-  "Bungee Shade",
   "Nosifer",
   "Creepster",
   "Butcherman",

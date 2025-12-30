@@ -159,7 +159,7 @@ const fonts = [
   "Creepster",
   "Luckiest Guy",
   "Lobster",
-  "Cinzel",
+  // "Cinzel",
 ];
 
 let currentFontIndex = 0;

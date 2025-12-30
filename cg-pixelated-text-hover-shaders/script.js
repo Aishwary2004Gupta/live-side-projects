@@ -48,8 +48,24 @@ void main() {
 ======================= */
 const loadedFonts = new Set();
 
+// Common system fonts that are already available on most OSes — loading these is fast and deterministic
+const SYSTEM_FONTS = new Set([
+  'system-ui', 'Arial', 'Helvetica', 'Verdana', 'Tahoma', 'Georgia', 'Times New Roman', 'Courier New'
+]);
+
 async function loadAnyGoogleFont(fontName) {
   if (loadedFonts.has(fontName)) return;
+
+  // If the font is a system font, just wait for the font to be ready (should resolve quickly)
+  if (SYSTEM_FONTS.has(fontName)) {
+    try {
+      await document.fonts.load(`16px "${fontName}"`);
+    } catch (e) {
+      // ignore — system font availability failures are extremely rare
+    }
+    loadedFonts.add(fontName);
+    return;
+  }
 
   const id = "gf-" + fontName.replace(/\s+/g, "-");
   const familyParam = fontName.replace(/\s+/g, "+");
@@ -78,22 +94,33 @@ async function loadAnyGoogleFont(fontName) {
             display: 'swap'
           });
 
-          // Load and add to document.fonts so document.fonts.load() will resolve quickly
-          await fontFace.load();
-          document.fonts.add(fontFace);
-          loadedFonts.add(fontName);
-
-          // Also add stylesheet link for normal browser usage (non-blocking)
-          if (!document.getElementById(id)) {
-            const link = document.createElement('link');
-            link.id = id;
-            link.rel = 'stylesheet';
-            link.href = url;
-            link.crossOrigin = 'anonymous';
-            document.head.appendChild(link);
+          // Retry load up to 2 times for transient network failures
+          let loaded = false;
+          for (let attempt = 0; attempt < 3 && !loaded; attempt++) {
+            try {
+              await fontFace.load();
+              loaded = true;
+            } catch (lfErr) {
+              if (attempt < 2) await new Promise(r => setTimeout(r, 200 * (attempt + 1)));
+            }
           }
 
-          return; // success
+          if (loaded) {
+            document.fonts.add(fontFace);
+            loadedFonts.add(fontName);
+
+            // Also add stylesheet link for normal browser usage (non-blocking)
+            if (!document.getElementById(id)) {
+              const link = document.createElement('link');
+              link.id = id;
+              link.rel = 'stylesheet';
+              link.href = url;
+              link.crossOrigin = 'anonymous';
+              document.head.appendChild(link);
+            }
+
+            return; // success
+          }
         } catch (innerErr) {
           // continue to fallback path
           console.warn('FontFace load failed for', fontName, innerErr);
@@ -178,6 +205,10 @@ function createTextTexture(text, font) {
    FONT LIST
 ======================= */
 const fonts = [
+  // System fonts — instant availability, no network required
+  'system-ui', 'Arial', 'Helvetica', 'Verdana', 'Tahoma', 'Georgia', 'Times New Roman', 'Courier New',
+
+  // Decorative/Google fonts (remain available and are warm-preloaded)
   "Bungee Shade",
   "VT323",
   "Permanent Marker",

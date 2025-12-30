@@ -65,10 +65,15 @@ async function loadAnyGoogleFont(fontName) {
   loadedFonts.add(fontName);
 }
 
-/* 🔥 Warm preload (non-blocking) */
-function preloadFontsInBackground(fonts, delay = 200) {
+/* 🔥 Warm preload (non-blocking) — no delay if delay is 0 */
+function preloadFontsInBackground(fonts, delay = 0) {
   fonts.forEach((font, i) => {
-    setTimeout(() => loadAnyGoogleFont(font), i * delay);
+    if (delay > 0) {
+      setTimeout(() => loadAnyGoogleFont(font), i * delay);
+    } else {
+      // Load immediately, don't defer
+      loadAnyGoogleFont(font);
+    }
   });
 }
 
@@ -249,11 +254,14 @@ window.addEventListener("resize", () => {
 
   // Load first font immediately
   await loadAnyGoogleFont(fonts[0]);
+
+  // No-delay warm-preload of remaining fonts (start immediately)
+  preloadFontsInBackground(fonts.slice(1), 0);
+
   await document.fonts.ready;
 
   initScene(createTextTexture("Distort", fonts[0]));
   animate();
 
-  // 🔥 Warm-preload remaining fonts quietly
-  preloadFontsInBackground(fonts.slice(1));
+  // Warm-preload already started above
 })();

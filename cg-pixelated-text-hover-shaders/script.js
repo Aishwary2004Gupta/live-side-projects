@@ -145,23 +145,19 @@ function createTextTexture(text, font) {
    FONT LIST
 ======================= */
 const fonts = [
+  "Luckiest Guy",
+  "Creepster",
+  "Orbitron",
+  "Lobster",
   "Bungee Shade",
-  // "VT323",
-  // "Permanent Marker",
-  // "Lobster",
-  // "Orbitron",
   "Nosifer",
   "Cinzel",
-  // "Creepster",
   "Butcherman",
   "Eater",
   "Rubik Glitch",
   "Rubik Glitch Pop",
   "Bungee",
-  // "Bungee Inline",
-  // "Luckiest Guy",
   "Black Ops One",
-  // "Wallpoet",
   "Monoton",
   "Faster One"
 ];

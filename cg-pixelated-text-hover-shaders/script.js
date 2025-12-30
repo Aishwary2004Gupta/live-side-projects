@@ -122,7 +122,13 @@ function initScene(texture) {
   scene = new THREE.Scene();
 
   const aspect = window.innerWidth / window.innerHeight;
-  camera = new THREE.OrthographicCamera(-1, 1, 1 / aspect, -1 / aspect, 0.1, 10);
+  camera = new THREE.OrthographicCamera(
+    -1, 1,
+    1 / aspect,
+    -1 / aspect,
+    0.1,
+    10
+  );
   camera.position.z = 1;
 
   planeMesh = new THREE.Mesh(
@@ -143,16 +149,18 @@ function initScene(texture) {
   renderer = new THREE.WebGLRenderer({ antialias: true });
   renderer.setSize(window.innerWidth, window.innerHeight);
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+
   textContainer.appendChild(renderer.domElement);
 }
 
 /* =======================
-   FONT SWITCH
+   CHANGE FONT (USER ONLY)
 ======================= */
 async function changeFont(step = 1) {
-  currentFontIndex = (currentFontIndex + step + fonts.length) % fonts.length;
-  const fontName = fonts[currentFontIndex];
+  currentFontIndex =
+    (currentFontIndex + step + fonts.length) % fonts.length;
 
+  const fontName = fonts[currentFontIndex];
   fontLabel.textContent = fontName;
 
   await loadAnyGoogleFont(fontName);
@@ -163,13 +171,6 @@ async function changeFont(step = 1) {
   planeMesh.material.uniforms.u_texture.value =
     createTextTexture("Distort", fontName);
 }
-
-/* =======================
-   AUTO CYCLE (THIS IS THE KEY FIX)
-======================= */
-setInterval(() => {
-  changeFont(1);
-}, 2000); // every 2 seconds
 
 /* =======================
    LOOP
@@ -193,8 +194,10 @@ function animate() {
 }
 
 /* =======================
-   EVENTS
+   EVENTS (DESKTOP + MOBILE)
 ======================= */
+
+// Mouse move (desktop)
 textContainer.addEventListener("mousemove", e => {
   easeFactor = 0.035;
   const r = textContainer.getBoundingClientRect();
@@ -203,8 +206,23 @@ textContainer.addEventListener("mousemove", e => {
   targetMousePosition.y = (e.clientY - r.top) / r.height;
 });
 
+// Double click (desktop)
 textContainer.addEventListener("dblclick", () => changeFont(1));
 
+// Spacebar (desktop)
+window.addEventListener("keydown", e => {
+  if (e.code === "Space") {
+    e.preventDefault();
+    changeFont(1);
+  }
+});
+
+// Tap (mobile)
+textContainer.addEventListener("touchend", () => {
+  changeFont(1);
+});
+
+// Resize
 window.addEventListener("resize", () => {
   renderer.setSize(window.innerWidth, window.innerHeight);
   changeFont(0);

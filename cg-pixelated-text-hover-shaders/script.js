@@ -1,3 +1,5 @@
+import * as THREE from 'https://unpkg.com/three@0.155.0/build/three.module.js';
+
 const textContainer = document.getElementById("textContainer");
 const fontLabel = document.getElementById("fontName");
 
@@ -51,19 +53,44 @@ async function loadAnyGoogleFont(fontName) {
 
   const id = "gf-" + fontName.replace(/\s+/g, "-");
   if (!document.getElementById(id)) {
-    const link = document.createElement("link");
-    link.id = id;
-    link.rel = "stylesheet";
-    link.href =
+    const url =
       "https://fonts.googleapis.com/css2?family=" +
       fontName.replace(/\s+/g, "+") +
       "&display=swap";
+
+    // Request the font ASAP using preload and swap to stylesheet on load.
+    const preload = document.createElement("link");
+    preload.rel = "preload";
+    preload.as = "style";
+    preload.href = url;
+    preload.crossOrigin = "anonymous";
+    document.head.appendChild(preload);
+
+    const link = document.createElement("link");
+    link.id = id;
+    link.rel = "stylesheet";
+    link.href = url;
+    link.crossOrigin = "anonymous";
+    // Prevent render-blocking until it's loaded
+    link.media = "print";
+    link.onload = () => {
+      link.media = "all";
+    };
     document.head.appendChild(link);
+
+    // Fallback for no-JS
+    const noscript = document.createElement("noscript");
+    noscript.innerHTML = `<link rel="stylesheet" href="${url}">`;
+    document.head.appendChild(noscript);
   }
 
+  // Wait for this specific font to be available before continuing.
   await document.fonts.load(`16px "${fontName}"`);
+  // Ensure the font face set has been updated (non-blocking for other fonts)
+  await document.fonts.ready;
+
   loadedFonts.add(fontName);
-}
+} 
 
 /* 🔥 Warm preload (non-blocking) — no delay if delay is 0 */
 function preloadFontsInBackground(fonts, delay = 0) {
@@ -252,14 +279,13 @@ window.addEventListener("resize", () => {
 (async () => {
   fontLabel.textContent = fonts[0];
 
-  // Load first font immediately
+  // Load first font immediately and ensure it's ready (so the initial canvas uses the correct font)
   await loadAnyGoogleFont(fonts[0]);
 
-  // No-delay warm-preload of remaining fonts (start immediately)
+  // No-delay warm-preload of remaining fonts (start immediately, fire-and-forget)
   preloadFontsInBackground(fonts.slice(1), 0);
 
-  await document.fonts.ready;
-
+  // Initialize the scene right away — the primary font is guaranteed to be available above
   initScene(createTextTexture("Distort", fonts[0]));
   animate();
 

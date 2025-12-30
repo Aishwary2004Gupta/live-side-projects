@@ -1,6 +1,9 @@
 const textContainer = document.getElementById("textContainer");
 const fontLabel = document.getElementById("fontName");
 
+/* =======================
+   STATE
+======================= */
 let scene, camera, renderer, planeMesh;
 let easeFactor = 0.02;
 
@@ -39,11 +42,14 @@ void main() {
 `;
 
 /* =======================
-   GOOGLE FONT LOADER
+   ⚡ FAST FONT LOADER
 ======================= */
-async function loadAnyGoogleFont(fontName) {
-  const id = "gf-" + fontName.replace(/\s+/g, "-");
+const loadedFonts = new Set();
 
+async function loadAnyGoogleFont(fontName) {
+  if (loadedFonts.has(fontName)) return;
+
+  const id = "gf-" + fontName.replace(/\s+/g, "-");
   if (!document.getElementById(id)) {
     const link = document.createElement("link");
     link.id = id;
@@ -56,6 +62,14 @@ async function loadAnyGoogleFont(fontName) {
   }
 
   await document.fonts.load(`16px "${fontName}"`);
+  loadedFonts.add(fontName);
+}
+
+/* 🔥 Warm preload (non-blocking) */
+function preloadFontsInBackground(fonts, delay = 200) {
+  fonts.forEach((font, i) => {
+    setTimeout(() => loadAnyGoogleFont(font), i * delay);
+  });
 }
 
 /* =======================
@@ -90,13 +104,16 @@ function createTextTexture(text, font) {
   ctx.strokeText(text, 0, 0);
   ctx.fillText(text, 0, 0);
 
-  return new THREE.CanvasTexture(canvas);
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.needsUpdate = true;
+  return tex;
 }
 
 /* =======================
    FONT LIST
 ======================= */
 const fonts = [
+  "Bungee Shade",
   "Nosifer",
   "Creepster",
   "Butcherman",
@@ -104,8 +121,7 @@ const fonts = [
   "Rubik Glitch",
   "Rubik Glitch Pop",
   "Bungee",
-  "Bungee Inline",
-  "Bungee Shade",
+  // "Bungee Inline",
   "Luckiest Guy",
   "Black Ops One",
   "Wallpoet",
@@ -173,7 +189,7 @@ async function changeFont(step = 1) {
 }
 
 /* =======================
-   LOOP
+   RENDER LOOP
 ======================= */
 function animate() {
   requestAnimationFrame(animate);
@@ -196,8 +212,6 @@ function animate() {
 /* =======================
    EVENTS (DESKTOP + MOBILE)
 ======================= */
-
-// Mouse move (desktop)
 textContainer.addEventListener("mousemove", e => {
   easeFactor = 0.035;
   const r = textContainer.getBoundingClientRect();
@@ -206,10 +220,8 @@ textContainer.addEventListener("mousemove", e => {
   targetMousePosition.y = (e.clientY - r.top) / r.height;
 });
 
-// Double click (desktop)
 textContainer.addEventListener("dblclick", () => changeFont(1));
 
-// Spacebar (desktop)
 window.addEventListener("keydown", e => {
   if (e.code === "Space") {
     e.preventDefault();
@@ -217,12 +229,8 @@ window.addEventListener("keydown", e => {
   }
 });
 
-// Tap (mobile)
-textContainer.addEventListener("touchend", () => {
-  changeFont(1);
-});
+textContainer.addEventListener("touchend", () => changeFont(1));
 
-// Resize
 window.addEventListener("resize", () => {
   renderer.setSize(window.innerWidth, window.innerHeight);
   changeFont(0);
@@ -233,7 +241,14 @@ window.addEventListener("resize", () => {
 ======================= */
 (async () => {
   fontLabel.textContent = fonts[0];
+
+  // Load first font immediately
   await loadAnyGoogleFont(fonts[0]);
+  await document.fonts.ready;
+
   initScene(createTextTexture("Distort", fonts[0]));
   animate();
+
+  // 🔥 Warm-preload remaining fonts quietly
+  preloadFontsInBackground(fonts.slice(1));
 })();

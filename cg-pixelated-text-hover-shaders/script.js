@@ -145,6 +145,7 @@ function createTextTexture(text, font) {
    FONT LIST
 ======================= */
 const fonts = [
+  "BBH Bartle",
   "Bungee Shade",
   "Nosifer",
   "Monoton",

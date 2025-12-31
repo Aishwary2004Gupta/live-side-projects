@@ -147,7 +147,6 @@ function createTextTexture(text, font) {
 const fonts = [
   "Bungee Shade",
   "Nosifer",
-  // "Butcherman",
   "Monoton",
   "Eater",
   "Rubik Glitch",
@@ -156,10 +155,7 @@ const fonts = [
   "Black Ops One",
   "Faster One",
   "Orbitron",
-  // "Creepster",
   "Luckiest Guy",
-  // "Lobster",
-  // "Cinzel",
 ];
 
 let currentFontIndex = 0;

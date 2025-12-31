@@ -3,41 +3,210 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>JS Spiral Fractal (Curlicue)</title>
+    <title>Uzumaki Spiral Fractal Animation</title>
     <style>
         body {
+            margin: 0;
+            overflow: hidden;
+            background: #000;
             display: flex;
             justify-content: center;
             align-items: center;
-            min-height: 100vh;
-            margin: 0;
-            background-color: #111;
-            color: #eee;
-            font-family: sans-serif;
-            flex-direction: column;
+            height: 100vh;
         }
         canvas {
-            border: 1px solid #444;
-            background-color: #000;
-        }
-        .controls {
-            margin-bottom: 15px;
-            padding: 10px;
-            background: #222;
-            border-radius: 5px;
+            border: 1px solid #333;
         }
     </style>
 </head>
 <body>
+    <canvas id="canvas"></canvas>
 
-    <div class="controls">
-        <label for="iterations">Iterations (Detail):</label>
-        <input type="range" id="iterations" min="50" max="1000" value="400">
-        <span id="iterValue">400</span>
-    </div>
-    
-    <canvas id="spiralCanvas" width="800" height="800"></canvas>
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
 
-    <script src="spiral.js"></script>
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+
+        let time = 0;
+
+        class Spiral {
+            constructor(x, y, radius, rotationSpeed, curliness) {
+                this.x = x;
+                this.y = y;
+                this.radius = radius;
+                this.rotationSpeed = rotationSpeed;
+                this.curliness = curliness;
+            }
+
+            draw(t) {
+                ctx.save();
+                ctx.translate(this.x, this.y);
+                ctx.rotate(t * this.rotationSpeed);
+
+                ctx.beginPath();
+
+                for (let angle = 0; angle < Math.PI * 8; angle += 0.1) {
+                    const r = this.radius * (angle / (Math.PI * 8));
+                    const spiralX = r * Math.cos(angle + t * this.curliness);
+                    const spiralY = r * Math.sin(angle + t * this.curliness);
+
+                    const wave = Math.sin(angle * 3 + t * 2) * 5;
+                    const finalX = spiralX + Math.cos(angle) * wave;
+                    const finalY = spiralY + Math.sin(angle) * wave;
+
+                    if (angle === 0) {
+                        ctx.moveTo(finalX, finalY);
+                    } else {
+                        ctx.lineTo(finalX, finalY);
+                    }
+                }
+
+                const hue = (t * 50 + this.x / 2) % 360;
+                ctx.strokeStyle = `hsl(${hue}, 80%, 60%)`;
+                ctx.lineWidth = 2;
+                ctx.stroke();
+
+                ctx.restore();
+            }
+        }
+
+        class RecursiveSpiral {
+            constructor(x, y, size, depth, angle) {
+                this.x = x;
+                this.y = y;
+                this.size = size;
+                this.depth = depth;
+                this.angle = angle;
+            }
+
+            draw(t) {
+                if (this.depth <= 0 || this.size < 2) return;
+
+                ctx.save();
+                ctx.translate(this.x, this.y);
+                ctx.rotate(this.angle + t * 0.5);
+
+                ctx.beginPath();
+                for (let i = 0; i < 50; i++) {
+                    const angle = (i / 50) * Math.PI * 2;
+                    const radius = this.size * (i / 50);
+                    const x = radius * Math.cos(angle * 3 + t);
+                    const y = radius * Math.sin(angle * 3 + t);
+
+                    if (i === 0) {
+                        ctx.moveTo(x, y);
+                    } else {
+                        ctx.lineTo(x, y);
+                    }
+                }
+
+                const hue = (this.depth * 60 + t * 30) % 360;
+                ctx.strokeStyle = `hsla(${hue}, 70%, 50%, ${this.depth / 5})`;
+                ctx.lineWidth = this.depth * 0.5;
+                ctx.stroke();
+
+                ctx.restore();
+
+                const numBranches = 3;
+                for (let i = 0; i < numBranches; i++) {
+                    const branchAngle = (Math.PI * 2 * i) / numBranches + t * 0.3;
+                    const branchDist = this.size * 0.7;
+                    const branchX = this.x + Math.cos(branchAngle) * branchDist;
+                    const branchY = this.y + Math.sin(branchAngle) * branchDist;
+
+                    const branch = new RecursiveSpiral(
+                        branchX,
+                        branchY,
+                        this.size * 0.5,
+                        this.depth - 1,
+                        branchAngle
+                    );
+                    branch.draw(t);
+                }
+            }
+        }
+
+        const spirals = [];
+        const gridSize = 3;
+        const spacing = Math.min(canvas.width, canvas.height) / gridSize;
+
+        for (let i = 0; i < gridSize; i++) {
+            for (let j = 0; j < gridSize; j++) {
+                const x = (i + 0.5) * spacing;
+                const y = (j + 0.5) * spacing;
+                const radius = spacing * 0.3;
+                const rotSpeed = (Math.random() - 0.5) * 0.2;
+                const curl = (Math.random() - 0.5) * 2;
+
+                spirals.push(new Spiral(x, y, radius, rotSpeed, curl));
+            }
+        }
+
+        function drawCurlicueFractal(centerX, centerY, t) {
+            ctx.save();
+            ctx.translate(centerX, centerY);
+
+            const layers = 5;
+            for (let layer = 0; layer < layers; layer++) {
+                ctx.beginPath();
+                const points = 200;
+
+                for (let i = 0; i < points; i++) {
+                    const angle = (i / points) * Math.PI * 6;
+                    const radius = (angle / (Math.PI * 6)) * 150 * (1 + layer * 0.3);
+
+                    const curlFreq = 5 + layer * 2;
+                    const curlAmp = 10 + layer * 3;
+                    const curl = Math.sin(angle * curlFreq + t * 2 + layer * 0.5) * curlAmp;
+
+                    const x = (radius + curl) * Math.cos(angle + t * 0.5);
+                    const y = (radius + curl) * Math.sin(angle + t * 0.5);
+
+                    if (i === 0) {
+                        ctx.moveTo(x, y);
+                    } else {
+                        ctx.lineTo(x, y);
+                    }
+                }
+
+                const hue = (layer * 40 + t * 30) % 360;
+                ctx.strokeStyle = `hsla(${hue}, 90%, 60%, 0.8)`;
+                ctx.lineWidth = 3 - layer * 0.3;
+                ctx.stroke();
+            }
+
+            ctx.restore();
+        }
+
+        function animate() {
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.1)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            spirals.forEach(spiral => spiral.draw(time));
+
+            drawCurlicueFractal(canvas.width / 2, canvas.height / 2, time);
+
+            const recursiveSpiral = new RecursiveSpiral(
+                canvas.width / 2,
+                canvas.height / 2,
+                100,
+                4,
+                time * 0.5
+            );
+            recursiveSpiral.draw(time);
+
+            time += 0.02;
+            requestAnimationFrame(animate);
+        }
+
+        animate();
+
+        window.addEventListener('resize', () => {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        });
+    </script>
 </body>
 </html>

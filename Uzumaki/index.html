@@ -3,263 +3,41 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Uzumaki Curlicue Fractal Animation</title>
+    <title>JS Spiral Fractal (Curlicue)</title>
     <style>
         body {
-            margin: 0;
-            padding: 0;
-            overflow: hidden;
-            background-color: #000;
             display: flex;
             justify-content: center;
             align-items: center;
-            height: 100vh;
-            font-family: Arial, sans-serif;
-        }
-        
-        #canvas-container {
-            position: relative;
-            width: 80vmin;
-            height: 80vmin;
-            border-radius: 50%;
-            overflow: hidden;
-            box-shadow: 0 0 50px rgba(0, 255, 255, 0.3);
-        }
-        
-        canvas {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-        }
-        
-        #controls {
-            position: absolute;
-            bottom: 20px;
-            left: 50%;
-            transform: translateX(-50%);
-            background-color: rgba(0, 0, 0, 0.7);
-            padding: 15px;
-            border-radius: 10px;
-            color: white;
-            display: flex;
+            min-height: 100vh;
+            margin: 0;
+            background-color: #111;
+            color: #eee;
+            font-family: sans-serif;
             flex-direction: column;
-            gap: 10px;
-            width: 300px;
-            backdrop-filter: blur(5px);
         }
-        
-        label {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
+        canvas {
+            border: 1px solid #444;
+            background-color: #000;
         }
-        
-        input[type="range"] {
-            width: 70%;
-        }
-        
-        button {
-            padding: 8px 16px;
-            background-color: #00b4d8;
-            color: white;
-            border: none;
+        .controls {
+            margin-bottom: 15px;
+            padding: 10px;
+            background: #222;
             border-radius: 5px;
-            cursor: pointer;
-            transition: background-color 0.3s;
-        }
-        
-        button:hover {
-            background-color: #0096c7;
-        }
-        
-        h1 {
-            color: #00b4d8;
-            text-align: center;
-            margin-bottom: 10px;
-            text-shadow: 0 0 10px rgba(0, 180, 216, 0.7);
         }
     </style>
 </head>
 <body>
-    <div id="canvas-container">
-        <canvas id="fractalCanvas"></canvas>
-        <div id="controls">
-            <h1>Uzumaki Fractal</h1>
-            <label>
-                <span>Growth:</span>
-                <input type="range" id="growth" min="0.001" max="0.02" step="0.001" value="0.008">
-            </label>
-            <label>
-                <span>Spiral Factor:</span>
-                <input type="range" id="spiralFactor" min="0.5" max="3" step="0.1" value="1.8">
-            </label>
-            <label>
-                <span>Noise Frequency:</span>
-                <input type="range" id="noiseFreq" min="0.05" max="0.3" step="0.01" value="0.12">
-            </label>
-            <label>
-                <span>Noise Amplitude:</span>
-                <input type="range" id="noiseAmp" min="0.1" max="0.5" step="0.05" value="0.25">
-            </label>
-            <button id="resetBtn">Reset Animation</button>
-        </div>
-    </div>
 
-    <script>
-        // Get canvas and context
-        const canvas = document.getElementById('fractalCanvas');
-        const ctx = canvas.getContext('2d');
-        
-        // Get control elements
-        const growthSlider = document.getElementById('growth');
-        const spiralFactorSlider = document.getElementById('spiralFactor');
-        const noiseFreqSlider = document.getElementById('noiseFreq');
-        const noiseAmpSlider = document.getElementById('noiseAmp');
-        const resetBtn = document.getElementById('resetBtn');
-        
-        // Animation variables
-        let animationId;
-        let t = 0;
-        let points = [];
-        let maxPoints = 5000;
-        
-        // Parameters (can be changed via sliders)
-        let params = {
-            growth: 0.008,
-            spiralFactor: 1.8,
-            noiseFreq: 0.12,
-            noiseAmp: 0.25
-        };
-        
-        // Resize canvas to fit container
-        function resizeCanvas() {
-            const container = document.getElementById('canvas-container');
-            canvas.width = container.clientWidth;
-            canvas.height = container.clientHeight;
-        }
-        
-        // Initialize canvas size
-        resizeCanvas();
-        window.addEventListener('resize', resizeCanvas);
-        
-        // Update parameters from sliders
-        function updateParams() {
-            params.growth = parseFloat(growthSlider.value);
-            params.spiralFactor = parseFloat(spiralFactorSlider.value);
-            params.noiseFreq = parseFloat(noiseFreqSlider.value);
-            params.noiseAmp = parseFloat(noiseAmpSlider.value);
-        }
-        
-        // Uzumaki curve function
-        function uzumakiCurve(t) {
-            // Base spiral
-            const r = params.growth * t;
-            const theta = params.spiralFactor * t;
-            
-            // Add fractal-like squiggles using sine waves with varying frequencies
-            const squiggleX = params.noiseAmp * Math.sin(params.noiseFreq * t + 0.5 * Math.sin(0.1 * t));
-            const squiggleY = params.noiseAmp * Math.cos(params.noiseFreq * t + 0.5 * Math.cos(0.1 * t));
-            
-            // Combine spiral with squiggles
-            const x = r * Math.cos(theta) + squiggleX;
-            const y = r * Math.sin(theta) + squiggleY;
-            
-            return { x, y };
-        }
-        
-        // Draw the fractal
-        function draw() {
-            // Clear canvas with a slight fade effect for trail
-            ctx.fillStyle = 'rgba(0, 0, 0, 0.1)';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-            
-            // Get center of canvas
-            const centerX = canvas.width / 2;
-            const centerY = canvas.height / 2;
-            const scale = Math.min(canvas.width, canvas.height) * 0.4;
-            
-            // Generate new point
-            const newPoint = uzumakiCurve(t);
-            
-            // Convert to canvas coordinates
-            const canvasX = centerX + newPoint.x * scale;
-            const canvasY = centerY + newPoint.y * scale;
-            
-            // Add point to array
-            points.push({ x: canvasX, y: canvasY });
-            
-            // Limit number of points
-            if (points.length > maxPoints) {
-                points.shift();
-            }
-            
-            // Draw the path
-            if (points.length > 1) {
-                ctx.beginPath();
-                ctx.moveTo(points[0].x, points[0].y);
-                
-                // Create gradient for the line
-                const gradient = ctx.createLinearGradient(
-                    points[0].x, points[0].y,
-                    points[points.length - 1].x, points[points.length - 1].y
-                );
-                gradient.addColorStop(0, '#00b4d8');
-                gradient.addColorStop(0.5, '#90e0ef');
-                gradient.addColorStop(1, '#caf0f8');
-                
-                ctx.strokeStyle = gradient;
-                ctx.lineWidth = 1.5;
-                ctx.lineCap = 'round';
-                ctx.lineJoin = 'round';
-                
-                // Draw with some transparency for trail effect
-                ctx.globalAlpha = 0.7;
-                
-                for (let i = 1; i < points.length; i++) {
-                    ctx.lineTo(points[i].x, points[i].y);
-                }
-                
-                ctx.stroke();
-                ctx.globalAlpha = 1.0;
-            }
-            
-            // Draw a glowing effect at the head
-            ctx.beginPath();
-            ctx.arc(canvasX, canvasY, 3, 0, Math.PI * 2);
-            ctx.fillStyle = '#00b4d8';
-            ctx.shadowColor = '#00b4d8';
-            ctx.shadowBlur = 15;
-            ctx.fill();
-            ctx.shadowBlur = 0;
-            
-            // Increment time parameter
-            t += 0.2;
-            
-            // Continue animation
-            animationId = requestAnimationFrame(draw);
-        }
-        
-        // Reset animation
-        function resetAnimation() {
-            cancelAnimationFrame(animationId);
-            t = 0;
-            points = [];
-            updateParams();
-            draw();
-        }
-        
-        // Event listeners
-        growthSlider.addEventListener('input', updateParams);
-        spiralFactorSlider.addEventListener('input', updateParams);
-        noiseFreqSlider.addEventListener('input', updateParams);
-        noiseAmpSlider.addEventListener('input', updateParams);
-        resetBtn.addEventListener('click', resetAnimation);
-        
-        // Start animation
-        updateParams();
-        draw();
-    </script>
+    <div class="controls">
+        <label for="iterations">Iterations (Detail):</label>
+        <input type="range" id="iterations" min="50" max="1000" value="400">
+        <span id="iterValue">400</span>
+    </div>
+    
+    <canvas id="spiralCanvas" width="800" height="800"></canvas>
+
+    <script src="spiral.js"></script>
 </body>
 </html>

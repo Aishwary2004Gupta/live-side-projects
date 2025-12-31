@@ -145,6 +145,7 @@ function createTextTexture(text, font) {
    FONT LIST
 ======================= */
 const fonts = [
+  "Rubik Gemstones",
   "BBH Bartle",
   "Bungee Shade",
   "Nosifer",
@@ -157,6 +158,7 @@ const fonts = [
   "Faster One",
   "Orbitron",
   "Luckiest Guy",
+  "Mountains of Christmas",
 ];
 
 let currentFontIndex = 0;

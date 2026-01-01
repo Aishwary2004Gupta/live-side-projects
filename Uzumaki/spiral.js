@@ -16,15 +16,15 @@ document.addEventListener('DOMContentLoaded', () => {
     function drawSpiral(iterations) {
         // Clear the canvas for a fresh draw
         ctx.clearRect(0, 0, WIDTH, HEIGHT);
-        
+
         // Set drawing style
         ctx.strokeStyle = 'cyan';
         ctx.lineWidth = 1;
-        
+
         // Start drawing from the center point
         let currentX = CENTER_X;
         let currentY = CENTER_Y;
-        
+
         // Initial state for the iterative process
         let angle = 0; // Angle in degrees
         let distance = 0; // Initial length/radius increase
@@ -36,10 +36,10 @@ document.addEventListener('DOMContentLoaded', () => {
         for (let i = 0; i < iterations; i++) {
             // 1. Calculate the new radius/distance based on iteration number
             distance += GROWTH_RATE;
-            
+
             // 2. Convert the current angle (in degrees) to radians for trigonometric functions
             const rad = (angle * Math.PI) / 180;
-            
+
             // 3. Calculate the next point using polar coordinates (r, theta) converted to Cartesian (x, y)
             const nextX = CENTER_X + distance * Math.cos(rad);
             const nextY = CENTER_Y + distance * Math.sin(rad);
@@ -49,7 +49,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // 5. Update state for the next iteration
             angle += ANGLE_INCREMENT;
-            
+
             // Optional: Fading color effect based on depth
             const colorValue = (i / iterations) * 255;
             // ctx.strokeStyle = `rgb(0, ${Math.floor(colorValue)}, 255)`;

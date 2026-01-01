@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Trippy Uzumaki Fractal</title>
+    <title>Optical Illusion Spiral</title>
     <style>
         body {
             margin: 0;
@@ -15,7 +15,7 @@
             height: 100vh;
         }
         canvas {
-            filter: contrast(1.2) brightness(1.1);
+            display: block;
         }
     </style>
 </head>
@@ -30,34 +30,27 @@
         canvas.height = window.innerHeight;
         
         let time = 0;
-        const centerX = canvas.width / 2;
-        const centerY = canvas.height / 2;
         
-        function drawPsychedelicSpiral(x, y, t, phase) {
+        function drawOpticalSpiral(centerX, centerY, t, offset) {
             ctx.save();
-            ctx.translate(x, y);
+            ctx.translate(centerX, centerY);
+            ctx.rotate(t * 0.5 + offset);
             
-            const layers = 12;
-            for (let layer = 0; layer < layers; layer++) {
+            const rings = 25;
+            for (let ring = 0; ring < rings; ring++) {
+                const points = 100;
                 ctx.beginPath();
-                const points = 300;
-                const rotOffset = phase + layer * 0.3;
                 
-                for (let i = 0; i < points; i++) {
-                    const angle = (i / points) * Math.PI * 10;
-                    const radius = (angle / (Math.PI * 10)) * 250;
+                for (let i = 0; i <= points; i++) {
+                    const angle = (i / points) * Math.PI * 8;
+                    const baseRadius = ring * 15;
                     
-                    const curl1 = Math.sin(angle * 8 + t * 3 + layer) * 15;
-                    const curl2 = Math.cos(angle * 12 + t * 2) * 10;
-                    const curl3 = Math.sin(angle * 20 + t * 4 + rotOffset) * 8;
-                    const pulse = Math.sin(t * 3 + layer * 0.5) * 20;
+                    const wave1 = Math.sin(angle * 6 + t * 2) * 8;
+                    const wave2 = Math.cos(angle * 10 - t * 1.5) * 6;
                     
-                    const totalCurl = curl1 + curl2 + curl3 + pulse;
-                    const r = radius + totalCurl;
-                    
-                    const spiralAngle = angle + t * 0.8 + Math.sin(t * 2 + layer) * 0.5;
-                    const x = r * Math.cos(spiralAngle);
-                    const y = r * Math.sin(spiralAngle);
+                    const radius = baseRadius + wave1 + wave2;
+                    const x = radius * Math.cos(angle);
+                    const y = radius * Math.sin(angle);
                     
                     if (i === 0) {
                         ctx.moveTo(x, y);
@@ -66,124 +59,36 @@
                     }
                 }
                 
-                const hue = (layer * 30 + t * 50 + phase * 60) % 360;
-                const saturation = 90 + Math.sin(t * 2 + layer) * 10;
-                const lightness = 50 + Math.sin(t * 3 + layer * 0.7) * 20;
-                const alpha = 0.6 + Math.sin(t + layer * 0.3) * 0.3;
+                const isWhite = (ring + Math.floor(t * 2)) % 2 === 0;
+                ctx.strokeStyle = isWhite ? '#fff' : '#000';
+                ctx.lineWidth = 15;
+                ctx.stroke();
                 
-                ctx.strokeStyle = `hsla(${hue}, ${saturation}%, ${lightness}%, ${alpha})`;
-                ctx.lineWidth = 3 + Math.sin(t * 2 + layer) * 1.5;
-                ctx.shadowBlur = 15;
-                ctx.shadowColor = `hsl(${hue}, 100%, 60%)`;
+                ctx.strokeStyle = isWhite ? '#000' : '#fff';
+                ctx.lineWidth = 13;
                 ctx.stroke();
             }
             
             ctx.restore();
         }
         
-        function drawKaleidoscope(t) {
-            const segments = 8;
-            
-            for (let seg = 0; seg < segments; seg++) {
-                ctx.save();
-                ctx.translate(centerX, centerY);
-                ctx.rotate((Math.PI * 2 * seg) / segments + t * 0.5);
-                
-                ctx.beginPath();
-                for (let i = 0; i < 150; i++) {
-                    const angle = (i / 150) * Math.PI * 4;
-                    const radius = (i / 150) * 200;
-                    
-                    const wobble1 = Math.sin(angle * 5 + t * 4) * 30;
-                    const wobble2 = Math.cos(angle * 7 - t * 3) * 20;
-                    const wobble3 = Math.sin(angle * 15 + t * 5 + seg) * 15;
-                    
-                    const x = (radius + wobble1) * Math.cos(angle + wobble2 / 50);
-                    const y = (radius + wobble3) * Math.sin(angle + wobble1 / 50);
-                    
-                    if (i === 0) {
-                        ctx.moveTo(x, y);
-                    } else {
-                        ctx.lineTo(x, y);
-                    }
-                }
-                
-                const hue = (seg * 45 + t * 80) % 360;
-                ctx.strokeStyle = `hsla(${hue}, 100%, 60%, 0.7)`;
-                ctx.lineWidth = 2 + Math.sin(t * 3 + seg) * 1;
-                ctx.shadowBlur = 20;
-                ctx.shadowColor = `hsl(${hue}, 100%, 70%)`;
-                ctx.stroke();
-                
-                ctx.restore();
-            }
-        }
-        
-        function drawFractalVortex(x, y, size, depth, t, rotation) {
-            if (depth <= 0 || size < 5) return;
-            
+        function drawConcentricWaves(centerX, centerY, t, phase) {
             ctx.save();
-            ctx.translate(x, y);
-            ctx.rotate(rotation + t);
+            ctx.translate(centerX, centerY);
             
-            ctx.beginPath();
-            const points = 80;
-            for (let i = 0; i < points; i++) {
-                const angle = (i / points) * Math.PI * 6;
-                const radius = (i / points) * size;
-                
-                const distort1 = Math.sin(angle * 10 + t * 5) * (size / 20);
-                const distort2 = Math.cos(angle * 15 - t * 4) * (size / 25);
-                
-                const px = (radius + distort1) * Math.cos(angle + t * 2);
-                const py = (radius + distort2) * Math.sin(angle + t * 2);
-                
-                if (i === 0) {
-                    ctx.moveTo(px, py);
-                } else {
-                    ctx.lineTo(px, py);
-                }
-            }
-            
-            const hue = (depth * 50 + t * 60 + rotation * 100) % 360;
-            const alpha = depth / 6;
-            ctx.strokeStyle = `hsla(${hue}, 95%, 55%, ${alpha})`;
-            ctx.lineWidth = depth * 0.8;
-            ctx.shadowBlur = 25;
-            ctx.shadowColor = `hsl(${hue}, 100%, 60%)`;
-            ctx.stroke();
-            
-            ctx.restore();
-            
-            const branches = 4;
-            for (let i = 0; i < branches; i++) {
-                const branchAngle = (Math.PI * 2 * i) / branches + t * 1.5;
-                const dist = size * 0.6;
-                const bx = x + Math.cos(branchAngle) * dist;
-                const by = y + Math.sin(branchAngle) * dist;
-                
-                drawFractalVortex(bx, by, size * 0.55, depth - 1, t, branchAngle + t * 0.5);
-            }
-        }
-        
-        function drawWarpTunnel(t) {
-            const rings = 30;
-            
-            for (let i = 0; i < rings; i++) {
-                const progress = i / rings;
-                const radius = 50 + progress * 400;
-                const segments = 60;
+            const numRings = 30;
+            for (let i = 0; i < numRings; i++) {
+                const radius = i * 12 + (t * 20 + phase) % 12;
+                const segments = 80;
                 
                 ctx.beginPath();
                 for (let j = 0; j <= segments; j++) {
                     const angle = (j / segments) * Math.PI * 2;
-                    const wave1 = Math.sin(angle * 5 + t * 4 - progress * 10) * 20;
-                    const wave2 = Math.cos(angle * 8 - t * 3 + progress * 8) * 15;
-                    const pulse = Math.sin(t * 5 - progress * 15) * 30;
+                    const distortion = Math.sin(angle * 8 + t * 3 + i * 0.5) * 5;
+                    const r = radius + distortion;
                     
-                    const r = radius + wave1 + wave2 + pulse;
-                    const x = centerX + r * Math.cos(angle + t * 2);
-                    const y = centerY + r * Math.sin(angle + t * 2);
+                    const x = r * Math.cos(angle);
+                    const y = r * Math.sin(angle);
                     
                     if (j === 0) {
                         ctx.moveTo(x, y);
@@ -193,68 +98,114 @@
                 }
                 ctx.closePath();
                 
-                const hue = (progress * 360 + t * 100) % 360;
-                const alpha = 0.3 + Math.sin(t * 3 - progress * 10) * 0.2;
-                ctx.strokeStyle = `hsla(${hue}, 100%, 60%, ${alpha})`;
-                ctx.lineWidth = 2;
-                ctx.shadowBlur = 15;
-                ctx.shadowColor = `hsl(${hue}, 100%, 70%)`;
+                const isWhite = i % 2 === 0;
+                ctx.fillStyle = isWhite ? '#fff' : '#000';
+                ctx.fill();
+                ctx.strokeStyle = isWhite ? '#000' : '#fff';
+                ctx.lineWidth = 1;
                 ctx.stroke();
             }
+            
+            ctx.restore();
         }
         
-        function drawParticleSpirals(t) {
-            const numSpirals = 5;
+        function drawRadialPattern(centerX, centerY, t) {
+            ctx.save();
+            ctx.translate(centerX, centerY);
+            ctx.rotate(t * 0.3);
             
-            for (let s = 0; s < numSpirals; s++) {
-                const spiralOffset = (Math.PI * 2 * s) / numSpirals;
-                const particles = 100;
+            const numSegments = 16;
+            const maxRadius = 200;
+            
+            for (let seg = 0; seg < numSegments; seg++) {
+                const startAngle = (seg / numSegments) * Math.PI * 2;
+                const endAngle = ((seg + 1) / numSegments) * Math.PI * 2;
                 
-                for (let i = 0; i < particles; i++) {
-                    const angle = (i / particles) * Math.PI * 8 + t * 2 + spiralOffset;
-                    const radius = (i / particles) * 300;
-                    
-                    const wobble = Math.sin(angle * 6 + t * 4) * 40;
-                    const x = centerX + (radius + wobble) * Math.cos(angle);
-                    const y = centerY + (radius + wobble) * Math.sin(angle);
-                    
-                    const size = 3 + Math.sin(t * 3 + i * 0.1) * 2;
-                    const hue = (i * 3 + t * 80 + s * 72) % 360;
-                    const alpha = 0.6 + Math.sin(t * 2 + i * 0.1) * 0.4;
-                    
-                    ctx.fillStyle = `hsla(${hue}, 100%, 60%, ${alpha})`;
-                    ctx.shadowBlur = 10;
-                    ctx.shadowColor = `hsl(${hue}, 100%, 70%)`;
-                    
-                    ctx.beginPath();
-                    ctx.arc(x, y, size, 0, Math.PI * 2);
-                    ctx.fill();
-                }
+                ctx.beginPath();
+                ctx.moveTo(0, 0);
+                ctx.arc(0, 0, maxRadius, startAngle, endAngle);
+                ctx.closePath();
+                
+                const isWhite = seg % 2 === 0;
+                ctx.fillStyle = isWhite ? '#fff' : '#000';
+                ctx.fill();
+                ctx.strokeStyle = isWhite ? '#000' : '#fff';
+                ctx.lineWidth = 2;
+                ctx.stroke();
             }
+            
+            ctx.restore();
+        }
+        
+        function drawHypnoticSpiral(centerX, centerY, t, rotationOffset) {
+            ctx.save();
+            ctx.translate(centerX, centerY);
+            
+            const layers = 20;
+            for (let layer = 0; layer < layers; layer++) {
+                ctx.beginPath();
+                const points = 120;
+                
+                for (let i = 0; i < points; i++) {
+                    const angle = (i / points) * Math.PI * 12;
+                    const radius = (angle / (Math.PI * 12)) * 180 + layer * 5;
+                    
+                    const wobble = Math.sin(angle * 5 + t * 2 + layer * 0.3) * 10;
+                    const r = radius + wobble;
+                    
+                    const x = r * Math.cos(angle + t * 0.4 + rotationOffset);
+                    const y = r * Math.sin(angle + t * 0.4 + rotationOffset);
+                    
+                    if (i === 0) {
+                        ctx.moveTo(x, y);
+                    } else {
+                        ctx.lineTo(x, y);
+                    }
+                }
+                
+                const isWhite = (layer + Math.floor(t * 3)) % 2 === 0;
+                ctx.strokeStyle = isWhite ? '#fff' : '#000';
+                ctx.lineWidth = 8;
+                ctx.stroke();
+            }
+            
+            ctx.restore();
         }
         
         function animate() {
-            ctx.fillStyle = 'rgba(0, 0, 0, 0.08)';
+            ctx.fillStyle = '#000';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
             
-            drawWarpTunnel(time);
+            const cellWidth = canvas.width / 3;
+            const cellHeight = canvas.height / 3;
             
-            drawKaleidoscope(time);
-            
-            drawPsychedelicSpiral(centerX, centerY, time, 0);
-            
-            const orbitRadius = 150;
-            const numOrbits = 3;
-            for (let i = 0; i < numOrbits; i++) {
-                const angle = (Math.PI * 2 * i) / numOrbits + time;
-                const x = centerX + Math.cos(angle) * orbitRadius;
-                const y = centerY + Math.sin(angle) * orbitRadius;
-                drawFractalVortex(x, y, 80, 4, time, angle);
+            for (let row = 0; row < 3; row++) {
+                for (let col = 0; col < 3; col++) {
+                    const x = col * cellWidth + cellWidth / 2;
+                    const y = row * cellHeight + cellHeight / 2;
+                    const pattern = (row + col) % 4;
+                    const offset = (row * 3 + col) * 0.5;
+                    
+                    ctx.save();
+                    ctx.beginPath();
+                    ctx.rect(col * cellWidth, row * cellHeight, cellWidth, cellHeight);
+                    ctx.clip();
+                    
+                    if (pattern === 0) {
+                        drawOpticalSpiral(x, y, time, offset);
+                    } else if (pattern === 1) {
+                        drawConcentricWaves(x, y, time, offset);
+                    } else if (pattern === 2) {
+                        drawRadialPattern(x, y, time + offset);
+                    } else {
+                        drawHypnoticSpiral(x, y, time, offset);
+                    }
+                    
+                    ctx.restore();
+                }
             }
             
-            drawParticleSpirals(time);
-            
-            time += 0.025;
+            time += 0.03;
             requestAnimationFrame(animate);
         }
         

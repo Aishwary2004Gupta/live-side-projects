@@ -90,7 +90,7 @@ async function loadAnyGoogleFont(fontName) {
   await document.fonts.ready;
 
   loadedFonts.add(fontName);
-} 
+}
 
 /* 🔥 Warm preload (non-blocking) — no delay if delay is 0 */
 function preloadFontsInBackground(fonts, delay = 0) {

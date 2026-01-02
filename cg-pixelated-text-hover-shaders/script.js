@@ -145,6 +145,7 @@ function createTextTexture(text, font) {
    FONT LIST
 ======================= */
 const fonts = [
+  "Sekuya",
   "Bungee Shade",
   "Nosifer",
   "Monoton",

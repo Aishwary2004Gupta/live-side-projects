@@ -158,7 +158,6 @@ const fonts = [
   "Faster One",
   "Orbitron",
   "Luckiest Guy",
-  "Dancing Script",
   "Rubik Gemstones",
   "BBH Bartle",
 ];

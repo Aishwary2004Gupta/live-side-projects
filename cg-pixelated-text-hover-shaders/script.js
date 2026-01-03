@@ -236,6 +236,10 @@ function initScene(texture) {
   renderer.setSize(window.innerWidth, window.innerHeight);
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 
+  // Ensure clear color is white so the whole page stays white even if something doesn't cover it.
+  renderer.setClearColor(0xffffff, 1);
+  renderer.domElement.style.backgroundColor = "#ffffff";
+
   textContainer.appendChild(renderer.domElement);
 }
 
@@ -293,9 +297,21 @@ textContainer.addEventListener("pointermove", e => {
 });
 
 /* Touch handlers: update positions and prevent default scrolling (body overflow is hidden but safer) */
+/* Add double-tap detection and prevent single-tap from changing font */
+let _touchStartPos = null;
+let _touchMoved = false;
+let _lastTapTime = 0;
+let _lastTapPos = { x: 0, y: 0 };
+const DOUBLE_TAP_DELAY = 350; // ms
+const DOUBLE_TAP_MAX_DIST = 30; // px
+
 textContainer.addEventListener("touchstart", e => {
   const t = e.touches[0];
   if (!t) return;
+  // mark potential tap start
+  _touchStartPos = { x: t.clientX, y: t.clientY };
+  _touchMoved = false;
+
   e.preventDefault();
   easeFactor = 0.045;
   const r = textContainer.getBoundingClientRect();
@@ -307,6 +323,9 @@ textContainer.addEventListener("touchstart", e => {
 textContainer.addEventListener("touchmove", e => {
   const t = e.touches[0];
   if (!t) return;
+  const dx = t.clientX - (_touchStartPos ? _touchStartPos.x : t.clientX);
+  const dy = t.clientY - (_touchStartPos ? _touchStartPos.y : t.clientY);
+  if (Math.hypot(dx, dy) > 8) _touchMoved = true; // small threshold to cancel tap
   e.preventDefault();
   easeFactor = 0.03;
   const r = textContainer.getBoundingClientRect();
@@ -315,7 +334,34 @@ textContainer.addEventListener("touchmove", e => {
   targetMousePosition.y = (t.clientY - r.top) / r.height;
 });
 
-textContainer.addEventListener("dblclick", () => changeFont(1));
+textContainer.addEventListener("touchend", e => {
+  // Only consider quick taps (no move). Use changedTouches to get the ended touch.
+  const t = e.changedTouches && e.changedTouches[0];
+  if (!t) return;
+  if (_touchMoved) {
+    _touchMoved = false;
+    _touchStartPos = null;
+    return;
+  }
+
+  const now = Date.now();
+  const tapPos = { x: t.clientX, y: t.clientY };
+  const dt = now - _lastTapTime;
+  const dist = Math.hypot(tapPos.x - _lastTapPos.x, tapPos.y - _lastTapPos.y);
+
+  if (dt <= DOUBLE_TAP_DELAY && dist <= DOUBLE_TAP_MAX_DIST) {
+    // Double-tap detected -> change font
+    changeFont(1);
+    _lastTapTime = 0;
+    _lastTapPos = { x: 0, y: 0 };
+  } else {
+    // Store this tap as a candidate for a second tap
+    _lastTapTime = now;
+    _lastTapPos = tapPos;
+  }
+
+  _touchStartPos = null;
+});
 
 window.addEventListener("keydown", e => {
   if (e.code === "Space") {
@@ -323,8 +369,6 @@ window.addEventListener("keydown", e => {
     changeFont(1);
   }
 });
-
-textContainer.addEventListener("touchend", () => changeFont(1));
 
 window.addEventListener("resize", () => {
   renderer.setSize(window.innerWidth, window.innerHeight);

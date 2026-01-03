@@ -297,9 +297,20 @@ textContainer.addEventListener("pointermove", e => {
 });
 
 /* Touch handlers: update positions and prevent default scrolling (body overflow is hidden but safer) */
-/* Touch handlers: treat a single quick tap (no move) as a font-change */
 let _touchStartPos = null;
 let _touchMoved = false;
+let _lastTapTime = 0;
+let _lastTapPos = { x: 0, y: 0 };
+const DOUBLE_TAP_DELAY = 350; // ms
+const DOUBLE_TAP_MAX_DIST = 30; // px
+
+function isPhone() {
+  return (('ontouchstart' in window) || navigator.maxTouchPoints > 0) && window.innerWidth <= 767;
+}
+
+function isLargeScreen() {
+  return window.innerWidth >= 768;
+}
 
 textContainer.addEventListener("touchstart", e => {
   const t = e.touches[0];
@@ -331,7 +342,7 @@ textContainer.addEventListener("touchmove", e => {
 });
 
 textContainer.addEventListener("touchend", e => {
-  // Single quick tap (no move) now immediately changes font
+  // On phones, require double-tap to change fonts. On non-phone devices, touches don't change fonts.
   const t = e.changedTouches && e.changedTouches[0];
   if (!t) return;
   if (_touchMoved) {
@@ -340,21 +351,34 @@ textContainer.addEventListener("touchend", e => {
     return;
   }
 
-  // Change font on single tap
-  changeFont(1);
+  if (!isPhone()) {
+    // Not a phone — don't change fonts via touch
+    _touchStartPos = null;
+    return;
+  }
+
+  const now = Date.now();
+  const tapPos = { x: t.clientX, y: t.clientY };
+  const dt = now - _lastTapTime;
+  const dist = Math.hypot(tapPos.x - _lastTapPos.x, tapPos.y - _lastTapPos.y);
+
+  if (dt <= DOUBLE_TAP_DELAY && dist <= DOUBLE_TAP_MAX_DIST) {
+    // Double-tap detected -> change font
+    changeFont(1);
+    _lastTapTime = 0;
+    _lastTapPos = { x: 0, y: 0 };
+  } else {
+    // Store this tap as a candidate for a second tap
+    _lastTapTime = now;
+    _lastTapPos = tapPos;
+  }
 
   _touchStartPos = null;
 });
 
-// Also allow single left-click on desktop to change the font
-textContainer.addEventListener("click", e => {
-  if (e.button === 0) {
-    changeFont(1);
-  }
-});
-
+// Spacebar changes font only on large screens
 window.addEventListener("keydown", e => {
-  if (e.code === "Space") {
+  if (e.code === "Space" && isLargeScreen()) {
     e.preventDefault();
     changeFont(1);
   }

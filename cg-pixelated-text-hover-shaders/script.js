@@ -185,7 +185,6 @@ const fonts = [
   "Black Ops One",
   "Mountains of Christmas",
   "Faster One",
-  "Orbitron",
   "Luckiest Guy",
   "Rubik Gemstones",
   "BBH Bartle",

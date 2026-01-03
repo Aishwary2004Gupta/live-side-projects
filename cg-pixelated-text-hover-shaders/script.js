@@ -179,6 +179,7 @@ const fonts = [
   "Nosifer",
   "Monoton",
   "Eater",
+  "Ultra",
   "Rubik Glitch",
   "Rubik Glitch Pop",
   "Bungee",

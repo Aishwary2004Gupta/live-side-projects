@@ -47,82 +47,80 @@ void main() {
    ⚡ FAST FONT LOADER
 ======================= */
 const loadedFonts = new Set();
+const fontPromises = new Map();
 
 /**
  * Load a Google Font by injecting its stylesheet and waiting for the font to be available.
- * Adds a timeout so a missing font won't block the app indefinitely.
+ * Returns a boolean: true if the font was successfully loaded, false on timeout/failure.
  */
 async function loadAnyGoogleFont(fontName, timeout = 5000) {
-  if (loadedFonts.has(fontName)) return;
+  if (loadedFonts.has(fontName)) return true;
+  if (fontPromises.has(fontName)) return fontPromises.get(fontName);
 
-  const id = "gf-" + fontName.replace(/\s+/g, "-");
-  if (!document.getElementById(id)) {
-    const url =
-      "https://fonts.googleapis.com/css2?family=" +
-      fontName.replace(/\s+/g, "+") +
-      "&display=swap";
+  const p = (async () => {
+    const id = "gf-" + fontName.replace(/\s+/g, "-");
+    if (!document.getElementById(id)) {
+      const url =
+        "https://fonts.googleapis.com/css2?family=" +
+        fontName.replace(/\s+/g, "+") +
+        "&display=swap";
 
-    // Request the font ASAP using preload and swap to stylesheet on load.
-    const preload = document.createElement("link");
-    preload.rel = "preload";
-    preload.as = "style";
-    preload.href = url;
-    preload.crossOrigin = "anonymous";
-    document.head.appendChild(preload);
+      // Preconnect to speed font asset download
+      if (!document.querySelector('link[rel="preconnect"][href="https://fonts.gstatic.com"]')) {
+        const preconnect = document.createElement("link");
+        preconnect.rel = "preconnect";
+        preconnect.href = "https://fonts.gstatic.com";
+        preconnect.crossOrigin = "anonymous";
+        document.head.appendChild(preconnect);
+      }
 
-    const link = document.createElement("link");
-    link.id = id;
-    link.rel = "stylesheet";
-    link.href = url;
-    link.crossOrigin = "anonymous";
-    // Prevent render-blocking until it's loaded
-    link.media = "print";
-    link.onload = () => {
-      link.media = "all";
-    };
-    document.head.appendChild(link);
+      // Apply stylesheet immediately so @font-face rules are available for document.fonts
+      const link = document.createElement("link");
+      link.id = id;
+      link.rel = "stylesheet";
+      link.href = url;
+      link.crossOrigin = "anonymous";
+      document.head.appendChild(link);
 
-    // Fallback for no-JS
-    const noscript = document.createElement("noscript");
-    noscript.innerHTML = `<link rel="stylesheet" href="${url}">`;
-    document.head.appendChild(noscript);
-  }
+      // Fallback for no-JS
+      const noscript = document.createElement("noscript");
+      noscript.innerHTML = `<link rel="stylesheet" href="${url}">`;
+      document.head.appendChild(noscript);
+    }
 
-  try {
-    // Wait for this specific font to be available, but don't wait forever.
-    await Promise.race([
-      (async () => {
-        await document.fonts.load(`16px "${fontName}"`);
-        await document.fonts.ready;
-      })(),
-      new Promise((_, reject) =>
-        setTimeout(() => reject(new Error("font load timeout")), timeout)
-      ),
-    ]);
-  } catch (err) {
-    console.warn(`Font "${fontName}" failed to load within ${timeout}ms:`, err);
-  }
+    try {
+      await Promise.race([
+        (async () => {
+          await document.fonts.load(`16px "${fontName}"`);
+          await document.fonts.ready;
+        })(),
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error("font load timeout")), timeout)
+        ),
+      ]);
+      loadedFonts.add(fontName);
+      return true;
+    } catch (err) {
+      console.warn(`Font "${fontName}" failed to load within ${timeout}ms:`, err);
+      return false;
+    } finally {
+      fontPromises.delete(fontName);
+    }
+  })();
 
-  // Mark as attempted so we don't keep retrying forever.
-  loadedFonts.add(fontName);
+  fontPromises.set(fontName, p);
+  return p;
 }
 
-/* 🔥 Warm preload (returns a promise that resolves when all requested fonts finish attempting to load) */
-function preloadFontsInBackground(fonts, delay = 0) {
-  if (delay > 0) {
-    // Staggered load with delays
-    return Promise.all(
-      fonts.map(
-        (font, i) =>
-          new Promise((resolve) =>
-            setTimeout(() => loadAnyGoogleFont(font).finally(resolve), i * delay)
-          )
-      )
-    );
-  } else {
-    // Load in parallel and wait for completion
-    return Promise.all(fonts.map((font) => loadAnyGoogleFont(font)));
-  }
+// Retry any fonts that failed to load initially — keeps trying in the background
+function startRetryingFailedFonts(interval = 5000) {
+  setInterval(() => {
+    fonts.forEach((f) => {
+      if (!loadedFonts.has(f) && !fontPromises.has(f)) {
+        loadAnyGoogleFont(f, 10000);
+      }
+    });
+  }, interval);
 }
 
 /* =======================
@@ -300,8 +298,11 @@ window.addEventListener("resize", () => {
   // Load first font immediately and ensure it's ready (so the initial canvas uses the correct font)
   await loadAnyGoogleFont(fonts[0]);
 
-  // No-delay warm-preload of remaining fonts (start immediately and wait for them)
+  // Warm-preload remaining fonts (start immediately and wait for them)
   await preloadFontsInBackground(fonts.slice(1), 0);
+
+  // Start a background retryer for any fonts that failed during the warm preload
+  startRetryingFailedFonts(4000);
 
   // Initialize the scene now that font preloads have been attempted
   initScene(createTextTexture("Distort", fonts[0]));

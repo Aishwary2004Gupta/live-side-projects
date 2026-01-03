@@ -24,15 +24,17 @@ void main() {
 }
 `;
 
+/* Modified fragment shader: use adaptive cell count (u_cellCount) and center calculation */
 const fragmentShader = `
 varying vec2 vUv;
 uniform sampler2D u_texture;
 uniform vec2 u_mouse;
 uniform vec2 u_prevMouse;
+uniform float u_cellCount;
 
 void main() {
-  vec2 gridUV = floor(vUv * 40.0) / 40.0;
-  vec2 center = gridUV + vec2(1.0 / 40.0);
+  vec2 gridUV = floor(vUv * u_cellCount) / u_cellCount;
+  vec2 center = gridUV + vec2(0.5) / u_cellCount;
 
   vec2 mouseDir = u_mouse - u_prevMouse;
   float dist = length(center - u_mouse);
@@ -129,7 +131,8 @@ function preloadFontsInBackground(fonts, delay = 0) {
    CANVAS TEXTURE
 ======================= */
 function createTextTexture(text, font) {
-  const dpr = Math.max(1, window.devicePixelRatio);
+  // Clamp DPR so mobile devices don't create enormous textures
+  const dpr = Math.min(Math.max(1, window.devicePixelRatio), 2);
   const canvas = document.createElement("canvas");
   const ctx = canvas.getContext("2d");
 
@@ -139,7 +142,8 @@ function createTextTexture(text, font) {
   ctx.fillStyle = "#ffffff";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-  let fontSize = canvas.width * 0.12;
+  // font sizing responsive to both width and height so it looks good on tall phones
+  let fontSize = Math.min(canvas.width * 0.12, canvas.height * 0.18);
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
 
@@ -153,6 +157,9 @@ function createTextTexture(text, font) {
   ctx.fillStyle = "#111";
   ctx.strokeStyle = "#111";
   ctx.lineWidth = fontSize * 0.02;
+
+  // Keep text crisp
+  if (ctx.imageSmoothingEnabled !== undefined) ctx.imageSmoothingEnabled = false;
 
   ctx.strokeText(text, 0, 0);
   ctx.fillText(text, 0, 0);
@@ -189,6 +196,13 @@ let currentFontIndex = 0;
 /* =======================
    SCENE
 ======================= */
+
+/* helper: pick sensible cell count based on width */
+function computeCellCount() {
+  // Fewer cells on small screens for more visible distortion; more on large screens.
+  return Math.max(12, Math.round(window.innerWidth / 20));
+}
+
 function initScene(texture) {
   scene = new THREE.Scene();
 
@@ -208,7 +222,8 @@ function initScene(texture) {
       uniforms: {
         u_mouse: { value: new THREE.Vector2() },
         u_prevMouse: { value: new THREE.Vector2() },
-        u_texture: { value: texture }
+        u_texture: { value: texture },
+        u_cellCount: { value: computeCellCount() }
       },
       vertexShader,
       fragmentShader
@@ -267,12 +282,37 @@ function animate() {
 /* =======================
    EVENTS (DESKTOP + MOBILE)
 ======================= */
-textContainer.addEventListener("mousemove", e => {
+
+/* Replace mousemove with pointermove which works for mouse/touch/pen */
+textContainer.addEventListener("pointermove", e => {
   easeFactor = 0.035;
   const r = textContainer.getBoundingClientRect();
   prevPosition = { ...targetMousePosition };
   targetMousePosition.x = (e.clientX - r.left) / r.width;
   targetMousePosition.y = (e.clientY - r.top) / r.height;
+});
+
+/* Touch handlers: update positions and prevent default scrolling (body overflow is hidden but safer) */
+textContainer.addEventListener("touchstart", e => {
+  const t = e.touches[0];
+  if (!t) return;
+  e.preventDefault();
+  easeFactor = 0.045;
+  const r = textContainer.getBoundingClientRect();
+  prevPosition = { ...targetMousePosition };
+  targetMousePosition.x = (t.clientX - r.left) / r.width;
+  targetMousePosition.y = (t.clientY - r.top) / r.height;
+});
+
+textContainer.addEventListener("touchmove", e => {
+  const t = e.touches[0];
+  if (!t) return;
+  e.preventDefault();
+  easeFactor = 0.03;
+  const r = textContainer.getBoundingClientRect();
+  prevPosition = { ...targetMousePosition };
+  targetMousePosition.x = (t.clientX - r.left) / r.width;
+  targetMousePosition.y = (t.clientY - r.top) / r.height;
 });
 
 textContainer.addEventListener("dblclick", () => changeFont(1));
@@ -288,7 +328,11 @@ textContainer.addEventListener("touchend", () => changeFont(1));
 
 window.addEventListener("resize", () => {
   renderer.setSize(window.innerWidth, window.innerHeight);
-  changeFont(0);
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  if (planeMesh && planeMesh.material && planeMesh.material.uniforms.u_cellCount) {
+    planeMesh.material.uniforms.u_cellCount.value = computeCellCount();
+  }
+  changeFont(0); // regenerate texture to match new size
 });
 
 /* =======================

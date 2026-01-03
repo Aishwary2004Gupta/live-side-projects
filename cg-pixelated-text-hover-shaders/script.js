@@ -183,7 +183,6 @@ const fonts = [
   "Rubik Glitch Pop",
   "Bungee",
   "Black Ops One",
-  "Mountains of Christmas",
   "Faster One",
   "Luckiest Guy",
   "Rubik Gemstones",

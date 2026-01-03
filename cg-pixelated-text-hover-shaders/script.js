@@ -297,13 +297,9 @@ textContainer.addEventListener("pointermove", e => {
 });
 
 /* Touch handlers: update positions and prevent default scrolling (body overflow is hidden but safer) */
-/* Add double-tap detection and prevent single-tap from changing font */
+/* Touch handlers: treat a single quick tap (no move) as a font-change */
 let _touchStartPos = null;
 let _touchMoved = false;
-let _lastTapTime = 0;
-let _lastTapPos = { x: 0, y: 0 };
-const DOUBLE_TAP_DELAY = 350; // ms
-const DOUBLE_TAP_MAX_DIST = 30; // px
 
 textContainer.addEventListener("touchstart", e => {
   const t = e.touches[0];
@@ -335,7 +331,7 @@ textContainer.addEventListener("touchmove", e => {
 });
 
 textContainer.addEventListener("touchend", e => {
-  // Only consider quick taps (no move). Use changedTouches to get the ended touch.
+  // Single quick tap (no move) now immediately changes font
   const t = e.changedTouches && e.changedTouches[0];
   if (!t) return;
   if (_touchMoved) {
@@ -344,23 +340,17 @@ textContainer.addEventListener("touchend", e => {
     return;
   }
 
-  const now = Date.now();
-  const tapPos = { x: t.clientX, y: t.clientY };
-  const dt = now - _lastTapTime;
-  const dist = Math.hypot(tapPos.x - _lastTapPos.x, tapPos.y - _lastTapPos.y);
-
-  if (dt <= DOUBLE_TAP_DELAY && dist <= DOUBLE_TAP_MAX_DIST) {
-    // Double-tap detected -> change font
-    changeFont(1);
-    _lastTapTime = 0;
-    _lastTapPos = { x: 0, y: 0 };
-  } else {
-    // Store this tap as a candidate for a second tap
-    _lastTapTime = now;
-    _lastTapPos = tapPos;
-  }
+  // Change font on single tap
+  changeFont(1);
 
   _touchStartPos = null;
+});
+
+// Also allow single left-click on desktop to change the font
+textContainer.addEventListener("click", e => {
+  if (e.button === 0) {
+    changeFont(1);
+  }
 });
 
 window.addEventListener("keydown", e => {

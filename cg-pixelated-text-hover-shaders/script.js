@@ -173,6 +173,7 @@ function createTextTexture(text, font) {
    FONT LIST
 ======================= */
 const fonts = [
+  "Danfo",
   "Fascinate Inline",
   "Asset",
   "Plaster",

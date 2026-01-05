@@ -173,8 +173,8 @@ function createTextTexture(text, font) {
    FONT LIST
 ======================= */
 const fonts = [
-  "Oi",
   "Asset",
+  "Oi",
   "Sekuya",
   "Bungee Shade",
   "Nosifer",

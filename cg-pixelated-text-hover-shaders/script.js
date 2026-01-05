@@ -173,10 +173,11 @@ function createTextTexture(text, font) {
    FONT LIST
 ======================= */
 const fonts = [
+  "Fascinate Inline",
+  "Asset",
   "Diplomata SC",
   "Plaster",
   "Rammetto One",
-  "Asset",
   // "Oi",
   "Sekuya",
   "Bungee Shade",

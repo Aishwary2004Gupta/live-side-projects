@@ -173,14 +173,14 @@ function createTextTexture(text, font) {
    FONT LIST
 ======================= */
 const fonts = [
-  "Danfo",
+  "Diplomata SC",
+  "Kavoon",
   "Fascinate Inline",
   "Asset",
   "Plaster",
   "Rammetto One",
   // "Oi",
   "Sekuya",
-  "Diplomata SC",
   "Bungee Shade",
   "Nosifer",
   "Monoton",
@@ -194,6 +194,7 @@ const fonts = [
   "Luckiest Guy",
   "Rubik Gemstones",
   "BBH Bartle",
+  "Danfo",
 ];
 
 let currentFontIndex = 0;

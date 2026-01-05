@@ -46,75 +46,93 @@ void main() {
 `;
 
 /* =======================
-   ⚡ FAST FONT LOADER
+   ⚡ FAST FONT LOADER (IMPROVED)
+   - Inject a single combined stylesheet for all families (fewer RTTs)
+   - Use the Font Loading API and track successes (don't mark failed fonts as "loaded")
+   - Deduplicate concurrent requests with a promises map
 ======================= */
 const loadedFonts = new Set();
+const fontLoadPromises = new Map();
 
 /**
- * Load a Google Font by injecting its stylesheet and waiting for the font to be available.
- * Adds a timeout so a missing font won't block the app indefinitely.
+ * Inject a single combined Google Fonts stylesheet for all requested families.
+ * This reduces the number of round trips and makes @font-face rules available early.
  */
-async function loadAnyGoogleFont(fontName, timeout = 5000) {
-  if (loadedFonts.has(fontName)) return;
+function injectCombinedGoogleFonts(families) {
+  if (document.getElementById("gf-bundle")) return;
+  const base = "https://fonts.googleapis.com/css2?display=swap";
+  const familiesParam = families
+    .map((f) => "&family=" + encodeURIComponent(f.replace(/\s+/g, "+")))
+    .join("");
+  const url = base + familiesParam;
 
-  const id = "gf-" + fontName.replace(/\s+/g, "-");
-  if (!document.getElementById(id)) {
-    const url =
-      "https://fonts.googleapis.com/css2?family=" +
-      fontName.replace(/\s+/g, "+") +
-      "&display=swap";
+  // Preload stylesheet ASAP to prioritize it
+  const preload = document.createElement("link");
+  preload.rel = "preload";
+  preload.as = "style";
+  preload.href = url;
+  preload.crossOrigin = "anonymous";
+  document.head.appendChild(preload);
 
-    // Request the font ASAP using preload and swap to stylesheet on load.
-    const preload = document.createElement("link");
-    preload.rel = "preload";
-    preload.as = "style";
-    preload.href = url;
-    preload.crossOrigin = "anonymous";
-    document.head.appendChild(preload);
+  const link = document.createElement("link");
+  link.id = "gf-bundle";
+  link.rel = "stylesheet";
+  link.href = url;
+  link.crossOrigin = "anonymous";
+  // Prevent blocking render until the stylesheet finishes
+  link.media = "print";
+  link.onload = () => {
+    link.media = "all";
+  };
+  document.head.appendChild(link);
+}
 
-    const link = document.createElement("link");
-    link.id = id;
-    link.rel = "stylesheet";
-    link.href = url;
-    link.crossOrigin = "anonymous";
-    // Prevent render-blocking until it's loaded
-    link.media = "print";
-    link.onload = () => {
-      link.media = "all";
-    };
-    document.head.appendChild(link);
+/**
+ * Load a single font; returns true if successfully loaded, false otherwise.
+ * Uses document.fonts.load and respects a timeout. Promises are deduplicated.
+ */
+async function loadAnyGoogleFont(fontName, timeout = 10000) {
+  if (loadedFonts.has(fontName)) return true;
+  if (fontLoadPromises.has(fontName)) return fontLoadPromises.get(fontName);
 
-    // Fallback for no-JS
-    const noscript = document.createElement("noscript");
-    noscript.innerHTML = `<link rel="stylesheet" href="${url}">`;
-    document.head.appendChild(noscript);
-  }
+  // Ensure bundle exists so @font-face rules are declared early
+  injectCombinedGoogleFonts(fonts);
 
-  try {
-    // Wait for this specific font to be available, but don't wait forever.
-    await Promise.race([
-      (async () => {
-        await document.fonts.load(`16px "${fontName}"`);
-        await document.fonts.ready;
-      })(),
-      new Promise((_, reject) =>
-        setTimeout(() => reject(new Error("font load timeout")), timeout)
-      ),
-    ]);
-  } catch (err) {
-    console.warn(`Font "${fontName}" failed to load within ${timeout}ms:`, err);
-  }
+  const p = (async () => {
+    try {
+      const loaded = await Promise.race([
+        document.fonts.load(`16px "${fontName}"`),
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error("font load timeout")), timeout)
+        ),
+      ]);
 
-  // Mark as attempted so we don't keep retrying forever.
-  loadedFonts.add(fontName);
+      // document.fonts.load resolves to an array; if empty => treat as failure
+      if (!loaded || loaded.length === 0) throw new Error("font not available after load");
+      await document.fonts.ready;
+      loadedFonts.add(fontName);
+      return true;
+    } catch (err) {
+      console.warn(`Font "${fontName}" failed to load within ${timeout}ms:`, err);
+      return false;
+    } finally {
+      fontLoadPromises.delete(fontName);
+    }
+  })();
+
+  fontLoadPromises.set(fontName, p);
+  return p;
 }
 
 /* 🔥 Warm preload (returns a promise that resolves when all requested fonts finish attempting to load) */
-function preloadFontsInBackground(fonts, delay = 0) {
+function preloadFontsInBackground(fontsList, delay = 0) {
+  // Make sure the combined stylesheet is injected once
+  injectCombinedGoogleFonts(fontsList);
+
   if (delay > 0) {
     // Staggered load with delays
     return Promise.all(
-      fonts.map(
+      fontsList.map(
         (font, i) =>
           new Promise((resolve) =>
             setTimeout(() => loadAnyGoogleFont(font).finally(resolve), i * delay)
@@ -123,7 +141,7 @@ function preloadFontsInBackground(fonts, delay = 0) {
     );
   } else {
     // Load in parallel and wait for completion
-    return Promise.all(fonts.map((font) => loadAnyGoogleFont(font)));
+    return Promise.all(fontsList.map((font) => loadAnyGoogleFont(font)));
   }
 }
 
@@ -407,15 +425,18 @@ window.addEventListener("resize", () => {
 (async () => {
   fontLabel.textContent = fonts[0];
 
+  // Inject combined stylesheet ASAP to start fetching @font-face rules quickly
+  injectCombinedGoogleFonts(fonts);
+
   // Load first font immediately and ensure it's ready (so the initial canvas uses the correct font)
   await loadAnyGoogleFont(fonts[0]);
 
-  // No-delay warm-preload of remaining fonts (start immediately and wait for them)
-  await preloadFontsInBackground(fonts.slice(1), 0);
+  // Start warm-preload of remaining fonts in background (don't block initial render)
+  preloadFontsInBackground(fonts.slice(1), 0);
 
-  // Initialize the scene now that font preloads have been attempted
+  // Initialize the scene now that the initial font is available
   initScene(createTextTexture("Distort", fonts[0]));
   animate();
 
-  // Warm-preload finished
+  // Warm-preload continues in background
 })();

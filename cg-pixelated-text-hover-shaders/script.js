@@ -173,10 +173,11 @@ function createTextTexture(text, font) {
    FONT LIST
 ======================= */
 const fonts = [
+  "Diplomata SC",
   "Plaster",
   "Rammetto One",
   "Asset",
-  "Oi",
+  // "Oi",
   "Sekuya",
   "Bungee Shade",
   "Nosifer",
@@ -185,7 +186,7 @@ const fonts = [
   "Ultra",
   // "Rubik Glitch",
   "Climate Crisis",
-  "Rubik Glitch Pop",
+  // "Rubik Glitch Pop",
   "Black Ops One",
   "Faster One",
   "Luckiest Guy",

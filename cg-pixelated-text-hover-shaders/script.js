@@ -188,7 +188,6 @@ const fonts = [
   "Eater",
   "Ultra",
   "Climate Crisis",
-  // "Rubik Glitch Pop",
   "Black Ops One",
   "Luckiest Guy",
   "Rubik Gemstones",

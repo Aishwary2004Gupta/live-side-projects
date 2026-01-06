@@ -181,7 +181,6 @@ const fonts = [
   "Fascinate Inline",
   "Asset",
   "Rammetto One",
-  // "Oi",
   "Sekuya",
   "Bungee Shade",
   "Nosifer",

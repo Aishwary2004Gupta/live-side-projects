@@ -189,10 +189,10 @@ const fonts = [
   // "Ultra",
   // "Climate Crisis",
   // "Black Ops One",
-  "Rubik Gemstones",
+  // "Rubik Gemstones",
   // "Faster One",
   // "BBH Bartle",
-  // "Danfo",
+  "Danfo",
 ];
 
 let currentFontIndex = 0;

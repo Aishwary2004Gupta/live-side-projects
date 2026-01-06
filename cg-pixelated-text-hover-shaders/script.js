@@ -187,7 +187,6 @@ const fonts = [
   "Monoton",
   "Eater",
   "Ultra",
-  // "Rubik Glitch",
   "Climate Crisis",
   // "Rubik Glitch Pop",
   "Black Ops One",

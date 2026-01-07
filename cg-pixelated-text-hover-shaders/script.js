@@ -1,4 +1,4 @@
-import * as THREE from 'https://unpkg.com/three@0.155.0/build/three.module.js';
+import * as THREE from "https://unpkg.com/three@0.155.0/build/three.module.js";
 
 const textContainer = document.getElementById("textContainer");
 const fontLabel = document.getElementById("fontName");
@@ -24,7 +24,6 @@ void main() {
 }
 `;
 
-/* Modified fragment shader: use adaptive cell count (u_cellCount) and center calculation */
 const fragmentShader = `
 varying vec2 vUv;
 uniform sampler2D u_texture;
@@ -46,92 +45,54 @@ void main() {
 `;
 
 /* =======================
-   ⚡ FAST FONT LOADER
+   FONT LOADER
 ======================= */
 const loadedFonts = new Set();
 
-/**
- * Load a Google Font by injecting its stylesheet and waiting for the font to be available.
- * Adds a timeout so a missing font won't block the app indefinitely.
- */
-async function loadAnyGoogleFont(fontName, timeout = 5000) {
+async function loadAnyGoogleFont(fontName) {
   if (loadedFonts.has(fontName)) return;
 
   const id = "gf-" + fontName.replace(/\s+/g, "-");
   if (!document.getElementById(id)) {
-    const url =
-      "https://fonts.googleapis.com/css2?family=" +
-      fontName.replace(/\s+/g, "+") +
-      "&display=swap";
-
-    // Request the font ASAP using preload and swap to stylesheet on load.
-    const preload = document.createElement("link");
-    preload.rel = "preload";
-    preload.as = "style";
-    preload.href = url;
-    preload.crossOrigin = "anonymous";
-    document.head.appendChild(preload);
-
     const link = document.createElement("link");
     link.id = id;
     link.rel = "stylesheet";
-    link.href = url;
-    link.crossOrigin = "anonymous";
-    // Prevent render-blocking until it's loaded
-    link.media = "print";
-    link.onload = () => {
-      link.media = "all";
-    };
+    link.href =
+      "https://fonts.googleapis.com/css2?family=" +
+      fontName.replace(/\s+/g, "+") +
+      "&display=swap";
     document.head.appendChild(link);
-
-    // Fallback for no-JS
-    const noscript = document.createElement("noscript");
-    noscript.innerHTML = `<link rel="stylesheet" href="${url}">`;
-    document.head.appendChild(noscript);
   }
 
-  try {
-    // Wait for this specific font to be available, but don't wait forever.
-    await Promise.race([
-      (async () => {
-        await document.fonts.load(`16px "${fontName}"`);
-        await document.fonts.ready;
-      })(),
-      new Promise((_, reject) =>
-        setTimeout(() => reject(new Error("font load timeout")), timeout)
-      ),
-    ]);
-  } catch (err) {
-    console.warn(`Font "${fontName}" failed to load within ${timeout}ms:`, err);
-  }
+  await document.fonts.load(`16px "${fontName}"`);
+  await document.fonts.ready;
 
-  // Mark as attempted so we don't keep retrying forever.
   loadedFonts.add(fontName);
 }
 
-/* 🔥 Warm preload (returns a promise that resolves when all requested fonts finish attempting to load) */
-function preloadFontsInBackground(fonts, delay = 0) {
-  if (delay > 0) {
-    // Staggered load with delays
-    return Promise.all(
-      fonts.map(
-        (font, i) =>
-          new Promise((resolve) =>
-            setTimeout(() => loadAnyGoogleFont(font).finally(resolve), i * delay)
-          )
-      )
-    );
-  } else {
-    // Load in parallel and wait for completion
-    return Promise.all(fonts.map((font) => loadAnyGoogleFont(font)));
-  }
+/* =======================
+   FONT PRIMER (CRITICAL)
+======================= */
+function primeFont(font) {
+  const span = document.createElement("span");
+  span.textContent = "Distort";
+  span.style.position = "absolute";
+  span.style.opacity = "0";
+  span.style.pointerEvents = "none";
+  span.style.fontFamily = `"${font}"`;
+  span.style.fontSize = "100px";
+  document.body.appendChild(span);
+
+  // force font rasterization
+  span.offsetWidth;
+
+  document.body.removeChild(span);
 }
 
 /* =======================
    CANVAS TEXTURE
 ======================= */
 function createTextTexture(text, font) {
-  // Clamp DPR so mobile devices don't create enormous textures
   const dpr = Math.min(Math.max(1, window.devicePixelRatio), 2);
   const canvas = document.createElement("canvas");
   const ctx = canvas.getContext("2d");
@@ -142,7 +103,6 @@ function createTextTexture(text, font) {
   ctx.fillStyle = "#ffffff";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-  // font sizing responsive to both width and height so it looks good on tall phones
   let fontSize = Math.min(canvas.width * 0.12, canvas.height * 0.18);
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
@@ -158,14 +118,15 @@ function createTextTexture(text, font) {
   ctx.strokeStyle = "#111";
   ctx.lineWidth = fontSize * 0.02;
 
-  // Keep text crisp
-  if (ctx.imageSmoothingEnabled !== undefined) ctx.imageSmoothingEnabled = false;
-
   ctx.strokeText(text, 0, 0);
   ctx.fillText(text, 0, 0);
 
   const tex = new THREE.CanvasTexture(canvas);
+  tex.minFilter = THREE.LinearFilter;
+  tex.magFilter = THREE.LinearFilter;
+  tex.generateMipmaps = false;
   tex.needsUpdate = true;
+
   return tex;
 }
 
@@ -200,10 +161,7 @@ let currentFontIndex = 0;
 /* =======================
    SCENE
 ======================= */
-
-/* helper: pick sensible cell count based on width */
 function computeCellCount() {
-  // Fewer cells on small screens for more visible distortion; more on large screens.
   return Math.max(12, Math.round(window.innerWidth / 20));
 }
 
@@ -227,10 +185,10 @@ function initScene(texture) {
         u_mouse: { value: new THREE.Vector2() },
         u_prevMouse: { value: new THREE.Vector2() },
         u_texture: { value: texture },
-        u_cellCount: { value: computeCellCount() }
+        u_cellCount: { value: computeCellCount() },
       },
       vertexShader,
-      fragmentShader
+      fragmentShader,
     })
   );
 
@@ -239,31 +197,29 @@ function initScene(texture) {
   renderer = new THREE.WebGLRenderer({ antialias: true });
   renderer.setSize(window.innerWidth, window.innerHeight);
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-
-  // Ensure clear color is white so the whole page stays white even if something doesn't cover it.
   renderer.setClearColor(0xffffff, 1);
-  renderer.domElement.style.backgroundColor = "#ffffff";
 
   textContainer.appendChild(renderer.domElement);
 }
 
 /* =======================
-   CHANGE FONT (USER ONLY)
+   CHANGE FONT
 ======================= */
 async function changeFont(step = 1) {
+  if (!planeMesh) return;
+
   currentFontIndex =
     (currentFontIndex + step + fonts.length) % fonts.length;
 
-  const fontName = fonts[currentFontIndex];
-  fontLabel.textContent = fontName;
+  const font = fonts[currentFontIndex];
+  fontLabel.textContent = font;
 
-  await loadAnyGoogleFont(fontName);
+  await loadAnyGoogleFont(font);
+  primeFont(font);
 
-  const oldTex = planeMesh.material.uniforms.u_texture.value;
-  oldTex.dispose();
-
+  planeMesh.material.uniforms.u_texture.value.dispose();
   planeMesh.material.uniforms.u_texture.value =
-    createTextTexture("Distort", fontName);
+    createTextTexture("Distort", font);
 }
 
 /* =======================
@@ -288,113 +244,37 @@ function animate() {
 }
 
 /* =======================
-   EVENTS (DESKTOP + MOBILE)
+   EVENTS
 ======================= */
-
-/* Replace mousemove with pointermove which works for mouse/touch/pen */
-textContainer.addEventListener("pointermove", e => {
-  easeFactor = 0.035;
+textContainer.addEventListener("pointermove", (e) => {
   const r = textContainer.getBoundingClientRect();
   prevPosition = { ...targetMousePosition };
   targetMousePosition.x = (e.clientX - r.left) / r.width;
   targetMousePosition.y = (e.clientY - r.top) / r.height;
 });
 
-/* Touch handlers: update positions and prevent default scrolling (body overflow is hidden but safer) */
-let _touchStartPos = null;
-let _touchMoved = false;
-let _lastTapTime = 0;
-let _lastTapPos = { x: 0, y: 0 };
-const DOUBLE_TAP_DELAY = 350; // ms
-const DOUBLE_TAP_MAX_DIST = 30; // px
-
-function isPhone() {
-  return (('ontouchstart' in window) || navigator.maxTouchPoints > 0) && window.innerWidth <= 767;
-}
-
-function isLargeScreen() {
-  return window.innerWidth >= 768;
-}
-
-textContainer.addEventListener("touchstart", e => {
-  const t = e.touches[0];
-  if (!t) return;
-  // mark potential tap start
-  _touchStartPos = { x: t.clientX, y: t.clientY };
-  _touchMoved = false;
-
-  e.preventDefault();
-  easeFactor = 0.045;
-  const r = textContainer.getBoundingClientRect();
-  prevPosition = { ...targetMousePosition };
-  targetMousePosition.x = (t.clientX - r.left) / r.width;
-  targetMousePosition.y = (t.clientY - r.top) / r.height;
-});
-
-textContainer.addEventListener("touchmove", e => {
-  const t = e.touches[0];
-  if (!t) return;
-  const dx = t.clientX - (_touchStartPos ? _touchStartPos.x : t.clientX);
-  const dy = t.clientY - (_touchStartPos ? _touchStartPos.y : t.clientY);
-  if (Math.hypot(dx, dy) > 8) _touchMoved = true; // small threshold to cancel tap
-  e.preventDefault();
-  easeFactor = 0.03;
-  const r = textContainer.getBoundingClientRect();
-  prevPosition = { ...targetMousePosition };
-  targetMousePosition.x = (t.clientX - r.left) / r.width;
-  targetMousePosition.y = (t.clientY - r.top) / r.height;
-});
-
-textContainer.addEventListener("touchend", e => {
-  // On phones, require double-tap to change fonts. On non-phone devices, touches don't change fonts.
-  const t = e.changedTouches && e.changedTouches[0];
-  if (!t) return;
-  if (_touchMoved) {
-    _touchMoved = false;
-    _touchStartPos = null;
-    return;
-  }
-
-  if (!isPhone()) {
-    // Not a phone — don't change fonts via touch
-    _touchStartPos = null;
-    return;
-  }
-
-  const now = Date.now();
-  const tapPos = { x: t.clientX, y: t.clientY };
-  const dt = now - _lastTapTime;
-  const dist = Math.hypot(tapPos.x - _lastTapPos.x, tapPos.y - _lastTapPos.y);
-
-  if (dt <= DOUBLE_TAP_DELAY && dist <= DOUBLE_TAP_MAX_DIST) {
-    // Double-tap detected -> change font
-    changeFont(1);
-    _lastTapTime = 0;
-    _lastTapPos = { x: 0, y: 0 };
-  } else {
-    // Store this tap as a candidate for a second tap
-    _lastTapTime = now;
-    _lastTapPos = tapPos;
-  }
-
-  _touchStartPos = null;
-});
-
-// Spacebar changes font only on large screens
-window.addEventListener("keydown", e => {
-  if (e.code === "Space" && isLargeScreen()) {
+window.addEventListener("keydown", (e) => {
+  if (e.code === "Space" && window.innerWidth >= 768) {
     e.preventDefault();
     changeFont(1);
   }
 });
 
+let lastTap = 0;
+textContainer.addEventListener("touchend", () => {
+  if (window.innerWidth > 767) return;
+  const now = Date.now();
+  if (now - lastTap < 350) changeFont(1);
+  lastTap = now;
+});
+
 window.addEventListener("resize", () => {
+  if (!renderer || !planeMesh) return;
+
   renderer.setSize(window.innerWidth, window.innerHeight);
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-  if (planeMesh && planeMesh.material && planeMesh.material.uniforms.u_cellCount) {
-    planeMesh.material.uniforms.u_cellCount.value = computeCellCount();
-  }
-  changeFont(0); // regenerate texture to match new size
+  planeMesh.material.uniforms.u_cellCount.value = computeCellCount();
+  changeFont(0);
 });
 
 /* =======================
@@ -403,15 +283,9 @@ window.addEventListener("resize", () => {
 (async () => {
   fontLabel.textContent = fonts[0];
 
-  // Load first font immediately and ensure it's ready (so the initial canvas uses the correct font)
   await loadAnyGoogleFont(fonts[0]);
+  primeFont(fonts[0]);
 
-  // No-delay warm-preload of remaining fonts (start immediately and wait for them)
-  await preloadFontsInBackground(fonts.slice(1), 0);
-
-  // Initialize the scene now that font preloads have been attempted
   initScene(createTextTexture("Distort", fonts[0]));
   animate();
-
-  // Warm-preload finished
 })();

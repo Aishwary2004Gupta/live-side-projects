@@ -145,9 +145,14 @@ function createTextTexture(text, font) {
   ctx.fillText(text, 0, 0);
 
   const tex = new THREE.CanvasTexture(canvas);
+  tex.minFilter = THREE.LinearFilter;
+  tex.magFilter = THREE.LinearFilter;
+  tex.generateMipmaps = false;
   tex.needsUpdate = true;
+
   return tex;
 }
+
 
 /* =======================
    FONT LIST

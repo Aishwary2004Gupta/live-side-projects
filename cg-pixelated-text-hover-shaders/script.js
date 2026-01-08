@@ -37,7 +37,7 @@ let currentFontIndex = 0;
 const loadedFonts = new Set();
 
 /* =======================
-   FONT LOAD + PRIME
+   FONT LOAD
 ======================= */
 async function loadFont(font) {
   if (!loadedFonts.has(font)) {
@@ -53,17 +53,19 @@ async function loadFont(font) {
     await document.fonts.ready;
     loadedFonts.add(font);
   }
+}
 
-  // Prime font so canvas uses it immediately
-  const span = document.createElement("span");
-  span.textContent = "Distort";
-  span.style.position = "absolute";
-  span.style.opacity = "0";
-  span.style.fontFamily = `"${font}"`;
-  span.style.fontSize = "100px";
-  document.body.appendChild(span);
-  span.offsetWidth;
-  document.body.removeChild(span);
+/* 🔥 FRAME WAIT (CRITICAL) */
+function waitFrames(count = 2) {
+  return new Promise(resolve => {
+    let i = 0;
+    function tick() {
+      i++;
+      if (i >= count) resolve();
+      else requestAnimationFrame(tick);
+    }
+    requestAnimationFrame(tick);
+  });
 }
 
 /* =======================
@@ -172,7 +174,7 @@ function initScene(texture) {
 }
 
 /* =======================
-   APPLY FONT (ONLY AFFECTS CANVAS)
+   APPLY FONT (FIXED)
 ======================= */
 async function applyFont(index) {
   currentFontIndex = index;
@@ -181,7 +183,23 @@ async function applyFont(index) {
 
   await loadFont(font);
 
-  plane.material.uniforms.u_texture.value.dispose();
+  // DOM prime
+  const span = document.createElement("span");
+  span.textContent = "Distort";
+  span.style.position = "absolute";
+  span.style.opacity = "0";
+  span.style.fontFamily = `"${font}"`;
+  span.style.fontSize = "100px";
+  document.body.appendChild(span);
+  span.offsetWidth;
+  document.body.removeChild(span);
+
+  // 🔥 WAIT FOR GLYPHS
+  await waitFrames(2);
+
+  const oldTex = plane.material.uniforms.u_texture.value;
+  if (oldTex) oldTex.dispose();
+
   plane.material.uniforms.u_texture.value =
     createTextTexture("Distort", font);
 
@@ -191,7 +209,7 @@ async function applyFont(index) {
 }
 
 /* =======================
-   FONT PANEL (UI ONLY)
+   FONT PANEL
 ======================= */
 fonts.forEach((font, i) => {
   const div = document.createElement("div");

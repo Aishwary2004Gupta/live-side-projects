@@ -248,6 +248,30 @@ container.addEventListener("touchend", () => {
 });
 
 /* =======================
+   SPACE KEY TRACKING
+======================= */
+let spaceKeyCount = 0;
+let spaceKeyTimeout;
+
+window.addEventListener("keydown", (e) => {
+  if (e.code === "Space" && window.innerWidth >= 768) {
+    e.preventDefault();
+    
+    clearTimeout(spaceKeyTimeout);
+    spaceKeyCount++;
+    
+    if (spaceKeyCount >= 2) {
+      applyFont((currentFontIndex + 1) % fonts.length);
+      spaceKeyCount = 0;
+    }
+    
+    spaceKeyTimeout = setTimeout(() => {
+      spaceKeyCount = 0;
+    }, 500);
+  }
+});
+
+/* =======================
    LOOP
 ======================= */
 function animate() {

@@ -173,8 +173,8 @@ function createTextTexture(text, font) {
    FONT LIST
 ======================= */
 const fonts = [
-  // "Diplomata SC",
   "Rampart One",
+  // "Diplomata SC",
   // "Honk",
   // "Plaster",
   // "Kavoon",

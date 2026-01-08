@@ -107,6 +107,11 @@ async function loadAnyGoogleFont(fontName, timeout = 5000) {
 
   // Mark as attempted so we don't keep retrying forever.
   loadedFonts.add(fontName);
+
+  // Notify any UI (if created) that font load state changed
+  if (typeof updateControlOptionsLoaded === "function") {
+    updateControlOptionsLoaded();
+  }
 }
 
 /* 🔥 Warm preload (returns a promise that resolves when all requested fonts finish attempting to load) */
@@ -196,6 +201,8 @@ const fonts = [
 ];
 
 let currentFontIndex = 0;
+let controlsSelect = null;
+let controlsPanel = null;
 
 /* =======================
    SCENE
@@ -248,170 +255,22 @@ function initScene(texture) {
 }
 
 /* =======================
-   CHANGE FONT (USER ONLY)
+   CONTROL PANEL + FONT SELECT
 ======================= */
-async function changeFont(step = 1) {
-  currentFontIndex =
-    (currentFontIndex + step + fonts.length) % fonts.length;
 
+function updateControlOptionsLoaded() {
+  if (!controlsSelect) return;
+  Array.from(controlsSelect.options).forEach((opt, i) => {
+    const f = fonts[i];
+    const loaded = loadedFonts.has(f);
+    opt.text = f + (loaded ? " ✓" : "");
+  });
+  controlsSelect.value = currentFontIndex;
+}
+
+async function selectFont(index) {
+  const idx = ((index % fonts.length) + fonts.length) % fonts.length;
+  currentFontIndex = idx;
   const fontName = fonts[currentFontIndex];
   fontLabel.textContent = fontName;
-
-  await loadAnyGoogleFont(fontName);
-
-  const oldTex = planeMesh.material.uniforms.u_texture.value;
-  oldTex.dispose();
-
-  planeMesh.material.uniforms.u_texture.value =
-    createTextTexture("Distort", fontName);
-}
-
-/* =======================
-   RENDER LOOP
-======================= */
-function animate() {
-  requestAnimationFrame(animate);
-
-  mousePosition.x += (targetMousePosition.x - mousePosition.x) * easeFactor;
-  mousePosition.y += (targetMousePosition.y - mousePosition.y) * easeFactor;
-
-  planeMesh.material.uniforms.u_mouse.value.set(
-    mousePosition.x,
-    1 - mousePosition.y
-  );
-  planeMesh.material.uniforms.u_prevMouse.value.set(
-    prevPosition.x,
-    1 - prevPosition.y
-  );
-
-  renderer.render(scene, camera);
-}
-
-/* =======================
-   EVENTS (DESKTOP + MOBILE)
-======================= */
-
-/* Replace mousemove with pointermove which works for mouse/touch/pen */
-textContainer.addEventListener("pointermove", e => {
-  easeFactor = 0.035;
-  const r = textContainer.getBoundingClientRect();
-  prevPosition = { ...targetMousePosition };
-  targetMousePosition.x = (e.clientX - r.left) / r.width;
-  targetMousePosition.y = (e.clientY - r.top) / r.height;
-});
-
-/* Touch handlers: update positions and prevent default scrolling (body overflow is hidden but safer) */
-let _touchStartPos = null;
-let _touchMoved = false;
-let _lastTapTime = 0;
-let _lastTapPos = { x: 0, y: 0 };
-const DOUBLE_TAP_DELAY = 350; // ms
-const DOUBLE_TAP_MAX_DIST = 30; // px
-
-function isPhone() {
-  return (('ontouchstart' in window) || navigator.maxTouchPoints > 0) && window.innerWidth <= 767;
-}
-
-function isLargeScreen() {
-  return window.innerWidth >= 768;
-}
-
-textContainer.addEventListener("touchstart", e => {
-  const t = e.touches[0];
-  if (!t) return;
-  // mark potential tap start
-  _touchStartPos = { x: t.clientX, y: t.clientY };
-  _touchMoved = false;
-
-  e.preventDefault();
-  easeFactor = 0.045;
-  const r = textContainer.getBoundingClientRect();
-  prevPosition = { ...targetMousePosition };
-  targetMousePosition.x = (t.clientX - r.left) / r.width;
-  targetMousePosition.y = (t.clientY - r.top) / r.height;
-});
-
-textContainer.addEventListener("touchmove", e => {
-  const t = e.touches[0];
-  if (!t) return;
-  const dx = t.clientX - (_touchStartPos ? _touchStartPos.x : t.clientX);
-  const dy = t.clientY - (_touchStartPos ? _touchStartPos.y : t.clientY);
-  if (Math.hypot(dx, dy) > 8) _touchMoved = true; // small threshold to cancel tap
-  e.preventDefault();
-  easeFactor = 0.03;
-  const r = textContainer.getBoundingClientRect();
-  prevPosition = { ...targetMousePosition };
-  targetMousePosition.x = (t.clientX - r.left) / r.width;
-  targetMousePosition.y = (t.clientY - r.top) / r.height;
-});
-
-textContainer.addEventListener("touchend", e => {
-  // On phones, require double-tap to change fonts. On non-phone devices, touches don't change fonts.
-  const t = e.changedTouches && e.changedTouches[0];
-  if (!t) return;
-  if (_touchMoved) {
-    _touchMoved = false;
-    _touchStartPos = null;
-    return;
-  }
-
-  if (!isPhone()) {
-    // Not a phone — don't change fonts via touch
-    _touchStartPos = null;
-    return;
-  }
-
-  const now = Date.now();
-  const tapPos = { x: t.clientX, y: t.clientY };
-  const dt = now - _lastTapTime;
-  const dist = Math.hypot(tapPos.x - _lastTapPos.x, tapPos.y - _lastTapPos.y);
-
-  if (dt <= DOUBLE_TAP_DELAY && dist <= DOUBLE_TAP_MAX_DIST) {
-    // Double-tap detected -> change font
-    changeFont(1);
-    _lastTapTime = 0;
-    _lastTapPos = { x: 0, y: 0 };
-  } else {
-    // Store this tap as a candidate for a second tap
-    _lastTapTime = now;
-    _lastTapPos = tapPos;
-  }
-
-  _touchStartPos = null;
-});
-
-// Spacebar changes font only on large screens
-window.addEventListener("keydown", e => {
-  if (e.code === "Space" && isLargeScreen()) {
-    e.preventDefault();
-    changeFont(1);
-  }
-});
-
-window.addEventListener("resize", () => {
-  renderer.setSize(window.innerWidth, window.innerHeight);
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-  if (planeMesh && planeMesh.material && planeMesh.material.uniforms.u_cellCount) {
-    planeMesh.material.uniforms.u_cellCount.value = computeCellCount();
-  }
-  changeFont(0); // regenerate texture to match new size
-});
-
-/* =======================
-   START
-======================= */
-(async () => {
-  fontLabel.textContent = fonts[0];
-
-  // Load first font immediately and ensure it's ready (so the initial canvas uses the correct font)
-  await loadAnyGoogleFont(fonts[0]);
-
-  // No-delay warm-preload of remaining fonts (start immediately and wait for them)
-  await preloadFontsInBackground(fonts.slice(1), 0);
-
-  // Initialize the scene now that font preloads have been attempted
-  initScene(createTextTexture("Distort", fonts[0]));
-  animate();
-
-  // Warm-preload finished
-})();
+  if

@@ -54,7 +54,7 @@ async function loadFont(font) {
     loadedFonts.add(font);
   }
 
-  // Prime font for canvas
+  // Prime font so canvas uses it immediately
   const span = document.createElement("span");
   span.textContent = "Distort";
   span.style.position = "absolute";
@@ -172,7 +172,7 @@ function initScene(texture) {
 }
 
 /* =======================
-   APPLY FONT (single source)
+   APPLY FONT (ONLY AFFECTS CANVAS)
 ======================= */
 async function applyFont(index) {
   currentFontIndex = index;
@@ -191,13 +191,12 @@ async function applyFont(index) {
 }
 
 /* =======================
-   FONT PANEL
+   FONT PANEL (UI ONLY)
 ======================= */
 fonts.forEach((font, i) => {
   const div = document.createElement("div");
   div.className = "font-item";
   div.textContent = font;
-  div.style.fontFamily = `"${font}", system-ui`;
   div.onclick = () => applyFont(i);
   fontPanel.appendChild(div);
 });

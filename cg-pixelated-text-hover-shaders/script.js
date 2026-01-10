@@ -40,7 +40,7 @@ const loadedFonts = new Set();
 /* =======================
    FONT LOAD
 ======================= */
-async function loadFont(font) {
+async function loadFont(font, text = "Distort") {
   if (!loadedFonts.has(font)) {
     const link = document.createElement("link");
     link.rel = "stylesheet";
@@ -50,8 +50,17 @@ async function loadFont(font) {
       "&display=swap";
     document.head.appendChild(link);
 
-    await document.fonts.load(`16px "${font}"`);
-    await document.fonts.ready;
+    const fontSpec = `100px "${font}"`;
+    // If the font isn't already available for this text/size, load and wait
+    if (!document.fonts.check(fontSpec, text)) {
+      try {
+        await document.fonts.load(fontSpec, text);
+        // give the browser a couple frames to apply the glyphs
+        await waitFrames(2);
+      } catch (e) {
+        console.warn(`Failed to load font ${font}`, e);
+      }
+    }
     loadedFonts.add(font);
   }
 }
@@ -124,7 +133,7 @@ function createTextTexture(text, font) {
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
   let size = Math.min(canvas.width * 0.12, canvas.height * 0.18);
-  ctx.font = `100 ${size}px "${font}"`;
+  ctx.font = `${size}px "${font}"`;
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
 
@@ -220,6 +229,17 @@ fonts.forEach((font, i) => {
   fontPanel.appendChild(div);
 });
 
+// Preload remaining fonts in the background so switches are instant
+async function preloadAllFonts() {
+  for (let i = 0; i < fonts.length; i++) {
+    // skip already loaded fonts
+    if (!loadedFonts.has(fonts[i])) {
+      await loadFont(fonts[i], "Distort");
+      await waitFrames(1);
+    }
+  }
+}
+
 /* =======================
    INPUT
 ======================= */
@@ -265,4 +285,6 @@ function animate() {
   initScene(createTextTexture("Distort", fonts[0]));
   await applyFont(0);
   animate();
+  // Start background preload of all fonts (non-blocking)
+  preloadAllFonts();
 })();

@@ -258,6 +258,46 @@ async function preloadAllFonts() {
 }
 
 /* =======================
+   FONT PRELOAD HELPERS (NEW)
+======================= */
+// Ensure glyphs are available by forcing a layout/paint for the font
+async function primeFont(font) {
+  const span = document.createElement("span");
+  span.textContent = "Distort";
+  span.style.position = "absolute";
+  span.style.opacity = "0";
+  span.style.fontFamily = `"${font}"`;
+  span.style.fontSize = "100px";
+  document.body.appendChild(span);
+  // Force reflow to ensure glyphs are loaded/applied
+  span.offsetWidth;
+  document.body.removeChild(span);
+  await waitFrames(2);
+}
+
+// Preconnect + load + prime the first font for the page (improves initial render)
+async function preloadFirstFont(font) {
+  // Preconnect to Google Fonts endpoints for faster fetch
+  const p1 = document.createElement("link");
+  p1.rel = "preconnect";
+  p1.href = "https://fonts.googleapis.com";
+  document.head.appendChild(p1);
+
+  const p2 = document.createElement("link");
+  p2.rel = "preconnect";
+  p2.href = "https://fonts.gstatic.com";
+  p2.crossOrigin = "true";
+  document.head.appendChild(p2);
+
+  const ok = await loadFont(font);
+  if (ok) {
+    await primeFont(font);
+    loadedFonts.add(font); // ensure it's marked as loaded
+  }
+  return ok;
+}
+
+/* =======================
    INPUT
 ======================= */
 container.addEventListener("pointermove", (e) => {
@@ -295,10 +335,11 @@ function animate() {
 }
 
 /* =======================
-   START
+   START (MODIFIED)
 ======================= */
 (async () => {
-  await loadFont(fonts[0]);
+  // Preload & prime the first font (Rampart One) before creating the initial texture
+  await preloadFirstFont(fonts[0]);
   initScene(createTextTexture("Distort", fonts[0]));
   await applyFont(0);
   animate();

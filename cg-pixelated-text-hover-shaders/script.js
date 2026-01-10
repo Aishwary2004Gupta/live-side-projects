@@ -40,29 +40,46 @@ const loadedFonts = new Set();
 /* =======================
    FONT LOAD
 ======================= */
-async function loadFont(font, text = "Distort") {
-  if (!loadedFonts.has(font)) {
-    const link = document.createElement("link");
-    link.rel = "stylesheet";
-    link.href =
-      "https://fonts.googleapis.com/css2?family=" +
-      font.replace(/\s+/g, "+") +
-      "&display=swap";
-    document.head.appendChild(link);
+async function loadFont(font, text = "Distort", maxAttempts = 3) {
+  // If it's already verified loaded, short-circuit
+  if (loadedFonts.has(font)) return true;
 
-    const fontSpec = `100px "${font}"`;
-    // If the font isn't already available for this text/size, load and wait
-    if (!document.fonts.check(fontSpec, text)) {
-      try {
-        await document.fonts.load(fontSpec, text);
-        // give the browser a couple frames to apply the glyphs
-        await waitFrames(2);
-      } catch (e) {
-        console.warn(`Failed to load font ${font}`, e);
-      }
+  const link = document.createElement("link");
+  link.rel = "stylesheet";
+  link.href =
+    "https://fonts.googleapis.com/css2?family=" +
+    font.replace(/\s+/g, "+") +
+    "&display=swap";
+  document.head.appendChild(link);
+
+  const fontSpec = `100px "${font}"`;
+
+  // Try to load and verify the font a few times before giving up
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    // If the font is already available for the given text/size, mark as loaded
+    if (document.fonts.check(fontSpec, text)) {
+      loadedFonts.add(font);
+      return true;
     }
-    loadedFonts.add(font);
+
+    try {
+      await document.fonts.load(fontSpec, text);
+    } catch (e) {
+      console.warn(`Attempt ${attempt} failed to load font ${font}`, e);
+    }
+
+    // Give the browser a couple frames to apply glyphs; increase waits slightly per attempt
+    await waitFrames(1 + attempt);
   }
+
+  // Final verification before giving up
+  if (document.fonts.check(fontSpec, text)) {
+    loadedFonts.add(font);
+    return true;
+  }
+
+  console.warn(`Font ${font} did not become available after ${maxAttempts} attempts.`);
+  return false;
 }
 
 /* 🔥 FRAME WAIT (CRITICAL) */

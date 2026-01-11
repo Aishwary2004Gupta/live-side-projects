@@ -11,6 +11,7 @@ const fontLabel = document.getElementById("fontName");
    FONT LIST
 ======================= */
 const fonts = [
+  "Bungee Shade",
   "Oi",
   "Rubik Puddles",
   "Honk",
@@ -23,7 +24,6 @@ const fonts = [
   "Asset",
   "Rammetto One",
   "Sekuya",
-  "Bungee Shade",
   "Nosifer",
   "Monoton",
   "Eater",

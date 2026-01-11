@@ -11,6 +11,7 @@ const fontLabel = document.getElementById("fontName");
    FONT LIST
 ======================= */
 const fonts = [
+  "Coral Pixels",
   "Bungee Shade",
   "Oi",
   "Rubik Puddles",

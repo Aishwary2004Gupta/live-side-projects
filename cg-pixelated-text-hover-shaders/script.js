@@ -11,10 +11,10 @@ const fontLabel = document.getElementById("fontName");
    FONT LIST
 ======================= */
 const fonts = [
+  "Honk",
   "Diplomata SC",
   "Rampart One",
   "Agu Display",
-  "Honk",
   "Plaster",
   "Kavoon",
   "Fascinate Inline",

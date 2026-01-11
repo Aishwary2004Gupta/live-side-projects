@@ -11,6 +11,7 @@ const fontLabel = document.getElementById("fontName");
    FONT LIST
 ======================= */
 const fonts = [
+  "Oi",
   "Rubik Puddles",
   "Honk",
   "Diplomata SC",

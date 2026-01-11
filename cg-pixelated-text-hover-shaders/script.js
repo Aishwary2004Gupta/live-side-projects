@@ -13,7 +13,6 @@ const fontLabel = document.getElementById("fontName");
 const fonts = [
   "Coral Pixels",
   "Bungee Shade",
-  "Oi",
   "Rubik Puddles",
   "Honk",
   "Diplomata SC",
@@ -21,6 +20,7 @@ const fonts = [
   "Agu Display",
   "Plaster",
   "Kavoon",
+  "Oi",
   "Fascinate Inline",
   "Asset",
   "Rammetto One",

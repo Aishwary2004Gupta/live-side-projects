@@ -6,6 +6,25 @@ import * as THREE from "https://unpkg.com/three@0.155.0/build/three.module.js";
 const container = document.getElementById("textContainer");
 const fontPanel = document.getElementById("fontPanel");
 const fontLabel = document.getElementById("fontName");
+const darkModeToggle = document.getElementById("darkModeToggle");
+
+/* =======================
+   DARK MODE
+======================= */
+function initDarkMode() {
+  const isDarkMode = localStorage.getItem("darkMode") === "true";
+  if (isDarkMode) {
+    document.body.classList.add("dark-mode");
+    darkModeToggle.textContent = "☀️";
+  }
+
+  darkModeToggle.addEventListener("click", () => {
+    document.body.classList.toggle("dark-mode");
+    const isDark = document.body.classList.contains("dark-mode");
+    localStorage.setItem("darkMode", isDark);
+    darkModeToggle.textContent = isDark ? "☀️" : "🌙";
+  });
+}
 
 /* =======================
    FONT LIST
@@ -341,6 +360,9 @@ function animate() {
    START (MODIFIED)
 ======================= */
 (async () => {
+  // Initialize dark mode
+  initDarkMode();
+  
   // Preload & prime the first font (Rampart One) before creating the initial texture
   await preloadFirstFont(fonts[0]);
   initScene(createTextTexture("Distort", fonts[0]));

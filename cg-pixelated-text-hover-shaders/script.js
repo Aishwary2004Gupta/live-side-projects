@@ -11,12 +11,12 @@ const fontLabel = document.getElementById("fontName");
    FONT LIST
 ======================= */
 const fonts = [
+  "Rampart One",
   "Coral Pixels",
   "Bungee Shade",
   "Rubik Puddles",
   "Honk",
   "Diplomata SC",
-  "Rampart One",
   "Agu Display",
   "Plaster",
   "Kavoon",

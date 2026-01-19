@@ -360,7 +360,7 @@ function animate() {
 (async () => {
   // Initialize dark mode
   initDarkMode();
-  
+
   // Preload & prime the first font (Rampart One) before creating the initial texture
   await preloadFirstFont(fonts[0]);
   initScene(createTextTexture("Distort", fonts[0]));

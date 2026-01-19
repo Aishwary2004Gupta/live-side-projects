@@ -29,6 +29,7 @@ function initDarkMode() {
 ======================= */
 const fonts = [
   "Rampart One",
+  "Sekuya",
   "Coral Pixels",
   "Bungee Shade",
   "Rubik Puddles",
@@ -41,7 +42,6 @@ const fonts = [
   "Fascinate Inline",
   "Asset",
   "Rammetto One",
-  "Sekuya",
   "Nosifer",
   "Monoton",
   "Eater",

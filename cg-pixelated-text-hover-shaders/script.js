@@ -169,27 +169,7 @@ function createTextTexture(text, font) {
   ctx.fillStyle = "#fff";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-  // Responsive text sizing based on screen dimensions
-  let size;
-  const viewportWidth = window.innerWidth;
-  
-  if (viewportWidth <= 360) {
-    // Extra small phones
-    size = Math.max(canvas.width * 0.16, canvas.height * 0.22);
-  } else if (viewportWidth <= 480) {
-    // Small phones
-    size = Math.max(canvas.width * 0.14, canvas.height * 0.20);
-  } else if (viewportWidth <= 768) {
-    // Tablets (portrait)
-    size = Math.max(canvas.width * 0.13, canvas.height * 0.19);
-  } else if (viewportWidth <= 1024) {
-    // Tablets (landscape)
-    size = Math.max(canvas.width * 0.12, canvas.height * 0.18);
-  } else {
-    // Desktop
-    size = Math.max(canvas.width * 0.11, canvas.height * 0.16);
-  }
-  
+  let size = Math.min(canvas.width * 0.12, canvas.height * 0.18);
   ctx.font = `${size}px "${font}"`;
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
@@ -197,7 +177,7 @@ function createTextTexture(text, font) {
   ctx.translate(canvas.width / 2, canvas.height / 2);
   ctx.fillStyle = "#111";
   ctx.strokeStyle = "#111";
-  ctx.lineWidth = Math.max(size * 0.015, 1);
+  ctx.lineWidth = size * 0.02;
   ctx.strokeText(text, 0, 0);
   ctx.fillText(text, 0, 0);
 
@@ -363,23 +343,6 @@ container.addEventListener("touchend", () => {
     applyFont((currentFontIndex + 1) % fonts.length);
   }
   lastTap = now;
-});
-
-/* =======================
-   RESPONSIVE RESIZE
-======================= */
-let resizeTimeout;
-window.addEventListener("resize", () => {
-  clearTimeout(resizeTimeout);
-  resizeTimeout = setTimeout(() => {
-    if (renderer && plane) {
-      renderer.setSize(window.innerWidth, window.innerHeight);
-      const oldTex = plane.material.uniforms.u_texture.value;
-      if (oldTex) oldTex.dispose();
-      plane.material.uniforms.u_texture.value = createTextTexture("Distort", fonts[currentFontIndex]);
-      plane.material.uniforms.u_cellCount.value = Math.max(12, window.innerWidth / 20);
-    }
-  }, 300);
 });
 
 /* =======================

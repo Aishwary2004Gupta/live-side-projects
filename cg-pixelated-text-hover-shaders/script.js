@@ -30,8 +30,8 @@ function initDarkMode() {
 const fonts = [
   "Rampart One",
   "Sekuya",
-  "Coral Pixels",
   "Bungee Shade",
+  "Coral Pixels",
   "Rubik Puddles",
   "Honk",
   "Diplomata SC",

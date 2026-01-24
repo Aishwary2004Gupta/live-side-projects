@@ -11,7 +11,7 @@
             height: 100%;
         }
     </style>
-    <title>Fluid Text Effect</title>
+    <title>Fluid Particle Text</title>
 </head>
 <body>
     <canvas id="canvas"></canvas>
@@ -20,10 +20,13 @@
         const canvas = document.getElementById("canvas");
         const ctx = canvas.getContext("2d");
         let particles = [];
-        const mouse = { x: null, y: null, radius: 180, isActive: false };
-        let fontSize = Math.min(window.innerWidth / 6, 180);
+        const mouse = { x: null, y: null, radius: 150 };
+
+        // --- CONFIGURATION ---
+        // Increase this for bigger text
+        let fontSize = Math.min(window.innerWidth / 6, 180); 
         const text1 = "Let's";
-        const text2 = "Connect 🙋🏻‍♂️";
+        const text2 = "Connect ";
 
         function initCanvas() {
             canvas.width = window.innerWidth;
@@ -37,6 +40,7 @@
             tempCanvas.width = canvas.width;
             tempCanvas.height = canvas.height;
 
+            // Define Font
             tempCtx.font = `bold ${fontSize}px Helvetica, Arial, sans-serif`;
             tempCtx.fillStyle = "white";
             tempCtx.textBaseline = "middle";
@@ -45,6 +49,7 @@
             const x = canvas.width / 2;
             const y = canvas.height / 2;
 
+            // Draw to hidden canvas to sample pixels
             tempCtx.fillText(text1, x, y - fontSize * 0.45);
             tempCtx.fillText(text2, x, y + fontSize * 0.45);
 
@@ -52,23 +57,22 @@
             const data = imageData.data;
             particles = [];
 
-            // Sample every 4px for performance + density balance
-            for (let y = 0; y < tempCanvas.height; y += 4) {
-                for (let x = 0; x < tempCanvas.width; x += 4) {
+            // Sampling: Step 3 for high density but good performance
+            for (let y = 0; y < tempCanvas.height; y += 3) {
+                for (let x = 0; x < tempCanvas.width; x += 3) {
                     const index = (y * tempCanvas.width + x) * 4;
                     if (data[index + 3] > 128) {
                         particles.push({
-                            x: x,
-                            y: y,
+                            x: x + (Math.random() - 0.5) * 20,
+                            y: y + (Math.random() - 0.5) * 20,
                             originX: x,
                             originY: y,
+                            size: 1.2, 
                             vx: 0,
                             vy: 0,
-                            size: 2,
-                            friction: 0.92,   // Slower decay = more fluid momentum
-                            cohesion: 0.015,  // Pull toward nearby particles
-                            targetRadius: 8,  // Ideal distance between neighbors
-                            color: "rgba(255, 255, 255, 0.7)"
+                            friction: 0.9,
+                            ease: 0.05 + Math.random() * 0.05,
+                            color: "rgba(255, 255, 255, 0.9)"
                         });
                     }
                 }
@@ -76,110 +80,62 @@
         }
 
         function drawGhostText() {
+            // This is the "Solid Shadow" that stays behind
             ctx.font = `bold ${fontSize}px Helvetica, Arial, sans-serif`;
             ctx.textBaseline = "middle";
             ctx.textAlign = "center";
-            ctx.fillStyle = "rgba(255, 255, 255, 0.06)";
+            
+            // Subtle solid "shadow" text
+            ctx.fillStyle = "rgba(255, 255, 255, 0.08)";
             const x = canvas.width / 2;
             const y = canvas.height / 2;
             ctx.fillText(text1, x, y - fontSize * 0.45);
             ctx.fillText(text2, x, y + fontSize * 0.45);
         }
 
-        // Fluid simulation: particles attract/repel based on neighbor distances
-        function applyFluidPhysics() {
-            for (let i = 0; i < particles.length; i++) {
-                const p = particles[i];
-
-                // Mouse interaction
-                if (mouse.isActive) {
-                    const dx = mouse.x - p.x;
-                    const dy = mouse.y - p.y;
-                    const distance = Math.sqrt(dx*dx + dy*dy);
-                    if (distance < mouse.radius) {
-                        const force = (mouse.radius - distance) / mouse.radius;
-                        const angle = Math.atan2(dy, dx);
-                        // Push away
-                        p.vx -= Math.cos(angle) * force * 8;
-                        p.vy -= Math.sin(angle) * force * 8;
-                    }
-                }
-
-                // Cohesion: pull toward nearby particles (simulate surface tension)
-                for (let j = i + 1; j < particles.length; j++) {
-                    const q = particles[j];
-                    const dx = q.x - p.x;
-                    const dy = q.y - p.y;
-                    const dist = Math.sqrt(dx*dx + dy*dy);
-
-                    if (dist > 0 && dist < 30) {
-                        // If too far → pull together (cohesion)
-                        if (dist > p.targetRadius) {
-                            const force = (dist - p.targetRadius) * p.cohesion;
-                            const angle = Math.atan2(dy, dx);
-                            p.vx += Math.cos(angle) * force;
-                            p.vy += Math.sin(angle) * force;
-                            q.vx -= Math.cos(angle) * force;
-                            q.vy -= Math.sin(angle) * force;
-                        }
-                        // If too close → push apart (avoid clumping)
-                        else if (dist < p.targetRadius * 0.5) {
-                            const force = (p.targetRadius * 0.5 - dist) * p.cohesion * 2;
-                            const angle = Math.atan2(dy, dx);
-                            p.vx -= Math.cos(angle) * force;
-                            p.vy -= Math.sin(angle) * force;
-                            q.vx += Math.cos(angle) * force;
-                            q.vy += Math.sin(angle) * force;
-                        }
-                    }
-                }
-
-                // Spring back to original position (but gently)
-                p.vx += (p.originX - p.x) * 0.008;
-                p.vy += (p.originY - p.y) * 0.008;
-
-                // Apply friction
-                p.vx *= p.friction;
-                p.vy *= p.friction;
-
-                // Update position
-                p.x += p.vx;
-                p.y += p.vy;
-            }
-        }
-
-        function renderParticles() {
-            // Motion blur effect: semi-transparent layer over previous frame
-            ctx.fillStyle = "rgba(0, 0, 0, 0.15)";
+        function animate() {
+            // Clear canvas with a slight trail effect
+            ctx.fillStyle = "black";
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-            // Draw ghost text under particles
+            // 1. Draw the readable "Solid Shadow" first
             drawGhostText();
 
-            // Draw each particle as a soft blob
-            particles.forEach(p => {
-                ctx.beginPath();
-                ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
-                ctx.fillStyle = p.color;
-                ctx.fill();
-            });
-        }
+            // 2. Update and Draw Particles
+            particles.forEach((p) => {
+                // Interaction
+                const dx = mouse.x - p.x;
+                const dy = mouse.y - p.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                
+                if (distance < mouse.radius) {
+                    const angle = Math.atan2(dy, dx);
+                    const force = (mouse.radius - distance) / mouse.radius;
+                    // Push particles away
+                    p.vx -= Math.cos(angle) * force * 10;
+                    p.vy -= Math.sin(angle) * force * 10;
+                }
 
-        function animate() {
-            applyFluidPhysics();
-            renderParticles();
+                // Spring back to origin
+                p.vx += (p.originX - p.x) * p.ease;
+                p.vy += (p.originY - p.y) * p.ease;
+
+                p.vx *= p.friction;
+                p.vy *= p.friction;
+                p.x += p.vx;
+                p.y += p.vy;
+
+                // Draw
+                ctx.fillStyle = p.color;
+                ctx.fillRect(p.x, p.y, p.size, p.size);
+            });
+
             requestAnimationFrame(animate);
         }
 
-        // Mouse events
         window.addEventListener("mousemove", (e) => {
             mouse.x = e.clientX;
             mouse.y = e.clientY;
-            mouse.isActive = true;
-        });
-
-        window.addEventListener("mouseleave", () => {
-            mouse.isActive = false;
         });
 
         window.addEventListener("resize", () => {

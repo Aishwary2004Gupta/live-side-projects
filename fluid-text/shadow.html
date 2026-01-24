@@ -1,507 +1,160 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Advanced Fluid Particle Text</title>
+<!doctype html>
+<html>
+  <head>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        
-        body {
-            background: #000;
-            overflow: hidden;
-            font-family: 'Arial Black', Helvetica, sans-serif;
-            cursor: none;
-        }
-        
-        canvas {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-        }
-        
-        .custom-cursor {
-            position: fixed;
-            width: 20px;
-            height: 20px;
-            border: 2px solid rgba(255, 255, 255, 0.5);
-            border-radius: 50%;
-            pointer-events: none;
-            transform: translate(-50%, -50%);
-            transition: width 0.3s, height 0.3s, border-color 0.3s;
-            z-index: 9999;
-            box-shadow: 
-                0 0 20px rgba(255, 255, 255, 0.5),
-                inset 0 0 20px rgba(255, 255, 255, 0.1);
-        }
-        
-        .custom-cursor.active {
-            width: 40px;
-            height: 40px;
-            border-color: rgba(100, 200, 255, 0.8);
-            box-shadow: 
-                0 0 40px rgba(100, 200, 255, 0.8),
-                inset 0 0 20px rgba(100, 200, 255, 0.3);
-        }
-        
-        .controls {
-            position: fixed;
-            bottom: 30px;
-            left: 50%;
-            transform: translateX(-50%);
-            display: flex;
-            gap: 15px;
-            z-index: 100;
-            background: rgba(0, 0, 0, 0.5);
-            padding: 15px;
-            border-radius: 50px;
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-        }
-        
-        .btn {
-            background: linear-gradient(45deg, rgba(100, 150, 255, 0.2), rgba(255, 100, 150, 0.2));
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            color: white;
-            padding: 10px 20px;
-            border-radius: 25px;
-            cursor: pointer;
-            font-size: 0.9rem;
-            transition: all 0.3s;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            font-weight: 600;
-        }
-        
-        .btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(100, 200, 255, 0.4);
-            background: linear-gradient(45deg, rgba(100, 150, 255, 0.4), rgba(255, 100, 150, 0.4));
-        }
-        
-        .stats {
-            position: fixed;
-            top: 20px;
-            left: 20px;
-            color: rgba(255, 255, 255, 0.5);
-            font-family: monospace;
-            font-size: 12px;
-            z-index: 100;
-        }
-        
-        .title-overlay {
-            position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            font-size: clamp(80px, 15vw, 250px);
-            font-weight: 900;
-            color: rgba(255, 255, 255, 0.03);
-            pointer-events: none;
-            z-index: 0;
-            letter-spacing: -10px;
-            text-align: center;
-        }
+      body {
+        margin: 0;
+        background-color: #000;
+        overflow: hidden;
+      }
+      canvas {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+      }
     </style>
-</head>
-<body>
-    <div class="custom-cursor" id="cursor"></div>
-    <div class="title-overlay" id="titleOverlay">FLUID</div>
-    
-    <canvas id="particleCanvas"></canvas>
-    <canvas id="fluidCanvas"></canvas>
-    
-    <div class="stats" id="stats">
-        <div>FPS: <span id="fps">60</span></div>
-        <div>Particles: <span id="particleCount">0</span></div>
-        <div>Mode: <span id="currentMode">FLUID</span></div>
-    </div>
-    
-    <div class="controls">
-        <button class="btn" id="modeBtn">Mode</button>
-        <button class="btn" id="speedBtn">Speed</button>
-        <button class="btn" id="colorBtn">Color</button>
-        <button class="btn" id="textBtn">Text</button>
-        <button class="btn" id="resetBtn">Reset</button>
-    </div>
+    <title>Fluid Particle Text</title>
+  </head>
+  <body>
+    <canvas id="canvas"></canvas>
 
     <script>
-        // Canvas setup
-        const particleCanvas = document.getElementById('particleCanvas');
-        const fluidCanvas = document.getElementById('fluidCanvas');
-        const pCtx = particleCanvas.getContext('2d');
-        const fCtx = fluidCanvas.getContext('2d', { alpha: true });
-        
-        // Performance monitoring
-        let fps = 60;
-        let lastTime = performance.now();
-        let frameCount = 0;
-        
-        // Configuration
-        const config = {
-            text: 'FLUID',
-            fontSize: 200,
-            particleDensity: 3,
-            mouseRadius: 180,
-            mouseForce: 15,
-            returnSpeed: 0.08,
-            friction: 0.88,
-            colorScheme: 0,
-            mode: 'fluid',
-            speed: 1,
-            turbulence: 0.001,
-            fluidViscosity: 0.98
-        };
-        
-        // Color schemes
-        const colorSchemes = [
-            { // Cyan-Magenta
-                primary: ['#00ffff', '#ff00ff', '#00ff88', '#ff0088'],
-                secondary: 'rgba(100, 200, 255, 0.6)',
-                background: 'rgba(0, 0, 0, 0.92)'
-            },
-            { // Fire
-                primary: ['#ff6600', '#ffaa00', '#ff3300', '#ffff00'],
-                secondary: 'rgba(255, 100, 0, 0.6)',
-                background: 'rgba(10, 0, 0, 0.92)'
-            },
-            { // Ocean
-                primary: ['#0099ff', '#00ffcc', '#0066ff', '#00ccff'],
-                secondary: 'rgba(0, 150, 255, 0.6)',
-                background: 'rgba(0, 5, 20, 0.92)'
-            },
-            { // Galaxy
-                primary: ['#9933ff', '#ff33ff', '#3366ff', '#ff3399'],
-                secondary: 'rgba(150, 100, 255, 0.6)',
-                background: 'rgba(5, 0, 15, 0.92)'
+      const canvas = document.getElementById("canvas");
+      const ctx = canvas.getContext("2d");
+      let particles = [];
+      const mouse = { x: null, y: null, radius: 150 };
+
+      // --- CONFIGURATION ---
+      // Increase this for bigger text
+      let fontSize = Math.min(window.innerWidth / 6, 180);
+      const text1 = "Let's";
+      const text2 = "Connect ";
+
+      function initCanvas() {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+        fontSize = Math.min(window.innerWidth / 6, 180);
+      }
+
+      function createTextParticles() {
+        const tempCanvas = document.createElement("canvas");
+        const tempCtx = tempCanvas.getContext("2d");
+        tempCanvas.width = canvas.width;
+        tempCanvas.height = canvas.height;
+
+        // Define Font
+        tempCtx.font = `bold ${fontSize}px Helvetica, Arial, sans-serif`;
+        tempCtx.fillStyle = "white";
+        tempCtx.textBaseline = "middle";
+        tempCtx.textAlign = "center";
+
+        const x = canvas.width / 2;
+        const y = canvas.height / 2;
+
+        // Draw to hidden canvas to sample pixels
+        tempCtx.fillText(text1, x, y - fontSize * 0.45);
+        tempCtx.fillText(text2, x, y + fontSize * 0.45);
+
+        const imageData = tempCtx.getImageData(
+          0,
+          0,
+          tempCanvas.width,
+          tempCanvas.height,
+        );
+        const data = imageData.data;
+        particles = [];
+
+        // Sampling: Step 3 for high density but good performance
+        for (let y = 0; y < tempCanvas.height; y += 3) {
+          for (let x = 0; x < tempCanvas.width; x += 3) {
+            const index = (y * tempCanvas.width + x) * 4;
+            if (data[index + 3] > 128) {
+              particles.push({
+                x: x + (Math.random() - 0.5) * 20,
+                y: y + (Math.random() - 0.5) * 20,
+                originX: x,
+                originY: y,
+                size: 1.2,
+                vx: 0,
+                vy: 0,
+                friction: 0.9,
+                ease: 0.05 + Math.random() * 0.05,
+                color: "rgba(255, 255, 255, 0.9)",
+              });
             }
-        ];
-        
-        let particles = [];
-        let fluidGrid = [];
-        let mouse = { x: -1000, y: -1000, vx: 0, vy: 0, isDown: false };
-        let prevMouse = { x: -1000, y: -1000 };
-        
-        class Particle {
-            constructor(x, y, originX, originY) {
-                this.x = x + (Math.random() - 0.5) * 50;
-                this.y = y + (Math.random() - 0.5) * 50;
-                this.originX = originX;
-                this.originY = originY;
-                this.vx = (Math.random() - 0.5) * 2;
-                this.vy = (Math.random() - 0.5) * 2;
-                this.size = Math.random() * 2 + 1;
-                this.life = 1;
-                this.maxLife = 1;
-                this.color = colorSchemes[config.colorScheme].primary[
-                    Math.floor(Math.random() * colorSchemes[config.colorScheme].primary.length)
-                ];
-                this.angle = Math.random() * Math.PI * 2;
-                this.waveOffset = Math.random() * Math.PI * 2;
-                this.history = [];
-                this.maxHistory = 5;
-            }
-            
-            update() {
-                // Store history for trail effect
-                this.history.push({ x: this.x, y: this.y });
-                if (this.history.length > this.maxHistory) {
-                    this.history.shift();
-                }
-                
-                // Calculate distance from mouse
-                const dx = mouse.x - this.x;
-                const dy = mouse.y - this.y;
-                const distance = Math.sqrt(dx * dx + dy * dy);
-                
-                // Mouse interaction
-                if (distance < config.mouseRadius) {
-                    const force = (1 - distance / config.mouseRadius) * config.mouseForce;
-                    const angle = Math.atan2(dy, dx);
-                    
-                    switch(config.mode) {
-                        case 'fluid':
-                            // Realistic fluid dynamics
-                            this.vx -= Math.cos(angle) * force * config.speed;
-                            this.vy -= Math.sin(angle) * force * config.speed;
-                            
-                            // Add rotational movement
-                            this.vx += Math.sin(angle) * force * 0.3;
-                            this.vy -= Math.cos(angle) * force * 0.3;
-                            break;
-                            
-                        case 'vortex':
-                            // Spiral vortex effect
-                            const vortexAngle = angle + Math.PI / 2;
-                            this.vx += Math.cos(vortexAngle) * force * config.speed;
-                            this.vy += Math.sin(vortexAngle) * force * config.speed;
-                            break;
-                            
-                        case 'attract':
-                            // Magnetic attraction
-                            this.vx += Math.cos(angle) * force * config.speed * 1.5;
-                            this.vy += Math.sin(angle) * force * config.speed * 1.5;
-                            break;
-                            
-                        case 'wave':
-                            // Wave propagation
-                            const waveTime = Date.now() * 0.001;
-                            const waveForce = Math.sin(distance * 0.05 - waveTime * 2) * force;
-                            this.vx -= Math.cos(angle) * waveForce * config.speed;
-                            this.vy -= Math.sin(angle) * waveForce * config.speed;
-                            break;
-                    }
-                }
-                
-                // Return to origin with elastic effect
-                const returnDx = this.originX - this.x;
-                const returnDy = this.originY - this.y;
-                const returnForce = Math.sqrt(returnDx * returnDx + returnDy * returnDy) * 0.0001;
-                
-                this.vx += returnDx * config.returnSpeed * (1 + returnForce);
-                this.vy += returnDy * config.returnSpeed * (1 + returnForce);
-                
-                // Add turbulence
-                this.vx += (Math.random() - 0.5) * config.turbulence;
-                this.vy += (Math.random() - 0.5) * config.turbulence;
-                
-                // Apply fluid viscosity and friction
-                this.vx *= config.friction * config.fluidViscosity;
-                this.vy *= config.friction * config.fluidViscosity;
-                
-                // Update position
-                this.x += this.vx;
-                this.y += this.vy;
-                
-                // Update angle for rotation effects
-                this.angle += 0.01;
-            }
-            
-            draw() {
-                // Draw trail
-                if (this.history.length > 1) {
-                    pCtx.beginPath();
-                    pCtx.moveTo(this.history[0].x, this.history[0].y);
-                    
-                    for (let i = 1; i < this.history.length; i++) {
-                        const h = this.history[i];
-                        const alpha = (i / this.history.length) * 0.2;
-                        pCtx.lineTo(h.x, h.y);
-                    }
-                    
-                    pCtx.strokeStyle = this.color.replace('rgb', 'rgba').replace(')', `, ${0.1})`);
-                    pCtx.lineWidth = this.size * 0.5;
-                    pCtx.stroke();
-                }
-                
-                // Draw particle with glow effect
-                const gradient = pCtx.createRadialGradient(
-                    this.x, this.y, 0,
-                    this.x, this.y, this.size * 3
-                );
-                gradient.addColorStop(0, this.color);
-                gradient.addColorStop(0.5, this.color.replace('rgb', 'rgba').replace(')', ', 0.5)'));
-                gradient.addColorStop(1, 'transparent');
-                
-                pCtx.fillStyle = gradient;
-                pCtx.beginPath();
-                pCtx.arc(this.x, this.y, this.size * 3, 0, Math.PI * 2);
-                pCtx.fill();
-                
-                // Draw core
-                pCtx.fillStyle = this.color;
-                pCtx.beginPath();
-                pCtx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
-                pCtx.fill();
-            }
+          }
         }
-        
-        function initCanvas() {
-            particleCanvas.width = fluidCanvas.width = window.innerWidth;
-            particleCanvas.height = fluidCanvas.height = window.innerHeight;
-            config.fontSize = Math.min(window.innerWidth / 5, 250);
-        }
-        
-        function createTextParticles() {
-            particles = [];
-            
-            // Create temporary canvas for text sampling
-            const tempCanvas = document.createElement('canvas');
-            const tempCtx = tempCanvas.getContext('2d');
-            tempCanvas.width = particleCanvas.width;
-            tempCanvas.height = particleCanvas.height;
-            
-            // Draw text
-            tempCtx.font = `900 ${config.fontSize}px Arial Black, Helvetica, sans-serif`;
-            tempCtx.fillStyle = 'white';
-            tempCtx.textBaseline = 'middle';
-            tempCtx.textAlign = 'center';
-            tempCtx.fillText(config.text, tempCanvas.width / 2, tempCanvas.height / 2);
-            
-            // Sample pixels
-            const imageData = tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
-            const data = imageData.data;
-            
-            for (let y = 0; y < tempCanvas.height; y += config.particleDensity) {
-                for (let x = 0; x < tempCanvas.width; x += config.particleDensity) {
-                    const index = (y * tempCanvas.width + x) * 4;
-                    if (data[index + 3] > 128) {
-                        particles.push(new Particle(x, y, x, y));
-                    }
-                }
-            }
-            
-            document.getElementById('particleCount').textContent = particles.length;
-            document.getElementById('titleOverlay').textContent = config.text;
-        }
-        
-        function drawBackground() {
-            // Create animated gradient background
-            const gradient = fCtx.createRadialGradient(
-                mouse.x, mouse.y, 0,
-                mouse.x, mouse.y, config.mouseRadius * 2
-            );
-            gradient.addColorStop(0, 'rgba(100, 200, 255, 0.02)');
-            gradient.addColorStop(1, 'transparent');
-            
-            fCtx.fillStyle = gradient;
-            fCtx.fillRect(0, 0, fluidCanvas.width, fluidCanvas.height);
-        }
-        
-        function animate() {
-            // Calculate FPS
-            frameCount++;
-            const currentTime = performance.now();
-            if (currentTime - lastTime >= 1000) {
-                fps = frameCount;
-                frameCount = 0;
-                lastTime = currentTime;
-                document.getElementById('fps').textContent = fps;
-            }
-            
-            // Clear canvases with fade effect
-            pCtx.fillStyle = colorSchemes[config.colorScheme].background;
-            pCtx.fillRect(0, 0, particleCanvas.width, particleCanvas.height);
-            
-            fCtx.clearRect(0, 0, fluidCanvas.width, fluidCanvas.height);
-            
-            // Draw background effects
-            drawBackground();
-            
-            // Draw solid shadow text
-            pCtx.save();
-            pCtx.font = `900 ${config.fontSize}px Arial Black, Helvetica, sans-serif`;
-            pCtx.textBaseline = 'middle';
-            pCtx.textAlign = 'center';
-            pCtx.fillStyle = 'rgba(255, 255, 255, 0.02)';
-            pCtx.fillText(config.text, particleCanvas.width / 2 + 5, particleCanvas.height / 2 + 5);
-            pCtx.restore();
-            
-            // Update and draw particles
-            particles.forEach(particle => {
-                particle.update();
-                particle.draw();
-            });
-            
-            // Draw fluid overlay effect when mouse is down
-            if (mouse.isDown) {
-                fCtx.save();
-                const gradient = fCtx.createRadialGradient(
-                    mouse.x, mouse.y, 0,
-                    mouse.x, mouse.y, config.mouseRadius
-                );
-                gradient.addColorStop(0, colorSchemes[config.colorScheme].secondary);
-                gradient.addColorStop(1, 'transparent');
-                fCtx.fillStyle = gradient;
-                fCtx.beginPath();
-                fCtx.arc(mouse.x, mouse.y, config.mouseRadius, 0, Math.PI * 2);
-                fCtx.fill();
-                fCtx.restore();
-            }
-            
-            requestAnimationFrame(animate);
-        }
-        
-        // Event listeners
-        window.addEventListener('mousemove', (e) => {
-            prevMouse.x = mouse.x;
-            prevMouse.y = mouse.y;
-            mouse.x = e.clientX;
-            mouse.y = e.clientY;
-            mouse.vx = mouse.x - prevMouse.x;
-            mouse.vy = mouse.y - prevMouse.y;
-            
-            // Update custom cursor
-            const cursor = document.getElementById('cursor');
-            cursor.style.left = e.clientX + 'px';
-            cursor.style.top = e.clientY + 'px';
+      }
+
+      function drawGhostText() {
+        // This is the "Solid Shadow" that stays behind
+        ctx.font = `bold ${fontSize}px Helvetica, Arial, sans-serif`;
+        ctx.textBaseline = "middle";
+        ctx.textAlign = "center";
+
+        // Subtle solid "shadow" text
+        ctx.fillStyle = "rgba(255, 255, 255, 0.08)";
+        const x = canvas.width / 2;
+        const y = canvas.height / 2;
+        ctx.fillText(text1, x, y - fontSize * 0.45);
+        ctx.fillText(text2, x, y + fontSize * 0.45);
+      }
+
+      function animate() {
+        // Clear canvas with a slight trail effect
+        ctx.fillStyle = "black";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // 1. Draw the readable "Solid Shadow" first
+        drawGhostText();
+
+        // 2. Update and Draw Particles
+        particles.forEach((p) => {
+          // Interaction
+          const dx = mouse.x - p.x;
+          const dy = mouse.y - p.y;
+          const distance = Math.sqrt(dx * dx + dy * dy);
+
+          if (distance < mouse.radius) {
+            const angle = Math.atan2(dy, dx);
+            const force = (mouse.radius - distance) / mouse.radius;
+            // Push particles away
+            p.vx -= Math.cos(angle) * force * 10;
+            p.vy -= Math.sin(angle) * force * 10;
+          }
+
+          // Spring back to origin
+          p.vx += (p.originX - p.x) * p.ease;
+          p.vy += (p.originY - p.y) * p.ease;
+
+          p.vx *= p.friction;
+          p.vy *= p.friction;
+          p.x += p.vx;
+          p.y += p.vy;
+
+          // Draw
+          ctx.fillStyle = p.color;
+          ctx.fillRect(p.x, p.y, p.size, p.size);
         });
-        
-        window.addEventListener('mousedown', () => {
-            mouse.isDown = true;
-            document.getElementById('cursor').classList.add('active');
-            config.mouseForce *= 2;
-        });
-        
-        window.addEventListener('mouseup', () => {
-            mouse.isDown = false;
-            document.getElementById('cursor').classList.remove('active');
-            config.mouseForce /= 2;
-        });
-        
-        window.addEventListener('resize', () => {
-            initCanvas();
-            createTextParticles();
-        });
-        
-        // Control buttons
-        document.getElementById('modeBtn').addEventListener('click', () => {
-            const modes = ['fluid', 'vortex', 'attract', 'wave'];
-            const currentIndex = modes.indexOf(config.mode);
-            config.mode = modes[(currentIndex + 1) % modes.length];
-            document.getElementById('currentMode').textContent = config.mode.toUpperCase();
-        });
-        
-        document.getElementById('speedBtn').addEventListener('click', () => {
-            config.speed = config.speed >= 3 ? 0.5 : config.speed + 0.5;
-            config.returnSpeed = 0.08 * config.speed;
-        });
-        
-        document.getElementById('colorBtn').addEventListener('click', () => {
-            config.colorScheme = (config.colorScheme + 1) % colorSchemes.length;
-            particles.forEach(p => {
-                p.color = colorSchemes[config.colorScheme].primary[
-                    Math.floor(Math.random() * colorSchemes[config.colorScheme].primary.length)
-                ];
-            });
-        });
-        
-        document.getElementById('textBtn').addEventListener('click', () => {
-            const texts = ['FLUID', 'WAVE', 'FLOW', 'AJ', 'WOW'];
-            const currentIndex = texts.indexOf(config.text);
-            config.text = texts[(currentIndex + 1) % texts.length];
-            createTextParticles();
-        });
-        
-        document.getElementById('resetBtn').addEventListener('click', () => {
-            particles.forEach(p => {
-                p.x = p.originX + (Math.random() - 0.5) * 100;
-                p.y = p.originY + (Math.random() - 0.5) * 100;
-                p.vx = (Math.random() - 0.5) * 10;
-                p.vy = (Math.random() - 0.5) * 10;
-            });
-        });
-        
-        // Initialize
+
+        requestAnimationFrame(animate);
+      }
+
+      window.addEventListener("mousemove", (e) => {
+        mouse.x = e.clientX;
+        mouse.y = e.clientY;
+      });
+
+      window.addEventListener("resize", () => {
         initCanvas();
         createTextParticles();
-        animate();
+      });
+
+      initCanvas();
+      createTextParticles();
+      animate();
     </script>
-</body>
+  </body>
 </html>

@@ -1,218 +1,375 @@
 <!doctype html>
 <html>
-  <head>
+<head>
     <style>
-      body {
-        margin: 0;
-        background-color: #000;
-        overflow: hidden;
-      }
-      canvas {
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-      }
+        body {
+            margin: 0;
+            background: linear-gradient(to bottom, #000428, #004e92);
+            overflow: hidden;
+            cursor: none;
+        }
+        
+        canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+        
+        .cursor {
+            position: fixed;
+            width: 40px;
+            height: 40px;
+            border: 2px solid rgba(100, 200, 255, 0.5);
+            border-radius: 50%;
+            pointer-events: none;
+            transform: translate(-50%, -50%);
+            transition: transform 0.1s;
+            z-index: 9999;
+        }
+        
+        .cursor::after {
+            content: '';
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            animation: pulse 1s infinite;
+        }
+        
+        @keyframes pulse {
+            0% { transform: scale(1); opacity: 1; }
+            100% { transform: scale(2); opacity: 0; }
+        }
     </style>
     <title>Fluid Particle Text</title>
-  </head>
-  <body>
+</head>
+<body>
+    <div class="cursor" id="cursor"></div>
     <canvas id="canvas"></canvas>
 
     <script>
-      const canvas = document.getElementById("canvas");
-      const ctx = canvas.getContext("2d");
-      let particles = [];
-      const mouse = { x: null, y: null, radius: 150 };
+        const canvas = document.getElementById("canvas");
+        const ctx = canvas.getContext("2d");
+        const cursor = document.getElementById("cursor");
+        
+        // Fluid simulation parameters
+        const FLUID_CONFIG = {
+            viscosity: 0.95,        // How thick the fluid is (0.9-0.99)
+            pressure: 0.4,          // Pressure between particles
+            tension: 0.05,          // Surface tension
+            damping: 0.99,          // Energy loss over time
+            mouseForce: 25,         // Mouse interaction strength
+            mouseRadius: 200,       // Mouse effect radius
+            neighborRadius: 30,     // Radius to check for neighbors
+            cohesion: 0.001,        // How much particles stick together
+            separation: 15,         // Minimum distance between particles
+            returnForce: 0.12,      // Force pulling back to origin
+        };
+        
+        let particles = [];
+        const mouse = { 
+            x: -1000, 
+            y: -1000, 
+            vx: 0, 
+            vy: 0,
+            lastX: -1000,
+            lastY: -1000
+        };
+        
+        let fontSize = Math.min(window.innerWidth / 6, 180);
+        const text1 = "Let's";
+        const text2 = "Connect";
 
-      // --- CONFIGURATION ---
-      let fontSize = Math.min(window.innerWidth / 6, 180);
-      const text1 = "Let's";
-      const text2 = "Connect ";
-
-      // --- FLUID PHYSICS CONSTANTS ---
-      const INTERACTION_RADIUS = 25; // How far particles can "see" each other
-      const COHESION_STRENGTH = 0.005; // How strongly particles attract
-      const REPULSION_STRENGTH = 0.5; // How strongly particles repel when too close
-      const MOUSE_FORCE = 8;
-
-      function initCanvas() {
-        canvas.width = window.innerWidth;
-        canvas.height = window.innerHeight;
-        fontSize = Math.min(window.innerWidth / 6, 180);
-      }
-
-      function createTextParticles() {
-        const tempCanvas = document.createElement("canvas");
-        const tempCtx = tempCanvas.getContext("2d");
-        tempCanvas.width = canvas.width;
-        tempCanvas.height = canvas.height;
-
-        tempCtx.font = `bold ${fontSize}px Helvetica, Arial, sans-serif`;
-        tempCtx.fillStyle = "white";
-        tempCtx.textBaseline = "middle";
-        tempCtx.textAlign = "center";
-
-        const x = canvas.width / 2;
-        const y = canvas.height / 2;
-
-        tempCtx.fillText(text1, x, y - fontSize * 0.45);
-        tempCtx.fillText(text2, x, y + fontSize * 0.45);
-
-        const imageData = tempCtx.getImageData(
-          0,
-          0,
-          tempCanvas.width,
-          tempCanvas.height,
-        );
-        const data = imageData.data;
-        particles = [];
-
-        // Sampling: Step 3 for high density but good performance
-        for (let y = 0; y < tempCanvas.height; y += 3) {
-          for (let x = 0; x < tempCanvas.width; x += 3) {
-            const index = (y * tempCanvas.width + x) * 4;
-            if (data[index + 3] > 128) {
-              particles.push({
-                x: x,
-                y: y,
-                originX: x,
-                originY: y,
-                vx: 0,
-                vy: 0,
-                // Fluid particles need a bit more weight and less friction
-                friction: 0.92,
-                ease: 0.01, // Slower return to origin for a heavier feel
-                radius: 2, // For inter-particle collision
-              });
+        class FluidParticle {
+            constructor(x, y, originX, originY) {
+                this.x = x + (Math.random() - 0.5) * 10;
+                this.y = y + (Math.random() - 0.5) * 10;
+                this.originX = originX;
+                this.originY = originY;
+                this.vx = 0;
+                this.vy = 0;
+                this.ax = 0;
+                this.ay = 0;
+                this.radius = 1.5;
+                this.mass = 1;
+                this.pressure = 0;
+                this.density = 0;
+                this.neighbors = [];
+                
+                // Visual properties
+                this.hue = 180 + Math.random() * 60; // Cyan to blue range
+                this.brightness = 0.5 + Math.random() * 0.5;
+                this.trail = [];
+                this.maxTrailLength = 5;
             }
-          }
-        }
-      }
-
-      function drawGhostText() {
-        ctx.font = `bold ${fontSize}px Helvetica, Arial, sans-serif`;
-        ctx.textBaseline = "middle";
-        ctx.textAlign = "center";
-        ctx.fillStyle = "rgba(255, 255, 255, 0.08)";
-        const x = canvas.width / 2;
-        const y = canvas.height / 2;
-        ctx.fillText(text1, x, y - fontSize * 0.45);
-        ctx.fillText(text2, x, y + fontSize * 0.45);
-      }
-
-      function applyFluidPhysics() {
-        for (let i = 0; i < particles.length; i++) {
-          const p1 = particles[i];
-
-          // Mouse interaction
-          const dx = mouse.x - p1.x;
-          const dy = mouse.y - p1.y;
-          const distance = Math.sqrt(dx * dx + dy * dy);
-
-          if (distance < mouse.radius) {
-            const angle = Math.atan2(dy, dx);
-            const force = (mouse.radius - distance) / mouse.radius;
-            p1.vx -= Math.cos(angle) * force * MOUSE_FORCE;
-            p1.vy -= Math.sin(angle) * force * MOUSE_FORCE;
-          }
-
-          // Inter-particle forces (The core of the fluid effect)
-          for (let j = i + 1; j < particles.length; j++) {
-            const p2 = particles[j];
-            const dx = p2.x - p1.x;
-            const dy = p2.y - p1.y;
-            const dist = Math.sqrt(dx * dx + dy * dy);
-
-            if (dist < INTERACTION_RADIUS && dist > 0) {
-              const angle = Math.atan2(dy, dx);
-
-              // REPULSION: If too close, push apart
-              if (dist < p1.radius + p2.radius + 2) {
-                const force =
-                  (p1.radius + p2.radius + 2 - dist) * REPULSION_STRENGTH;
-                p1.vx -= Math.cos(angle) * force;
-                p1.vy -= Math.sin(angle) * force;
-                p2.vx += Math.cos(angle) * force;
-                p2.vy += Math.sin(angle) * force;
-              }
-
-              // COHESION: If at a medium distance, pull together
-              else {
-                const force =
-                  (dist - (p1.radius + p2.radius + 2)) * COHESION_STRENGTH;
-                p1.vx += Math.cos(angle) * force;
-                p1.vy += Math.sin(angle) * force;
-                p2.vx -= Math.cos(angle) * force;
-                p2.vy -= Math.sin(angle) * force;
-              }
+            
+            findNeighbors(particles) {
+                this.neighbors = [];
+                this.density = 0;
+                
+                for (let other of particles) {
+                    if (other === this) continue;
+                    
+                    const dx = other.x - this.x;
+                    const dy = other.y - this.y;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+                    
+                    if (dist < FLUID_CONFIG.neighborRadius && dist > 0) {
+                        this.neighbors.push({
+                            particle: other,
+                            distance: dist,
+                            dx: dx,
+                            dy: dy
+                        });
+                        
+                        // Calculate density based on nearby particles
+                        const influence = 1 - (dist / FLUID_CONFIG.neighborRadius);
+                        this.density += influence * influence;
+                    }
+                }
+                
+                // Calculate pressure from density
+                this.pressure = this.density * FLUID_CONFIG.pressure;
             }
-          }
-
-          // Spring back to origin
-          p1.vx += (p1.originX - p1.x) * p1.ease;
-          p1.vy += (p1.originY - p1.y) * p1.ease;
-
-          // Apply friction and update position
-          p1.vx *= p1.friction;
-          p1.vy *= p1.friction;
-          p1.x += p1.vx;
-          p1.y += p1.vy;
+            
+            applyFluidForces() {
+                // Reset acceleration
+                this.ax = 0;
+                this.ay = 0;
+                
+                for (let neighbor of this.neighbors) {
+                    const { particle: other, distance, dx, dy } = neighbor;
+                    
+                    // Normalize direction
+                    const nx = dx / distance;
+                    const ny = dy / distance;
+                    
+                    // Pressure force (repulsion)
+                    if (distance < FLUID_CONFIG.separation) {
+                        const pressureForce = (this.pressure + other.pressure) * 0.5;
+                        this.ax -= nx * pressureForce;
+                        this.ay -= ny * pressureForce;
+                    }
+                    
+                    // Cohesion force (attraction)
+                    const cohesionForce = FLUID_CONFIG.cohesion * (1 - distance / FLUID_CONFIG.neighborRadius);
+                    this.ax += nx * cohesionForce;
+                    this.ay += ny * cohesionForce;
+                    
+                    // Surface tension
+                    const tensionForce = FLUID_CONFIG.tension * (1 - distance / FLUID_CONFIG.neighborRadius);
+                    this.vx += (other.vx - this.vx) * tensionForce;
+                    this.vy += (other.vy - this.vy) * tensionForce;
+                }
+            }
+            
+            update() {
+                // Store position for trail
+                this.trail.push({ x: this.x, y: this.y });
+                if (this.trail.length > this.maxTrailLength) {
+                    this.trail.shift();
+                }
+                
+                // Apply fluid forces
+                this.applyFluidForces();
+                
+                // Mouse interaction with fluid dynamics
+                const mdx = mouse.x - this.x;
+                const mdy = mouse.y - this.y;
+                const mouseDistance = Math.sqrt(mdx * mdx + mdy * mdy);
+                
+                if (mouseDistance < FLUID_CONFIG.mouseRadius && mouseDistance > 0) {
+                    const influence = 1 - (mouseDistance / FLUID_CONFIG.mouseRadius);
+                    const angle = Math.atan2(mdy, mdx);
+                    
+                    // Create fluid displacement
+                    const force = influence * influence * FLUID_CONFIG.mouseForce;
+                    this.ax -= Math.cos(angle) * force;
+                    this.ay -= Math.sin(angle) * force;
+                    
+                    // Add rotational movement for vortex effect
+                    const tangentAngle = angle + Math.PI / 2;
+                    this.ax += Math.cos(tangentAngle) * force * 0.3;
+                    this.ay += Math.sin(tangentAngle) * force * 0.3;
+                    
+                    // Transfer mouse velocity to create wake
+                    this.vx += mouse.vx * influence * 0.1;
+                    this.vy += mouse.vy * influence * 0.1;
+                }
+                
+                // Return to origin force (elastic)
+                const returnDx = this.originX - this.x;
+                const returnDy = this.originY - this.y;
+                const returnDist = Math.sqrt(returnDx * returnDx + returnDy * returnDy);
+                
+                if (returnDist > 0) {
+                    // Stronger force when further away
+                    const elasticity = FLUID_CONFIG.returnForce * (1 + returnDist * 0.001);
+                    this.ax += (returnDx / returnDist) * elasticity;
+                    this.ay += (returnDy / returnDist) * elasticity;
+                }
+                
+                // Update velocity with acceleration
+                this.vx += this.ax;
+                this.vy += this.ay;
+                
+                // Apply viscosity and damping
+                this.vx *= FLUID_CONFIG.viscosity * FLUID_CONFIG.damping;
+                this.vy *= FLUID_CONFIG.viscosity * FLUID_CONFIG.damping;
+                
+                // Update position
+                this.x += this.vx;
+                this.y += this.vy;
+                
+                // Update visual properties based on velocity
+                const speed = Math.sqrt(this.vx * this.vx + this.vy * this.vy);
+                this.brightness = Math.min(1, 0.5 + speed * 0.1);
+            }
+            
+            draw(ctx) {
+                // Draw trail for fluid motion visualization
+                if (this.trail.length > 1) {
+                    ctx.strokeStyle = `hsla(${this.hue}, 100%, ${this.brightness * 50}%, 0.3)`;
+                    ctx.lineWidth = this.radius * 0.5;
+                    ctx.beginPath();
+                    ctx.moveTo(this.trail[0].x, this.trail[0].y);
+                    
+                    for (let i = 1; i < this.trail.length; i++) {
+                        const point = this.trail[i];
+                        ctx.lineTo(point.x, point.y);
+                    }
+                    ctx.stroke();
+                }
+                
+                // Draw particle with glow effect
+                const gradient = ctx.createRadialGradient(
+                    this.x, this.y, 0,
+                    this.x, this.y, this.radius * 4
+                );
+                
+                gradient.addColorStop(0, `hsla(${this.hue}, 100%, ${this.brightness * 70}%, 1)`);
+                gradient.addColorStop(0.5, `hsla(${this.hue}, 100%, ${this.brightness * 50}%, 0.5)`);
+                gradient.addColorStop(1, 'transparent');
+                
+                ctx.fillStyle = gradient;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius * 4, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // Draw core
+                ctx.fillStyle = `hsla(${this.hue}, 100%, ${this.brightness * 80}%, 1)`;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                ctx.fill();
+            }
         }
-      }
 
-      function animate() {
-        // Use a semi-transparent clear for motion blur/trail effect
-        ctx.fillStyle = "rgba(0, 0, 0, 0.05)";
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        function initCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            fontSize = Math.min(window.innerWidth / 6, 180);
+        }
 
-        // Set blend mode for fluid-like merging
-        ctx.globalCompositeOperation = "lighter";
+        function createTextParticles() {
+            const tempCanvas = document.createElement("canvas");
+            const tempCtx = tempCanvas.getContext("2d");
+            tempCanvas.width = canvas.width;
+            tempCanvas.height = canvas.height;
 
-        // Apply physics and draw particles
-        applyFluidPhysics();
+            tempCtx.font = `bold ${fontSize}px Helvetica, Arial, sans-serif`;
+            tempCtx.fillStyle = "white";
+            tempCtx.textBaseline = "middle";
+            tempCtx.textAlign = "center";
 
-        particles.forEach((p) => {
-          // Draw with a gradient for a "glowy" blob effect
-          const gradient = ctx.createRadialGradient(
-            p.x,
-            p.y,
-            0,
-            p.x,
-            p.y,
-            p.radius * 4,
-          );
-          gradient.addColorStop(0, "rgba(150, 200, 255, 1)");
-          gradient.addColorStop(0.5, "rgba(100, 150, 255, 0.5)");
-          gradient.addColorStop(1, "rgba(50, 100, 255, 0)");
+            const x = canvas.width / 2;
+            const y = canvas.height / 2;
 
-          ctx.fillStyle = gradient;
-          ctx.beginPath();
-          ctx.arc(p.x, p.y, p.radius * 4, 0, Math.PI * 2);
-          ctx.fill();
+            tempCtx.fillText(text1, x, y - fontSize * 0.45);
+            tempCtx.fillText(text2, x, y + fontSize * 0.45);
+
+            const imageData = tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
+            const data = imageData.data;
+            particles = [];
+
+            // Higher density for better fluid simulation
+            for (let y = 0; y < tempCanvas.height; y += 2) {
+                for (let x = 0; x < tempCanvas.width; x += 2) {
+                    const index = (y * tempCanvas.width + x) * 4;
+                    if (data[index + 3] > 128) {
+                        particles.push(new FluidParticle(x, y, x, y));
+                    }
+                }
+            }
+        }
+
+        function drawGhostText() {
+            ctx.save();
+            ctx.font = `bold ${fontSize}px Helvetica, Arial, sans-serif`;
+            ctx.textBaseline = "middle";
+            ctx.textAlign = "center";
+            ctx.fillStyle = "rgba(100, 200, 255, 0.05)";
+            
+            const x = canvas.width / 2;
+            const y = canvas.height / 2;
+            
+            // Draw multiple layers for depth
+            for (let i = 0; i < 3; i++) {
+                ctx.fillStyle = `rgba(100, 200, 255, ${0.02 - i * 0.005})`;
+                ctx.fillText(text1, x + i * 2, y - fontSize * 0.45 + i * 2);
+                ctx.fillText(text2, x + i * 2, y + fontSize * 0.45 + i * 2);
+            }
+            ctx.restore();
+        }
+
+        function animate() {
+            // Clear with fade effect for motion blur
+            ctx.fillStyle = "rgba(0, 4, 9, 0.1)";
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Draw ghost text
+            drawGhostText();
+
+            // Update neighbor relationships for fluid dynamics
+            for (let particle of particles) {
+                particle.findNeighbors(particles);
+            }
+
+            // Update and draw particles
+            for (let particle of particles) {
+                particle.update();
+                particle.draw(ctx);
+            }
+
+            requestAnimationFrame(animate);
+        }
+
+        // Mouse tracking
+        window.addEventListener("mousemove", (e) => {
+            mouse.lastX = mouse.x;
+            mouse.lastY = mouse.y;
+            mouse.x = e.clientX;
+            mouse.y = e.clientY;
+            mouse.vx = mouse.x - mouse.lastX;
+            mouse.vy = mouse.y - mouse.lastY;
+            
+            // Update cursor
+            cursor.style.left = e.clientX + 'px';
+            cursor.style.top = e.clientY + 'px';
+            cursor.style.transform = `translate(-50%, -50%) scale(${1 + Math.min(1, Math.abs(mouse.vx + mouse.vy) * 0.02)})`;
         });
 
-        // Reset blend mode to draw the ghost text correctly
-        ctx.globalCompositeOperation = "source-over";
-        drawGhostText();
+        window.addEventListener("resize", () => {
+            initCanvas();
+            createTextParticles();
+        });
 
-        requestAnimationFrame(animate);
-      }
-
-      window.addEventListener("mousemove", (e) => {
-        mouse.x = e.clientX;
-        mouse.y = e.clientY;
-      });
-
-      window.addEventListener("resize", () => {
+        // Initialize
         initCanvas();
         createTextParticles();
-      });
-
-      initCanvas();
-      createTextParticles();
-      animate();
+        animate();
     </script>
-  </body>
+</body>
 </html>

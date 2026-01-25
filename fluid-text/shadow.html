@@ -11,7 +11,7 @@
             height: 100%;
         }
     </style>
-    <title>Sand Particle Text</title>
+    <title>Fluid Particle Text</title>
 </head>
 <body>
     <canvas id="canvas"></canvas>
@@ -20,16 +20,18 @@
         const canvas = document.getElementById("canvas");
         const ctx = canvas.getContext("2d");
         let particles = [];
-        const mouse = { x: -1000, y: -1000, radius: 100 };
+        const mouse = { x: null, y: null, radius: 150 };
 
-        let fontSize = Math.min(window.innerWidth / 5, 200);
+        // --- CONFIGURATION ---
+        // Increase this for bigger text
+        let fontSize = Math.min(window.innerWidth / 6, 180); 
         const text1 = "Let's";
-        const text2 = "Connect";
+        const text2 = "Connect ";
 
         function initCanvas() {
             canvas.width = window.innerWidth;
             canvas.height = window.innerHeight;
-            fontSize = Math.min(window.innerWidth / 5, 200);
+            fontSize = Math.min(window.innerWidth / 6, 180);
         }
 
         function createTextParticles() {
@@ -38,6 +40,7 @@
             tempCanvas.width = canvas.width;
             tempCanvas.height = canvas.height;
 
+            // Define Font
             tempCtx.font = `bold ${fontSize}px Helvetica, Arial, sans-serif`;
             tempCtx.fillStyle = "white";
             tempCtx.textBaseline = "middle";
@@ -45,6 +48,8 @@
 
             const x = canvas.width / 2;
             const y = canvas.height / 2;
+
+            // Draw to hidden canvas to sample pixels
             tempCtx.fillText(text1, x, y - fontSize * 0.45);
             tempCtx.fillText(text2, x, y + fontSize * 0.45);
 
@@ -52,22 +57,22 @@
             const data = imageData.data;
             particles = [];
 
-            // Dense sampling (every 2 pixels) for a grainy sand look
-            for (let y = 0; y < tempCanvas.height; y += 2) {
-                for (let x = 0; x < tempCanvas.width; x += 2) {
+            // Sampling: Step 3 for high density but good performance
+            for (let y = 0; y < tempCanvas.height; y += 3) {
+                for (let x = 0; x < tempCanvas.width; x += 3) {
                     const index = (y * tempCanvas.width + x) * 4;
                     if (data[index + 3] > 128) {
                         particles.push({
-                            x: x + (Math.random() - 0.5) * 10,
-                            y: y + (Math.random() - 0.5) * 10,
+                            x: x + (Math.random() - 0.5) * 20,
+                            y: y + (Math.random() - 0.5) * 20,
                             originX: x,
                             originY: y,
-                            vx: (Math.random() - 0.5) * 2, // Initial drift
-                            vy: (Math.random() - 0.5) * 2,
-                            size: Math.random() * 1.5 + 0.5, // Tiny varying grains
-                            friction: 0.94, // Air resistance
-                            ease: 0.015,    // Lower = more "free" to drift
-                            color: `rgba(255, 255, 255, ${Math.random() * 0.5 + 0.5})` // Variations in grain brightness
+                            size: 1.2, 
+                            vx: 0,
+                            vy: 0,
+                            friction: 0.9,
+                            ease: 0.05 + Math.random() * 0.05,
+                            color: "rgba(255, 255, 255, 0.9)"
                         });
                     }
                 }
@@ -75,10 +80,13 @@
         }
 
         function drawGhostText() {
+            // This is the "Solid Shadow" that stays behind
             ctx.font = `bold ${fontSize}px Helvetica, Arial, sans-serif`;
             ctx.textBaseline = "middle";
             ctx.textAlign = "center";
-            ctx.fillStyle = "rgba(255, 255, 255, 0.05)";
+            
+            // Subtle solid "shadow" text
+            ctx.fillStyle = "rgba(255, 255, 255, 0.08)";
             const x = canvas.width / 2;
             const y = canvas.height / 2;
             ctx.fillText(text1, x, y - fontSize * 0.45);
@@ -86,42 +94,38 @@
         }
 
         function animate() {
-            // Very light clear to allow slight trails
-            ctx.fillStyle = "rgba(0, 0, 0, 0.2)";
+            // Clear canvas with a slight trail effect
+            ctx.fillStyle = "black";
             ctx.fillRect(0, 0, canvas.width, canvas.height);
-            
+
+            // 1. Draw the readable "Solid Shadow" first
             drawGhostText();
 
+            // 2. Update and Draw Particles
             particles.forEach((p) => {
+                // Interaction
                 const dx = mouse.x - p.x;
                 const dy = mouse.y - p.y;
                 const distance = Math.sqrt(dx * dx + dy * dy);
                 
-                // Interaction: Kick the sand
                 if (distance < mouse.radius) {
                     const angle = Math.atan2(dy, dx);
                     const force = (mouse.radius - distance) / mouse.radius;
-                    // Push particles away with high speed (sand scattering)
-                    p.vx -= Math.cos(angle) * force * 15;
-                    p.vy -= Math.sin(angle) * force * 15;
+                    // Push particles away
+                    p.vx -= Math.cos(angle) * force * 10;
+                    p.vy -= Math.sin(angle) * force * 10;
                 }
 
-                // Physics
-                // Return to origin (Gentle drift back)
+                // Spring back to origin
                 p.vx += (p.originX - p.x) * p.ease;
                 p.vy += (p.originY - p.y) * p.ease;
-
-                // Grainy "Jitter" (Brownian motion)
-                // This makes it feel like sand particles vibrating in air
-                p.vx += (Math.random() - 0.5) * 0.4;
-                p.vy += (Math.random() - 0.5) * 0.4;
 
                 p.vx *= p.friction;
                 p.vy *= p.friction;
                 p.x += p.vx;
                 p.y += p.vy;
 
-                // Rendering tiny grains
+                // Draw
                 ctx.fillStyle = p.color;
                 ctx.fillRect(p.x, p.y, p.size, p.size);
             });
@@ -132,12 +136,6 @@
         window.addEventListener("mousemove", (e) => {
             mouse.x = e.clientX;
             mouse.y = e.clientY;
-        });
-
-        // Touch support
-        window.addEventListener("touchmove", (e) => {
-            mouse.x = e.touches[0].clientX;
-            mouse.y = e.touches[0].clientY;
         });
 
         window.addEventListener("resize", () => {
@@ -151,4 +149,3 @@
     </script>
 </body>
 </html>
-

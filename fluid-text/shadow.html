@@ -82,7 +82,7 @@
                 vx: 0,
                 vy: 0,
                 // Fluid particles need a bit more weight and less friction
-                friction: 0.92, 
+                friction: 0.92,
                 ease: 0.01, // Slower return to origin for a heavier feel
                 radius: 2, // For inter-particle collision
               });
@@ -90,7 +90,7 @@
           }
         }
       }
-      
+
       function drawGhostText() {
         ctx.font = `bold ${fontSize}px Helvetica, Arial, sans-serif`;
         ctx.textBaseline = "middle";
@@ -101,62 +101,64 @@
         ctx.fillText(text1, x, y - fontSize * 0.45);
         ctx.fillText(text2, x, y + fontSize * 0.45);
       }
-      
+
       function applyFluidPhysics() {
         for (let i = 0; i < particles.length; i++) {
-            const p1 = particles[i];
+          const p1 = particles[i];
 
-            // Mouse interaction
-            const dx = mouse.x - p1.x;
-            const dy = mouse.y - p1.y;
-            const distance = Math.sqrt(dx * dx + dy * dy);
+          // Mouse interaction
+          const dx = mouse.x - p1.x;
+          const dy = mouse.y - p1.y;
+          const distance = Math.sqrt(dx * dx + dy * dy);
 
-            if (distance < mouse.radius) {
-                const angle = Math.atan2(dy, dx);
-                const force = (mouse.radius - distance) / mouse.radius;
-                p1.vx -= Math.cos(angle) * force * MOUSE_FORCE;
-                p1.vy -= Math.sin(angle) * force * MOUSE_FORCE;
+          if (distance < mouse.radius) {
+            const angle = Math.atan2(dy, dx);
+            const force = (mouse.radius - distance) / mouse.radius;
+            p1.vx -= Math.cos(angle) * force * MOUSE_FORCE;
+            p1.vy -= Math.sin(angle) * force * MOUSE_FORCE;
+          }
+
+          // Inter-particle forces (The core of the fluid effect)
+          for (let j = i + 1; j < particles.length; j++) {
+            const p2 = particles[j];
+            const dx = p2.x - p1.x;
+            const dy = p2.y - p1.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+
+            if (dist < INTERACTION_RADIUS && dist > 0) {
+              const angle = Math.atan2(dy, dx);
+
+              // REPULSION: If too close, push apart
+              if (dist < p1.radius + p2.radius + 2) {
+                const force =
+                  (p1.radius + p2.radius + 2 - dist) * REPULSION_STRENGTH;
+                p1.vx -= Math.cos(angle) * force;
+                p1.vy -= Math.sin(angle) * force;
+                p2.vx += Math.cos(angle) * force;
+                p2.vy += Math.sin(angle) * force;
+              }
+
+              // COHESION: If at a medium distance, pull together
+              else {
+                const force =
+                  (dist - (p1.radius + p2.radius + 2)) * COHESION_STRENGTH;
+                p1.vx += Math.cos(angle) * force;
+                p1.vy += Math.sin(angle) * force;
+                p2.vx -= Math.cos(angle) * force;
+                p2.vy -= Math.sin(angle) * force;
+              }
             }
+          }
 
-            // Inter-particle forces (The core of the fluid effect)
-            for (let j = i + 1; j < particles.length; j++) {
-                const p2 = particles[j];
-                const dx = p2.x - p1.x;
-                const dy = p2.y - p1.y;
-                const dist = Math.sqrt(dx * dx + dy * dy);
+          // Spring back to origin
+          p1.vx += (p1.originX - p1.x) * p1.ease;
+          p1.vy += (p1.originY - p1.y) * p1.ease;
 
-                if (dist < INTERACTION_RADIUS && dist > 0) {
-                    const angle = Math.atan2(dy, dx);
-
-                    // REPULSION: If too close, push apart
-                    if (dist < p1.radius + p2.radius + 2) {
-                        const force = (p1.radius + p2.radius + 2 - dist) * REPULSION_STRENGTH;
-                        p1.vx -= Math.cos(angle) * force;
-                        p1.vy -= Math.sin(angle) * force;
-                        p2.vx += Math.cos(angle) * force;
-                        p2.vy += Math.sin(angle) * force;
-                    }
-                    
-                    // COHESION: If at a medium distance, pull together
-                    else {
-                        const force = (dist - (p1.radius + p2.radius + 2)) * COHESION_STRENGTH;
-                        p1.vx += Math.cos(angle) * force;
-                        p1.vy += Math.sin(angle) * force;
-                        p2.vx -= Math.cos(angle) * force;
-                        p2.vy -= Math.sin(angle) * force;
-                    }
-                }
-            }
-
-            // Spring back to origin
-            p1.vx += (p1.originX - p1.x) * p1.ease;
-            p1.vy += (p1.originY - p1.y) * p1.ease;
-
-            // Apply friction and update position
-            p1.vx *= p1.friction;
-            p1.vy *= p1.friction;
-            p1.x += p1.vx;
-            p1.y += p1.vy;
+          // Apply friction and update position
+          p1.vx *= p1.friction;
+          p1.vy *= p1.friction;
+          p1.x += p1.vx;
+          p1.y += p1.vy;
         }
       }
 
@@ -166,26 +168,33 @@
         ctx.fillRect(0, 0, canvas.width, canvas.height);
 
         // Set blend mode for fluid-like merging
-        ctx.globalCompositeOperation = 'lighter';
-        
+        ctx.globalCompositeOperation = "lighter";
+
         // Apply physics and draw particles
         applyFluidPhysics();
 
         particles.forEach((p) => {
-            // Draw with a gradient for a "glowy" blob effect
-            const gradient = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.radius * 4);
-            gradient.addColorStop(0, 'rgba(150, 200, 255, 1)');
-            gradient.addColorStop(0.5, 'rgba(100, 150, 255, 0.5)');
-            gradient.addColorStop(1, 'rgba(50, 100, 255, 0)');
-            
-            ctx.fillStyle = gradient;
-            ctx.beginPath();
-            ctx.arc(p.x, p.y, p.radius * 4, 0, Math.PI * 2);
-            ctx.fill();
+          // Draw with a gradient for a "glowy" blob effect
+          const gradient = ctx.createRadialGradient(
+            p.x,
+            p.y,
+            0,
+            p.x,
+            p.y,
+            p.radius * 4,
+          );
+          gradient.addColorStop(0, "rgba(150, 200, 255, 1)");
+          gradient.addColorStop(0.5, "rgba(100, 150, 255, 0.5)");
+          gradient.addColorStop(1, "rgba(50, 100, 255, 0)");
+
+          ctx.fillStyle = gradient;
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, p.radius * 4, 0, Math.PI * 2);
+          ctx.fill();
         });
 
         // Reset blend mode to draw the ghost text correctly
-        ctx.globalCompositeOperation = 'source-over';
+        ctx.globalCompositeOperation = "source-over";
         drawGhostText();
 
         requestAnimationFrame(animate);

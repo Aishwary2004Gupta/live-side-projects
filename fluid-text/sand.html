@@ -1,110 +1,127 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-<meta charset="utf-8">
-<title>Smooth Sand Text</title>
-<style>
-  body { margin:0; background:#000; overflow:hidden; cursor:none; }
-  canvas { display:block; }
-</style>
-</head>
-<body>
-<canvas id="c"></canvas>
-
-<script>
-// ==================== SUPER FAST SAND TEXT ====================
-const canvas = document.getElementById('c');
-const ctx = canvas.getContext('2d');
-let w, h, particles = [];
-
-const TEXT = "Let's Connect";
-let fontSize = 160;
-
-// Mouse
-let mx = -9999, my = -9999;
-
-// Resize
-function resize() {
-  w = canvas.width = window.innerWidth;
-  h = canvas.height = window.innerHeight;
-  fontSize = Math.min(w/5.5, 180);
-}
-window.addEventListener('resize', resize);
-resize();
-
-// Create particles from text (only once)
-function init() {
-  const temp = document.createElement('canvas');
-  const tctx = temp.getContext('2d');
-  temp.width = w; temp.height = h;
-
-  tctx.font = `900 ${fontSize}px Arial, Helvetica, sans-serif`;
-  tctx.fillStyle = '#fff';
-  tctx.textAlign = 'center';
-  tctx.textBaseline = 'middle';
-  tctx.fillText(TEXT, w/2, h/2);
-
-  const data = tctx.getImageData(0,0,w,h).data;
-  particles = [];
-
-  // Sample every 3px → ~8000–12000 particles max, buttery smooth
-  for (let y=0; y<h; y+=3) {
-    for (let x=0; x<w; x+=3) {
-      if (data[(y*w + x)*4 + 3] > 128) {
-        particles.push({
-          x, y,                   // current pos
-          ox: x, oy: y,           // origin
-          vx: 0, vy: 0,
-          r: 1 + Math.random()*0.6 // tiny grain size
-        });
+  <head>
+    <meta charset="utf-8" />
+    <title>Smooth Sand Text</title>
+    <style>
+      body {
+        margin: 0;
+        background: #000;
+        overflow: hidden;
+        cursor: none;
       }
-    }
-  }
-}
-init();
+      canvas {
+        display: block;
+      }
+    </style>
+  </head>
+  <body>
+    <canvas id="c"></canvas>
 
-// Mouse move
-canvas.addEventListener('mousemove', e => { mx=e.clientX; my=e.clientY; });
+    <script>
+      // ==================== SUPER FAST SAND TEXT ====================
+      const canvas = document.getElementById("c");
+      const ctx = canvas.getContext("2d");
+      let w,
+        h,
+        particles = [];
 
-// Render loop – ONLY draws, no heavy loops inside
-function draw() {
-  // Soft trail (this is what kills lag if done wrong)
-  ctx.fillStyle = 'rgba(0,0,0,0.07)';
-  ctx.fillRect(0,0,w,h);
+      const TEXT = "Let's Connect";
+      let fontSize = 160;
 
-  // Draw all particles in one go
-  ctx.fillStyle = '#ffcc88';
-  particles.forEach(p => {
-    // Mouse repulsion (very cheap distance check)
-    const dx = p.x - mx;
-    const dy = p.y - my;
-    const dist2 = dx*dx + dy*dy;
-    if (dist2 < 160*160) {
-      const f = 9000 / (dist2 + 1000);   // super fast force
-      p.vx += dx * f;
-      p.vy += dy * f;
-    }
+      // Mouse
+      let mx = -9999,
+        my = -9999;
 
-    // Tiny gravity + return to origin (sand feel)
-    p.vy += 0.08;                         // gravity
-    p.vx += (p.ox - p.x) * 0.0008;         // very soft return
-    p.vy += (p.oy - p.y) * 0.0008;
+      // Resize
+      function resize() {
+        w = canvas.width = window.innerWidth;
+        h = canvas.height = window.innerHeight;
+        fontSize = Math.min(w / 5.5, 180);
+      }
+      window.addEventListener("resize", resize);
+      resize();
 
-    // Friction
-    p.vx *= 0.96;
-    p.vy *= 0.96;
+      // Create particles from text (only once)
+      function init() {
+        const temp = document.createElement("canvas");
+        const tctx = temp.getContext("2d");
+        temp.width = w;
+        temp.height = h;
 
-    // Update position
-    p.x += p.vx;
-    p.y += p.vy;
+        tctx.font = `900 ${fontSize}px Arial, Helvetica, sans-serif`;
+        tctx.fillStyle = "#fff";
+        tctx.textAlign = "center";
+        tctx.textBaseline = "middle";
+        tctx.fillText(TEXT, w / 2, h / 2);
 
-    // Draw tiny grain (fillRect is fastest)
-    ctx.fillRect(p.x - p.r, p.y - p.r, p.r*2, p.r*2);
-  });
+        const data = tctx.getImageData(0, 0, w, h).data;
+        particles = [];
 
-  requestAnimationFrame(draw);
-}
-draw();
-</script>
-</body>
+        // Sample every 3px → ~8000–12000 particles max, buttery smooth
+        for (let y = 0; y < h; y += 3) {
+          for (let x = 0; x < w; x += 3) {
+            if (data[(y * w + x) * 4 + 3] > 128) {
+              particles.push({
+                x,
+                y, // current pos
+                ox: x,
+                oy: y, // origin
+                vx: 0,
+                vy: 0,
+                r: 1 + Math.random() * 0.6, // tiny grain size
+              });
+            }
+          }
+        }
+      }
+      init();
+
+      // Mouse move
+      canvas.addEventListener("mousemove", (e) => {
+        mx = e.clientX;
+        my = e.clientY;
+      });
+
+      // Render loop – ONLY draws, no heavy loops inside
+      function draw() {
+        // Soft trail (this is what kills lag if done wrong)
+        ctx.fillStyle = "rgba(0,0,0,0.07)";
+        ctx.fillRect(0, 0, w, h);
+
+        // Draw all particles in one go
+        ctx.fillStyle = "#ffcc88";
+        particles.forEach((p) => {
+          // Mouse repulsion (very cheap distance check)
+          const dx = p.x - mx;
+          const dy = p.y - my;
+          const dist2 = dx * dx + dy * dy;
+          if (dist2 < 160 * 160) {
+            const f = 9000 / (dist2 + 1000); // super fast force
+            p.vx += dx * f;
+            p.vy += dy * f;
+          }
+
+          // Tiny gravity + return to origin (sand feel)
+          p.vy += 0.08; // gravity
+          p.vx += (p.ox - p.x) * 0.0008; // very soft return
+          p.vy += (p.oy - p.y) * 0.0008;
+
+          // Friction
+          p.vx *= 0.96;
+          p.vy *= 0.96;
+
+          // Update position
+          p.x += p.vx;
+          p.y += p.vy;
+
+          // Draw tiny grain (fillRect is fastest)
+          ctx.fillRect(p.x - p.r, p.y - p.r, p.r * 2, p.r * 2);
+        });
+
+        requestAnimationFrame(draw);
+      }
+      draw();
+    </script>
+  </body>
 </html>

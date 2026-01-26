@@ -1,153 +1,162 @@
-<!DOCTYPE html>
+<!doctype html>
 <html>
-<head>
+  <head>
     <style>
-        body { margin: 0; background-color: #000; overflow: hidden; }
-        canvas {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-        }
+      body {
+        margin: 0;
+        background-color: #000;
+        overflow: hidden;
+      }
+      canvas {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+      }
     </style>
     <title>Sand Particle Text</title>
-</head>
-<body>
+  </head>
+  <body>
     <canvas id="canvas"></canvas>
 
     <script>
-        const canvas = document.getElementById("canvas");
-        const ctx = canvas.getContext("2d");
-        let particles = [];
-        const mouse = { x: -1000, y: -1000, radius: 100 };
+      const canvas = document.getElementById("canvas");
+      const ctx = canvas.getContext("2d");
+      let particles = [];
+      const mouse = { x: -1000, y: -1000, radius: 100 };
 
-        let fontSize = Math.min(window.innerWidth / 5, 200);
-        const text1 = "Let's";
-        const text2 = "Connect";
+      let fontSize = Math.min(window.innerWidth / 5, 200);
+      const text1 = "Let's";
+      const text2 = "Connect";
 
-        function initCanvas() {
-            canvas.width = window.innerWidth;
-            canvas.height = window.innerHeight;
-            fontSize = Math.min(window.innerWidth / 5, 200);
-        }
+      function initCanvas() {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+        fontSize = Math.min(window.innerWidth / 5, 200);
+      }
 
-        function createTextParticles() {
-            const tempCanvas = document.createElement("canvas");
-            const tempCtx = tempCanvas.getContext("2d");
-            tempCanvas.width = canvas.width;
-            tempCanvas.height = canvas.height;
+      function createTextParticles() {
+        const tempCanvas = document.createElement("canvas");
+        const tempCtx = tempCanvas.getContext("2d");
+        tempCanvas.width = canvas.width;
+        tempCanvas.height = canvas.height;
 
-            tempCtx.font = `bold ${fontSize}px Helvetica, Arial, sans-serif`;
-            tempCtx.fillStyle = "white";
-            tempCtx.textBaseline = "middle";
-            tempCtx.textAlign = "center";
+        tempCtx.font = `bold ${fontSize}px Helvetica, Arial, sans-serif`;
+        tempCtx.fillStyle = "white";
+        tempCtx.textBaseline = "middle";
+        tempCtx.textAlign = "center";
 
-            const x = canvas.width / 2;
-            const y = canvas.height / 2;
-            tempCtx.fillText(text1, x, y - fontSize * 0.45);
-            tempCtx.fillText(text2, x, y + fontSize * 0.45);
+        const x = canvas.width / 2;
+        const y = canvas.height / 2;
+        tempCtx.fillText(text1, x, y - fontSize * 0.45);
+        tempCtx.fillText(text2, x, y + fontSize * 0.45);
 
-            const imageData = tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
-            const data = imageData.data;
-            particles = [];
+        const imageData = tempCtx.getImageData(
+          0,
+          0,
+          tempCanvas.width,
+          tempCanvas.height,
+        );
+        const data = imageData.data;
+        particles = [];
 
-            // Dense sampling (every 2 pixels) for a grainy sand look
-            for (let y = 0; y < tempCanvas.height; y += 2) {
-                for (let x = 0; x < tempCanvas.width; x += 2) {
-                    const index = (y * tempCanvas.width + x) * 4;
-                    if (data[index + 3] > 128) {
-                        particles.push({
-                            x: x + (Math.random() - 0.5) * 10,
-                            y: y + (Math.random() - 0.5) * 10,
-                            originX: x,
-                            originY: y,
-                            vx: (Math.random() - 0.5) * 2, // Initial drift
-                            vy: (Math.random() - 0.5) * 2,
-                            size: Math.random() * 1.5 + 0.5, // Tiny varying grains
-                            friction: 0.94, // Air resistance
-                            ease: 0.015,    // Lower = more "free" to drift
-                            color: `rgba(255, 255, 255, ${Math.random() * 0.5 + 0.5})` // Variations in grain brightness
-                        });
-                    }
-                }
+        // Dense sampling (every 2 pixels) for a grainy sand look
+        for (let y = 0; y < tempCanvas.height; y += 2) {
+          for (let x = 0; x < tempCanvas.width; x += 2) {
+            const index = (y * tempCanvas.width + x) * 4;
+            if (data[index + 3] > 128) {
+              particles.push({
+                x: x + (Math.random() - 0.5) * 10,
+                y: y + (Math.random() - 0.5) * 10,
+                originX: x,
+                originY: y,
+                vx: (Math.random() - 0.5) * 2, // Initial drift
+                vy: (Math.random() - 0.5) * 2,
+                size: Math.random() * 1.5 + 0.5, // Tiny varying grains
+                friction: 0.94, // Air resistance
+                ease: 0.015, // Lower = more "free" to drift
+                color: `rgba(255, 255, 255, ${Math.random() * 0.5 + 0.5})`, // Variations in grain brightness
+              });
             }
+          }
         }
+      }
 
-        function drawGhostText() {
-            ctx.font = `bold ${fontSize}px Helvetica, Arial, sans-serif`;
-            ctx.textBaseline = "middle";
-            ctx.textAlign = "center";
-            ctx.fillStyle = "rgba(255, 255, 255, 0.05)";
-            const x = canvas.width / 2;
-            const y = canvas.height / 2;
-            ctx.fillText(text1, x, y - fontSize * 0.45);
-            ctx.fillText(text2, x, y + fontSize * 0.45);
-        }
+      function drawGhostText() {
+        ctx.font = `bold ${fontSize}px Helvetica, Arial, sans-serif`;
+        ctx.textBaseline = "middle";
+        ctx.textAlign = "center";
+        ctx.fillStyle = "rgba(255, 255, 255, 0.05)";
+        const x = canvas.width / 2;
+        const y = canvas.height / 2;
+        ctx.fillText(text1, x, y - fontSize * 0.45);
+        ctx.fillText(text2, x, y + fontSize * 0.45);
+      }
 
-        function animate() {
-            // Very light clear to allow slight trails
-            ctx.fillStyle = "rgba(0, 0, 0, 0.2)";
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-            
-            drawGhostText();
+      function animate() {
+        // Very light clear to allow slight trails
+        ctx.fillStyle = "rgba(0, 0, 0, 0.2)";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-            particles.forEach((p) => {
-                const dx = mouse.x - p.x;
-                const dy = mouse.y - p.y;
-                const distance = Math.sqrt(dx * dx + dy * dy);
-                
-                // Interaction: Kick the sand
-                if (distance < mouse.radius) {
-                    const angle = Math.atan2(dy, dx);
-                    const force = (mouse.radius - distance) / mouse.radius;
-                    // Push particles away with high speed (sand scattering)
-                    p.vx -= Math.cos(angle) * force * 15;
-                    p.vy -= Math.sin(angle) * force * 15;
-                }
+        drawGhostText();
 
-                // Physics
-                // Return to origin (Gentle drift back)
-                p.vx += (p.originX - p.x) * p.ease;
-                p.vy += (p.originY - p.y) * p.ease;
+        particles.forEach((p) => {
+          const dx = mouse.x - p.x;
+          const dy = mouse.y - p.y;
+          const distance = Math.sqrt(dx * dx + dy * dy);
 
-                // Grainy "Jitter" (Brownian motion)
-                // This makes it feel like sand particles vibrating in air
-                p.vx += (Math.random() - 0.5) * 0.4;
-                p.vy += (Math.random() - 0.5) * 0.4;
+          // Interaction: Kick the sand
+          if (distance < mouse.radius) {
+            const angle = Math.atan2(dy, dx);
+            const force = (mouse.radius - distance) / mouse.radius;
+            // Push particles away with high speed (sand scattering)
+            p.vx -= Math.cos(angle) * force * 15;
+            p.vy -= Math.sin(angle) * force * 15;
+          }
 
-                p.vx *= p.friction;
-                p.vy *= p.friction;
-                p.x += p.vx;
-                p.y += p.vy;
+          // Physics
+          // Return to origin (Gentle drift back)
+          p.vx += (p.originX - p.x) * p.ease;
+          p.vy += (p.originY - p.y) * p.ease;
 
-                // Rendering tiny grains
-                ctx.fillStyle = p.color;
-                ctx.fillRect(p.x, p.y, p.size, p.size);
-            });
+          // Grainy "Jitter" (Brownian motion)
+          // This makes it feel like sand particles vibrating in air
+          p.vx += (Math.random() - 0.5) * 0.4;
+          p.vy += (Math.random() - 0.5) * 0.4;
 
-            requestAnimationFrame(animate);
-        }
+          p.vx *= p.friction;
+          p.vy *= p.friction;
+          p.x += p.vx;
+          p.y += p.vy;
 
-        window.addEventListener("mousemove", (e) => {
-            mouse.x = e.clientX;
-            mouse.y = e.clientY;
+          // Rendering tiny grains
+          ctx.fillStyle = p.color;
+          ctx.fillRect(p.x, p.y, p.size, p.size);
         });
 
-        // Touch support
-        window.addEventListener("touchmove", (e) => {
-            mouse.x = e.touches[0].clientX;
-            mouse.y = e.touches[0].clientY;
-        });
+        requestAnimationFrame(animate);
+      }
 
-        window.addEventListener("resize", () => {
-            initCanvas();
-            createTextParticles();
-        });
+      window.addEventListener("mousemove", (e) => {
+        mouse.x = e.clientX;
+        mouse.y = e.clientY;
+      });
 
+      // Touch support
+      window.addEventListener("touchmove", (e) => {
+        mouse.x = e.touches[0].clientX;
+        mouse.y = e.touches[0].clientY;
+      });
+
+      window.addEventListener("resize", () => {
         initCanvas();
         createTextParticles();
-        animate();
+      });
+
+      initCanvas();
+      createTextParticles();
+      animate();
     </script>
-</body>
+  </body>
 </html>

@@ -30,10 +30,74 @@
       const text1 = "Let's";
       const text2 = "Connect";
 
+      // Lightweight velocity field (grid) for fluid-like motion
+      const cellSize = 20;
+      let cols = 0;
+      let rows = 0;
+      let fieldVX = new Float32Array(0);
+      let fieldVY = new Float32Array(0);
+      const prevMouse = { x: -1000, y: -1000 };
+
+      function initField() {
+        cols = Math.max(1, Math.ceil(canvas.width / cellSize));
+        rows = Math.max(1, Math.ceil(canvas.height / cellSize));
+        fieldVX = new Float32Array(cols * rows);
+        fieldVY = new Float32Array(cols * rows);
+      }
+
+      function injectField(x, y, dx, dy) {
+        const cx = Math.floor(x / cellSize);
+        const cy = Math.floor(y / cellSize);
+        if (cx < 0 || cy < 0 || cx >= cols || cy >= rows) return;
+        const i = cy * cols + cx;
+        fieldVX[i] += dx * 0.6;
+        fieldVY[i] += dy * 0.6;
+      }
+
+      function updateField() {
+        // Simple blur-based diffusion + decay
+        const decay = 0.96;
+        const newVX = new Float32Array(cols * rows);
+        const newVY = new Float32Array(cols * rows);
+        for (let gy = 0; gy < rows; gy++) {
+          for (let gx = 0; gx < cols; gx++) {
+            let sumX = 0;
+            let sumY = 0;
+            let count = 0;
+            for (let oy = -1; oy <= 1; oy++) {
+              for (let ox = -1; ox <= 1; ox++) {
+                const nx = gx + ox;
+                const ny = gy + oy;
+                if (nx >= 0 && ny >= 0 && nx < cols && ny < rows) {
+                  const ni = ny * cols + nx;
+                  sumX += fieldVX[ni];
+                  sumY += fieldVY[ni];
+                  count++;
+                }
+              }
+            }
+            const i = gy * cols + gx;
+            newVX[i] = (sumX / count) * decay;
+            newVY[i] = (sumY / count) * decay;
+          }
+        }
+        fieldVX = newVX;
+        fieldVY = newVY;
+      }
+
+      function sampleField(x, y) {
+        const cx = Math.floor(x / cellSize);
+        const cy = Math.floor(y / cellSize);
+        if (cx < 0 || cy < 0 || cx >= cols || cy >= rows) return { x: 0, y: 0 };
+        const i = cy * cols + cx;
+        return { x: fieldVX[i], y: fieldVY[i] };
+      }
+
       function initCanvas() {
         canvas.width = window.innerWidth;
         canvas.height = window.innerHeight;
         fontSize = Math.min(window.innerWidth / 5, 200);
+        initField();
       }
 
       function createTextParticles() {
@@ -71,11 +135,11 @@
                 y: y + (Math.random() - 0.5) * 10,
                 originX: x,
                 originY: y,
-                vx: (Math.random() - 0.5) * 1, // Smaller initial drift for less kinetic energy
-                vy: (Math.random() - 0.5) * 1,
-                size: Math.random() * 1.8 + 0.8, // Slightly larger grains for a more 'liquid sand' look
-                friction: 0.88, // Stronger damping to reduce lingering kinetic motion
-                ease: 0.006, // Slower return to origin for longer displacement
+                vx: (Math.random() - 0.5) * 0.6, // Lower initial kinetic energy
+                vy: (Math.random() - 0.5) * 0.6,
+                size: Math.random() * 2 + 0.8, // Slightly larger grains for a liquid look
+                friction: 0.92, // Viscous damping
+                ease: 0.0025, // Very slow return to origin to allow flow
                 color: `rgba(255, 255, 255, ${Math.random() * 0.45 + 0.45})`, // Subtle brightness variation
               });
             }
@@ -110,22 +174,27 @@
           if (distance < mouse.radius) {
             const angle = Math.atan2(dy, dx);
             const force = (mouse.radius - distance) / mouse.radius;
-            // Strong, short-lived push to displace grains further
-            p.vx -= Math.cos(angle) * force * 30;
-            p.vy -= Math.sin(angle) * force * 30;
-            // Shift origin so particles stay displaced briefly (creates liquid-like flow)
-            p.originX += Math.cos(angle) * force * 12;
-            p.originY += Math.sin(angle) * force * 12;
+            // Moderate direct push; primary flow comes from velocity field
+            p.vx -= Math.cos(angle) * force * 12;
+            p.vy -= Math.sin(angle) * force * 12;
+            // Slightly nudge particle origin so the glyph deforms and flows
+            p.originX += Math.cos(angle) * force * 6;
+            p.originY += Math.sin(angle) * force * 6;
           }
+
+          // Apply sampled velocity field for smooth fluid motion
+          const f = sampleField(p.x, p.y);
+          p.vx += f.x * 0.9;
+          p.vy += f.y * 0.9;
 
           // Physics
           // Return to origin (Gentle drift back)
           p.vx += (p.originX - p.x) * p.ease;
           p.vy += (p.originY - p.y) * p.ease;
 
-          // Reduced jitter for a heavier, more cohesive sand feel
-          p.vx += (Math.random() - 0.5) * 0.12;
-          p.vy += (Math.random() - 0.5) * 0.12;
+          // Small jitter to avoid perfectly smooth motion
+          p.vx += (Math.random() - 0.5) * 0.06;
+          p.vy += (Math.random() - 0.5) * 0.06;
 
           p.vx *= p.friction;
           p.vy *= p.friction;

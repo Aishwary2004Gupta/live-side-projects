@@ -24,7 +24,7 @@
       const canvas = document.getElementById("canvas");
       const ctx = canvas.getContext("2d");
       let particles = [];
-      const mouse = { x: -1000, y: -1000, radius: 100 };
+      const mouse = { x: -1000, y: -1000, radius: 140 };
 
       let fontSize = Math.min(window.innerWidth / 5, 200);
       const text1 = "Let's";
@@ -71,12 +71,12 @@
                 y: y + (Math.random() - 0.5) * 10,
                 originX: x,
                 originY: y,
-                vx: (Math.random() - 0.5) * 2, // Initial drift
-                vy: (Math.random() - 0.5) * 2,
-                size: Math.random() * 1.5 + 0.5, // Tiny varying grains
-                friction: 0.94, // Air resistance
-                ease: 0.015, // Lower = more "free" to drift
-                color: `rgba(255, 255, 255, ${Math.random() * 0.5 + 0.5})`, // Variations in grain brightness
+                vx: (Math.random() - 0.5) * 1, // Smaller initial drift for less kinetic energy
+                vy: (Math.random() - 0.5) * 1,
+                size: Math.random() * 1.8 + 0.8, // Slightly larger grains for a more 'liquid sand' look
+                friction: 0.88, // Stronger damping to reduce lingering kinetic motion
+                ease: 0.006, // Slower return to origin for longer displacement
+                color: `rgba(255, 255, 255, ${Math.random() * 0.45 + 0.45})`, // Subtle brightness variation
               });
             }
           }
@@ -110,9 +110,12 @@
           if (distance < mouse.radius) {
             const angle = Math.atan2(dy, dx);
             const force = (mouse.radius - distance) / mouse.radius;
-            // Push particles away with high speed (sand scattering)
-            p.vx -= Math.cos(angle) * force * 15;
-            p.vy -= Math.sin(angle) * force * 15;
+            // Strong, short-lived push to displace grains further
+            p.vx -= Math.cos(angle) * force * 30;
+            p.vy -= Math.sin(angle) * force * 30;
+            // Shift origin so particles stay displaced briefly (creates liquid-like flow)
+            p.originX += Math.cos(angle) * force * 12;
+            p.originY += Math.sin(angle) * force * 12;
           }
 
           // Physics
@@ -120,10 +123,9 @@
           p.vx += (p.originX - p.x) * p.ease;
           p.vy += (p.originY - p.y) * p.ease;
 
-          // Grainy "Jitter" (Brownian motion)
-          // This makes it feel like sand particles vibrating in air
-          p.vx += (Math.random() - 0.5) * 0.4;
-          p.vy += (Math.random() - 0.5) * 0.4;
+          // Reduced jitter for a heavier, more cohesive sand feel
+          p.vx += (Math.random() - 0.5) * 0.12;
+          p.vy += (Math.random() - 0.5) * 0.12;
 
           p.vx *= p.friction;
           p.vy *= p.friction;

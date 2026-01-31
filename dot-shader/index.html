@@ -1,191 +1,128 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Creation of Adam Dots Effect</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body, html {
-            overflow: hidden;
-            background: #010101;
-        }
-
-        #viewport {
-            position: fixed;
-            inset: 0;
-        }
-    </style>
+  <title>Three.js + postprocessing Shader (ESM)</title>
+  <meta charset="UTF-8" />
+  <style> body { margin: 0; overflow: hidden; } </style>
 </head>
+
 <body>
-    <div id="viewport"></div>
+<script type="module">
+  import * as THREE from 'https://cdn.skypack.dev/three';
+  import { OrbitControls } from 'https://cdn.skypack.dev/three/examples/jsm/controls/OrbitControls.js';
+  import { GLTFLoader } from 'https://cdn.skypack.dev/three/examples/jsm/loaders/GLTFLoader.js';
 
-    <script type="module">
-        // --------------------------
-        // 100% Stable Verified Imports from official Three.js CDN
-        // --------------------------
-        import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.168.0/build/three.module.js';
-        import { OrbitControls } from 'https://cdn.jsdelivr.net/npm/three@0.168.0/examples/jsm/controls/OrbitControls.js';
-        import { GLTFLoader } from 'https://cdn.jsdelivr.net/npm/three@0.168.0/examples/jsm/loaders/GLTFLoader.js';
-        import { EffectComposer } from 'https://cdn.jsdelivr.net/npm/three@0.168.0/examples/jsm/postprocessing/EffectComposer.js';
-        import { RenderPass } from 'https://cdn.jsdelivr.net/npm/three@0.168.0/examples/jsm/postprocessing/RenderPass.js';
-        import { ShaderPass } from 'https://cdn.jsdelivr.net/npm/three@0.168.0/examples/jsm/postprocessing/ShaderPass.js';
-        import GUI from 'https://cdn.jsdelivr.net/npm/lil-gui@0.20.0/dist/lil-gui.esm.min.js';
+  import {
+    EffectComposer,
+    EffectPass,
+    RenderPass,
+    Effect
+  } from 'https://cdn.jsdelivr.net/npm/postprocessing@6.46.0?module';
 
-        // --------------------------
-        // Core Scene Setup
-        // --------------------------
-        const viewport = document.getElementById('viewport');
+  // ------------------------------------
+  // GLSL (Shader example)
+  const shader = `
+    uniform float pixelSize;
+    void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor) {
+      vec2 normalizedPixelSize = pixelSize / resolution;
+      vec2 uvPixel = normalizedPixelSize * floor(uv / normalizedPixelSize);
+      vec4 color = texture2D(inputBuffer, uvPixel);
 
-        const scene = new THREE.Scene();
-        scene.background = new THREE.Color(0x010101);
+      float luma = dot(vec3(0.2126, 0.7152, 0.0722), color.rgb);
+      vec2 cellUV = fract(uv / normalizedPixelSize);
 
-        // Exact match of your original Orthographic Camera settings
-        const camera = new THREE.OrthographicCamera(
-            window.innerWidth / -2,
-            window.innerWidth / 2,
-            window.innerHeight / 2,
-            window.innerHeight / -2,
-            0.01,
-            500
-        );
-        camera.position.set(0, 0, -5);
-        camera.zoom = 150;
-        camera.updateProjectionMatrix();
+      float radius = luma > 0.5 ? 0.3 : luma > 0.001 ? 0.12 : 0.075;
+      vec2 circleCenter = luma > 0.5 ? vec2(0.5, 0.5) : vec2(0.25, 0.25);
+      float distanceFromCenter = distance(cellUV, circleCenter);
+      float circleMask = smoothstep(radius, radius - 0.05, distanceFromCenter);
 
-        // Renderer configured exactly like your original R3F setup
-        const renderer = new THREE.WebGLRenderer({ 
-            antialias: true,
-            powerPreference: "high-performance"
-        });
-        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
-        renderer.setSize(window.innerWidth, window.innerHeight);
-        viewport.appendChild(renderer.domElement);
+      color.rgb = vec3(circleMask, circleMask, circleMask) * max(luma, 0.05);
+      outputColor = color;
+    }
+  `;
 
-        // Orbit Controls with damping enabled
-        const controls = new OrbitControls(camera, renderer.domElement);
-        controls.enableDamping = true;
-        controls.minDistance = 1;
-        controls.maxDistance = 20;
+  class CustomEffect extends Effect {
+    constructor({ pixelSize = 10.0 }) {
+      super('CustomDotsEffect', shader, {
+        uniforms: new Map([
+          ['pixelSize', new THREE.Uniform(pixelSize)],
+        ])
+      });
+      this.pixelSize = pixelSize;
+    }
 
-        // --------------------------
-        // Lighting (1:1 match to original code)
-        // --------------------------
-        const ambientLight = new THREE.AmbientLight(0xffffff, 0.55);
-        scene.add(ambientLight);
+    update(_, __, ___) {
+      this.uniforms.get('pixelSize').value = this.pixelSize;
+    }
+  }
 
-        const directionalLight = new THREE.DirectionalLight(0xffffff, 10.0);
-        directionalLight.position.set(5, 10, 0);
-        scene.add(directionalLight);
+  // ------------------------------------
+  // Init Scene
+  let scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x010101);
 
-        // --------------------------
-        // Custom Dots Effect - Exact port of your original GLSL shader
-        // Now using native Three.js ShaderPass instead of external library
-        // --------------------------
-        const dotsShader = {
-            uniforms: {
-                tDiffuse: { value: null },
-                pixelSize: { value: 10.0 },
-                resolution: { value: new THREE.Vector2(window.innerWidth, window.innerHeight) }
-            },
+  const width = window.innerWidth;
+  const height = window.innerHeight;
+  const aspect = width / height;
+  const frustumSize = 2;
 
-            vertexShader: `
-                varying vec2 vUv;
-                void main() {
-                    vUv = uv;
-                    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-                }
-            `,
+  let camera = new THREE.OrthographicCamera(
+    (frustumSize * aspect) / -2,
+    (frustumSize * aspect) / 2,
+    frustumSize / 2,
+    frustumSize / -2,
+    0.1,
+    100
+  );
+  camera.position.set(0, 0, -5);
+  camera.lookAt(0, 0, 0);
 
-            fragmentShader: `
-                uniform sampler2D tDiffuse;
-                uniform float pixelSize;
-                uniform vec2 resolution;
+  const renderer = new THREE.WebGLRenderer({ antialias: true });
+  renderer.setSize(width, height);
+  document.body.appendChild(renderer.domElement);
 
-                void main() {
-                    vec2 normalizedPixelSize = pixelSize / resolution;
-                    vec2 uvPixel = normalizedPixelSize * floor(vUv / normalizedPixelSize);
-                    vec4 color = texture2D(tDiffuse, uvPixel);
+  const controls = new OrbitControls(camera, renderer.domElement);
 
-                    float luma = dot(vec3(0.2126, 0.7152, 0.0722), color.rgb);
+  scene.add(new THREE.AmbientLight(0xffffff, 0.6));
+  const light = new THREE.DirectionalLight(0xffffff, 10);
+  light.position.set(5, 10, 0);
+  scene.add(light);
 
-                    vec2 cellUV = fract(vUv / normalizedPixelSize);
+  const loader = new GLTFLoader();
+  loader.load('https://cdn.maximeheckel.com/models/creation-of-adam.glb', (gltf) => {
+    const model = gltf.scene;
+    model.position.set(2.25, -2, 0);
+    model.rotation.y = -Math.PI / 2;
+    model.scale.setScalar(4);
+    scene.add(model);
+  });
 
-                    float radius = luma > 0.5 ? 0.3 : luma > 0.001 ? 0.12 : 0.075;
-                    vec2 circleCenter = luma > 0.5 ? vec2(0.5, 0.5) : vec2(0.25, 0.25);
+  // Postprocessing
+  const composer = new EffectComposer(renderer);
+  composer.addPass(new RenderPass(scene, camera));
 
-                    float distanceFromCenter = distance(cellUV, circleCenter);
-                    float circleMask = smoothstep(radius, radius - 0.05, distanceFromCenter);
-                    
-                    color.rgb = vec3(circleMask) * max(luma, 0.05);
-                    gl_FragColor = color;
-                }
-            `
-        };
+  const effect = new CustomEffect({ pixelSize: 10 });
+  const effectPass = new EffectPass(camera, effect);
+  composer.addPass(effectPass);
 
-        // --------------------------
-        // Post Processing Setup
-        // --------------------------
-        const composer = new EffectComposer(renderer);
-        composer.addPass(new RenderPass(scene, camera));
-        
-        const dotsEffect = new ShaderPass(dotsShader);
-        composer.addPass(dotsEffect);
+  // Resize handler
+  window.addEventListener('resize', () => {
+    const aspect = window.innerWidth / window.innerHeight;
+    camera.left = (-frustumSize * aspect) / 2;
+    camera.right = (frustumSize * aspect) / 2;
+    camera.top = frustumSize / 2;
+    camera.bottom = -frustumSize / 2;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    composer.setSize(window.innerWidth, window.innerHeight);
+  });
 
-        // --------------------------
-        // Control Panel - Matches original collapsed Leva panel
-        // --------------------------
-        const gui = new GUI({ title: "Controls" });
-        gui.add(dotsEffect.uniforms.pixelSize, 'value', 8.0, 32.0, 2.0)
-            .name("Pixel Size");
-        gui.close();
+  function animate() {
+    requestAnimationFrame(animate);
+    composer.render();
+  }
 
-        // --------------------------
-        // Load Model with exact transforms from original code
-        // --------------------------
-        const loader = new GLTFLoader();
-        loader.load("https://cdn.maximeheckel.com/models/creation-of-adam.glb", (gltf) => {
-            const modelGroup = new THREE.Group();
-            modelGroup.add(gltf.scene);
-
-            // Exact position, rotation and scale from your original React code
-            modelGroup.position.set(2.25, -2, 0);
-            modelGroup.rotation.y = -Math.PI / 2;
-            modelGroup.scale.setScalar(4);
-
-            scene.add(modelGroup);
-        });
-
-        // --------------------------
-        // Animation Loop
-        // --------------------------
-        const renderLoop = () => {
-            requestAnimationFrame(renderLoop);
-            controls.update();
-            composer.render();
-        };
-
-        renderLoop();
-
-        // --------------------------
-        // Responsive Resize Handler
-        // --------------------------
-        window.addEventListener("resize", () => {
-            camera.left = window.innerWidth / -2;
-            camera.right = window.innerWidth / 2;
-            camera.top = window.innerHeight / 2;
-            camera.bottom = window.innerHeight / -2;
-            
-            camera.updateProjectionMatrix();
-            renderer.setSize(window.innerWidth, window.innerHeight);
-            composer.setSize(window.innerWidth, window.innerHeight);
-            dotsEffect.uniforms.resolution.value.set(window.innerWidth, window.innerHeight);
-        });
-    </script>
+  animate();
+</script>
 </body>
 </html>

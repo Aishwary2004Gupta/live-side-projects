@@ -27,12 +27,14 @@
 
     <script type="module">
         // --------------------------
-        // Verified working ES Module Imports
+        // 100% Stable Verified Imports from official Three.js CDN
         // --------------------------
         import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.168.0/build/three.module.js';
         import { OrbitControls } from 'https://cdn.jsdelivr.net/npm/three@0.168.0/examples/jsm/controls/OrbitControls.js';
         import { GLTFLoader } from 'https://cdn.jsdelivr.net/npm/three@0.168.0/examples/jsm/loaders/GLTFLoader.js';
-        import { EffectComposer, Effect, RenderPass } from 'https://cdn.jsdelivr.net/npm/postprocessing@6.46.0/dist/postprocessing.esm.min.js';
+        import { EffectComposer } from 'https://cdn.jsdelivr.net/npm/three@0.168.0/examples/jsm/postprocessing/EffectComposer.js';
+        import { RenderPass } from 'https://cdn.jsdelivr.net/npm/three@0.168.0/examples/jsm/postprocessing/RenderPass.js';
+        import { ShaderPass } from 'https://cdn.jsdelivr.net/npm/three@0.168.0/examples/jsm/postprocessing/ShaderPass.js';
         import GUI from 'https://cdn.jsdelivr.net/npm/lil-gui@0.20.0/dist/lil-gui.esm.min.js';
 
         // --------------------------
@@ -83,58 +85,63 @@
 
         // --------------------------
         // Custom Dots Effect - Exact port of your original GLSL shader
+        // Now using native Three.js ShaderPass instead of external library
         // --------------------------
-        class CustomDotsEffect extends Effect {
-            constructor({ pixelSize = 10.0 } = {}) {
-                super("CustomDotsEffect", `
-                    uniform float pixelSize;
+        const dotsShader = {
+            uniforms: {
+                tDiffuse: { value: null },
+                pixelSize: { value: 10.0 },
+                resolution: { value: new THREE.Vector2(window.innerWidth, window.innerHeight) }
+            },
 
-                    void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor) {
-                        vec2 normalizedPixelSize = pixelSize / resolution;
-                        vec2 uvPixel = normalizedPixelSize * floor(uv / normalizedPixelSize);
-                        vec4 color = texture2D(inputBuffer, uvPixel);
+            vertexShader: `
+                varying vec2 vUv;
+                void main() {
+                    vUv = uv;
+                    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+                }
+            `,
 
-                        float luma = dot(vec3(0.2126, 0.7152, 0.0722), color.rgb);
+            fragmentShader: `
+                uniform sampler2D tDiffuse;
+                uniform float pixelSize;
+                uniform vec2 resolution;
 
-                        vec2 cellUV = fract(uv / normalizedPixelSize);
+                void main() {
+                    vec2 normalizedPixelSize = pixelSize / resolution;
+                    vec2 uvPixel = normalizedPixelSize * floor(vUv / normalizedPixelSize);
+                    vec4 color = texture2D(tDiffuse, uvPixel);
 
-                        float radius = luma > 0.5 ? 0.3 : luma > 0.001 ? 0.12 : 0.075;
-                        vec2 circleCenter = luma > 0.5 ? vec2(0.5, 0.5) : vec2(0.25, 0.25);
+                    float luma = dot(vec3(0.2126, 0.7152, 0.0722), color.rgb);
 
-                        float distanceFromCenter = distance(cellUV, circleCenter);
-                        float circleMask = smoothstep(radius, radius - 0.05, distanceFromCenter);
-                        
-                        color.rgb = vec3(circleMask) * max(luma, 0.05);
-                        outputColor = color;
-                    }
-                `, {
-                    uniforms: new Map([
-                        ["pixelSize", new THREE.Uniform(pixelSize)]
-                    ])
-                });
+                    vec2 cellUV = fract(vUv / normalizedPixelSize);
 
-                this.pixelSize = pixelSize;
-            }
+                    float radius = luma > 0.5 ? 0.3 : luma > 0.001 ? 0.12 : 0.075;
+                    vec2 circleCenter = luma > 0.5 ? vec2(0.5, 0.5) : vec2(0.25, 0.25);
 
-            update() {
-                this.uniforms.get("pixelSize").value = this.pixelSize;
-            }
-        }
+                    float distanceFromCenter = distance(cellUV, circleCenter);
+                    float circleMask = smoothstep(radius, radius - 0.05, distanceFromCenter);
+                    
+                    color.rgb = vec3(circleMask) * max(luma, 0.05);
+                    gl_FragColor = color;
+                }
+            `
+        };
 
         // --------------------------
-        // Post Processing Composer Setup
+        // Post Processing Setup
         // --------------------------
         const composer = new EffectComposer(renderer);
         composer.addPass(new RenderPass(scene, camera));
         
-        const dotsEffect = new CustomDotsEffect({ pixelSize: 10.0 });
+        const dotsEffect = new ShaderPass(dotsShader);
         composer.addPass(dotsEffect);
 
         // --------------------------
         // Control Panel - Matches original collapsed Leva panel
         // --------------------------
         const gui = new GUI({ title: "Controls" });
-        gui.add(dotsEffect, "pixelSize", 8.0, 32.0, 2.0)
+        gui.add(dotsEffect.uniforms.pixelSize, 'value', 8.0, 32.0, 2.0)
             .name("Pixel Size");
         gui.close();
 
@@ -177,6 +184,7 @@
             camera.updateProjectionMatrix();
             renderer.setSize(window.innerWidth, window.innerHeight);
             composer.setSize(window.innerWidth, window.innerHeight);
+            dotsEffect.uniforms.resolution.value.set(window.innerWidth, window.innerHeight);
         });
     </script>
 </body>

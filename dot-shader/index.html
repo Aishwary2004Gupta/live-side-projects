@@ -25,16 +25,14 @@
 <body>
     <div id="container"></div>
 
-    <script type="module">
-        import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
-        import { OrbitControls } from 'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/controls/OrbitControls.js';
-        import { GLTFLoader } from 'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/loaders/GLTFLoader.js';
-        import GUI from 'https://cdn.jsdelivr.net/npm/lil-gui@0.18.2/dist/lil-gui.esm.min.js';
+    <!-- CDN Imports -->
+    <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/controls/OrbitControls.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/loaders/GLTFLoader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/postprocessing@6.36.0/build/postprocessing.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/lil-gui@0.18.2/dist/lil-gui.umd.min.js"></script>
 
-        // NOTE: A prebuilt ESM bundle for `postprocessing` isn't available at the jsDelivr path used earlier,
-        // so we load the UMD build dynamically and expose `THREE` globally so the UMD script can find it.
-
-
+    <script>
         // --------------------------
         // Setup Scene
         // --------------------------
@@ -60,24 +58,9 @@
         renderer.setSize(window.innerWidth, window.innerHeight);
         container.appendChild(renderer.domElement);
 
-        // Orbit Controls (module import)
-        const controls = new OrbitControls(camera, renderer.domElement);
+        // Orbit Controls
+        const controls = new THREE.OrbitControls(camera, renderer.domElement);
         controls.enableDamping = true;
-
-        // Ensure UMD postprocessing can find THREE (we'll load the UMD bundle below as a fallback)
-        window.THREE = THREE;
-
-        // Dynamically load UMD `postprocessing` as a fallback since the ESM bundle isn't available on jsDelivr
-        await new Promise((resolve, reject) => {
-            const s = document.createElement('script');
-            s.src = 'https://cdn.jsdelivr.net/npm/postprocessing@6.36.0/build/postprocessing.min.js';
-            s.onload = () => resolve();
-            s.onerror = () => reject(new Error('Failed to load postprocessing UMD'));
-            document.head.appendChild(s);
-        });
-
-        // UMD exposes global `postprocessing`. Grab the constructors we need.
-        const { EffectComposer, Effect } = postprocessing;
 
         // --------------------------
         // Lights (matches original)
@@ -93,7 +76,7 @@
         // Custom Dots Effect
         // Exact port of your GLSL shader
         // --------------------------
-        class CustomDotsEffect extends Effect {
+        class CustomDotsEffect extends postprocessing.Effect {
             constructor({ pixelSize = 1.0 } = {}) {
                 super("CustomDotsEffect", `
                     uniform float pixelSize;
@@ -133,22 +116,22 @@
         }
 
         // Setup Post Processing Composer
-        const composer = new EffectComposer(renderer);
+        const composer = new postprocessing.EffectComposer(renderer);
         const effect = new CustomDotsEffect({ pixelSize: 10.0 });
         composer.addEffect(effect);
 
         // --------------------------
         // Control Panel (replaces Leva)
         // --------------------------
-        const gui = new GUI({ title: 'Controls' });
-        gui.add(effect, 'pixelSize', 8.0, 32.0, 2.0).name('Pixel Size');
+        const gui = new lil.GUI({ title: "Controls" });
+        gui.add(effect, "pixelSize", 8.0, 32.0, 2.0).name("Pixel Size");
         gui.close(); // Matches original collapsed Leva panel
 
         // --------------------------
         // Load Model
         // Exact positioning/rotation/scale from original code
         // --------------------------
-        const loader = new GLTFLoader();
+        const loader = new THREE.GLTFLoader();
         loader.load("https://cdn.maximeheckel.com/models/creation-of-adam.glb", (gltf) => {
             const modelGroup = new THREE.Group();
             modelGroup.add(gltf.scene);

@@ -8,8 +8,16 @@
   <style>
     html, body {
       margin: 0;
+      width: 100%;
+      height: 100%;
       overflow: hidden;
       background: #010101;
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
     }
 
     #ui {
@@ -19,6 +27,10 @@
       color: white;
       z-index: 10;
       font-family: sans-serif;
+      background: rgba(0,0,0,0.4);
+      padding: 10px 14px;
+      border-radius: 6px;
+      backdrop-filter: blur(6px);
     }
   </style>
 </head>
@@ -31,6 +43,9 @@
 </div>
 
 <script type="module">
+/* ======================================================
+   IMPORTS
+====================================================== */
 import * as THREE from "https://esm.sh/three@0.160.0";
 import { OrbitControls } from "https://esm.sh/three@0.160.0/examples/jsm/controls/OrbitControls.js";
 import { GLTFLoader } from "https://esm.sh/three@0.160.0/examples/jsm/loaders/GLTFLoader.js";
@@ -42,21 +57,19 @@ import {
   Effect
 } from "https://esm.sh/postprocessing@6.35.4?deps=three@0.160.0";
 
-
-/* ===============================
+/* ======================================================
    SHADER
-================================ */
-
+====================================================== */
 const fragmentShader = `
 uniform float pixelSize;
 
 void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor) {
+
   vec2 normalizedPixelSize = pixelSize / resolution;
   vec2 uvPixel = normalizedPixelSize * floor(uv / normalizedPixelSize);
   vec4 color = texture2D(inputBuffer, uvPixel);
 
   float luma = dot(vec3(0.2126, 0.7152, 0.0722), color.rgb);
-
   vec2 cellUV = fract(uv / normalizedPixelSize);
 
   float radius =
@@ -74,10 +87,9 @@ void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor)
 }
 `;
 
-/* ===============================
+/* ======================================================
    CUSTOM EFFECT
-================================ */
-
+====================================================== */
 class CustomDotsEffect extends Effect {
   constructor({ pixelSize = 10 }) {
     super("CustomDotsEffect", fragmentShader, {
@@ -93,32 +105,63 @@ class CustomDotsEffect extends Effect {
   }
 }
 
-/* ===============================
-   SCENE
-================================ */
-
+/* ======================================================
+   SCENE SETUP
+====================================================== */
 const scene = new THREE.Scene();
 scene.background = new THREE.Color("#010101");
 
-const camera = new THREE.OrthographicCamera(-5, 5, 5, -5, 0.01, 500);
-camera.position.set(0, 0, -5);
-camera.zoom = 150;
-camera.updateProjectionMatrix();
+/* ======================
+   CAMERA (FULLSCREEN)
+====================== */
+const frustumSize = 10;
+let camera;
 
+function createCamera() {
+  const aspect = window.innerWidth / window.innerHeight;
+
+  camera = new THREE.OrthographicCamera(
+    -frustumSize * aspect / 2,
+     frustumSize * aspect / 2,
+     frustumSize / 2,
+    -frustumSize / 2,
+    0.01,
+    500
+  );
+
+  camera.position.set(0, 0, -5);
+  camera.zoom = 150;
+  camera.updateProjectionMatrix();
+}
+
+createCamera();
+
+/* ======================
+   RENDERER
+====================== */
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
 document.body.appendChild(renderer.domElement);
 
+/* ======================
+   CONTROLS
+====================== */
 const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
 
-/* lights */
+/* ======================
+   LIGHTS
+====================== */
 scene.add(new THREE.AmbientLight(0xffffff, 0.55));
-const light = new THREE.DirectionalLight(0xffffff, 10);
-light.position.set(5, 10, 0);
-scene.add(light);
 
-/* model */
+const dirLight = new THREE.DirectionalLight(0xffffff, 10);
+dirLight.position.set(5, 10, 0);
+scene.add(dirLight);
+
+/* ======================
+   MODEL
+====================== */
 const loader = new GLTFLoader();
 loader.load(
   "https://cdn.maximeheckel.com/models/creation-of-adam.glb",
@@ -131,23 +174,51 @@ loader.load(
   }
 );
 
-/* post */
+/* ======================
+   POSTPROCESSING
+====================== */
 const composer = new EffectComposer(renderer);
 composer.addPass(new RenderPass(scene, camera));
 
 const dotsEffect = new CustomDotsEffect({ pixelSize: 10 });
 composer.addPass(new EffectPass(camera, dotsEffect));
 
-document.getElementById("pixelSlider").addEventListener("input", e => {
+/* ======================
+   UI
+====================== */
+document.getElementById("pixelSlider").addEventListener("input", (e) => {
   dotsEffect.pixelSize = Number(e.target.value);
 });
 
-/* loop */
+/* ======================
+   RESIZE
+====================== */
+window.addEventListener("resize", () => {
+  const width = window.innerWidth;
+  const height = window.innerHeight;
+  const aspect = width / height;
+
+  camera.left   = -frustumSize * aspect / 2;
+  camera.right  =  frustumSize * aspect / 2;
+  camera.top    =  frustumSize / 2;
+  camera.bottom = -frustumSize / 2;
+
+  camera.updateProjectionMatrix();
+
+  renderer.setSize(width, height);
+  composer.setSize(width, height);
+});
+
+/* ======================
+   LOOP
+====================== */
 function animate() {
   requestAnimationFrame(animate);
+  controls.update();
   camera.lookAt(0, 0, 0);
   composer.render();
 }
+
 animate();
 
 </script>

@@ -29,8 +29,11 @@
         import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
         import { OrbitControls } from 'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/controls/OrbitControls.js';
         import { GLTFLoader } from 'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/loaders/GLTFLoader.js';
-        import { EffectComposer, Effect } from 'https://cdn.jsdelivr.net/npm/postprocessing@6.36.0/build/postprocessing.esm.js';
         import GUI from 'https://cdn.jsdelivr.net/npm/lil-gui@0.18.2/dist/lil-gui.esm.min.js';
+
+        // NOTE: A prebuilt ESM bundle for `postprocessing` isn't available at the jsDelivr path used earlier,
+        // so we load the UMD build dynamically and expose `THREE` globally so the UMD script can find it.
+
 
         // --------------------------
         // Setup Scene
@@ -61,7 +64,20 @@
         const controls = new OrbitControls(camera, renderer.domElement);
         controls.enableDamping = true;
 
-        // Using ESM builds for postprocessing and lil-gui (no UMD dynamic loading required)
+        // Ensure UMD postprocessing can find THREE (we'll load the UMD bundle below as a fallback)
+        window.THREE = THREE;
+
+        // Dynamically load UMD `postprocessing` as a fallback since the ESM bundle isn't available on jsDelivr
+        await new Promise((resolve, reject) => {
+            const s = document.createElement('script');
+            s.src = 'https://cdn.jsdelivr.net/npm/postprocessing@6.36.0/build/postprocessing.min.js';
+            s.onload = () => resolve();
+            s.onerror = () => reject(new Error('Failed to load postprocessing UMD'));
+            document.head.appendChild(s);
+        });
+
+        // UMD exposes global `postprocessing`. Grab the constructors we need.
+        const { EffectComposer, Effect } = postprocessing;
 
         // --------------------------
         // Lights (matches original)

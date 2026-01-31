@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Three.js Custom Dots Shader</title>
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+      background-color: #010101;
+    }
+    canvas {
+      display: block;
+    }
+  </style>
+</head>
+<body>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.158.0/build/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.158.0/examples/js/controls/OrbitControls.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.158.0/examples/js/loaders/GLTFLoader.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/postprocessing@6.33.4/build/postprocessing.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/dat.gui/build/dat.gui.min.js"></script>
+
+  <script>
+    const { Scene, Color, WebGLRenderer, OrthographicCamera, AmbientLight, DirectionalLight, Group, Vector2 } = THREE;
+    const { EffectComposer, EffectPass, RenderPass, Effect } = POSTPROCESSING;
+
+    // GLSL: Fragment Shader Effect
+    const fragmentShader = `
+      uniform float pixelSize;
+      void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor) {
+        vec2 normalizedPixelSize = pixelSize / resolution;
+        vec2 uvPixel = normalizedPixelSize * floor(uv / normalizedPixelSize);
+        vec4 color = texture2D(inputBuffer, uvPixel);
+
+        float luma = dot(vec3(0.2126, 0.7152, 0.0722), color.rgb);
+        vec2 cellUV = fract(uv / normalizedPixelSize);
+
+        float radius = luma > 0.5 ? 0.3 : luma > 0.001 ? 0.12 : 0.075;
+        vec2 circleCenter = luma > 0.5 ? vec2(0.5, 0.5) : vec2(0.25, 0.25);
+        float distanceFromCenter = distance(cellUV, circleCenter);
+        float circleMask = smoothstep(radius, radius - 0.05, distanceFromCenter);
+
+        color.rgb = vec3(circleMask, circleMask, circleMask) * max(luma, 0.05);
+        outputColor = color;
+      }
+    `;
+
+    // Custom Shader Effect
+    class CustomDotsEffect extends Effect {
+      constructor({ pixelSize = 10.0 } = {}) {
+        super('CustomDotsEffect', fragmentShader, {
+          uniforms: new Map([
+            ['pixelSize', new THREE.Uniform(pixelSize)]
+          ]),
+        });
+        this.pixelSize = pixelSize;
+      }
+
+      update(renderer, inputBuffer, deltaTime) {
+        this.uniforms.get('pixelSize').value = this.pixelSize;
+      }
+    }
+
+    let scene, camera, renderer, composer, adamGroup;
+    let dotsEffect;
+    const clock = new THREE.Clock();
+
+    init();
+    animate();
+
+    function init() {
+      scene = new Scene();
+      scene.background = new Color(0x010101);
+
+      // Orthographic Camera
+      const aspect = window.innerWidth / window.innerHeight;
+      const frustumSize = 2;
+      camera = new OrthographicCamera(
+        frustumSize * aspect / -2,
+        frustumSize * aspect / 2,
+        frustumSize / 2,
+        frustumSize / -2,
+        0.01,
+        500
+      );
+      camera.position.set(0, 0, -5);
+      camera.lookAt(0, 0, 0);
+
+      // Renderer
+      renderer = new WebGLRenderer({ antialias: true });
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.setPixelRatio(window.devicePixelRatio);
+      document.body.appendChild(renderer.domElement);
+
+      // Controls
+      const controls = new THREE.OrbitControls(camera, renderer.domElement);
+
+      // Lights
+      const ambientLight = new AmbientLight(0xffffff, 0.55);
+      scene.add(ambientLight);
+
+      const dirLight = new DirectionalLight(0xffffff, 10);
+      dirLight.position.set(5, 10, 0);
+      scene.add(dirLight);
+
+      // Load GLTF Model (Creation of Adam)
+      const loader = new THREE.GLTFLoader();
+      loader.load('https://cdn.maximeheckel.com/models/creation-of-adam.glb', (gltf) => {
+        adamGroup = new Group();
+        adamGroup.position.set(2.25, -2, 0);
+        adamGroup.rotation.y = -Math.PI / 2;
+        adamGroup.scale.setScalar(4);
+
+        adamGroup.add(gltf.scene);
+        scene.add(adamGroup);
+      });
+
+      // Postprocessing Composer Setup
+      composer = new EffectComposer(renderer);
+      composer.addPass(new RenderPass(scene, camera));
+
+      dotsEffect = new CustomDotsEffect({ pixelSize: 10.0 });
+      const effectPass = new EffectPass(camera, dotsEffect);
+      composer.addPass(effectPass);
+
+      // dat.GUI for controls
+      const gui = new dat.GUI();
+      const settings = {
+        pixelSize: 10.0,
+      };
+      gui.add(settings, 'pixelSize', 8.0, 32.0, 2.0).onChange((val) => {
+        dotsEffect.pixelSize = val;
+      });
+
+      window.addEventListener('resize', onWindowResize);
+    }
+
+    function onWindowResize() {
+      const aspect = window.innerWidth / window.innerHeight;
+      const frustumSize = 2;
+
+      camera.left = -frustumSize * aspect / 2;
+      camera.right = frustumSize * aspect / 2;
+      camera.top = frustumSize / 2;
+      camera.bottom = -frustumSize / 2;
+      camera.updateProjectionMatrix();
+
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      composer.setSize(window.innerWidth, window.innerHeight);
+    }
+
+    function animate() {
+      requestAnimationFrame(animate);
+      composer.render(clock.getDelta());
+    }
+  </script>
+</body>
+</html>

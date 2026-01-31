@@ -1,137 +1,205 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <title>Three.js + postprocessing Shader (ESM)</title>
   <meta charset="UTF-8" />
-  <style> body { margin: 0; overflow: hidden; } </style>
+  <title>Dots Postprocessing Effect</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <style>
+    html, body {
+      margin: 0;
+      overflow: hidden;
+      background: #010101;
+      font-family: sans-serif;
+    }
+
+    canvas {
+      display: block;
+    }
+
+    #ui {
+      position: fixed;
+      top: 20px;
+      left: 20px;
+      color: white;
+      z-index: 10;
+    }
+
+    input {
+      width: 160px;
+    }
+  </style>
 </head>
 
 <body>
-<script type="importmap">
-      {
-        "imports": {
-          "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
-          "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/",
-          "lil-gui": "https://cdn.jsdelivr.net/npm/lil-gui@0.19/+esm"
-        }
-      }
-</script>
+
+<div id="ui">
+  <div>Pixel Size</div>
+  <input type="range" min="8" max="32" step="2" value="10" id="pixelSlider">
+</div>
+
 <script type="module">
-  import * as THREE from 'https://cdn.skypack.dev/three';
-  import { OrbitControls } from 'https://cdn.skypack.dev/three/examples/jsm/controls/OrbitControls.js';
-  import { GLTFLoader } from 'https://cdn.skypack.dev/three/examples/jsm/loaders/GLTFLoader.js';
+import * as THREE from "https://unpkg.com/three@0.160.0/build/three.module.js";
+import { OrbitControls } from "https://unpkg.com/three@0.160.0/examples/jsm/controls/OrbitControls.js";
+import { GLTFLoader } from "https://unpkg.com/three@0.160.0/examples/jsm/loaders/GLTFLoader.js";
 
-  import {
-    EffectComposer,
-    EffectPass,
-    RenderPass,
-    Effect
-  } from 'https://cdn.jsdelivr.net/npm/postprocessing@6.46.0?module';
+import {
+  EffectComposer,
+  RenderPass,
+  EffectPass,
+  Effect
+} from "https://cdn.jsdelivr.net/npm/postprocessing@6.35.4/build/postprocessing.esm.js";
 
-  // ------------------------------------
-  // GLSL (Shader example)
-  const shader = `
-    uniform float pixelSize;
-    void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor) {
-      vec2 normalizedPixelSize = pixelSize / resolution;
-      vec2 uvPixel = normalizedPixelSize * floor(uv / normalizedPixelSize);
-      vec4 color = texture2D(inputBuffer, uvPixel);
+/* ===============================
+   SHADER
+================================ */
 
-      float luma = dot(vec3(0.2126, 0.7152, 0.0722), color.rgb);
-      vec2 cellUV = fract(uv / normalizedPixelSize);
+const fragmentShader = `
+uniform float pixelSize;
 
-      float radius = luma > 0.5 ? 0.3 : luma > 0.001 ? 0.12 : 0.075;
-      vec2 circleCenter = luma > 0.5 ? vec2(0.5, 0.5) : vec2(0.25, 0.25);
-      float distanceFromCenter = distance(cellUV, circleCenter);
-      float circleMask = smoothstep(radius, radius - 0.05, distanceFromCenter);
+void mainImage(
+  const in vec4 inputColor,
+  const in vec2 uv,
+  out vec4 outputColor
+) {
+  vec2 normalizedPixelSize = pixelSize / resolution;
+  vec2 uvPixel = normalizedPixelSize * floor(uv / normalizedPixelSize);
+  vec4 color = texture2D(inputBuffer, uvPixel);
 
-      color.rgb = vec3(circleMask, circleMask, circleMask) * max(luma, 0.05);
-      outputColor = color;
-    }
-  `;
+  float luma = dot(vec3(0.2126, 0.7152, 0.0722), color.rgb);
 
-  class CustomEffect extends Effect {
-    constructor({ pixelSize = 10.0 }) {
-      super('CustomDotsEffect', shader, {
-        uniforms: new Map([
-          ['pixelSize', new THREE.Uniform(pixelSize)],
-        ])
-      });
-      this.pixelSize = pixelSize;
-    }
+  vec2 cellUV = fract(uv / normalizedPixelSize);
 
-    update(_, __, ___) {
-      this.uniforms.get('pixelSize').value = this.pixelSize;
-    }
+  float radius =
+      luma > 0.5 ? 0.3 :
+      luma > 0.001 ? 0.12 : 0.075;
+
+  vec2 center =
+      luma > 0.5 ? vec2(0.5) : vec2(0.25);
+
+  float d = distance(cellUV, center);
+  float mask = smoothstep(radius, radius - 0.05, d);
+
+  color.rgb = vec3(mask) * max(luma, 0.05);
+  outputColor = color;
+}
+`;
+
+/* ===============================
+   CUSTOM EFFECT
+================================ */
+
+class CustomDotsEffect extends Effect {
+  constructor({ pixelSize = 10 }) {
+    super("CustomDotsEffect", fragmentShader, {
+      uniforms: new Map([
+        ["pixelSize", new THREE.Uniform(pixelSize)]
+      ])
+    });
+
+    this.pixelSize = pixelSize;
   }
 
-  // ------------------------------------
-  // Init Scene
-  let scene = new THREE.Scene();
-  scene.background = new THREE.Color(0x010101);
+  update() {
+    this.uniforms.get("pixelSize").value = this.pixelSize;
+  }
+}
 
-  const width = window.innerWidth;
-  const height = window.innerHeight;
-  const aspect = width / height;
-  const frustumSize = 2;
+/* ===============================
+   SCENE
+================================ */
 
-  let camera = new THREE.OrthographicCamera(
-    (frustumSize * aspect) / -2,
-    (frustumSize * aspect) / 2,
-    frustumSize / 2,
-    frustumSize / -2,
-    0.1,
-    100
-  );
-  camera.position.set(0, 0, -5);
-  camera.lookAt(0, 0, 0);
+const scene = new THREE.Scene();
+scene.background = new THREE.Color("#010101");
 
-  const renderer = new THREE.WebGLRenderer({ antialias: true });
-  renderer.setSize(width, height);
-  document.body.appendChild(renderer.domElement);
+/* Camera */
+const camera = new THREE.OrthographicCamera(
+  -5, 5, 5, -5, 0.01, 500
+);
+camera.position.set(0, 0, -5);
+camera.zoom = 150;
+camera.updateProjectionMatrix();
 
-  const controls = new OrbitControls(camera, renderer.domElement);
+/* Renderer */
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
+document.body.appendChild(renderer.domElement);
 
-  scene.add(new THREE.AmbientLight(0xffffff, 0.6));
-  const light = new THREE.DirectionalLight(0xffffff, 10);
-  light.position.set(5, 10, 0);
-  scene.add(light);
+/* Controls */
+const controls = new OrbitControls(camera, renderer.domElement);
 
-  const loader = new GLTFLoader();
-  loader.load('https://cdn.maximeheckel.com/models/creation-of-adam.glb', (gltf) => {
+/* Lights */
+scene.add(new THREE.AmbientLight(0xffffff, 0.55));
+
+const dirLight = new THREE.DirectionalLight(0xffffff, 10);
+dirLight.position.set(5, 10, 0);
+scene.add(dirLight);
+
+/* ===============================
+   MODEL
+================================ */
+
+const loader = new GLTFLoader();
+
+loader.load(
+  "https://cdn.maximeheckel.com/models/creation-of-adam.glb",
+  (gltf) => {
     const model = gltf.scene;
     model.position.set(2.25, -2, 0);
     model.rotation.y = -Math.PI / 2;
     model.scale.setScalar(4);
     scene.add(model);
-  });
-
-  // Postprocessing
-  const composer = new EffectComposer(renderer);
-  composer.addPass(new RenderPass(scene, camera));
-
-  const effect = new CustomEffect({ pixelSize: 10 });
-  const effectPass = new EffectPass(camera, effect);
-  composer.addPass(effectPass);
-
-  // Resize handler
-  window.addEventListener('resize', () => {
-    const aspect = window.innerWidth / window.innerHeight;
-    camera.left = (-frustumSize * aspect) / 2;
-    camera.right = (frustumSize * aspect) / 2;
-    camera.top = frustumSize / 2;
-    camera.bottom = -frustumSize / 2;
-    camera.updateProjectionMatrix();
-    renderer.setSize(window.innerWidth, window.innerHeight);
-    composer.setSize(window.innerWidth, window.innerHeight);
-  });
-
-  function animate() {
-    requestAnimationFrame(animate);
-    composer.render();
   }
+);
 
-  animate();
+/* ===============================
+   POST PROCESSING
+================================ */
+
+const composer = new EffectComposer(renderer);
+composer.addPass(new RenderPass(scene, camera));
+
+const dotsEffect = new CustomDotsEffect({ pixelSize: 10 });
+const effectPass = new EffectPass(camera, dotsEffect);
+composer.addPass(effectPass);
+
+/* ===============================
+   UI CONTROL (Leva replacement)
+================================ */
+
+const slider = document.getElementById("pixelSlider");
+
+slider.addEventListener("input", () => {
+  dotsEffect.pixelSize = Number(slider.value);
+});
+
+/* ===============================
+   RESIZE
+================================ */
+
+window.addEventListener("resize", () => {
+  const w = window.innerWidth;
+  const h = window.innerHeight;
+
+  renderer.setSize(w, h);
+  composer.setSize(w, h);
+});
+
+/* ===============================
+   ANIMATE
+================================ */
+
+function animate() {
+  requestAnimationFrame(animate);
+
+  camera.lookAt(0, 0, 0);
+
+  composer.render();
+}
+
+animate();
+
 </script>
 </body>
 </html>

@@ -10,11 +10,6 @@
       margin: 0;
       overflow: hidden;
       background: #010101;
-      font-family: sans-serif;
-    }
-
-    canvas {
-      display: block;
     }
 
     #ui {
@@ -23,10 +18,7 @@
       left: 20px;
       color: white;
       z-index: 10;
-    }
-
-    input {
-      width: 160px;
+      font-family: sans-serif;
     }
   </style>
 </head>
@@ -34,7 +26,7 @@
 <body>
 
 <div id="ui">
-  <div>Pixel Size</div>
+  Pixel Size<br>
   <input type="range" min="8" max="32" step="2" value="10" id="pixelSlider">
 </div>
 
@@ -48,7 +40,7 @@ import {
   RenderPass,
   EffectPass,
   Effect
-} from "https://cdn.jsdelivr.net/npm/postprocessing@6.35.4/build/postprocessing.esm.js";
+} from "https://esm.sh/postprocessing@6.35.4";
 
 /* ===============================
    SHADER
@@ -57,11 +49,7 @@ import {
 const fragmentShader = `
 uniform float pixelSize;
 
-void mainImage(
-  const in vec4 inputColor,
-  const in vec2 uv,
-  out vec4 outputColor
-) {
+void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor) {
   vec2 normalizedPixelSize = pixelSize / resolution;
   vec2 uvPixel = normalizedPixelSize * floor(uv / normalizedPixelSize);
   vec4 color = texture2D(inputBuffer, uvPixel);
@@ -96,7 +84,6 @@ class CustomDotsEffect extends Effect {
         ["pixelSize", new THREE.Uniform(pixelSize)]
       ])
     });
-
     this.pixelSize = pixelSize;
   }
 
@@ -112,36 +99,26 @@ class CustomDotsEffect extends Effect {
 const scene = new THREE.Scene();
 scene.background = new THREE.Color("#010101");
 
-/* Camera */
-const camera = new THREE.OrthographicCamera(
-  -5, 5, 5, -5, 0.01, 500
-);
+const camera = new THREE.OrthographicCamera(-5, 5, 5, -5, 0.01, 500);
 camera.position.set(0, 0, -5);
 camera.zoom = 150;
 camera.updateProjectionMatrix();
 
-/* Renderer */
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
 document.body.appendChild(renderer.domElement);
 
-/* Controls */
 const controls = new OrbitControls(camera, renderer.domElement);
 
-/* Lights */
+/* lights */
 scene.add(new THREE.AmbientLight(0xffffff, 0.55));
+const light = new THREE.DirectionalLight(0xffffff, 10);
+light.position.set(5, 10, 0);
+scene.add(light);
 
-const dirLight = new THREE.DirectionalLight(0xffffff, 10);
-dirLight.position.set(5, 10, 0);
-scene.add(dirLight);
-
-/* ===============================
-   MODEL
-================================ */
-
+/* model */
 const loader = new GLTFLoader();
-
 loader.load(
   "https://cdn.maximeheckel.com/models/creation-of-adam.glb",
   (gltf) => {
@@ -153,51 +130,23 @@ loader.load(
   }
 );
 
-/* ===============================
-   POST PROCESSING
-================================ */
-
+/* post */
 const composer = new EffectComposer(renderer);
 composer.addPass(new RenderPass(scene, camera));
 
 const dotsEffect = new CustomDotsEffect({ pixelSize: 10 });
-const effectPass = new EffectPass(camera, dotsEffect);
-composer.addPass(effectPass);
+composer.addPass(new EffectPass(camera, dotsEffect));
 
-/* ===============================
-   UI CONTROL (Leva replacement)
-================================ */
-
-const slider = document.getElementById("pixelSlider");
-
-slider.addEventListener("input", () => {
-  dotsEffect.pixelSize = Number(slider.value);
+document.getElementById("pixelSlider").addEventListener("input", e => {
+  dotsEffect.pixelSize = Number(e.target.value);
 });
 
-/* ===============================
-   RESIZE
-================================ */
-
-window.addEventListener("resize", () => {
-  const w = window.innerWidth;
-  const h = window.innerHeight;
-
-  renderer.setSize(w, h);
-  composer.setSize(w, h);
-});
-
-/* ===============================
-   ANIMATE
-================================ */
-
+/* loop */
 function animate() {
   requestAnimationFrame(animate);
-
   camera.lookAt(0, 0, 0);
-
   composer.render();
 }
-
 animate();
 
 </script>

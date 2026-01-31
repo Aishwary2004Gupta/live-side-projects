@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Three.js Custom Dots Shader</title>
+  <title>Three.js Shader ESModules</title>
   <style>
     body {
       margin: 0;
@@ -15,20 +15,21 @@
   </style>
 </head>
 <body>
-  <script src="https://cdn.jsdelivr.net/npm/three@0.158.0/build/three.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/three@0.158.0/examples/js/controls/OrbitControls.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/three@0.158.0/examples/js/loaders/GLTFLoader.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/postprocessing@6.33.4/build/postprocessing.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/dat.gui/build/dat.gui.min.js"></script>
+<script type="module">
+  import * as THREE from 'https://cdn.skypack.dev/three@0.158.0';
+  import { OrbitControls } from 'https://cdn.skypack.dev/three@0.158.0/examples/jsm/controls/OrbitControls.js';
+  import { GLTFLoader } from 'https://cdn.skypack.dev/three@0.158.0/examples/jsm/loaders/GLTFLoader.js';
+  import { EffectComposer } from 'https://cdn.skypack.dev/postprocessing@6.33.4/build/postprocessing.js';
+  import { RenderPass } from 'https://cdn.skypack.dev/postprocessing@6.33.4/build/postprocessing.js';
+  import { EffectPass } from 'https://cdn.skypack.dev/postprocessing@6.33.4/build/postprocessing.js';
+  import { Effect } from 'https://cdn.skypack.dev/postprocessing@6.33.4/build/postprocessing.js';
+  import GUI from 'https://cdn.skypack.dev/dat.gui';
 
-  <script>
-    const { Scene, Color, WebGLRenderer, OrthographicCamera, AmbientLight, DirectionalLight, Group, Vector2 } = THREE;
-    const { EffectComposer, EffectPass, RenderPass, Effect } = POSTPROCESSING;
+  // GLSL Shader Effect (inline like your file)
+  const fragmentShader = `
+    uniform float pixelSize;
 
-    // GLSL: Fragment Shader Effect
-    const fragmentShader = `
-      uniform float pixelSize;
-      void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor) {
+    void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor) {
         vec2 normalizedPixelSize = pixelSize / resolution;
         vec2 uvPixel = normalizedPixelSize * floor(uv / normalizedPixelSize);
         vec4 color = texture2D(inputBuffer, uvPixel);
@@ -43,117 +44,107 @@
 
         color.rgb = vec3(circleMask, circleMask, circleMask) * max(luma, 0.05);
         outputColor = color;
-      }
-    `;
-
-    // Custom Shader Effect
-    class CustomDotsEffect extends Effect {
-      constructor({ pixelSize = 10.0 } = {}) {
-        super('CustomDotsEffect', fragmentShader, {
-          uniforms: new Map([
-            ['pixelSize', new THREE.Uniform(pixelSize)]
-          ]),
-        });
-        this.pixelSize = pixelSize;
-      }
-
-      update(renderer, inputBuffer, deltaTime) {
-        this.uniforms.get('pixelSize').value = this.pixelSize;
-      }
     }
+  `;
 
-    let scene, camera, renderer, composer, adamGroup;
-    let dotsEffect;
-    const clock = new THREE.Clock();
-
-    init();
-    animate();
-
-    function init() {
-      scene = new Scene();
-      scene.background = new Color(0x010101);
-
-      // Orthographic Camera
-      const aspect = window.innerWidth / window.innerHeight;
-      const frustumSize = 2;
-      camera = new OrthographicCamera(
-        frustumSize * aspect / -2,
-        frustumSize * aspect / 2,
-        frustumSize / 2,
-        frustumSize / -2,
-        0.01,
-        500
-      );
-      camera.position.set(0, 0, -5);
-      camera.lookAt(0, 0, 0);
-
-      // Renderer
-      renderer = new WebGLRenderer({ antialias: true });
-      renderer.setSize(window.innerWidth, window.innerHeight);
-      renderer.setPixelRatio(window.devicePixelRatio);
-      document.body.appendChild(renderer.domElement);
-
-      // Controls
-      const controls = new THREE.OrbitControls(camera, renderer.domElement);
-
-      // Lights
-      const ambientLight = new AmbientLight(0xffffff, 0.55);
-      scene.add(ambientLight);
-
-      const dirLight = new DirectionalLight(0xffffff, 10);
-      dirLight.position.set(5, 10, 0);
-      scene.add(dirLight);
-
-      // Load GLTF Model (Creation of Adam)
-      const loader = new THREE.GLTFLoader();
-      loader.load('https://cdn.maximeheckel.com/models/creation-of-adam.glb', (gltf) => {
-        adamGroup = new Group();
-        adamGroup.position.set(2.25, -2, 0);
-        adamGroup.rotation.y = -Math.PI / 2;
-        adamGroup.scale.setScalar(4);
-
-        adamGroup.add(gltf.scene);
-        scene.add(adamGroup);
+  class CustomDotsEffect extends Effect {
+    constructor({ pixelSize = 10.0 } = {}) {
+      super('CustomDotsEffect', fragmentShader, {
+        uniforms: new Map([['pixelSize', new THREE.Uniform(pixelSize)]])
       });
-
-      // Postprocessing Composer Setup
-      composer = new EffectComposer(renderer);
-      composer.addPass(new RenderPass(scene, camera));
-
-      dotsEffect = new CustomDotsEffect({ pixelSize: 10.0 });
-      const effectPass = new EffectPass(camera, dotsEffect);
-      composer.addPass(effectPass);
-
-      // dat.GUI for controls
-      const gui = new dat.GUI();
-      const settings = {
-        pixelSize: 10.0,
-      };
-      gui.add(settings, 'pixelSize', 8.0, 32.0, 2.0).onChange((val) => {
-        dotsEffect.pixelSize = val;
-      });
-
-      window.addEventListener('resize', onWindowResize);
+      this.pixelSize = pixelSize;
     }
 
-    function onWindowResize() {
-      const aspect = window.innerWidth / window.innerHeight;
-      const frustumSize = 2;
-
-      camera.left = -frustumSize * aspect / 2;
-      camera.right = frustumSize * aspect / 2;
-      camera.top = frustumSize / 2;
-      camera.bottom = -frustumSize / 2;
-      camera.updateProjectionMatrix();
-
-      renderer.setSize(window.innerWidth, window.innerHeight);
-      composer.setSize(window.innerWidth, window.innerHeight);
+    update(renderer, inputBuffer, deltaTime) {
+      this.uniforms.get('pixelSize').value = this.pixelSize;
     }
+  }
 
-    function animate() {
-      requestAnimationFrame(animate);
-      composer.render(clock.getDelta());
-    }
-  </script>
+  let renderer, scene, camera, composer, effect, model;
+
+  init();
+  animate();
+
+  function init() {
+    // Renderer
+    renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(window.devicePixelRatio);
+    document.body.appendChild(renderer.domElement);
+
+    // Scene
+    scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x010101);
+
+    // Camera (Orthographic)
+    const aspect = window.innerWidth / window.innerHeight;
+    const frustumSize = 2;
+    camera = new THREE.OrthographicCamera(
+      -frustumSize * aspect / 2,
+      frustumSize * aspect / 2,
+      frustumSize / 2,
+      -frustumSize / 2,
+      0.01,
+      500
+    );
+    camera.position.set(0, 0, -5);
+    camera.lookAt(0, 0, 0);
+
+    // Controls
+    new OrbitControls(camera, renderer.domElement);
+
+    // Lights
+    scene.add(new THREE.AmbientLight(0xffffff, 0.55));
+    const dirLight = new THREE.DirectionalLight(0xffffff, 10);
+    dirLight.position.set(5, 10, 0);
+    scene.add(dirLight);
+
+    // Load Model
+    const loader = new GLTFLoader();
+    loader.load('https://cdn.maximeheckel.com/models/creation-of-adam.glb', (gltf) => {
+      model = gltf.scene;
+      model.position.set(2.25, -2, 0);
+      model.rotation.y = -Math.PI / 2;
+      model.scale.setScalar(4);
+      scene.add(model);
+    });
+
+    // Postprocessing Composer
+    composer = new EffectComposer(renderer);
+    const renderPass = new RenderPass(scene, camera);
+    composer.addPass(renderPass);
+
+    effect = new CustomDotsEffect({ pixelSize: 10.0 });
+    const effectPass = new EffectPass(camera, effect);
+    composer.addPass(effectPass);
+
+    // GUI
+    const gui = new GUI();
+    const params = { pixelSize: 10.0 };
+    gui.add(params, 'pixelSize', 8.0, 32.0, 2.0).onChange((val) => effect.pixelSize = val);
+
+    // Resize Handling
+    window.addEventListener('resize', onWindowResize);
+  }
+
+  function onWindowResize() {
+    const aspect = window.innerWidth / window.innerHeight;
+    const frustumSize = 2;
+
+    camera.left = -frustumSize * aspect / 2;
+    camera.right = frustumSize * aspect / 2;
+    camera.top = frustumSize / 2;
+    camera.bottom = -frustumSize / 2;
+    camera.updateProjectionMatrix();
+
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    composer.setSize(window.innerWidth, window.innerHeight);
+  }
+
+  function animate() {
+    requestAnimationFrame(animate);
+    composer.render();
+  }
+</script>
 </body>
 </html>

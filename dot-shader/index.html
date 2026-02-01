@@ -1,98 +1,96 @@
 <!doctype html>
 <html lang="en">
-<head>
-<meta charset="UTF-8" />
-<title>Postprocessing Playground</title>
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <head>
+    <meta charset="UTF-8" />
+    <title>Postprocessing Playground</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-<style>
-html, body {
-  margin: 0;
-  width: 100%;
-  height: 100%;
-  overflow: hidden;
-  background: #010101;
-}
+    <style>
+      html,
+      body {
+        margin: 0;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        background: #010101;
+      }
 
-canvas {
-  display: block;
-}
+      canvas {
+        display: block;
+      }
 
-/* ================= PANEL ================= */
+      /* ================= PANEL ================= */
 
-#panel {
-  position: fixed;
-  bottom: 24px;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 20;
+      #panel {
+        position: fixed;
+        bottom: 24px;
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 20;
 
-  background: rgba(0,0,0,0.55);
-  backdrop-filter: blur(10px);
-  border-radius: 14px;
-  padding: 14px 20px;
+        background: rgba(0, 0, 0, 0.55);
+        backdrop-filter: blur(10px);
+        border-radius: 14px;
+        padding: 14px 20px;
 
-  color: white;
-  font-family: system-ui, sans-serif;
-  min-width: 260px;
+        color: white;
+        font-family: system-ui, sans-serif;
+        min-width: 260px;
 
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
 
-label {
-  font-size: 13px;
-  opacity: 0.85;
-}
+      label {
+        font-size: 13px;
+        opacity: 0.85;
+      }
 
-select, input {
-  width: 100%;
-}
+      select,
+      input {
+        width: 100%;
+      }
+    </style>
+  </head>
 
-</style>
-</head>
+  <body>
+    <div id="panel">
+      <div>
+        <label>Effect</label>
+        <select id="effectSelect">
+          <option value="dots">Dots</option>
+          <option value="dither">Dithering</option>
+          <option value="ascii">ASCII</option>
+        </select>
+      </div>
 
-<body>
+      <div>
+        <label>Pixel Size</label>
+        <input type="range" min="6" max="40" value="12" id="pixelSize" />
+      </div>
+    </div>
 
-<div id="panel">
-
-  <div>
-    <label>Effect</label>
-    <select id="effectSelect">
-      <option value="dots">Dots</option>
-      <option value="dither">Dithering</option>
-      <option value="ascii">ASCII</option>
-    </select>
-  </div>
-
-  <div>
-    <label>Pixel Size</label>
-    <input type="range" min="6" max="40" value="12" id="pixelSize">
-  </div>
-
-</div>
-
-<script type="module">
-/* ======================================================
+    <script type="module">
+      /* ======================================================
    IMPORTS
 ====================================================== */
-import * as THREE from "https://esm.sh/three@0.160.0";
-import { OrbitControls } from "https://esm.sh/three@0.160.0/examples/jsm/controls/OrbitControls.js";
-import { GLTFLoader } from "https://esm.sh/three@0.160.0/examples/jsm/loaders/GLTFLoader.js";
+      import * as THREE from "https://esm.sh/three@0.160.0";
+      import { OrbitControls } from "https://esm.sh/three@0.160.0/examples/jsm/controls/OrbitControls.js";
+      import { GLTFLoader } from "https://esm.sh/three@0.160.0/examples/jsm/loaders/GLTFLoader.js";
 
-import {
-  EffectComposer,
-  RenderPass,
-  EffectPass,
-  Effect
-} from "https://esm.sh/postprocessing@6.35.4?deps=three@0.160.0";
+      import {
+        EffectComposer,
+        RenderPass,
+        EffectPass,
+        Effect,
+      } from "https://esm.sh/postprocessing@6.35.4?deps=three@0.160.0";
 
-/* ======================================================
+      /* ======================================================
    SHADERS
 ====================================================== */
 
-const dotsShader = `
+      const dotsShader = `
 uniform float pixelSize;
 
 void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor) {
@@ -114,7 +112,7 @@ void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor)
 }
 `;
 
-const ditherShader = `
+      const ditherShader = `
 void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor) {
   vec4 c = texture2D(inputBuffer, uv);
   float g = dot(c.rgb, vec3(0.299, 0.587, 0.114));
@@ -123,154 +121,157 @@ void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor)
 }
 `;
 
-/* ======================================================
+      /* ======================================================
    EFFECT CLASSES
 ====================================================== */
 
-class DotsEffect extends Effect {
-  constructor(pixelSize) {
-    super("Dots", dotsShader, {
-      uniforms: new Map([
-        ["pixelSize", new THREE.Uniform(pixelSize)]
-      ])
-    });
-    this.pixelSize = pixelSize;
-  }
+      class DotsEffect extends Effect {
+        constructor(pixelSize) {
+          super("Dots", dotsShader, {
+            uniforms: new Map([["pixelSize", new THREE.Uniform(pixelSize)]]),
+          });
+          this.pixelSize = pixelSize;
+        }
 
-  update() {
-    this.uniforms.get("pixelSize").value = this.pixelSize;
-  }
-}
+        update() {
+          this.uniforms.get("pixelSize").value = this.pixelSize;
+        }
+      }
 
-class DitherEffect extends Effect {
-  constructor() {
-    super("Dither", ditherShader);
-  }
-}
+      class DitherEffect extends Effect {
+        constructor() {
+          super("Dither", ditherShader);
+        }
+      }
 
-/* ======================================================
+      /* ======================================================
    SCENE
 ====================================================== */
 
-const scene = new THREE.Scene();
-scene.background = new THREE.Color("#010101");
+      const scene = new THREE.Scene();
+      scene.background = new THREE.Color("#010101");
 
-const frustumSize = 350;
-const aspect = window.innerWidth / window.innerHeight;
+      const frustumSize = 350;
+      const aspect = window.innerWidth / window.innerHeight;
 
-const camera = new THREE.OrthographicCamera(
-  -frustumSize * aspect / 2,
-   frustumSize * aspect / 2,
-   frustumSize / 2,
-  -frustumSize / 2,
-  0.01,
-  500
-);
+      const camera = new THREE.OrthographicCamera(
+        (-frustumSize * aspect) / 2,
+        (frustumSize * aspect) / 2,
+        frustumSize / 2,
+        -frustumSize / 2,
+        0.01,
+        500,
+      );
 
-camera.position.set(0,0,-5);
-camera.zoom = 140;
-camera.updateProjectionMatrix();
+      camera.position.set(0, 0, -5);
+      camera.zoom = 140;
+      camera.updateProjectionMatrix();
 
-const renderer = new THREE.WebGLRenderer({ antialias:true });
-renderer.setSize(window.innerWidth, window.innerHeight);
-renderer.setPixelRatio(Math.min(devicePixelRatio,1.5));
-document.body.appendChild(renderer.domElement);
+      const renderer = new THREE.WebGLRenderer({ antialias: true });
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.setPixelRatio(Math.min(devicePixelRatio, 1.5));
+      document.body.appendChild(renderer.domElement);
 
-const controls = new OrbitControls(camera, renderer.domElement);
-controls.enableDamping = true;
+      const controls = new OrbitControls(camera, renderer.domElement);
+      controls.enableDamping = true;
 
-/* lights */
-scene.add(new THREE.AmbientLight(0xffffff,0.6));
-const d = new THREE.DirectionalLight(0xffffff,8);
-d.position.set(5,10,0);
-scene.add(d);
+      /* lights */
+      scene.add(new THREE.AmbientLight(0xffffff, 0.6));
+      const d = new THREE.DirectionalLight(0xffffff, 8);
+      d.position.set(5, 10, 0);
+      scene.add(d);
 
-/* model */
-const loader = new GLTFLoader();
-loader.load("https://cdn.maximeheckel.com/models/creation-of-adam.glb", gltf=>{
-  const m = gltf.scene;
-  m.position.set(2.25,-2,0);
-  m.rotation.y = -Math.PI/2;
-  m.scale.setScalar(4);
-  scene.add(m);
-});
+      /* model */
+      const loader = new GLTFLoader();
+      loader.load(
+        "https://cdn.maximeheckel.com/models/creation-of-adam.glb",
+        (gltf) => {
+          const m = gltf.scene;
+          m.position.set(2.25, -2, 0);
+          m.rotation.y = -Math.PI / 2;
+          m.scale.setScalar(4);
+          scene.add(m);
+        },
+      );
 
-/* ======================================================
+      /* ======================================================
    POST
 ====================================================== */
 
-const composer = new EffectComposer(renderer);
-composer.addPass(new RenderPass(scene, camera));
+      const composer = new EffectComposer(renderer);
+      composer.addPass(new RenderPass(scene, camera));
 
-let dots = new DotsEffect(12);
-let dither = new DitherEffect();
+      let dots = new DotsEffect(12);
+      let dither = new DitherEffect();
 
-let pass = new EffectPass(camera, dots);
-composer.addPass(pass);
+      let pass = new EffectPass(camera, dots);
+      composer.addPass(pass);
 
-/* ======================================================
+      /* ======================================================
    UI LOGIC
 ====================================================== */
 
-const pixelSlider = document.getElementById("pixelSize");
-const effectSelect = document.getElementById("effectSelect");
+      const pixelSlider = document.getElementById("pixelSize");
+      const effectSelect = document.getElementById("effectSelect");
 
-pixelSlider.oninput = e => {
-  dots.pixelSize = Number(e.target.value);
-};
+      pixelSlider.oninput = (e) => {
+        dots.pixelSize = Number(e.target.value);
+      };
 
-effectSelect.onchange = () => {
-  composer.removePass(pass);
+      effectSelect.onchange = () => {
+        composer.removePass(pass);
 
-  if (effectSelect.value === "dots") {
-    pass = new EffectPass(camera, dots);
-    pixelSlider.style.display = "block";
-  }
+        if (effectSelect.value === "dots") {
+          pass = new EffectPass(camera, dots);
+          pixelSlider.style.display = "block";
+        }
 
-  if (effectSelect.value === "dither") {
-    pass = new EffectPass(camera, dither);
-    pixelSlider.style.display = "none";
-  }
+        if (effectSelect.value === "dither") {
+          pass = new EffectPass(camera, dither);
+          pixelSlider.style.display = "none";
+        }
 
-  if (effectSelect.value === "ascii") {
-    alert("ASCII requires a different render pipeline.\nWant me to add the real ASCII renderer next?");
-    effectSelect.value = "dots";
-    return;
-  }
+        if (effectSelect.value === "ascii") {
+          alert(
+            "ASCII requires a different render pipeline.\nWant me to add the real ASCII renderer next?",
+          );
+          effectSelect.value = "dots";
+          return;
+        }
 
-  composer.addPass(pass);
-};
+        composer.addPass(pass);
+      };
 
-/* ======================================================
+      /* ======================================================
    RESIZE
 ====================================================== */
 
-window.addEventListener("resize", () => {
-  const w = window.innerWidth;
-  const h = window.innerHeight;
-  const a = w / h;
+      window.addEventListener("resize", () => {
+        const w = window.innerWidth;
+        const h = window.innerHeight;
+        const a = w / h;
 
-  camera.left   = -frustumSize * a / 2;
-  camera.right  =  frustumSize * a / 2;
-  camera.top    =  frustumSize / 2;
-  camera.bottom = -frustumSize / 2;
-  camera.updateProjectionMatrix();
+        camera.left = (-frustumSize * a) / 2;
+        camera.right = (frustumSize * a) / 2;
+        camera.top = frustumSize / 2;
+        camera.bottom = -frustumSize / 2;
+        camera.updateProjectionMatrix();
 
-  renderer.setSize(w,h);
-  composer.setSize(w,h);
-});
+        renderer.setSize(w, h);
+        composer.setSize(w, h);
+      });
 
-/* ======================================================
+      /* ======================================================
    LOOP
 ====================================================== */
 
-function animate() {
-  requestAnimationFrame(animate);
-  controls.update();
-  composer.render();
-}
+      function animate() {
+        requestAnimationFrame(animate);
+        controls.update();
+        composer.render();
+      }
 
-animate();
-</script>
-</body>
+      animate();
+    </script>
+  </body>
 </html>

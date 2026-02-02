@@ -1,89 +1,102 @@
 <!doctype html>
 <html lang="en">
-<head>
-<meta charset="UTF-8" />
-<title>Post Processing Playground</title>
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <head>
+    <meta charset="UTF-8" />
+    <title>Post Processing Playground</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-<style>
-html, body {
-  margin: 0;
-  width: 100%;
-  height: 100%;
-  overflow: hidden;
-  background: #010101;
-}
+    <style>
+      html,
+      body {
+        margin: 0;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        background: #010101;
+      }
 
-#panel {
-  position: fixed;
-  bottom: 24px;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 10;
+      #panel {
+        position: fixed;
+        bottom: 24px;
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 10;
 
-  background: rgba(0,0,0,0.55);
-  backdrop-filter: blur(10px);
-  border-radius: 14px;
-  padding: 14px 20px;
+        background: rgba(0, 0, 0, 0.55);
+        backdrop-filter: blur(10px);
+        border-radius: 14px;
+        padding: 14px 20px;
 
-  color: white;
-  font-family: system-ui, sans-serif;
-  min-width: 280px;
+        color: white;
+        font-family: system-ui, sans-serif;
+        min-width: 280px;
 
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
 
-label { font-size: 13px; opacity: 0.85; }
-select, input { width: 100%; }
-</style>
-</head>
+      label {
+        font-size: 13px;
+        opacity: 0.85;
+      }
+      select,
+      input {
+        width: 100%;
+      }
+    </style>
+  </head>
 
-<body>
+  <body>
+    <div id="panel">
+      <div>
+        <label>Effect</label>
+        <select id="effectSelect">
+          <option value="dots">Dots</option>
+          <option value="dither">Dithering</option>
+          <option value="ascii">ASCII</option>
+          <option value="bloom">Bloom</option>
+          <option value="scanline">Scanlines</option>
+          <option value="noise">Noise</option>
+          <option value="chromatic">Chromatic Aberration</option>
+          <option value="pixelate">Pixelate</option>
+        </select>
+      </div>
 
-<div id="panel">
-  <div>
-    <label>Effect</label>
-    <select id="effectSelect">
-      <option value="dots">Dots</option>
-      <option value="dither">Dithering</option>
-      <option value="ascii">ASCII</option>
-      <option value="bloom">Bloom</option>
-      <option value="scanline">Scanlines</option>
-      <option value="noise">Noise</option>
-      <option value="chromatic">Chromatic Aberration</option>
-      <option value="pixelate">Pixelate</option>
-    </select>
-  </div>
+      <div id="pixelBlock">
+        <label>Pixel Size</label>
+        <input
+          type="range"
+          min="8"
+          max="32"
+          step="2"
+          value="10"
+          id="pixelSize"
+        />
+      </div>
+    </div>
 
-  <div id="pixelBlock">
-    <label>Pixel Size</label>
-    <input type="range" min="8" max="32" step="2" value="10" id="pixelSize">
-  </div>
-</div>
+    <script type="module">
+      /* ================= IMPORTS ================= */
+      import * as THREE from "https://esm.sh/three@0.160.0";
+      import { OrbitControls } from "https://esm.sh/three@0.160.0/examples/jsm/controls/OrbitControls.js";
+      import { GLTFLoader } from "https://esm.sh/three@0.160.0/examples/jsm/loaders/GLTFLoader.js";
+      import { AsciiEffect } from "https://esm.sh/three@0.160.0/examples/jsm/effects/AsciiEffect.js";
 
-<script type="module">
-/* ================= IMPORTS ================= */
-import * as THREE from "https://esm.sh/three@0.160.0";
-import { OrbitControls } from "https://esm.sh/three@0.160.0/examples/jsm/controls/OrbitControls.js";
-import { GLTFLoader } from "https://esm.sh/three@0.160.0/examples/jsm/loaders/GLTFLoader.js";
-import { AsciiEffect } from "https://esm.sh/three@0.160.0/examples/jsm/effects/AsciiEffect.js";
+      import {
+        EffectComposer,
+        RenderPass,
+        EffectPass,
+        Effect,
+        BloomEffect,
+        NoiseEffect,
+        ScanlineEffect,
+        ChromaticAberrationEffect,
+        PixelationEffect,
+      } from "https://esm.sh/postprocessing@6.35.4?deps=three@0.160.0";
 
-import {
-  EffectComposer,
-  RenderPass,
-  EffectPass,
-  Effect,
-  BloomEffect,
-  NoiseEffect,
-  ScanlineEffect,
-  ChromaticAberrationEffect,
-  PixelationEffect
-} from "https://esm.sh/postprocessing@6.35.4?deps=three@0.160.0";
-
-/* ================= SHADERS ================= */
-const dotsShader = `
+      /* ================= SHADERS ================= */
+      const dotsShader = `
 uniform float pixelSize;
 void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor) {
   vec2 s = pixelSize / resolution;
@@ -97,7 +110,7 @@ void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor)
 }
 `;
 
-const ditherShader = `
+      const ditherShader = `
 void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor) {
   vec4 c = texture2D(inputBuffer, uv);
   float g = dot(c.rgb, vec3(.299,.587,.114));
@@ -106,128 +119,143 @@ void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor)
 }
 `;
 
-/* ================= CUSTOM EFFECTS ================= */
-class DotsEffect extends Effect {
-  constructor(size) {
-    super("Dots", dotsShader, {
-      uniforms: new Map([["pixelSize", new THREE.Uniform(size)]])
-    });
-    this.pixelSize = size;
-  }
-  update() {
-    this.uniforms.get("pixelSize").value = this.pixelSize;
-  }
-}
-class DitherEffect extends Effect {
-  constructor() { super("Dither", ditherShader); }
-}
+      /* ================= CUSTOM EFFECTS ================= */
+      class DotsEffect extends Effect {
+        constructor(size) {
+          super("Dots", dotsShader, {
+            uniforms: new Map([["pixelSize", new THREE.Uniform(size)]]),
+          });
+          this.pixelSize = size;
+        }
+        update() {
+          this.uniforms.get("pixelSize").value = this.pixelSize;
+        }
+      }
+      class DitherEffect extends Effect {
+        constructor() {
+          super("Dither", ditherShader);
+        }
+      }
 
-/* ================= SCENE ================= */
-const scene = new THREE.Scene();
-scene.background = new THREE.Color("#010101");
+      /* ================= SCENE ================= */
+      const scene = new THREE.Scene();
+      scene.background = new THREE.Color("#010101");
 
-const camera = new THREE.OrthographicCamera(-200,200,200,-200,0.01,500);
-camera.position.set(0,0,-5);
-camera.zoom = 140;
-camera.updateProjectionMatrix();
+      const camera = new THREE.OrthographicCamera(
+        -200,
+        200,
+        200,
+        -200,
+        0.01,
+        500,
+      );
+      camera.position.set(0, 0, -5);
+      camera.zoom = 140;
+      camera.updateProjectionMatrix();
 
-const renderer = new THREE.WebGLRenderer({ antialias:true });
-renderer.setSize(innerWidth, innerHeight);
-document.body.appendChild(renderer.domElement);
+      const renderer = new THREE.WebGLRenderer({ antialias: true });
+      renderer.setSize(innerWidth, innerHeight);
+      document.body.appendChild(renderer.domElement);
 
-let controls = new OrbitControls(camera, renderer.domElement);
-controls.enableDamping = true;
-controls.enablePan = false;
+      let controls = new OrbitControls(camera, renderer.domElement);
+      controls.enableDamping = true;
+      controls.enablePan = false;
 
-/* lights */
-scene.add(new THREE.AmbientLight(0xffffff,.6));
-const d = new THREE.DirectionalLight(0xffffff,10);
-d.position.set(5,10,0);
-scene.add(d);
+      /* lights */
+      scene.add(new THREE.AmbientLight(0xffffff, 0.6));
+      const d = new THREE.DirectionalLight(0xffffff, 10);
+      d.position.set(5, 10, 0);
+      scene.add(d);
 
-/* model */
-const loader = new GLTFLoader();
-loader.load("https://cdn.maximeheckel.com/models/creation-of-adam.glb", g=>{
-  const m = g.scene;
-  m.position.set(2.25,-2,0);
-  m.rotation.y = -Math.PI/2;
-  m.scale.setScalar(4);
-  scene.add(m);
+      /* model */
+      const loader = new GLTFLoader();
+      loader.load(
+        "https://cdn.maximeheckel.com/models/creation-of-adam.glb",
+        (g) => {
+          const m = g.scene;
+          m.position.set(2.25, -2, 0);
+          m.rotation.y = -Math.PI / 2;
+          m.scale.setScalar(4);
+          scene.add(m);
 
-  const box = new THREE.Box3().setFromObject(m);
-  const center = box.getCenter(new THREE.Vector3());
-  controls.target.copy(center);
-  camera.lookAt(center);
-});
+          const box = new THREE.Box3().setFromObject(m);
+          const center = box.getCenter(new THREE.Vector3());
+          controls.target.copy(center);
+          camera.lookAt(center);
+        },
+      );
 
-/* ================= POST ================= */
-const composer = new EffectComposer(renderer);
-composer.addPass(new RenderPass(scene,camera));
+      /* ================= POST ================= */
+      const composer = new EffectComposer(renderer);
+      composer.addPass(new RenderPass(scene, camera));
 
-const dots = new DotsEffect(10);
-const dither = new DitherEffect();
+      const dots = new DotsEffect(10);
+      const dither = new DitherEffect();
 
-const bloom = new BloomEffect({ intensity:1.2 });
-const noise = new NoiseEffect({ premultiply:true });
-const scan = new ScanlineEffect({ density:1.2 });
-const chroma = new ChromaticAberrationEffect();
-const pixelate = new PixelationEffect(6);
+      const bloom = new BloomEffect({ intensity: 1.2 });
+      const noise = new NoiseEffect({ premultiply: true });
+      const scan = new ScanlineEffect({ density: 1.2 });
+      const chroma = new ChromaticAberrationEffect();
+      const pixelate = new PixelationEffect(6);
 
-let currentPass = new EffectPass(camera, dots);
-composer.addPass(currentPass);
+      let currentPass = new EffectPass(camera, dots);
+      composer.addPass(currentPass);
 
-/* ASCII */
-const ascii = new AsciiEffect(renderer," .:-=+*#%@",{invert:true});
-ascii.domElement.style.position="absolute";
-ascii.domElement.style.color="white";
+      /* ASCII */
+      const ascii = new AsciiEffect(renderer, " .:-=+*#%@", { invert: true });
+      ascii.domElement.style.position = "absolute";
+      ascii.domElement.style.color = "white";
 
-/* ================= UI ================= */
-const select = document.getElementById("effectSelect");
-const slider = document.getElementById("pixelSize");
+      /* ================= UI ================= */
+      const select = document.getElementById("effectSelect");
+      const slider = document.getElementById("pixelSize");
 
-function switchEffect(type){
-  composer.removePass(currentPass);
+      function switchEffect(type) {
+        composer.removePass(currentPass);
 
-  if(type==="ascii"){
-    renderer.domElement.remove();
-    document.body.appendChild(ascii.domElement);
-    controls.dispose();
-    controls = new OrbitControls(camera, ascii.domElement);
-    return;
-  }
+        if (type === "ascii") {
+          renderer.domElement.remove();
+          document.body.appendChild(ascii.domElement);
+          controls.dispose();
+          controls = new OrbitControls(camera, ascii.domElement);
+          return;
+        }
 
-  if(ascii.domElement.parentNode) ascii.domElement.remove();
-  if(!renderer.domElement.parentNode) document.body.appendChild(renderer.domElement);
+        if (ascii.domElement.parentNode) ascii.domElement.remove();
+        if (!renderer.domElement.parentNode)
+          document.body.appendChild(renderer.domElement);
 
-  controls.dispose();
-  controls = new OrbitControls(camera, renderer.domElement);
-  controls.enableDamping = true;
-  controls.enablePan = false;
+        controls.dispose();
+        controls = new OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.enablePan = false;
 
-  const map = {
-    dots: dots,
-    dither: dither,
-    bloom: bloom,
-    scanline: scan,
-    noise: noise,
-    chromatic: chroma,
-    pixelate: pixelate
-  };
+        const map = {
+          dots: dots,
+          dither: dither,
+          bloom: bloom,
+          scanline: scan,
+          noise: noise,
+          chromatic: chroma,
+          pixelate: pixelate,
+        };
 
-  currentPass = new EffectPass(camera, map[type]);
-  composer.addPass(currentPass);
-}
+        currentPass = new EffectPass(camera, map[type]);
+        composer.addPass(currentPass);
+      }
 
-select.onchange = e => switchEffect(e.target.value);
-slider.oninput = e => dots.pixelSize = +e.target.value;
+      select.onchange = (e) => switchEffect(e.target.value);
+      slider.oninput = (e) => (dots.pixelSize = +e.target.value);
 
-/* ================= LOOP ================= */
-function animate(){
-  requestAnimationFrame(animate);
-  controls.update();
-  select.value==="ascii" ? ascii.render(scene,camera) : composer.render();
-}
-animate();
-</script>
-</body>
+      /* ================= LOOP ================= */
+      function animate() {
+        requestAnimationFrame(animate);
+        controls.update();
+        select.value === "ascii"
+          ? ascii.render(scene, camera)
+          : composer.render();
+      }
+      animate();
+    </script>
+  </body>
 </html>

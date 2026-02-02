@@ -85,7 +85,7 @@ import {
 } from "https://esm.sh/postprocessing@6.35.4?deps=three@0.160.0";
 
 /* ======================================================
-   SHADERS
+   SHADERS (ORIGINAL DOT LOOK)
 ====================================================== */
 
 const dotsShader = `
@@ -131,7 +131,6 @@ class DotsEffect extends Effect {
     });
     this.pixelSize = size;
   }
-
   update() {
     this.uniforms.get("pixelSize").value = this.pixelSize;
   }
@@ -165,21 +164,31 @@ camera.position.set(0,0,-5);
 camera.zoom = 140;
 camera.updateProjectionMatrix();
 
+/* ======================================================
+   RENDERER
+====================================================== */
 const renderer = new THREE.WebGLRenderer({ antialias:true });
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setPixelRatio(Math.min(devicePixelRatio,1.5));
 document.body.appendChild(renderer.domElement);
 
+/* ======================================================
+   CONTROLS (REBINDABLE)
+====================================================== */
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
 
-/* lights */
+/* ======================================================
+   LIGHTS
+====================================================== */
 scene.add(new THREE.AmbientLight(0xffffff,0.6));
 const dl = new THREE.DirectionalLight(0xffffff,10);
 dl.position.set(5,10,0);
 scene.add(dl);
 
-/* model */
+/* ======================================================
+   MODEL
+====================================================== */
 const loader = new GLTFLoader();
 loader.load("https://cdn.maximeheckel.com/models/creation-of-adam.glb", g => {
   const m = g.scene;
@@ -192,7 +201,6 @@ loader.load("https://cdn.maximeheckel.com/models/creation-of-adam.glb", g => {
 /* ======================================================
    POSTPROCESSING
 ====================================================== */
-
 const composer = new EffectComposer(renderer);
 composer.addPass(new RenderPass(scene, camera));
 
@@ -205,19 +213,16 @@ composer.addPass(currentPass);
 /* ======================================================
    ASCII EFFECT
 ====================================================== */
-
 const asciiEffect = new AsciiEffect(renderer, " .:-=+*#%@", { invert: true });
 asciiEffect.domElement.style.color = "white";
 asciiEffect.domElement.style.backgroundColor = "black";
 asciiEffect.domElement.style.position = "absolute";
 asciiEffect.domElement.style.top = "0";
 asciiEffect.domElement.style.left = "0";
-asciiEffect.domElement.style.pointerEvents = "none";
 
 /* ======================================================
-   UI LOGIC
+   UI LOGIC + CONTROL REBINDING
 ====================================================== */
-
 const select = document.getElementById("effectSelect");
 const slider = document.getElementById("pixelSize");
 const pixelBlock = document.getElementById("pixelBlock");
@@ -253,6 +258,13 @@ function setMode(newMode) {
     currentPass = new EffectPass(camera, dither);
     composer.addPass(currentPass);
   }
+
+  // 🔥 REBIND ORBIT CONTROLS (CRITICAL)
+  controls.dispose();
+  controls.domElement = (mode === "ascii")
+    ? asciiEffect.domElement
+    : renderer.domElement;
+  controls.connect();
 }
 
 select.onchange = () => setMode(select.value);
@@ -264,7 +276,6 @@ slider.oninput = e => {
 /* ======================================================
    RESIZE
 ====================================================== */
-
 window.addEventListener("resize", () => {
   const w = window.innerWidth;
   const h = window.innerHeight;
@@ -284,7 +295,6 @@ window.addEventListener("resize", () => {
 /* ======================================================
    LOOP
 ====================================================== */
-
 function animate() {
   requestAnimationFrame(animate);
   controls.update();

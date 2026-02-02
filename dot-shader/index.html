@@ -87,7 +87,6 @@ import {
 /* ======================================================
    SHADERS (ORIGINAL DOT LOOK)
 ====================================================== */
-
 const dotsShader = `
 uniform float pixelSize;
 
@@ -160,43 +159,60 @@ const camera = new THREE.OrthographicCamera(
   500
 );
 
-camera.position.set(0,0,-5);
+camera.position.set(0, 0, -5);
 camera.zoom = 140;
 camera.updateProjectionMatrix();
 
 /* ======================================================
    RENDERER
 ====================================================== */
-const renderer = new THREE.WebGLRenderer({ antialias:true });
+const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
-renderer.setPixelRatio(Math.min(devicePixelRatio,1.5));
+renderer.setPixelRatio(Math.min(devicePixelRatio, 1.5));
 document.body.appendChild(renderer.domElement);
 
 /* ======================================================
-   CONTROLS (REBINDABLE)
+   CONTROLS
 ====================================================== */
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
+controls.enablePan = false;
+controls.rotateSpeed = 0.6;
 
 /* ======================================================
    LIGHTS
 ====================================================== */
-scene.add(new THREE.AmbientLight(0xffffff,0.6));
-const dl = new THREE.DirectionalLight(0xffffff,10);
-dl.position.set(5,10,0);
+scene.add(new THREE.AmbientLight(0xffffff, 0.6));
+const dl = new THREE.DirectionalLight(0xffffff, 10);
+dl.position.set(5, 10, 0);
 scene.add(dl);
 
 /* ======================================================
-   MODEL
+   MODEL (IMPORTANT FIX HERE)
 ====================================================== */
+let model;
+
 const loader = new GLTFLoader();
-loader.load("https://cdn.maximeheckel.com/models/creation-of-adam.glb", g => {
-  const m = g.scene;
-  m.position.set(2.25,-2,0);
-  m.rotation.y = -Math.PI/2;
-  m.scale.setScalar(4);
-  scene.add(m);
-});
+loader.load(
+  "https://cdn.maximeheckel.com/models/creation-of-adam.glb",
+  (gltf) => {
+    model = gltf.scene;
+
+    model.position.set(2.25, -2, 0);
+    model.rotation.y = -Math.PI / 2;
+    model.scale.setScalar(4);
+
+    scene.add(model);
+
+    // 🔥 CRITICAL FIX: ORBIT AROUND THE HANDS
+    const box = new THREE.Box3().setFromObject(model);
+    const center = box.getCenter(new THREE.Vector3());
+
+    controls.target.copy(center);
+    camera.lookAt(center);
+    controls.update();
+  }
+);
 
 /* ======================================================
    POSTPROCESSING
@@ -221,7 +237,7 @@ asciiEffect.domElement.style.top = "0";
 asciiEffect.domElement.style.left = "0";
 
 /* ======================================================
-   UI LOGIC + CONTROL REBINDING
+   UI + MODE SWITCHING
 ====================================================== */
 const select = document.getElementById("effectSelect");
 const slider = document.getElementById("pixelSize");
@@ -242,10 +258,15 @@ function setMode(newMode) {
     document.body.appendChild(asciiEffect.domElement);
     asciiEffect.setSize(window.innerWidth, window.innerHeight);
     pixelBlock.style.display = "none";
+    controls.domElement = asciiEffect.domElement;
   } else {
     document.body.appendChild(renderer.domElement);
     pixelBlock.style.display = "block";
+    controls.domElement = renderer.domElement;
   }
+
+  controls.dispose();
+  controls.connect();
 
   composer.removePass(currentPass);
 
@@ -258,13 +279,6 @@ function setMode(newMode) {
     currentPass = new EffectPass(camera, dither);
     composer.addPass(currentPass);
   }
-
-  // 🔥 REBIND ORBIT CONTROLS (CRITICAL)
-  controls.dispose();
-  controls.domElement = (mode === "ascii")
-    ? asciiEffect.domElement
-    : renderer.domElement;
-  controls.connect();
 }
 
 select.onchange = () => setMode(select.value);
@@ -287,9 +301,9 @@ window.addEventListener("resize", () => {
   camera.bottom = -frustumSize / 2;
   camera.updateProjectionMatrix();
 
-  renderer.setSize(w,h);
-  composer.setSize(w,h);
-  asciiEffect.setSize(w,h);
+  renderer.setSize(w, h);
+  composer.setSize(w, h);
+  asciiEffect.setSize(w, h);
 });
 
 /* ======================================================

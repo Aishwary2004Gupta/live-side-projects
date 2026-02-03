@@ -12,7 +12,7 @@ class Ting {
 
     addEvents() {
         window.addEventListener("mousemove", this.onMouseMove);
-        window.addEventListener('touchmove', this.onMouseMove)
+        // window.addEventListener('touchmove', this.onMouseMove)
     }
 
     setup() {

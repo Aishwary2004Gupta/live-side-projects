@@ -106,7 +106,24 @@
           vec3 lum = vec3(0.299, 0.587, 0.114);
           vec4 bandw = vec4( vec3(dot( img1.rgb, lum)), img1.a - 0.9);
 
-          gl_FragColor = mix(img1 * 1.5, bandw, mixAmount);
+          // Dark Smog Effect
+          vec2 smogPos = pos + vec2(u_time * 0.05, u_time * 0.03);
+          
+          // Layer multiple noise scales for thick, billowing smog
+          float smog = 0.0;
+          smog += snoise(smogPos * 1.5 + vec2(u_time * 0.1, 0.0)) * 0.5;
+          smog += snoise(smogPos * 2.5 + vec2(0.0, u_time * 0.08)) * 0.3;
+          smog += snoise(smogPos * 0.8 + vec2(u_time * 0.05, u_time * 0.05)) * 0.2;
+          
+          // Remap to 0-1 range and intensify dark areas
+          smog = clamp(smog * 0.6 + 0.4, 0.0, 1.0);
+          smog = pow(smog, 1.5); // Increase contrast of smog
+          
+          // Apply dark smog overlay (darkens the image)
+          vec4 finalColor = mix(img1 * 1.5, bandw, mixAmount);
+          finalColor.rgb *= (1.0 - smog * 0.4); // Darken by up to 40% with smog
+
+          gl_FragColor = finalColor;
         }
     </script>
 

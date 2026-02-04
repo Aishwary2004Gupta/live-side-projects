@@ -322,7 +322,9 @@ void mainImage(const in vec4 i,const in vec2 uv,out vec4 o){
       const voronoi = makeEffect("Voronoi", voronoiShader, { time: 0.0, resolution: new THREE.Vector2(innerWidth, innerHeight) });
       const vhs = makeEffect("VHS", vhsShader, { time: 0.0, resolution: new THREE.Vector2(innerWidth, innerHeight) });
 
-      // existing instances
+      // create these once so the global map can reference them
+      const dots = new DotsEffect(10);
+      const dither = new DitherEffect();
       const pixel = new PixelationEffect(6);
       const scan = new ScanlineEffect({ density: 1.1 });
 
@@ -415,11 +417,7 @@ void mainImage(const in vec4 i,const in vec2 uv,out vec4 o){
       const composer = new EffectComposer(renderer);
       composer.addPass(new RenderPass(scene, camera));
 
-      const dots = new DotsEffect(10);
-      const dither = new DitherEffect();
-      const pixel = new PixelationEffect(6);
-      const scan = new ScanlineEffect({ density: 1.1 });
-
+      // use previously created `dots` instance (remove duplicate declarations)
       let pass = new EffectPass(camera, dots);
       composer.addPass(pass);
 
@@ -451,25 +449,7 @@ void mainImage(const in vec4 i,const in vec2 uv,out vec4 o){
         controls.enablePan = false;
         controls.enableDamping = true;
 
-        const map = {
-          dots: dots,
-          dither: dither,
-          pixel: pixel,
-          scanline: scan,
-          halftone: halftone,
-          matrix: matrix,
-          contour: contour,
-          pixelsort: pixelSort,
-          blockify: blockify,
-          threshold: threshold,
-          edge: edge,
-          crosshatch: crosshatch,
-          brokenLines: brokenLines,
-          noise: noise,
-          voronoi: voronoi,
-          vhs: vhs
-        };
-
+        // use the global map (no local redeclaration)
         pass = new EffectPass(camera, map[v]);
         composer.addPass(pass);
         pixelUI.style.display = (v === "dots" || v === "blockify" || v === "halftone" || v === "pixelsort") ? "block" : "none";
@@ -484,6 +464,15 @@ void mainImage(const in vec4 i,const in vec2 uv,out vec4 o){
         renderer.setSize(innerWidth, innerHeight);
         composer.setSize(innerWidth, innerHeight);
         ascii.setSize(innerWidth, innerHeight);
+
+        // update resolution uniforms for effects that have them
+        const c = renderer.domElement;
+        const w = c.width, h = c.height;
+        [dots, halftone, pixelSort, blockify, contour, crosshatch, noise, voronoi, vhs, matrix, brokenLines].forEach(e=>{
+          if(e && e.uniforms && e.uniforms.get && e.uniforms.get("resolution"))
+            e.uniforms.get("resolution").value.set(w, h);
+        });
+
         updateCamera();
       });
 

@@ -81,9 +81,7 @@
       /* ================= SHADERS ================= */
 
       const dotsShader = `
-precision highp float;
 uniform float pixelSize;
-uniform vec2 resolution;
 void mainImage(const in vec4 i, const in vec2 uv, out vec4 o) {
   vec2 s = pixelSize / resolution;
   vec2 u = s * floor(uv / s);
@@ -107,25 +105,12 @@ void mainImage(const in vec4 i,const in vec2 uv,out vec4 o){
       class DotsEffect extends Effect {
         constructor(v) {
           super("Dots", dotsShader, {
-            uniforms: new Map([
-              ["pixelSize", new THREE.Uniform(v)],
-              [
-                "resolution",
-                new THREE.Uniform(
-                  new THREE.Vector2(innerWidth * devicePixelRatio, innerHeight * devicePixelRatio)
-                ),
-              ],
-            ]),
+            uniforms: new Map([["pixelSize", new THREE.Uniform(v)]]),
           });
           this.v = v;
         }
-        // called by EffectPass each frame; keep resolution in sync with renderer pixel size
-        update(renderer /*, inputBuffer, deltaTime */) {
+        update() {
           this.uniforms.get("pixelSize").value = this.v;
-          const canvas = renderer.domElement;
-          this.uniforms
-            .get("resolution")
-            .value.set(canvas.width, canvas.height);
         }
       }
       class DitherEffect extends Effect {
@@ -164,16 +149,8 @@ void mainImage(const in vec4 i,const in vec2 uv,out vec4 o){
 
       const ascii = new AsciiEffect(renderer, " .:-=+*#%@", { invert: true });
       ascii.domElement.style.position = "absolute";
-      ascii.domElement.style.left = "0";
-      ascii.domElement.style.top = "0";
-      ascii.domElement.style.width = "100%";
-      ascii.domElement.style.height = "100%";
       ascii.domElement.style.color = "white";
       ascii.domElement.style.background = "black";
-      ascii.domElement.style.pointerEvents = "none";
-      ascii.domElement.style.whiteSpace = "pre";
-      ascii.domElement.style.overflow = "hidden";
-      ascii.domElement.style.zIndex = "20";
 
       /* ================= CONTROLS ================= */
 
@@ -229,18 +206,18 @@ void mainImage(const in vec4 i,const in vec2 uv,out vec4 o){
         composer.removePass(pass);
 
         if (v === "ascii") {
-          if (!ascii.domElement.parentNode) document.body.appendChild(ascii.domElement);
+          renderer.domElement.remove();
+          document.body.appendChild(ascii.domElement);
+          ascii.setSize(innerWidth, innerHeight);
           controls.dispose();
-          controls = new OrbitControls(camera, renderer.domElement);
-          controls.enablePan = false;
-          controls.enableDamping = true;
-
+          controls = new OrbitControls(camera, ascii.domElement);
           pixelUI.style.display = "none";
           return;
         }
 
         if (ascii.domElement.parentNode) ascii.domElement.remove();
-        if (!renderer.domElement.parentNode) document.body.appendChild(renderer.domElement);
+        if (!renderer.domElement.parentNode)
+          document.body.appendChild(renderer.domElement);
 
         controls.dispose();
         controls = new OrbitControls(camera, renderer.domElement);
@@ -260,10 +237,7 @@ void mainImage(const in vec4 i,const in vec2 uv,out vec4 o){
       }
 
       effect.onchange = (e) => switchEffect(e.target.value);
-      pixelSize.oninput = (e) => {
-        dots.v = +e.target.value;
-        dots.uniforms.get("pixelSize").value = +e.target.value;
-      };
+      pixelSize.oninput = (e) => (dots.v = +e.target.value);
 
       /* ================= RESIZE ================= */
 
@@ -271,7 +245,6 @@ void mainImage(const in vec4 i,const in vec2 uv,out vec4 o){
         renderer.setSize(innerWidth, innerHeight);
         composer.setSize(innerWidth, innerHeight);
         ascii.setSize(innerWidth, innerHeight);
-        dots.uniforms.get("resolution").value.set(innerWidth * devicePixelRatio, innerHeight * devicePixelRatio);
         updateCamera();
       });
 
@@ -280,20 +253,9 @@ void mainImage(const in vec4 i,const in vec2 uv,out vec4 o){
       function animate() {
         requestAnimationFrame(animate);
         controls.update();
-
-        dots.uniforms.get("pixelSize").value = +pixelSize.value;
-        dots.uniforms.get("resolution").value.set(innerWidth * devicePixelRatio, innerHeight * devicePixelRatio);
-
-        if (effect.value === "ascii") {
-          composer.render();
-
-          const oldRender = renderer.render;
-          renderer.render = () => {};
-          ascii.render(scene, camera);
-          renderer.render = oldRender;
-        } else {
-          composer.render();
-        }
+        effect.value === "ascii"
+          ? ascii.render(scene, camera)
+          : composer.render();
       }
       animate();
     </script>

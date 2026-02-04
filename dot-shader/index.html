@@ -81,7 +81,9 @@
       /* ================= SHADERS ================= */
 
       const dotsShader = `
+precision highp float;
 uniform float pixelSize;
+uniform vec2 resolution;
 void mainImage(const in vec4 i, const in vec2 uv, out vec4 o) {
   vec2 s = pixelSize / resolution;
   vec2 u = s * floor(uv / s);
@@ -117,8 +119,13 @@ void mainImage(const in vec4 i,const in vec2 uv,out vec4 o){
           });
           this.v = v;
         }
-        update() {
+        // called by EffectPass each frame; keep resolution in sync with renderer pixel size
+        update(renderer /*, inputBuffer, deltaTime */) {
           this.uniforms.get("pixelSize").value = this.v;
+          const canvas = renderer.domElement;
+          this.uniforms
+            .get("resolution")
+            .value.set(canvas.width, canvas.height);
         }
       }
       class DitherEffect extends Effect {

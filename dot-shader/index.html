@@ -131,7 +131,7 @@ void mainImage(const in vec4 i, const in vec2 uv, out vec4 o) {
 }
 `;
 
-      // Matrix Rain with hand-shape deformation - full screen with shadow masking
+      // Matrix Rain that accumulates on hands to show outline
       class MatrixRainEffect {
         constructor(renderer, camera) {
           this.renderer = renderer;
@@ -139,6 +139,10 @@ void mainImage(const in vec4 i, const in vec2 uv, out vec4 o) {
           this.canvas = document.createElement('canvas');
           this.ctx = this.canvas.getContext('2d');
           this.domElement = this.canvas;
+          
+          // Create an accumulation canvas to build up the rain
+          this.accumulationCanvas = document.createElement('canvas');
+          this.accumulationCtx = this.accumulationCanvas.getContext('2d');
           
           this.chars = "ｦｧｨｩｪｫｬｭｮｯﾀﾁﾂﾃﾄﾅﾆﾇﾈﾉﾊﾋﾌﾍﾎﾏﾐﾑﾒﾓﾔﾕﾗﾘﾘﾜ01";
           this.cols = 0;
@@ -162,8 +166,11 @@ void mainImage(const in vec4 i, const in vec2 uv, out vec4 o) {
         setSize(width, height) {
           this.canvas.width = width;
           this.canvas.height = height;
+          this.accumulationCanvas.width = width;
+          this.accumulationCanvas.height = height;
           
           this.ctx.font = `${this.fontSize}px ${this.fontFamily}`;
+          this.accumulationCtx.font = `${this.fontSize}px ${this.fontFamily}`;
           this.cols = Math.floor(width / (this.fontSize * 0.6));
           this.rows = Math.floor(height / this.fontSize);
           
@@ -198,11 +205,10 @@ void mainImage(const in vec4 i, const in vec2 uv, out vec4 o) {
           // Draw the scene first as background
           this.ctx.drawImage(this.renderer.domElement, 0, 0);
           
-          // Apply slight fade to create trail effect
-          this.ctx.fillStyle = 'rgba(0, 0, 0, 0.02)';
-          this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+          // Overlay accumulation canvas (pooled rain)
+          this.ctx.drawImage(this.accumulationCanvas, 0, 0);
           
-          // Now overlay matrix rain that falls and accumulates on hands
+          // Now process matrix rain that falls and accumulates on hands
           for (let i = 0; i < this.cols; i++) {
             const char = this.chars[Math.floor(Math.random() * this.chars.length)];
             const speed = 2.0 + (Math.sin(i * 0.1 + elapsed) * 0.5 + 0.5) * 1.2;
@@ -225,16 +231,17 @@ void mainImage(const in vec4 i, const in vec2 uv, out vec4 o) {
               const hitHand = brightness > 100;
               
               if (hitHand) {
-                // Rain hits the hand - create pooling effect
-                this.ctx.fillStyle = `rgba(0, 255, 100, 0.9)`;
-                this.ctx.fillText(char, x, yPos);
+                // Rain hits the hand - accumulate on the accumulation canvas
+                // Build up layers to show hand outline
+                this.accumulationCtx.fillStyle = `rgba(0, 255, 100, 0.85)`;
+                this.accumulationCtx.fillText(char, x, yPos);
                 
-                // Add more characters around the hit point for pooling effect
-                for (let k = 0; k < 3; k++) {
-                  const offsetX = (Math.random() - 0.5) * this.fontSize * 1.5;
-                  const offsetY = (Math.random() - 0.5) * this.fontSize * 0.8;
-                  this.ctx.fillStyle = `rgba(0, 200, 60, ${0.6 - k * 0.15})`;
-                  this.ctx.fillText(
+                // Add surrounding characters for denser outline
+                for (let k = 0; k < 2; k++) {
+                  const offsetX = (Math.random() - 0.5) * this.fontSize;
+                  const offsetY = (Math.random() - 0.5) * this.fontSize * 0.5;
+                  this.accumulationCtx.fillStyle = `rgba(0, 200, 60, ${0.6 - k * 0.2})`;
+                  this.accumulationCtx.fillText(
                     this.chars[Math.floor(Math.random() * this.chars.length)],
                     x + offsetX,
                     yPos + offsetY
@@ -244,13 +251,13 @@ void mainImage(const in vec4 i, const in vec2 uv, out vec4 o) {
                 // Reset drop to top when it hits hand
                 this.drops[i] = -10 + Math.random() * 5;
               } else {
-                // Rain falling in empty space
-                this.ctx.fillStyle = `rgba(0, 255, 100, 0.85)`;
+                // Rain falling in empty space - draw to main canvas
+                this.ctx.fillStyle = `rgba(0, 255, 100, 0.8)';
                 this.ctx.fillText(char, x, yPos);
                 
                 // Add trailing glow effect during fall
                 for (let j = 1; j < 12; j++) {
-                  const alpha = Math.max(0, (1 - j / 12) * 0.4);
+                  const alpha = Math.max(0, (1 - j / 12) * 0.35);
                   const tailY = yPos - (j * this.fontSize);
                   this.ctx.fillStyle = `rgba(0, 200, 60, ${alpha})`;
                   this.ctx.fillText(

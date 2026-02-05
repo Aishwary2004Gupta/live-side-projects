@@ -131,7 +131,7 @@ void mainImage(const in vec4 i, const in vec2 uv, out vec4 o) {
 }
 `;
 
-      // Matrix Rain using canvas (ASCII-style with falling animation)
+      // Matrix Rain with hand-shape deformation
       class MatrixRainEffect {
         constructor(renderer, camera) {
           this.renderer = renderer;
@@ -149,6 +149,15 @@ void mainImage(const in vec4 i, const in vec2 uv, out vec4 o) {
           this.fontSize = 12;
           this.fontFamily = 'monospace';
           this.setSize(renderer.domElement.clientWidth, renderer.domElement.clientHeight);
+          
+          // Create render target for scene capture
+          this.renderTarget = new THREE.WebGLRenderTarget(
+            renderer.domElement.clientWidth,
+            renderer.domElement.clientHeight,
+            { format: THREE.RGBAFormat }
+          );
+          this.sceneTexture = null;
+          this.needsSceneUpdate = true;
         }
 
         setSize(width, height) {
@@ -159,28 +168,52 @@ void mainImage(const in vec4 i, const in vec2 uv, out vec4 o) {
           this.cols = Math.floor(width / (this.fontSize * 0.6));
           this.rows = Math.floor(height / this.fontSize);
           
-          // initialize drops array
           this.drops = Array(this.cols).fill(0).map(() => Math.random() * this.rows);
+          
+          // Update render target size
+          if (this.renderTarget) {
+            this.renderTarget.setSize(width, height);
+          }
+        }
+
+        updateSceneTexture(scene, camera, renderer) {
+          // Render scene to texture to capture hand shape
+          const oldTarget = renderer.getRenderTarget();
+          renderer.setRenderTarget(this.renderTarget);
+          renderer.render(scene, camera);
+          renderer.setRenderTarget(oldTarget);
+          
+          this.sceneTexture = this.renderTarget.texture;
         }
 
         render(scene, camera) {
+          // Update scene texture occasionally for hand shape
+          this.updateSceneTexture(scene, camera, this.renderer);
+          
           const now = performance.now();
           const elapsed = (now - this.startTime) / 1000;
           
           // semi-transparent black background for trail effect
-          this.ctx.fillStyle = 'rgba(1, 1, 1, 0.1)';
+          this.ctx.fillStyle = 'rgba(1, 1, 1, 0.08)';
           this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
           
-          // draw each column
+          // Create temporary canvas to read pixel data from scene
+          const tempCanvas = document.createElement('canvas');
+          tempCanvas.width = this.canvas.width;
+          tempCanvas.height = this.canvas.height;
+          const tempCtx = tempCanvas.getContext('2d');
+          
+          // Draw the rendered scene to temp canvas for shape detection
+          tempCtx.drawImage(this.renderer.domElement, 0, 0);
+          const imageData = tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
+          const data = imageData.data;
+          
+          // Draw each column
           for (let i = 0; i < this.cols; i++) {
-            // random character
             const char = this.chars[Math.floor(Math.random() * this.chars.length)];
-            
-            // calculate y position with speed variation per column
             const speed = 1 + (Math.sin(i * 0.1 + elapsed) * 0.5 + 0.5) * 0.5;
             this.drops[i] += speed * 0.3;
             
-            // wrap around when off screen
             if (this.drops[i] * this.fontSize > this.canvas.height + 100) {
               this.drops[i] = -10 + Math.random() * 5;
             }
@@ -188,20 +221,27 @@ void mainImage(const in vec4 i, const in vec2 uv, out vec4 o) {
             const yPos = this.drops[i] * this.fontSize;
             const x = i * (this.fontSize * 0.6);
             
-            // bright head glow
-            this.ctx.fillStyle = 'rgba(0, 255, 100, 1)';
-            this.ctx.fillText(char, x, yPos);
+            // Check if this position overlaps with scene geometry (hands)
+            const pixelIndex = (Math.floor(yPos) * this.canvas.width + Math.floor(x)) * 4;
+            const brightness = (data[pixelIndex] + data[pixelIndex + 1] + data[pixelIndex + 2]) / 3;
             
-            // trailing tail - fade out upward
-            for (let j = 1; j < 15; j++) {
-              const alpha = Math.max(0, 1 - j / 15);
-              const tailY = yPos - (j * this.fontSize);
-              this.ctx.fillStyle = `rgba(0, 200, 60, ${alpha * 0.6})`;
-              this.ctx.fillText(
-                this.chars[Math.floor(Math.random() * this.chars.length)],
-                x,
-                tailY
-              );
+            // Only draw matrix characters where there's scene geometry (hands)
+            if (brightness > 30) {
+              // bright head glow
+              this.ctx.fillStyle = `rgba(0, 255, 100, ${Math.min(1, brightness / 200)})`;
+              this.ctx.fillText(char, x, yPos);
+              
+              // trailing tail - fade out upward
+              for (let j = 1; j < 12; j++) {
+                const alpha = Math.max(0, (1 - j / 12) * (brightness / 255));
+                const tailY = yPos - (j * this.fontSize);
+                this.ctx.fillStyle = `rgba(0, 200, 60, ${alpha * 0.5})`;
+                this.ctx.fillText(
+                  this.chars[Math.floor(Math.random() * this.chars.length)],
+                  x,
+                  tailY
+                );
+              }
             }
           }
         }
@@ -551,6 +591,9 @@ void mainImage(const in vec4 i,const in vec2 uv,out vec4 o){
         if (effect.value === "ascii") {
           ascii.render(scene, camera);
         } else if (effect.value === "matrix") {
+          // Render the 3D scene first to capture hand shapes
+          composer.render();
+          // Then render matrix rain with hand deformation
           matrix.render(scene, camera);
         } else {
           composer.render();

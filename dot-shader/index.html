@@ -133,35 +133,55 @@ void mainImage(const in vec4 i, const in vec2 uv, out vec4 o) {
 }
 `;
 
-      // Matrix Rain: vertical green streaks via time-based bands (blend with scene to keep hands visible)
+      // Matrix Rain: vertical green character streaks with visible glyphs
       const matrixShader = `
 precision highp float;
 uniform float time;
 uniform vec2 resolution;
 float rand(vec2 co){ return fract(sin(dot(co.xy, vec2(12.9898,78.233))) * 43758.5453); }
+float char(float p, float x){
+  if(p<0.1) return step(0.5,fract(x*5.0));
+  if(p<0.2) return step(0.5,fract(x*7.0));
+  if(p<0.3) return step(0.5,fract(x*3.0));
+  if(p<0.4) return step(0.5,fract(x*11.0));
+  if(p<0.5) return step(0.5,fract(x*13.0));
+  return step(0.5,fract(x*9.0));
+}
 void mainImage(const in vec4 i, const in vec2 uv, out vec4 o){
   vec3 scene = texture2D(inputBuffer, uv).rgb;
-
   vec2 p = uv * resolution;
-  float col = floor(p.x / 8.0);
-
-  // compute a vertical moving band position per column
-  float y = p.y / 16.0 + time * 5.0 + rand(vec2(col, 0.0)) * 50.0;
-  float band = step(0.95, fract(y));            // crisp drops
-  float glow = smoothstep(0.0, 0.4, 1.0 - fract(y)); // soft glow around drops
-
-  float rainStrength = band + glow * 0.8;
-
-  // green rain color
-  vec3 rainColor = vec3(0.0, 0.9, 0.0) * (0.4 + 0.6 * glow);
-
-  // preserve bright details (like hands) by using scene luminance as a mask:
+  
+  float colIdx = floor(p.x / 12.0);
+  float colSeed = rand(vec2(colIdx, 0.0));
+  
+  // vertical position with randomized speed per column
+  float speed = 3.0 + colSeed * 2.0;
+  float y = p.y / 20.0 + time * speed + colSeed * 80.0;
+  float yFrac = fract(y);
+  
+  // character visibility
+  float charIdx = floor(y);
+  float charX = fract(p.x / 12.0 + rand(vec2(colIdx, charIdx)) * 0.5);
+  float ch = char(fract(charIdx * 0.1), charX);
+  
+  // drop intensity with fade
+  float dropIntensity = ch * smoothstep(1.0, 0.0, yFrac);
+  
+  // bright leading edge
+  float headGlow = ch * smoothstep(0.15, -0.1, yFrac);
+  
+  // green color with intensity falloff
+  vec3 greenColor = vec3(0.0, 1.0, 0.2);
+  vec3 headColor = vec3(0.4, 1.0, 0.6);
+  
+  // blend with scene, keeping darker areas more visible
   float lum = dot(scene, vec3(0.2126, 0.7152, 0.0722));
-  float mask = smoothstep(0.25, 0.65, 1.0 - lum); // stronger rain where scene is dark
-
-  // blend rain over the scene but keep scene visible (subtle tint)
-  vec3 result = mix(scene, mix(scene * 0.12 + rainColor, rainColor, 0.6), clamp(rainStrength * mask, 0.0, 1.0));
-
+  float mask = smoothstep(0.3, 0.7, 1.0 - lum);
+  
+  vec3 result = scene;
+  result = mix(result, greenColor * 0.8, dropIntensity * mask * 0.6);
+  result = mix(result, headColor, headGlow * mask * 0.8);
+  
   o = vec4(result, 1.0);
 }
 `;

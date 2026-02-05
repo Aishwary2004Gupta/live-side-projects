@@ -52,16 +52,15 @@
           <option value="dots">Dots</option>
           <option value="dither">Dither</option>
           <option value="ascii">ASCII</option>
-          <option value="halftone">Halftona</option>
+          <option value="halftone">Halftone</option>
           <option value="matrix">Matrix Rain</option>
           <option value="contour">Contour</option>
-          <option value="pixelsort">Pixal Sort</option>
           <option value="blockify">Blockify</option>
-          <option value="threshold">Thrashold</option>
-          <option value="edge">Edga Oataction</option>
+          <option value="threshold">Threshold</option>
+          <option value="edge">Edge Detection</option>
           <option value="crosshatch">Crosshatch</option>
-          <option value="brokenLines">bdava Linas</option>
-          <option value="noise">Naisa Field</option>
+          <option value="brokenLines">Broken Lines</option>
+          <option value="noise">Noise Field</option>
           <option value="voronoi">Voronoi</option>
           <option value="vhs">VHS</option>
         </select>
@@ -167,7 +166,7 @@ void mainImage(const in vec4 i, const in vec2 uv, out vec4 o){
 }
 `;
 
-      // Contour / edge: simple sobel edges
+      // Contour / Sobel edges with threshold
       const contourShader = `
 precision highp float;
 uniform vec2 resolution;
@@ -183,26 +182,19 @@ void mainImage(const in vec4 i,const in vec2 uv,out vec4 o){
 }
 `;
 
-      // Pixel sort (simple scanline max-luminance fetch)
-      const pixelSortShader = `
+      // Edge / Laplacian for different edge detection
+      const edgeShader = `
 precision highp float;
-uniform float pixelSize;
 uniform vec2 resolution;
-float lum(vec3 c){return dot(c, vec3(.2126,.7152,.0722));}
+vec4 sampleOffset(vec2 uv, vec2 off){ return texture2D(inputBuffer, uv + off / resolution); }
 void mainImage(const in vec4 i,const in vec2 uv,out vec4 o){
-  vec2 p = uv * resolution;
-  ivec2 ip = ivec2(floor(p));
-  int k = 16;
-  vec3 best = vec3(0.0);
-  float bestL = -1.0;
-  for(int x=0;x<k;x++){
-    float sx = float(x) - float(k)/2.0;
-    vec2 samp = (vec2(ip) + vec2(sx,0.0))/resolution;
-    vec3 c = texture2D(inputBuffer, samp).rgb;
-    float L = lum(c);
-    if(L > bestL){ bestL = L; best = c; }
-  }
-  o = vec4(best,1.0);
+  float c = -4.0*dot(sampleOffset(uv, vec2(0.,0.)).rgb, vec3(0.3));
+  c += 1.0*dot(sampleOffset(uv, vec2(-1.,0.)).rgb, vec3(0.3));
+  c += 1.0*dot(sampleOffset(uv, vec2(1.,0.)).rgb, vec3(0.3));
+  c += 1.0*dot(sampleOffset(uv, vec2(0.,-1.)).rgb, vec3(0.3));
+  c += 1.0*dot(sampleOffset(uv, vec2(0.,1.)).rgb, vec3(0.3));
+  c = abs(c);
+  o = vec4(vec3(step(0.15, c)), 1.0);
 }
 `;
 
@@ -335,10 +327,9 @@ void mainImage(const in vec4 i,const in vec2 uv,out vec4 o){
       const halftone = makeEffect("Halftone", halftoneShader, { pixelSize: 10.0, resolution: new THREE.Vector2(innerWidth, innerHeight) });
       const matrix = makeEffect("Matrix", matrixShader, { time: 0.0, resolution: new THREE.Vector2(innerWidth, innerHeight) });
       const contour = makeEffect("Contour", contourShader, { resolution: new THREE.Vector2(innerWidth, innerHeight) });
-      const pixelSort = makeEffect("PixelSort", pixelSortShader, { pixelSize: 10.0, resolution: new THREE.Vector2(innerWidth, innerHeight) });
       const blockify = makeEffect("Blockify", blockifyShader, { pixelSize: 8.0, resolution: new THREE.Vector2(innerWidth, innerHeight) });
       const threshold = makeEffect("Threshold", thresholdShader, { thresh: 0.5 });
-      const edge = makeEffect("Edge", contourShader, { resolution: new THREE.Vector2(innerWidth, innerHeight) }); // reuse contour/sobel
+      const edge = makeEffect("Edge", edgeShader, { resolution: new THREE.Vector2(innerWidth, innerHeight) });
       const crosshatch = makeEffect("Crosshatch", crosshatchShader, { resolution: new THREE.Vector2(innerWidth, innerHeight) });
       const brokenLines = makeEffect("BrokenLines", voronoiShader, { time: 0.0, resolution: new THREE.Vector2(innerWidth, innerHeight) });
       const noise = makeEffect("Noise", noiseShader, { time: 0.0, resolution: new THREE.Vector2(innerWidth, innerHeight) });
@@ -360,7 +351,6 @@ void mainImage(const in vec4 i,const in vec2 uv,out vec4 o){
         halftone: halftone,
         matrix: matrix,
         contour: contour,
-        pixelsort: pixelSort,
         blockify: blockify,
         threshold: threshold,
         edge: edge,
@@ -475,7 +465,7 @@ void mainImage(const in vec4 i,const in vec2 uv,out vec4 o){
         // use the global map (no local redeclaration)
         pass = new EffectPass(camera, map[v]);
         composer.addPass(pass);
-        pixelUI.style.display = (v === "dots" || v === "blockify" || v === "halftone" || v === "pixelsort") ? "block" : "none";
+        pixelUI.style.display = (v === "dots" || v === "blockify" || v === "halftone") ? "block" : "none";
       }
 
       effect.onchange = (e) => switchEffect(e.target.value);
@@ -491,7 +481,7 @@ void mainImage(const in vec4 i,const in vec2 uv,out vec4 o){
         // update resolution uniforms for effects that have them
         const c = renderer.domElement;
         const w = c.width, h = c.height;
-        [dots, halftone, pixelSort, blockify, contour, crosshatch, noise, voronoi, vhs, matrix, brokenLines].forEach(e=>{
+        [dots, halftone, blockify, contour, edge, crosshatch, noise, voronoi, vhs, matrix, brokenLines].forEach(e=>{
           if(e && e.uniforms && e.uniforms.get && e.uniforms.get("resolution"))
             e.uniforms.get("resolution").value.set(w, h);
         });

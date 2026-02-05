@@ -179,29 +179,26 @@ void mainImage(const in vec4 i, const in vec2 uv, out vec4 o) {
           const elapsed = (now - this.startTime) / 1000;
           this.frameCount++;
           
-          // Render scene to texture to capture hand geometry (only every other frame for performance)
-          if (this.frameCount % 2 === 0) {
-            const oldTarget = this.renderer.getRenderTarget();
-            this.renderer.setRenderTarget(this.renderTarget);
-            this.renderer.render(scene, camera);
-            this.renderer.setRenderTarget(oldTarget);
-          }
+          // Render scene to texture to capture hand geometry
+          const oldTarget = this.renderer.getRenderTarget();
+          this.renderer.setRenderTarget(this.renderTarget);
+          this.renderer.render(scene, camera);
+          this.renderer.setRenderTarget(oldTarget);
           
-          // Clear canvas with black background
-          this.ctx.fillStyle = '#000000';
-          this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
-          
-          // Get scene image data for shadow detection (every frame)
+          // Get scene image for overlay
           const tempCanvas = document.createElement('canvas');
           tempCanvas.width = this.canvas.width;
           tempCanvas.height = this.canvas.height;
           const tempCtx = tempCanvas.getContext('2d');
           tempCtx.drawImage(this.renderer.domElement, 0, 0);
           
-          const imageData = tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
-          const data = imageData.data;
+          const sceneImageData = tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
+          const sceneData = sceneImageData.data;
           
-          // Draw full-screen matrix rain
+          // Draw the scene first as background
+          this.ctx.drawImage(this.renderer.domElement, 0, 0);
+          
+          // Now overlay matrix rain on top
           for (let i = 0; i < this.cols; i++) {
             const char = this.chars[Math.floor(Math.random() * this.chars.length)];
             const speed = 1.5 + (Math.sin(i * 0.1 + elapsed) * 0.5 + 0.5) * 0.8;
@@ -215,39 +212,33 @@ void mainImage(const in vec4 i, const in vec2 uv, out vec4 o) {
             const yPos = this.drops[i] * this.fontSize;
             const x = i * (this.fontSize * 0.6);
             
-            // Sample multiple pixels for better hand detection
             const yFloor = Math.floor(yPos);
             const xFloor = Math.floor(x);
             
             if (yFloor >= 0 && yFloor < this.canvas.height && xFloor >= 0 && xFloor < this.canvas.width) {
               const pixelIndex = (yFloor * this.canvas.width + xFloor) * 4;
-              const r = data[pixelIndex];
-              const g = data[pixelIndex + 1];
-              const b = data[pixelIndex + 2];
+              const r = sceneData[pixelIndex];
+              const g = sceneData[pixelIndex + 1];
+              const b = sceneData[pixelIndex + 2];
               const brightness = (r + g + b) / 3;
               
-              // Draw matrix characters EXCEPT where hand is bright (inverted logic)
-              // Hand areas are bright, so draw where brightness is LOW (shadow areas)
-              if (brightness < 100) {
-                // Bright green matrix characters on dark areas
-                this.ctx.fillStyle = 'rgba(0, 255, 100, 0.95)';
-                this.ctx.fillText(char, x, yPos);
-                
-                // Add trailing glow effect
-                for (let j = 1; j < 8; j++) {
-                  const alpha = Math.max(0, 1 - j / 8) * 0.4;
-                  const tailY = yPos - (j * this.fontSize);
-                  this.ctx.fillStyle = `rgba(0, 180, 70, ${alpha})`;
-                  this.ctx.fillText(
-                    this.chars[Math.floor(Math.random() * this.chars.length)],
-                    x,
-                    tailY
-                  );
-                }
-              } else if (brightness > 150) {
-                // Very subtle matrix on hand (to show it's there but hand is visible)
-                this.ctx.fillStyle = `rgba(0, 255, 100, ${(brightness - 150) / 100 * 0.15})`;
-                this.ctx.fillText(char, x, yPos);
+              // Draw matrix characters everywhere, but with varying opacity based on brightness
+              // Bright areas (hand) get less opacity, dark areas get full opacity
+              const opacity = brightness < 50 ? 0.95 : brightness < 120 ? 0.6 : 0.2;
+              
+              this.ctx.fillStyle = `rgba(0, 255, 100, ${opacity})`;
+              this.ctx.fillText(char, x, yPos);
+              
+              // Add trailing glow effect
+              for (let j = 1; j < 10; j++) {
+                const alpha = Math.max(0, (1 - j / 10) * 0.5 * opacity);
+                const tailY = yPos - (j * this.fontSize);
+                this.ctx.fillStyle = `rgba(0, 200, 60, ${alpha})`;
+                this.ctx.fillText(
+                  this.chars[Math.floor(Math.random() * this.chars.length)],
+                  x,
+                  tailY
+                );
               }
             }
           }

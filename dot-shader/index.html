@@ -173,13 +173,13 @@
         constructor(renderer, camera) {
           this.renderer = renderer;
           this.camera = camera;
-          this.canvas = document.createElement('canvas');
-          this.ctx = this.canvas.getContext('2d', { willReadFrequently: true });
+          this.canvas = document.createElement("canvas");
+          this.ctx = this.canvas.getContext("2d", { willReadFrequently: true });
           this.domElement = this.canvas;
 
           // Create an accumulation canvas to build up the rain
-          this.accumulationCanvas = document.createElement('canvas');
-          this.accumulationCtx = this.accumulationCanvas.getContext('2d');
+          this.accumulationCanvas = document.createElement("canvas");
+          this.accumulationCtx = this.accumulationCanvas.getContext("2d");
 
           this.chars = "ｦｧｨｩｪｫｬｭｮｯﾀﾁﾂﾃﾄﾅﾆﾇﾈﾉﾊﾋﾌﾍﾎﾏﾐﾑﾒﾓﾔﾕﾗﾘﾘﾜ01";
           this.cols = 0;
@@ -189,14 +189,17 @@
           this.frameCount = 0;
 
           this.fontSize = 12;
-          this.fontFamily = 'monospace';
-          this.setSize(renderer.domElement.clientWidth, renderer.domElement.clientHeight);
+          this.fontFamily = "monospace";
+          this.setSize(
+            renderer.domElement.clientWidth,
+            renderer.domElement.clientHeight,
+          );
 
           // Create render target for scene capture
           this.renderTarget = new THREE.WebGLRenderTarget(
             renderer.domElement.clientWidth,
             renderer.domElement.clientHeight,
-            { format: THREE.RGBAFormat }
+            { format: THREE.RGBAFormat },
           );
         }
 
@@ -211,7 +214,9 @@
           this.cols = Math.floor(width / (this.fontSize * 0.6));
           this.rows = Math.floor(height / this.fontSize);
 
-          this.drops = Array(this.cols).fill(0).map(() => Math.random() * this.rows);
+          this.drops = Array(this.cols)
+            .fill(0)
+            .map(() => Math.random() * this.rows);
 
           if (this.renderTarget) {
             this.renderTarget.setSize(width, height);
@@ -230,17 +235,24 @@
           this.renderer.setRenderTarget(oldTarget);
 
           // Get scene image to detect hand areas
-          const tempCanvas = document.createElement('canvas');
+          const tempCanvas = document.createElement("canvas");
           tempCanvas.width = this.canvas.width;
           tempCanvas.height = this.canvas.height;
-          const tempCtx = tempCanvas.getContext('2d', { willReadFrequently: true });
+          const tempCtx = tempCanvas.getContext("2d", {
+            willReadFrequently: true,
+          });
           tempCtx.drawImage(this.renderer.domElement, 0, 0);
 
-          const sceneImageData = tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
+          const sceneImageData = tempCtx.getImageData(
+            0,
+            0,
+            tempCanvas.width,
+            tempCanvas.height,
+          );
           const sceneData = sceneImageData.data;
 
           // Clear the canvas
-          this.ctx.fillStyle = 'black';
+          this.ctx.fillStyle = "black";
           this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
 
           // Draw the scene (hands) as background
@@ -248,7 +260,8 @@
 
           // Process matrix rain falling normally over the scene
           for (let i = 0; i < this.cols; i++) {
-            const char = this.chars[Math.floor(Math.random() * this.chars.length)];
+            const char =
+              this.chars[Math.floor(Math.random() * this.chars.length)];
             const speed = 2.0 + (Math.sin(i * 0.1 + elapsed) * 0.5 + 0.5) * 1.2;
             this.drops[i] += speed * 0.4;
 
@@ -259,18 +272,18 @@
             const xFloor = Math.floor(x);
 
             // Draw rain character at normal brightness
-            this.ctx.fillStyle = 'rgba(0, 255, 100, 0.8)';
+            this.ctx.fillStyle = "rgba(0, 255, 100, 0.8)";
             this.ctx.fillText(char, x, yPos);
 
             // Add trailing glow effect during fall
             for (let j = 1; j < 12; j++) {
               const alpha = Math.max(0, (1 - j / 12) * 0.35);
-              const tailY = yPos - (j * this.fontSize);
+              const tailY = yPos - j * this.fontSize;
               this.ctx.fillStyle = `rgba(0, 200, 60, ${alpha})`;
               this.ctx.fillText(
                 this.chars[Math.floor(Math.random() * this.chars.length)],
                 x,
-                tailY
+                tailY,
               );
             }
 
@@ -281,7 +294,12 @@
           }
 
           // Create hand silhouette by clearing hand areas completely
-          const handImageData = this.ctx.getImageData(0, 0, this.canvas.width, this.canvas.height);
+          const handImageData = this.ctx.getImageData(
+            0,
+            0,
+            this.canvas.width,
+            this.canvas.height,
+          );
           const handData = handImageData.data;
 
           for (let i = 0; i < sceneData.length; i += 4) {
@@ -426,7 +444,15 @@
           super("Dots", dotsShader, {
             uniforms: new Map([
               ["pixelSize", new THREE.Uniform(v)],
-              ["resolution", new THREE.Uniform(new THREE.Vector2(innerWidth * devicePixelRatio, innerHeight * devicePixelRatio))]
+              [
+                "resolution",
+                new THREE.Uniform(
+                  new THREE.Vector2(
+                    innerWidth * devicePixelRatio,
+                    innerHeight * devicePixelRatio,
+                  ),
+                ),
+              ],
             ]),
           });
           this.v = v;
@@ -434,7 +460,9 @@
         update(renderer) {
           this.uniforms.get("pixelSize").value = this.v;
           const canvas = renderer.domElement;
-          this.uniforms.get("resolution").value.set(canvas.width, canvas.height);
+          this.uniforms
+            .get("resolution")
+            .value.set(canvas.width, canvas.height);
         }
       }
 
@@ -448,15 +476,18 @@
       // helper effect factory
       function makeEffect(name, shader, uniforms = {}) {
         const map = new Map();
-        for(const k in uniforms) map.set(k, new THREE.Uniform(uniforms[k]));
+        for (const k in uniforms) map.set(k, new THREE.Uniform(uniforms[k]));
         return new (class extends Effect {
-          constructor(){ super(name, shader, { uniforms: map }); }
-          update(renderer){ 
-            if(map.has("resolution")) { 
-              const c=renderer.domElement; 
+          constructor() {
+            super(name, shader, { uniforms: map });
+          }
+          update(renderer) {
+            if (map.has("resolution")) {
+              const c = renderer.domElement;
               map.get("resolution").value.set(c.width, c.height);
-            } 
-            if(map.has("time")) map.get("time").value = performance.now()/1000; 
+            }
+            if (map.has("time"))
+              map.get("time").value = performance.now() / 1000;
           }
         })();
       }
@@ -501,56 +532,56 @@
       matrix.domElement.style.left = "0";
 
       /* ================= CREATE EFFECTS ================= */
-      
+
       const dots = new DotsEffect(10);
       const dither = new DitherEffect();
       const pixel = new PixelationEffect(6);
       const scan = new ScanlineEffect({ density: 1.1 });
-      
-      const halftone = makeEffect("Halftone", halftoneShader, { 
-        pixelSize: 10.0, 
-        resolution: new THREE.Vector2(innerWidth, innerHeight) 
+
+      const halftone = makeEffect("Halftone", halftoneShader, {
+        pixelSize: 10.0,
+        resolution: new THREE.Vector2(innerWidth, innerHeight),
       });
-      
-      const contour = makeEffect("Contour", contourShader, { 
-        resolution: new THREE.Vector2(innerWidth, innerHeight) 
+
+      const contour = makeEffect("Contour", contourShader, {
+        resolution: new THREE.Vector2(innerWidth, innerHeight),
       });
-      
-      const blockify = makeEffect("Blockify", blockifyShader, { 
-        pixelSize: 8.0, 
-        resolution: new THREE.Vector2(innerWidth, innerHeight) 
+
+      const blockify = makeEffect("Blockify", blockifyShader, {
+        pixelSize: 8.0,
+        resolution: new THREE.Vector2(innerWidth, innerHeight),
       });
-      
-      const threshold = makeEffect("Threshold", thresholdShader, { 
-        thresh: 0.5 
+
+      const threshold = makeEffect("Threshold", thresholdShader, {
+        thresh: 0.5,
       });
-      
-      const edge = makeEffect("Edge", edgeShader, { 
-        resolution: new THREE.Vector2(innerWidth, innerHeight) 
+
+      const edge = makeEffect("Edge", edgeShader, {
+        resolution: new THREE.Vector2(innerWidth, innerHeight),
       });
-      
-      const crosshatch = makeEffect("Crosshatch", crosshatchShader, { 
-        resolution: new THREE.Vector2(innerWidth, innerHeight) 
+
+      const crosshatch = makeEffect("Crosshatch", crosshatchShader, {
+        resolution: new THREE.Vector2(innerWidth, innerHeight),
       });
-      
-      const brokenLines = makeEffect("BrokenLines", brokenLinesShader, { 
-        time: 0.0, 
-        resolution: new THREE.Vector2(innerWidth, innerHeight) 
+
+      const brokenLines = makeEffect("BrokenLines", brokenLinesShader, {
+        time: 0.0,
+        resolution: new THREE.Vector2(innerWidth, innerHeight),
       });
-      
-      const noise = makeEffect("Noise", noiseShader, { 
-        time: 0.0, 
-        resolution: new THREE.Vector2(innerWidth, innerHeight) 
+
+      const noise = makeEffect("Noise", noiseShader, {
+        time: 0.0,
+        resolution: new THREE.Vector2(innerWidth, innerHeight),
       });
-      
-      const voronoi = makeEffect("Voronoi", voronoiShader, { 
-        time: 0.0, 
-        resolution: new THREE.Vector2(innerWidth, innerHeight) 
+
+      const voronoi = makeEffect("Voronoi", voronoiShader, {
+        time: 0.0,
+        resolution: new THREE.Vector2(innerWidth, innerHeight),
       });
-      
-      const vhs = makeEffect("VHS", vhsShader, { 
-        time: 0.0, 
-        resolution: new THREE.Vector2(innerWidth, innerHeight) 
+
+      const vhs = makeEffect("VHS", vhsShader, {
+        time: 0.0,
+        resolution: new THREE.Vector2(innerWidth, innerHeight),
       });
 
       // Now create the map after all effects are defined
@@ -567,7 +598,7 @@
         brokenLines: brokenLines,
         noise: noise,
         voronoi: voronoi,
-        vhs: vhs
+        vhs: vhs,
       };
 
       /* ================= CONTROLS ================= */
@@ -598,7 +629,7 @@
           const c = box.getCenter(new THREE.Vector3());
           controls.target.copy(c);
           camera.lookAt(c);
-        }
+        },
       );
 
       /* ================= POST ================= */
@@ -650,7 +681,10 @@
 
         pass = new EffectPass(camera, map[v]);
         composer.addPass(pass);
-        pixelUI.style.display = (v === "dots" || v === "blockify" || v === "halftone") ? "block" : "none";
+        pixelUI.style.display =
+          v === "dots" || v === "blockify" || v === "halftone"
+            ? "block"
+            : "none";
       }
 
       effect.onchange = (e) => switchEffect(e.target.value);
@@ -670,9 +704,21 @@
         matrix.setSize(innerWidth, innerHeight);
 
         const c = renderer.domElement;
-        const w = c.width, h = c.height;
-        [dots, halftone, blockify, contour, edge, crosshatch, noise, voronoi, vhs, brokenLines].forEach(e=>{
-          if(e && e.uniforms && e.uniforms.get && e.uniforms.get("resolution"))
+        const w = c.width,
+          h = c.height;
+        [
+          dots,
+          halftone,
+          blockify,
+          contour,
+          edge,
+          crosshatch,
+          noise,
+          voronoi,
+          vhs,
+          brokenLines,
+        ].forEach((e) => {
+          if (e && e.uniforms && e.uniforms.get && e.uniforms.get("resolution"))
             e.uniforms.get("resolution").value.set(w, h);
         });
 

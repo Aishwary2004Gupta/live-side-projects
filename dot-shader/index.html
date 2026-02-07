@@ -202,7 +202,9 @@
             { format: THREE.RGBAFormat },
           );
           // maskTarget will be resized in setSize to match the rain grid (cols x rows)
-          this.maskTarget = new THREE.WebGLRenderTarget(1, 1, { format: THREE.RGBAFormat });
+          this.maskTarget = new THREE.WebGLRenderTarget(1, 1, {
+            format: THREE.RGBAFormat,
+          });
           this.maskTarget.texture.minFilter = THREE.NearestFilter;
           this.maskTarget.texture.magFilter = THREE.NearestFilter;
           this._maskBuffer = null;
@@ -240,83 +242,94 @@
           const elapsed = (now - this.startTime) / 1000;
           this.frameCount++;
 
-            // Render the scene into a small mask render target sized to the rain grid
-            const oldTarget = this.renderer.getRenderTarget();
-            if (this.maskTarget) {
-              this.renderer.setRenderTarget(this.maskTarget);
-              this.renderer.render(scene, camera);
-              this.renderer.setRenderTarget(oldTarget);
+          // Render the scene into a small mask render target sized to the rain grid
+          const oldTarget = this.renderer.getRenderTarget();
+          if (this.maskTarget) {
+            this.renderer.setRenderTarget(this.maskTarget);
+            this.renderer.render(scene, camera);
+            this.renderer.setRenderTarget(oldTarget);
+          }
+
+          // Clear to black so the rain fills the whole screen
+          this.ctx.fillStyle = "black";
+          this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+
+          // Read the entire small mask once per frame into _maskBuffer (fast)
+          const maskBuf = this._maskBuffer;
+          if (this.maskTarget && maskBuf) {
+            try {
+              this.renderer.readRenderTargetPixels(
+                this.maskTarget,
+                0,
+                0,
+                this.maskTarget.width,
+                this.maskTarget.height,
+                maskBuf,
+              );
+            } catch (err) {
+              // if read fails, zero out buffer to avoid exceptions
+              maskBuf.fill(0);
+            }
+          }
+
+          // Draw matrix rain across the whole canvas. Use the small mask buffer
+          // to quickly determine whether the drop is over a bright (hand) region.
+          for (let i = 0; i < this.cols; i++) {
+            const char =
+              this.chars[Math.floor(Math.random() * this.chars.length)];
+            const speed = 2.0 + (Math.sin(i * 0.1 + elapsed) * 0.5 + 0.5) * 1.2;
+            this.drops[i] += speed * 0.4;
+
+            const yPos = this.drops[i] * this.fontSize;
+            const x = i * (this.fontSize * 0.6);
+
+            const colIndex = i;
+            let rowIndex = Math.floor(yPos / this.fontSize);
+            rowIndex = Math.max(0, Math.min(this.rows - 1, rowIndex));
+
+            let isHand = false;
+            if (
+              maskBuf &&
+              colIndex >= 0 &&
+              colIndex < this.maskTarget.width &&
+              rowIndex >= 0 &&
+              rowIndex < this.maskTarget.height
+            ) {
+              // mask buffer is bottom-left origin: index = ((y)*width + x)*4
+              const maskY = rowIndex; // since rows mapped to fontSize, keep same orientation
+              const idx = (maskY * this.maskTarget.width + colIndex) * 4;
+              const r = maskBuf[idx];
+              const g = maskBuf[idx + 1];
+              const b = maskBuf[idx + 2];
+              const brightness = (r + g + b) / 3;
+              if (brightness > 20) isHand = true;
             }
 
-            // Clear to black so the rain fills the whole screen
-            this.ctx.fillStyle = "black";
-            this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+            this.ctx.fillStyle = isHand
+              ? "rgba(0,120,0,1)"
+              : "rgba(0,255,100,0.9)";
+            this.ctx.fillText(char, x, yPos);
 
-            // Read the entire small mask once per frame into _maskBuffer (fast)
-            const maskBuf = this._maskBuffer;
-            if (this.maskTarget && maskBuf) {
-              try {
-                this.renderer.readRenderTargetPixels(
-                  this.maskTarget,
-                  0,
-                  0,
-                  this.maskTarget.width,
-                  this.maskTarget.height,
-                  maskBuf,
-                );
-              } catch (err) {
-                // if read fails, zero out buffer to avoid exceptions
-                maskBuf.fill(0);
-              }
+            for (let j = 1; j < 12; j++) {
+              const tailY = yPos - j * this.fontSize;
+              if (tailY < -this.fontSize) break;
+              const alphaBase = isHand ? 0.25 : 0.35;
+              const alpha = Math.max(0, (1 - j / 12) * alphaBase);
+              const tailColor = isHand
+                ? `rgba(0,120,0,${alpha})`
+                : `rgba(0,200,60,${alpha})`;
+              this.ctx.fillStyle = tailColor;
+              this.ctx.fillText(
+                this.chars[Math.floor(Math.random() * this.chars.length)],
+                x,
+                tailY,
+              );
             }
 
-            // Draw matrix rain across the whole canvas. Use the small mask buffer
-            // to quickly determine whether the drop is over a bright (hand) region.
-            for (let i = 0; i < this.cols; i++) {
-              const char = this.chars[Math.floor(Math.random() * this.chars.length)];
-              const speed = 2.0 + (Math.sin(i * 0.1 + elapsed) * 0.5 + 0.5) * 1.2;
-              this.drops[i] += speed * 0.4;
-
-              const yPos = this.drops[i] * this.fontSize;
-              const x = i * (this.fontSize * 0.6);
-
-              const colIndex = i;
-              let rowIndex = Math.floor(yPos / this.fontSize);
-              rowIndex = Math.max(0, Math.min(this.rows - 1, rowIndex));
-
-              let isHand = false;
-              if (maskBuf && colIndex >= 0 && colIndex < this.maskTarget.width && rowIndex >= 0 && rowIndex < this.maskTarget.height) {
-                // mask buffer is bottom-left origin: index = ((y)*width + x)*4
-                const maskY = rowIndex; // since rows mapped to fontSize, keep same orientation
-                const idx = (maskY * this.maskTarget.width + colIndex) * 4;
-                const r = maskBuf[idx];
-                const g = maskBuf[idx + 1];
-                const b = maskBuf[idx + 2];
-                const brightness = (r + g + b) / 3;
-                if (brightness > 20) isHand = true;
-              }
-
-              this.ctx.fillStyle = isHand ? "rgba(0,120,0,1)" : "rgba(0,255,100,0.9)";
-              this.ctx.fillText(char, x, yPos);
-
-              for (let j = 1; j < 12; j++) {
-                const tailY = yPos - j * this.fontSize;
-                if (tailY < -this.fontSize) break;
-                const alphaBase = isHand ? 0.25 : 0.35;
-                const alpha = Math.max(0, (1 - j / 12) * alphaBase);
-                const tailColor = isHand ? `rgba(0,120,0,${alpha})` : `rgba(0,200,60,${alpha})`;
-                this.ctx.fillStyle = tailColor;
-                this.ctx.fillText(
-                  this.chars[Math.floor(Math.random() * this.chars.length)],
-                  x,
-                  tailY,
-                );
-              }
-
-              if (yPos > this.canvas.height + 100) {
-                this.drops[i] = -10 + Math.random() * 5;
-              }
+            if (yPos > this.canvas.height + 100) {
+              this.drops[i] = -10 + Math.random() * 5;
             }
+          }
         }
       }
 

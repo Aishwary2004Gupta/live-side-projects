@@ -228,90 +228,80 @@
           const elapsed = (now - this.startTime) / 1000;
           this.frameCount++;
 
-          // Render scene to texture to capture hand geometry
-          const oldTarget = this.renderer.getRenderTarget();
-          this.renderer.setRenderTarget(this.renderTarget);
-          this.renderer.render(scene, camera);
-          this.renderer.setRenderTarget(oldTarget);
+            // Render the 3D scene to a render target so we can sample pixels
+            const oldTarget = this.renderer.getRenderTarget();
+            this.renderer.setRenderTarget(this.renderTarget);
+            this.renderer.render(scene, camera);
+            this.renderer.setRenderTarget(oldTarget);
 
-          // Get scene image to detect hand areas
-          const tempCanvas = document.createElement("canvas");
-          tempCanvas.width = this.canvas.width;
-          tempCanvas.height = this.canvas.height;
-          const tempCtx = tempCanvas.getContext("2d", {
-            willReadFrequently: true,
-          });
-          tempCtx.drawImage(this.renderer.domElement, 0, 0);
+            // Capture the renderer output into a temporary canvas to read pixel data
+            const tempCanvas = document.createElement("canvas");
+            tempCanvas.width = this.canvas.width;
+            tempCanvas.height = this.canvas.height;
+            const tempCtx = tempCanvas.getContext("2d", { willReadFrequently: true });
+            // draw the visible renderer canvas onto the temp canvas
+            tempCtx.drawImage(this.renderer.domElement, 0, 0, tempCanvas.width, tempCanvas.height);
+            const sceneImageData = tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
+            const sceneData = sceneImageData.data;
 
-          const sceneImageData = tempCtx.getImageData(
-            0,
-            0,
-            tempCanvas.width,
-            tempCanvas.height,
-          );
-          const sceneData = sceneImageData.data;
+            // Clear to black so the rain fills the whole screen
+            this.ctx.fillStyle = "black";
+            this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
 
-          // Clear the canvas
-          this.ctx.fillStyle = "black";
-          this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+            // Draw matrix rain across the whole canvas. If a character falls over a
+            // bright pixel in the rendered scene (hand area), draw that drop as a
+            // darker green so the hand silhouette appears using darker drops.
+            for (let i = 0; i < this.cols; i++) {
+              const char = this.chars[Math.floor(Math.random() * this.chars.length)];
+              const speed = 2.0 + (Math.sin(i * 0.1 + elapsed) * 0.5 + 0.5) * 1.2;
+              this.drops[i] += speed * 0.4;
 
-          // Draw the scene (hands) as background
-          this.ctx.drawImage(this.renderer.domElement, 0, 0);
+              const yPos = this.drops[i] * this.fontSize;
+              const x = i * (this.fontSize * 0.6);
 
-          // Process matrix rain falling normally over the scene
-          for (let i = 0; i < this.cols; i++) {
-            const char =
-              this.chars[Math.floor(Math.random() * this.chars.length)];
-            const speed = 2.0 + (Math.sin(i * 0.1 + elapsed) * 0.5 + 0.5) * 1.2;
-            this.drops[i] += speed * 0.4;
+              const xFloor = Math.floor(x);
+              const yFloor = Math.floor(yPos);
 
-            const yPos = this.drops[i] * this.fontSize;
-            const x = i * (this.fontSize * 0.6);
+              let isHand = false;
+              if (
+                xFloor >= 0 &&
+                xFloor < tempCanvas.width &&
+                yFloor >= 0 &&
+                yFloor < tempCanvas.height
+              ) {
+                const idx = (yFloor * tempCanvas.width + xFloor) * 4;
+                const r = sceneData[idx];
+                const g = sceneData[idx + 1];
+                const b = sceneData[idx + 2];
+                const brightness = (r + g + b) / 3;
+                // threshold to detect bright regions (tweakable)
+                if (brightness > 30) isHand = true;
+              }
 
-            const yFloor = Math.floor(yPos);
-            const xFloor = Math.floor(x);
+              // Head color: darker green for hand silhouette, lighter green elsewhere
+              this.ctx.fillStyle = isHand ? "rgba(0,120,0,1)" : "rgba(0,255,100,0.9)";
+              this.ctx.fillText(char, x, yPos);
 
-            // Draw rain character at normal brightness
-            this.ctx.fillStyle = "rgba(0, 255, 100, 0.8)";
-            this.ctx.fillText(char, x, yPos);
+              // Tail / glow
+              for (let j = 1; j < 12; j++) {
+                const tailY = yPos - j * this.fontSize;
+                if (tailY < -this.fontSize) break;
+                const alphaBase = isHand ? 0.25 : 0.35;
+                const alpha = Math.max(0, (1 - j / 12) * alphaBase);
+                const tailColor = isHand ? `rgba(0,120,0,${alpha})` : `rgba(0,200,60,${alpha})`;
+                this.ctx.fillStyle = tailColor;
+                this.ctx.fillText(
+                  this.chars[Math.floor(Math.random() * this.chars.length)],
+                  x,
+                  tailY,
+                );
+              }
 
-            // Add trailing glow effect during fall
-            for (let j = 1; j < 12; j++) {
-              const alpha = Math.max(0, (1 - j / 12) * 0.35);
-              const tailY = yPos - j * this.fontSize;
-              this.ctx.fillStyle = `rgba(0, 200, 60, ${alpha})`;
-              this.ctx.fillText(
-                this.chars[Math.floor(Math.random() * this.chars.length)],
-                x,
-                tailY,
-              );
+              // Wrap around when off screen
+              if (yPos > this.canvas.height + 100) {
+                this.drops[i] = -10 + Math.random() * 5;
+              }
             }
-
-            // Wrap around when off screen
-            if (yPos > this.canvas.height + 100) {
-              this.drops[i] = -10 + Math.random() * 5;
-            }
-          }
-
-          // Create hand silhouette by clearing hand areas completely
-          const handImageData = this.ctx.getImageData(
-            0,
-            0,
-            this.canvas.width,
-            this.canvas.height,
-          );
-          const handData = handImageData.data;
-
-          for (let i = 0; i < sceneData.length; i += 4) {
-            const r = sceneData[i];
-            const g = sceneData[i + 1];
-            const b = sceneData[i + 2];
-            const brightness = (r + g + b) / 3;
-
-            // If this pixel is part of the hand (bright area), keep the rain visible over it
-            // Don't modify hand areas - let the rain show the hand naturally
-          }
-          // No need to modify the canvas - rain is already visible over the hands
         }
       }
 

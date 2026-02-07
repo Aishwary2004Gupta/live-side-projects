@@ -228,25 +228,19 @@
           const elapsed = (now - this.startTime) / 1000;
           this.frameCount++;
 
-            // Render the 3D scene to a render target so we can sample pixels
+            // Render the 3D scene into the render target so we can sample pixels
             const oldTarget = this.renderer.getRenderTarget();
             this.renderer.setRenderTarget(this.renderTarget);
             this.renderer.render(scene, camera);
             this.renderer.setRenderTarget(oldTarget);
 
-            // Capture the renderer output into a temporary canvas to read pixel data
-            const tempCanvas = document.createElement("canvas");
-            tempCanvas.width = this.canvas.width;
-            tempCanvas.height = this.canvas.height;
-            const tempCtx = tempCanvas.getContext("2d", { willReadFrequently: true });
-            // draw the visible renderer canvas onto the temp canvas
-            tempCtx.drawImage(this.renderer.domElement, 0, 0, tempCanvas.width, tempCanvas.height);
-            const sceneImageData = tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
-            const sceneData = sceneImageData.data;
-
             // Clear to black so the rain fills the whole screen
             this.ctx.fillStyle = "black";
             this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+
+            // Temporary buffer for reading one pixel from the render target
+            if (!this._pixelBuffer) this._pixelBuffer = new Uint8Array(4);
+            const buf = this._pixelBuffer;
 
             // Draw matrix rain across the whole canvas. If a character falls over a
             // bright pixel in the rendered scene (hand area), draw that drop as a
@@ -263,19 +257,33 @@
               const yFloor = Math.floor(yPos);
 
               let isHand = false;
+              // readRenderTargetPixels uses bottom-left origin
               if (
                 xFloor >= 0 &&
-                xFloor < tempCanvas.width &&
+                xFloor < this.renderTarget.width &&
                 yFloor >= 0 &&
-                yFloor < tempCanvas.height
+                yFloor < this.renderTarget.height
               ) {
-                const idx = (yFloor * tempCanvas.width + xFloor) * 4;
-                const r = sceneData[idx];
-                const g = sceneData[idx + 1];
-                const b = sceneData[idx + 2];
-                const brightness = (r + g + b) / 3;
-                // threshold to detect bright regions (tweakable)
-                if (brightness > 30) isHand = true;
+                const readY = this.renderTarget.height - 1 - yFloor;
+                try {
+                  this.renderer.readRenderTargetPixels(
+                    this.renderTarget,
+                    xFloor,
+                    readY,
+                    1,
+                    1,
+                    buf,
+                  );
+                  const r = buf[0];
+                  const g = buf[1];
+                  const b = buf[2];
+                  const brightness = (r + g + b) / 3;
+                  // threshold to detect bright regions (tweakable)
+                  if (brightness > 20) isHand = true;
+                } catch (err) {
+                  // readRenderTargetPixels may throw in some contexts; fall back to lighter detection
+                  isHand = false;
+                }
               }
 
               // Head color: darker green for hand silhouette, lighter green elsewhere

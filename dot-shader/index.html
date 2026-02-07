@@ -168,7 +168,7 @@
         }
       `;
 
-      // Enhanced Noise Field Effect - ONLY on Hands
+      // Black and White Noise Field Effect - ONLY on Hands
       const noiseShader = `
         precision highp float;
         uniform float time;
@@ -216,7 +216,6 @@
           float luma = dot(color.rgb, vec3(0.299, 0.587, 0.114));
           
           // Create a smooth mask for hands (bright areas)
-          // Adjust these thresholds to match the hand brightness in your scene
           float handMask = smoothstep(0.3, 0.7, luma);
           
           // Early return if not on hands (background)
@@ -237,42 +236,34 @@
           // High frequency noise
           float noise3 = fbm(coord * 10.0 - vec2(0.0, time * 0.5));
           
-          // Combine noises
+          // Combine noises - BLACK AND WHITE ONLY
           float combinedNoise = noise1 * 0.6 + noise2 * 0.3 + noise3 * 0.1;
           
           // Create pulsing effect on hands
           float pulse = 0.5 + 0.5 * sin(time * 2.0 + uv.x * 5.0);
           
-          // Create colorful noise effect
-          vec3 noiseColor = vec3(
-            combinedNoise * 0.8 + pulse * 0.2,
-            fbm(coord * 3.0 + time * 0.25) * 0.6 + pulse * 0.1,
-            fbm(coord * 2.0 - time * 0.2) * 0.7 + pulse * 0.15
-          );
+          // BLACK AND WHITE noise effect
+          float bwNoise = combinedNoise * 0.8 + pulse * 0.2;
           
-          // Normalize noise color
-          noiseColor = clamp(noiseColor, 0.0, 1.0);
+          // Apply black and white noise ONLY to hand areas using the mask
+          vec3 finalColor = mix(color.rgb, vec3(bwNoise), handMask * 0.8);
           
-          // Apply noise ONLY to hand areas using the mask
-          vec3 finalColor = mix(color.rgb, noiseColor, handMask * 0.8);
-          
-          // Add energy flow lines on hands
+          // Add subtle energy lines on hands (also black and white)
           float flowLines = sin(uv.x * 40.0 + time * 4.0) * 
                            sin(uv.y * 30.0 - time * 3.0) * 
-                           handMask * 0.4;
-          finalColor += flowLines * vec3(0.3, 0.6, 1.0) * handMask;
+                           handMask * 0.3;
+          finalColor += flowLines * handMask;
           
-          // Add sparkle effect on very bright hand areas
+          // Add sparkle effect on very bright hand areas (black and white)
           float sparkleThreshold = 0.8;
           if (luma > sparkleThreshold) {
             float sparkle = step(0.97, random(uv * 100.0 + time));
-            finalColor += sparkle * vec3(1.0, 0.9, 0.5) * handMask;
+            finalColor += sparkle * handMask;
           }
           
-          // Make edges of hands glow slightly
-          float edgeGlow = fwidth(handMask) * 2.0;
-          vec3 glowColor = vec3(0.2, 0.4, 0.8);
-          finalColor += edgeGlow * glowColor * (1.0 - handMask) * 0.5;
+          // Make edges of hands have subtle noise transition
+          float edgeGlow = fwidth(handMask) * 1.5;
+          finalColor += edgeGlow * (1.0 - handMask) * 0.3;
           
           outputColor = vec4(finalColor, 1.0);
         }
@@ -545,7 +536,7 @@
         }
       `;
 
-      // Enhanced Voronoi effect - FIXED VERSION
+      // Voronoi Effect - ONLY on Hands
       const voronoiShader = `
         precision highp float;
         uniform float time;
@@ -575,6 +566,15 @@
         void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor) {
           vec4 original = texture2D(inputBuffer, uv);
           float luma = dot(original.rgb, vec3(0.299, 0.587, 0.114));
+          
+          // Create a smooth mask for hands (bright areas)
+          float handMask = smoothstep(0.3, 0.7, luma);
+          
+          // Early return if not on hands (background)
+          if (handMask < 0.01) {
+            outputColor = original;
+            return;
+          }
           
           // Scale for voronoi cells - adjust based on luminance
           float cellScale = mix(8.0, 20.0, luma);
@@ -622,11 +622,15 @@
           
           // Mix voronoi pattern with original image
           vec3 voronoiPattern = mix(cellColor, vec3(border), 0.3);
-          vec3 finalColor = mix(original.rgb, voronoiPattern, 0.6);
+          vec3 finalColor = mix(original.rgb, voronoiPattern, 0.6 * handMask);
           
-          // Add subtle pulsing effect
+          // Add subtle pulsing effect on hands
           float pulse = 0.5 + 0.5 * sin(time * 1.5);
-          finalColor *= 0.9 + 0.1 * pulse;
+          finalColor *= 0.9 + 0.1 * pulse * handMask;
+          
+          // Make edges of hands have subtle transition
+          float edgeGlow = fwidth(handMask) * 1.5;
+          finalColor += edgeGlow * (1.0 - handMask) * 0.3;
           
           outputColor = vec4(finalColor, 1.0);
         }

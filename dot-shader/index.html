@@ -448,86 +448,24 @@
         }
       `;
 
-      // Enhanced Voronoi effect
+      // Voronoi
       const voronoiShader = `
         precision highp float;
         uniform float time;
         uniform vec2 resolution;
-        
-        // Better hash function
-        float hash(vec2 p) {
-          vec3 p3 = fract(vec3(p.xyx) * 0.1031);
-          p3 += dot(p3, p3.yzx + 33.33);
-          return fract((p3.x + p3.y) * p3.z);
-        }
-        
-        // 2D noise function
-        float noise(vec2 p) {
-          vec2 ip = floor(p);
-          vec2 fp = fract(p);
-          float a = hash(ip);
-          float b = hash(ip + vec2(1.0, 0.0));
-          float c = hash(ip + vec2(0.0, 1.0));
-          float d = hash(ip + vec2(1.0, 1.0));
-          
-          fp = fp * fp * (3.0 - 2.0 * fp);
-          return mix(mix(a, b, fp.x), mix(c, d, fp.x), fp.y);
-        }
-        
-        void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor) {
-          vec4 original = texture2D(inputBuffer, uv);
-          float luma = dot(original.rgb, vec3(0.299, 0.587, 0.114));
-          
-          // Scale for voronoi cells - adjust based on luminance
-          float cellScale = mix(8.0, 20.0, luma);
-          vec2 coord = uv * cellScale + vec2(sin(time * 0.3) * 0.1, cos(time * 0.2) * 0.1);
-          
-          vec2 cell = floor(coord);
-          vec2 local = fract(coord);
-          
-          float minDist = 1.0;
-          vec2 closestCell = vec2(0.0);
-          
-          // Search neighboring cells
-          for(int y = -1; y <= 1; y++) {
-            for(int x = -1; x <= 1; x++) {
-              vec2 neighbor = vec2(float(x), float(y));
-              vec2 point = hash(cell + neighbor);
-              point = 0.5 + 0.5 * sin(time * 0.5 + 6.2831 * point);
-              
-              vec2 diff = neighbor + point - local;
-              float dist = length(diff);
-              
-              if(dist < minDist) {
-                minDist = dist;
-                closestCell = cell + neighbor;
-              }
+        float rand(vec2 p){ return fract(sin(dot(p, vec2(127.1,311.7))) * 43758.5453123); }
+        void mainImage(const in vec4 i,const in vec2 uv,out vec4 o){
+          vec2 p = uv * 10.0;
+          float m = 10.0;
+          for(int x=-1;x<=1;x++){
+            for(int y=-1;y<=1;y++){
+              vec2 gp = floor(p) + vec2(x,y);
+              vec2 r = vec2(rand(gp), rand(gp.yx));
+              vec2 diff = gp + r - p;
+              m = min(m, length(diff));
             }
           }
-          
-          // Get color for closest cell
-          float cellHash = hash(closestCell);
-          vec3 cellColor = vec3(
-            fract(cellHash * 0.618),
-            fract(cellHash * 1.618),
-            fract(cellHash * 2.618)
-          );
-          
-          // Add some animation to colors
-          cellColor = 0.5 + 0.5 * sin(time * 0.7 + cellColor * 3.1415);
-          
-          // Create cell borders
-          float border = smoothstep(0.02, 0.01, minDist);
-          
-          // Mix voronoi pattern with original image
-          vec3 voronoiPattern = mix(cellColor, vec3(border), 0.3);
-          vec3 finalColor = mix(original.rgb, voronoiPattern, 0.6);
-          
-          // Add subtle pulsing effect
-          float pulse = 0.5 + 0.5 * sin(time * 1.5);
-          finalColor *= 0.9 + 0.1 * pulse;
-          
-          outputColor = vec4(finalColor, 1.0);
+          o = vec4(vec3(m*0.6),1.0);
         }
       `;
 

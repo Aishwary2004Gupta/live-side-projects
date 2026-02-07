@@ -168,6 +168,114 @@
         }
       `;
 
+      // Enhanced Noise Field Effect - Focused on Hands
+      const noiseShader = `
+        precision highp float;
+        uniform float time;
+        uniform vec2 resolution;
+        
+        // Improved noise functions
+        float random(vec2 st) {
+          return fract(sin(dot(st.xy, vec2(12.9898,78.233))) * 43758.5453123);
+        }
+        
+        // Value noise by Inigo Quilez
+        float noise(vec2 p) {
+          vec2 i = floor(p);
+          vec2 f = fract(p);
+          
+          float a = random(i);
+          float b = random(i + vec2(1.0, 0.0));
+          float c = random(i + vec2(0.0, 1.0));
+          float d = random(i + vec2(1.0, 1.0));
+          
+          vec2 u = f * f * (3.0 - 2.0 * f);
+          
+          return mix(a, b, u.x) +
+                 (c - a) * u.y * (1.0 - u.x) +
+                 (d - b) * u.x * u.y;
+        }
+        
+        // Fractal Brownian Motion
+        float fbm(vec2 p) {
+          float value = 0.0;
+          float amplitude = 0.5;
+          float frequency = 1.0;
+          
+          for (int i = 0; i < 4; i++) {
+            value += amplitude * noise(p * frequency + time * 0.3);
+            frequency *= 2.0;
+            amplitude *= 0.5;
+          }
+          
+          return value;
+        }
+        
+        void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor) {
+          vec4 color = texture2D(inputBuffer, uv);
+          float luma = dot(color.rgb, vec3(0.299, 0.587, 0.114));
+          
+          // Create multiple layers of noise
+          vec2 coord = uv * 8.0;
+          
+          // Base noise layer
+          float noise1 = fbm(coord + time * 0.1);
+          
+          // Detail noise layer
+          float noise2 = fbm(coord * 3.0 + vec2(time * 0.2, 0.0));
+          
+          // High frequency noise
+          float noise3 = fbm(coord * 12.0 - vec2(0.0, time * 0.4));
+          
+          // Combine noises
+          float combinedNoise = noise1 * 0.6 + noise2 * 0.3 + noise3 * 0.1;
+          
+          // Create a stronger noise field on hands (bright areas)
+          float handMask = smoothstep(0.3, 0.6, luma);
+          
+          // Create pulsing effect on hands
+          float pulse = 0.5 + 0.5 * sin(time * 2.0);
+          
+          // Enhanced noise intensity on hands
+          float handNoiseIntensity = 0.4 + 0.3 * pulse;
+          float backgroundNoiseIntensity = 0.1;
+          
+          // Apply noise based on hand detection
+          float noiseIntensity = mix(backgroundNoiseIntensity, handNoiseIntensity, handMask);
+          
+          // Create colorful noise effect on hands
+          vec3 noiseColor = vec3(
+            combinedNoise * 0.8,
+            fbm(coord * 2.0 + time * 0.15) * 0.6,
+            fbm(coord * 1.5 - time * 0.12) * 0.7
+          );
+          
+          // Mix noise with original color
+          vec3 finalColor = mix(color.rgb, noiseColor, noiseIntensity * handMask);
+          
+          // Add some subtle grain to the entire image
+          float grain = random(uv * resolution + time) * 0.05;
+          finalColor += grain;
+          
+          // Create energy flow lines on hands
+          if (handMask > 0.3) {
+            float flowLines = sin(uv.x * 30.0 + time * 3.0) * 
+                             sin(uv.y * 20.0 - time * 2.0) * 
+                             handMask * 0.3;
+            finalColor += flowLines * vec3(0.2, 0.4, 0.8);
+          }
+          
+          // Add sparkle effect on very bright hand areas
+          float sparkleThreshold = 0.7;
+          if (luma > sparkleThreshold) {
+            float sparkle = step(0.95, random(uv * 50.0 + time));
+            finalColor += sparkle * vec3(1.0, 0.9, 0.5) * handMask;
+          }
+          
+          outputColor = vec4(finalColor, 1.0);
+        }
+      `;
+
       // Matrix Rain that accumulates on hands to show outline
       class MatrixRainEffect {
         constructor(renderer, camera) {
@@ -432,19 +540,6 @@
           // final color: darker where hatch is present
           vec3 color = vec3(ink);
           o = vec4(color, 1.0);
-        }
-      `;
-
-      // Noise field
-      const noiseShader = `
-        precision highp float;
-        uniform float time;
-        uniform vec2 resolution;
-        float rand(vec2 co){ return fract(sin(dot(co.xy, vec2(12.9898,78.233))) * 43758.5453); }
-        void mainImage(const in vec4 i,const in vec2 uv,out vec4 o){
-          vec4 c = texture2D(inputBuffer, uv);
-          float n = rand(uv*resolution + time);
-          o = vec4(c.rgb + (n-0.5)*0.15, 1.0);
         }
       `;
 

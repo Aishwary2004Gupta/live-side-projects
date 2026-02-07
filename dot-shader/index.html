@@ -195,12 +195,17 @@
             renderer.domElement.clientHeight,
           );
 
-          // Create render target for scene capture
+          // Create render target for scene capture (full) and a small mask target for fast sampling
           this.renderTarget = new THREE.WebGLRenderTarget(
             renderer.domElement.clientWidth,
             renderer.domElement.clientHeight,
             { format: THREE.RGBAFormat },
           );
+          // maskTarget will be resized in setSize to match the rain grid (cols x rows)
+          this.maskTarget = new THREE.WebGLRenderTarget(1, 1, { format: THREE.RGBAFormat });
+          this.maskTarget.texture.minFilter = THREE.NearestFilter;
+          this.maskTarget.texture.magFilter = THREE.NearestFilter;
+          this._maskBuffer = null;
         }
 
         setSize(width, height) {
@@ -221,6 +226,13 @@
           if (this.renderTarget) {
             this.renderTarget.setSize(width, height);
           }
+          // Resize the small mask render target to the rain grid size for cheap sampling
+          if (this.maskTarget) {
+            const mw = Math.max(1, this.cols);
+            const mh = Math.max(1, this.rows);
+            this.maskTarget.setSize(mw, mh);
+            this._maskBuffer = new Uint8Array(mw * mh * 4);
+          }
         }
 
         render(scene, camera) {
@@ -228,23 +240,38 @@
           const elapsed = (now - this.startTime) / 1000;
           this.frameCount++;
 
-            // Render the 3D scene into the render target so we can sample pixels
+            // Render the scene into a small mask render target sized to the rain grid
             const oldTarget = this.renderer.getRenderTarget();
-            this.renderer.setRenderTarget(this.renderTarget);
-            this.renderer.render(scene, camera);
-            this.renderer.setRenderTarget(oldTarget);
+            if (this.maskTarget) {
+              this.renderer.setRenderTarget(this.maskTarget);
+              this.renderer.render(scene, camera);
+              this.renderer.setRenderTarget(oldTarget);
+            }
 
             // Clear to black so the rain fills the whole screen
             this.ctx.fillStyle = "black";
             this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
 
-            // Temporary buffer for reading one pixel from the render target
-            if (!this._pixelBuffer) this._pixelBuffer = new Uint8Array(4);
-            const buf = this._pixelBuffer;
+            // Read the entire small mask once per frame into _maskBuffer (fast)
+            const maskBuf = this._maskBuffer;
+            if (this.maskTarget && maskBuf) {
+              try {
+                this.renderer.readRenderTargetPixels(
+                  this.maskTarget,
+                  0,
+                  0,
+                  this.maskTarget.width,
+                  this.maskTarget.height,
+                  maskBuf,
+                );
+              } catch (err) {
+                // if read fails, zero out buffer to avoid exceptions
+                maskBuf.fill(0);
+              }
+            }
 
-            // Draw matrix rain across the whole canvas. If a character falls over a
-            // bright pixel in the rendered scene (hand area), draw that drop as a
-            // darker green so the hand silhouette appears using darker drops.
+            // Draw matrix rain across the whole canvas. Use the small mask buffer
+            // to quickly determine whether the drop is over a bright (hand) region.
             for (let i = 0; i < this.cols; i++) {
               const char = this.chars[Math.floor(Math.random() * this.chars.length)];
               const speed = 2.0 + (Math.sin(i * 0.1 + elapsed) * 0.5 + 0.5) * 1.2;
@@ -253,44 +280,25 @@
               const yPos = this.drops[i] * this.fontSize;
               const x = i * (this.fontSize * 0.6);
 
-              const xFloor = Math.floor(x);
-              const yFloor = Math.floor(yPos);
+              const colIndex = i;
+              let rowIndex = Math.floor(yPos / this.fontSize);
+              rowIndex = Math.max(0, Math.min(this.rows - 1, rowIndex));
 
               let isHand = false;
-              // readRenderTargetPixels uses bottom-left origin
-              if (
-                xFloor >= 0 &&
-                xFloor < this.renderTarget.width &&
-                yFloor >= 0 &&
-                yFloor < this.renderTarget.height
-              ) {
-                const readY = this.renderTarget.height - 1 - yFloor;
-                try {
-                  this.renderer.readRenderTargetPixels(
-                    this.renderTarget,
-                    xFloor,
-                    readY,
-                    1,
-                    1,
-                    buf,
-                  );
-                  const r = buf[0];
-                  const g = buf[1];
-                  const b = buf[2];
-                  const brightness = (r + g + b) / 3;
-                  // threshold to detect bright regions (tweakable)
-                  if (brightness > 20) isHand = true;
-                } catch (err) {
-                  // readRenderTargetPixels may throw in some contexts; fall back to lighter detection
-                  isHand = false;
-                }
+              if (maskBuf && colIndex >= 0 && colIndex < this.maskTarget.width && rowIndex >= 0 && rowIndex < this.maskTarget.height) {
+                // mask buffer is bottom-left origin: index = ((y)*width + x)*4
+                const maskY = rowIndex; // since rows mapped to fontSize, keep same orientation
+                const idx = (maskY * this.maskTarget.width + colIndex) * 4;
+                const r = maskBuf[idx];
+                const g = maskBuf[idx + 1];
+                const b = maskBuf[idx + 2];
+                const brightness = (r + g + b) / 3;
+                if (brightness > 20) isHand = true;
               }
 
-              // Head color: darker green for hand silhouette, lighter green elsewhere
               this.ctx.fillStyle = isHand ? "rgba(0,120,0,1)" : "rgba(0,255,100,0.9)";
               this.ctx.fillText(char, x, yPos);
 
-              // Tail / glow
               for (let j = 1; j < 12; j++) {
                 const tailY = yPos - j * this.fontSize;
                 if (tailY < -this.fontSize) break;
@@ -305,7 +313,6 @@
                 );
               }
 
-              // Wrap around when off screen
               if (yPos > this.canvas.height + 100) {
                 this.drops[i] = -10 + Math.random() * 5;
               }

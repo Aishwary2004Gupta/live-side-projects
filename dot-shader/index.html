@@ -141,7 +141,6 @@
         }
       `;
 
-      // Wave Lines Shader (Matches Reference Image)
       const waveLinesShader = `
         precision highp float;
         uniform float time;
@@ -187,32 +186,27 @@
         }
       `;
 
-      // Black and White Noise Field Effect - ONLY on Hands
+      // Pure Noise Field Effect - Entirely replaces the hands
       const noiseShader = `
         precision highp float;
         uniform float time;
         uniform vec2 resolution;
         
-        // Improved noise functions
+        // Random noise function
         float random(vec2 st) {
           return fract(sin(dot(st.xy, vec2(12.9898,78.233))) * 43758.5453123);
         }
         
-        // Value noise by Inigo Quilez
+        // Value noise
         float noise(vec2 p) {
           vec2 i = floor(p);
           vec2 f = fract(p);
-          
           float a = random(i);
           float b = random(i + vec2(1.0, 0.0));
           float c = random(i + vec2(0.0, 1.0));
           float d = random(i + vec2(1.0, 1.0));
-          
           vec2 u = f * f * (3.0 - 2.0 * f);
-          
-          return mix(a, b, u.x) +
-                 (c - a) * u.y * (1.0 - u.x) +
-                 (d - b) * u.x * u.y;
+          return mix(a, b, u.x) + (c - a) * u.y * (1.0 - u.x) + (d - b) * u.x * u.y;
         }
         
         // Fractal Brownian Motion
@@ -220,13 +214,11 @@
           float value = 0.0;
           float amplitude = 0.5;
           float frequency = 1.0;
-          
-          for (int i = 0; i < 4; i++) {
-            value += amplitude * noise(p * frequency + time * 0.3);
+          for (int i = 0; i < 5; i++) {
+            value += amplitude * noise(p * frequency + time * 0.8);
             frequency *= 2.0;
             amplitude *= 0.5;
           }
-          
           return value;
         }
         
@@ -234,57 +226,105 @@
           vec4 color = texture2D(inputBuffer, uv);
           float luma = dot(color.rgb, vec3(0.299, 0.587, 0.114));
           
-          // Create a smooth mask for hands (bright areas)
-          float handMask = smoothstep(0.3, 0.7, luma);
+          // Strict mask for hands - anything above a tiny threshold is the hand
+          float handMask = smoothstep(0.02, 0.06, luma);
           
-          // Early return if not on hands (background)
+          // Early return pure black if we are in the background
           if (handMask < 0.01) {
-            outputColor = color;
+            outputColor = vec4(0.0, 0.0, 0.0, 1.0);
             return;
           }
           
-          // Create multiple layers of noise ONLY on hands
-          vec2 coord = uv * 15.0;
+          // Scale coordinates for dense noise
+          vec2 coord = uv * 30.0;
           
-          // Base noise layer
-          float noise1 = fbm(coord + time * 0.2);
+          // Dynamic swirling noise layering
+          float n = fbm(coord + fbm(coord * 0.5 - time * 0.3));
           
-          // Detail noise layer
-          float noise2 = fbm(coord * 4.0 + vec2(time * 0.3, 0.0));
+          // High contrast thresholding to make it look like energetic particles/TV static
+          float sharpNoise = smoothstep(0.3, 0.6, n);
+          float finalNoise = mix(n, sharpNoise, 0.8);
           
-          // High frequency noise
-          float noise3 = fbm(coord * 10.0 - vec2(0.0, time * 0.5));
+          // Instead of mixing with the hand's original texture, we ONLY use the
+          // original hand's luma (brightness) to act as 3D lighting/shadows for the noise.
+          // This makes the 3D volume visible while being made 100% of noise.
+          vec3 finalColor = vec3(finalNoise * (luma * 1.5 + 0.1));
           
-          // Combine noises - BLACK AND WHITE ONLY
-          float combinedNoise = noise1 * 0.6 + noise2 * 0.3 + noise3 * 0.1;
+          outputColor = vec4(finalColor * handMask, 1.0);
+        }
+      `;
+
+      // Pure Voronoi Effect - Entirely replaces the hands
+      const voronoiShader = `
+        precision highp float;
+        uniform float time;
+        uniform vec2 resolution;
+        
+        // Hash function
+        vec2 hash(vec2 p) {
+          p = vec2(dot(p, vec2(127.1, 311.7)), dot(p, vec2(269.5, 183.3)));
+          return -1.0 + 2.0 * fract(sin(p) * 43758.5453123);
+        }
+        
+        void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor) {
+          vec4 original = texture2D(inputBuffer, uv);
+          float luma = dot(original.rgb, vec3(0.299, 0.587, 0.114));
           
-          // Create pulsing effect on hands
-          float pulse = 0.5 + 0.5 * sin(time * 2.0 + uv.x * 5.0);
+          // Strict mask for hands
+          float handMask = smoothstep(0.02, 0.06, luma);
           
-          // BLACK AND WHITE noise effect
-          float bwNoise = combinedNoise * 0.8 + pulse * 0.2;
-          
-          // Apply black and white noise ONLY to hand areas using the mask
-          vec3 finalColor = mix(color.rgb, vec3(bwNoise), handMask * 0.8);
-          
-          // Add subtle energy lines on hands (also black and white)
-          float flowLines = sin(uv.x * 40.0 + time * 4.0) * 
-                           sin(uv.y * 30.0 - time * 3.0) * 
-                           handMask * 0.3;
-          finalColor += flowLines * handMask;
-          
-          // Add sparkle effect on very bright hand areas (black and white)
-          float sparkleThreshold = 0.8;
-          if (luma > sparkleThreshold) {
-            float sparkle = step(0.97, random(uv * 100.0 + time));
-            finalColor += sparkle * handMask;
+          // Pure black background
+          if (handMask < 0.01) {
+            outputColor = vec4(0.0, 0.0, 0.0, 1.0);
+            return;
           }
           
-          // Make edges of hands have subtle noise transition
-          float edgeGlow = fwidth(handMask) * 1.5;
-          finalColor += edgeGlow * (1.0 - handMask) * 0.3;
+          // Set scale for Voronoi cells
+          float cellScale = 25.0;
+          vec2 coord = uv * cellScale;
           
-          outputColor = vec4(finalColor, 1.0);
+          // Add slow drifting movement to the whole pattern
+          coord.y += time * 0.4;
+          coord.x += sin(time * 0.2) * 1.5;
+          
+          vec2 cell = floor(coord);
+          vec2 local = fract(coord);
+          
+          float minDist = 1.0;
+          vec2 closestCell = vec2(0.0);
+          
+          // Search neighboring cells
+          for(int y = -1; y <= 1; y++) {
+            for(int x = -1; x <= 1; x++) {
+              vec2 neighbor = vec2(float(x), float(y));
+              vec2 cellPos = cell + neighbor;
+              
+              // Generate random point for this cell, animated
+              vec2 randVec = hash(cellPos);
+              vec2 point = vec2(0.5) + 0.5 * sin(time * 2.0 + 6.2831 * randVec);
+              
+              vec2 diff = neighbor + point - local;
+              float dist = length(diff);
+              
+              if(dist < minDist) {
+                minDist = dist;
+                closestCell = cellPos;
+              }
+            }
+          }
+          
+          // Generate a vibrant color based on the cell ID
+          vec2 cellHash = hash(closestCell);
+          vec3 cellColor = 0.5 + 0.5 * cos(time * 0.5 + cellHash.xyx * 5.0 + vec3(0, 2, 4));
+          
+          // Create solid dark borders between cells
+          float border = smoothstep(0.04, 0.1, minDist);
+          
+          // Completely replace original image with Voronoi cells.
+          // Multiply by luma to preserve the 3D depth, shadows, and highlights.
+          vec3 finalColor = cellColor * border * (luma * 1.6 + 0.1);
+          
+          outputColor = vec4(finalColor * handMask, 1.0);
         }
       `;
 
@@ -552,106 +592,6 @@
           // final color: darker where hatch is present
           vec3 color = vec3(ink);
           o = vec4(color, 1.0);
-        }
-      `;
-
-      // Voronoi Effect - ONLY on Hands
-      const voronoiShader = `
-        precision highp float;
-        uniform float time;
-        uniform vec2 resolution;
-        
-        // Improved hash function that returns a vec2
-        vec2 hash(vec2 p) {
-          p = vec2(dot(p, vec2(127.1, 311.7)), dot(p, vec2(269.5, 183.3)));
-          return -1.0 + 2.0 * fract(sin(p) * 43758.5453123);
-        }
-        
-        // 2D noise function
-        float noise(vec2 p) {
-          vec2 i = floor(p);
-          vec2 f = fract(p);
-          
-          vec2 u = f * f * (3.0 - 2.0 * f);
-          
-          float a = dot(hash(i + vec2(0.0, 0.0)), f - vec2(0.0, 0.0));
-          float b = dot(hash(i + vec2(1.0, 0.0)), f - vec2(1.0, 0.0));
-          float c = dot(hash(i + vec2(0.0, 1.0)), f - vec2(0.0, 1.0));
-          float d = dot(hash(i + vec2(1.0, 1.0)), f - vec2(1.0, 1.0));
-          
-          return mix(mix(a, b, u.x), mix(c, d, u.x), u.y);
-        }
-        
-        void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor) {
-          vec4 original = texture2D(inputBuffer, uv);
-          float luma = dot(original.rgb, vec3(0.299, 0.587, 0.114));
-          
-          // Create a smooth mask for hands (bright areas)
-          float handMask = smoothstep(0.3, 0.7, luma);
-          
-          // Early return if not on hands (background)
-          if (handMask < 0.01) {
-            outputColor = original;
-            return;
-          }
-          
-          // Scale for voronoi cells - adjust based on luminance
-          float cellScale = mix(8.0, 20.0, luma);
-          vec2 coord = uv * cellScale + vec2(sin(time * 0.3) * 0.1, cos(time * 0.2) * 0.1);
-          
-          vec2 cell = floor(coord);
-          vec2 local = fract(coord);
-          
-          float minDist = 1.0;
-          vec2 closestCell = vec2(0.0);
-          
-          // Search neighboring cells
-          for(int y = -1; y <= 1; y++) {
-            for(int x = -1; x <= 1; x++) {
-              vec2 neighbor = vec2(float(x), float(y));
-              vec2 cellPos = cell + neighbor;
-              
-              // Generate random point for this cell
-              vec2 randVec = hash(cellPos);
-              vec2 point = vec2(0.5) + 0.5 * sin(time * 0.5 + 6.2831 * randVec);
-              
-              vec2 diff = neighbor + point - local;
-              float dist = length(diff);
-              
-              if(dist < minDist) {
-                minDist = dist;
-                closestCell = cellPos;
-              }
-            }
-          }
-          
-          // Get hash for closest cell
-          vec2 cellHash = hash(closestCell);
-          vec3 cellColor = vec3(
-            fract(cellHash.x * 0.618),
-            fract(cellHash.y * 1.618),
-            fract((cellHash.x + cellHash.y) * 2.618)
-          );
-          
-          // Add some animation to colors
-          cellColor = 0.5 + 0.5 * sin(time * 0.7 + cellColor * 3.1415);
-          
-          // Create cell borders
-          float border = smoothstep(0.02, 0.01, minDist);
-          
-          // Mix voronoi pattern with original image
-          vec3 voronoiPattern = mix(cellColor, vec3(border), 0.3);
-          vec3 finalColor = mix(original.rgb, voronoiPattern, 0.6 * handMask);
-          
-          // Add subtle pulsing effect on hands
-          float pulse = 0.5 + 0.5 * sin(time * 1.5);
-          finalColor *= 0.9 + 0.1 * pulse * handMask;
-          
-          // Make edges of hands have subtle transition
-          float edgeGlow = fwidth(handMask) * 1.5;
-          finalColor += edgeGlow * (1.0 - handMask) * 0.3;
-          
-          outputColor = vec4(finalColor, 1.0);
         }
       `;
 

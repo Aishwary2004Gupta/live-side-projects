@@ -187,74 +187,73 @@
       `;
 
       // Pure Noise Field Effect - Entirely replaces the hands
-    //   const noiseShader = `
-    //     precision highp float;
-    //     uniform float time;
-    //     uniform vec2 resolution;
+      const noiseShader = `
+        precision highp float;
+        uniform float time;
+        uniform vec2 resolution;
         
-    //     // Random noise function
-    //     float random(vec2 st) {
-    //       return fract(sin(dot(st.xy, vec2(12.9898,78.233))) * 43758.5453123);
-    //     }
+        // Random noise function
+        float random(vec2 st) {
+          return fract(sin(dot(st.xy, vec2(12.9898,78.233))) * 43758.5453123);
+        }
         
-    //     // Value noise
-    //     float noise(vec2 p) {
-    //       vec2 i = floor(p);
-    //       vec2 f = fract(p);
-    //       float a = random(i);
-    //       float b = random(i + vec2(1.0, 0.0));
-    //       float c = random(i + vec2(0.0, 1.0));
-    //       float d = random(i + vec2(1.0, 1.0));
-    //       vec2 u = f * f * (3.0 - 2.0 * f);
-    //       return mix(a, b, u.x) + (c - a) * u.y * (1.0 - u.x) + (d - b) * u.x * u.y;
-    //     }
+        // Value noise
+        float noise(vec2 p) {
+          vec2 i = floor(p);
+          vec2 f = fract(p);
+          float a = random(i);
+          float b = random(i + vec2(1.0, 0.0));
+          float c = random(i + vec2(0.0, 1.0));
+          float d = random(i + vec2(1.0, 1.0));
+          vec2 u = f * f * (3.0 - 2.0 * f);
+          return mix(a, b, u.x) + (c - a) * u.y * (1.0 - u.x) + (d - b) * u.x * u.y;
+        }
         
-    //     // Fractal Brownian Motion
-    //     float fbm(vec2 p) {
-    //       float value = 0.0;
-    //       float amplitude = 0.5;
-    //       float frequency = 1.0;
-    //       for (int i = 0; i < 5; i++) {
-    //         value += amplitude * noise(p * frequency + time * 0.8);
-    //         frequency *= 2.0;
-    //         amplitude *= 0.5;
-    //       }
-    //       return value;
-    //     }
+        // Fractal Brownian Motion
+        float fbm(vec2 p) {
+          float value = 0.0;
+          float amplitude = 0.5;
+          float frequency = 1.0;
+          for (int i = 0; i < 5; i++) {
+            value += amplitude * noise(p * frequency + time * 0.8);
+            frequency *= 2.0;
+            amplitude *= 0.5;
+          }
+          return value;
+        }
         
-    //     void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor) {
-    //       vec4 color = texture2D(inputBuffer, uv);
-    //       float luma = dot(color.rgb, vec3(0.299, 0.587, 0.114));
+        void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor) {
+          vec4 color = texture2D(inputBuffer, uv);
+          float luma = dot(color.rgb, vec3(0.299, 0.587, 0.114));
           
-    //       // Strict mask for hands - anything above a tiny threshold is the hand
-    //       float handMask = smoothstep(0.02, 0.06, luma);
+          // Strict mask for hands - anything above a tiny threshold is the hand
+          float handMask = smoothstep(0.02, 0.06, luma);
           
-    //       // Early return pure black if we are in the background
-    //       if (handMask < 0.01) {
-    //         outputColor = vec4(0.0, 0.0, 0.0, 1.0);
-    //         return;
-    //       }
+          // Early return pure black if we are in the background
+          if (handMask < 0.01) {
+            outputColor = vec4(0.0, 0.0, 0.0, 1.0);
+            return;
+          }
           
-    //       // Scale coordinates for dense noise
-    //       vec2 coord = uv * 30.0;
+          // Scale coordinates for dense noise
+          vec2 coord = uv * 30.0;
           
-    //       // Dynamic swirling noise layering
-    //       float n = fbm(coord + fbm(coord * 0.5 - time * 0.3));
+          // Dynamic swirling noise layering
+          float n = fbm(coord + fbm(coord * 0.5 - time * 0.3));
           
-    //       // High contrast thresholding to make it look like energetic particles/TV static
-    //       float sharpNoise = smoothstep(0.3, 0.6, n);
-    //       float finalNoise = mix(n, sharpNoise, 0.8);
+          // High contrast thresholding to make it look like energetic particles/TV static
+          float sharpNoise = smoothstep(0.3, 0.6, n);
+          float finalNoise = mix(n, sharpNoise, 0.8);
           
-    //       // Instead of mixing with the hand's original texture, we ONLY use the
-    //       // original hand's luma (brightness) to act as 3D lighting/shadows for the noise.
-    //       // This makes the 3D volume visible while being made 100% of noise.
-    //       vec3 finalColor = vec3(finalNoise * (luma * 1.5 + 0.1));
+          // Instead of mixing with the hand's original texture, we ONLY use the
+          // original hand's luma (brightness) to act as 3D lighting/shadows for the noise.
+          // This makes the 3D volume visible while being made 100% of noise.
+          vec3 finalColor = vec3(finalNoise * (luma * 1.5 + 0.1));
           
-    //       outputColor = vec4(finalColor * handMask, 1.0);
-    //     }
-    //   `;
+          outputColor = vec4(finalColor * handMask, 1.0);
+        }
+      `;
 
-      
       // Pure Voronoi Effect - Entirely replaces the hands
       const voronoiShader = `
         precision highp float;

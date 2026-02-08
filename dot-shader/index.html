@@ -186,7 +186,7 @@
         }
       `;
 
-      // Glitch Grain / Analog TV Static Noise Field - fully replaces hands
+      // Tiny Old CRT TV Analog Static / Glitch Grain
       const noiseShader = `
         precision highp float;
         uniform float time;
@@ -199,7 +199,7 @@
         void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor) {
           float luma = dot(texture2D(inputBuffer, uv).rgb, vec3(0.299, 0.587, 0.114));
 
-          // Strict hand mask, pure black background, NO original hand texture ever visible
+          // Strict hand mask, pure black background, NO original hand texture
           float handMask = smoothstep(0.02, 0.06, luma);
           if (handMask < 0.001) {
             outputColor = vec4(vec3(0.0), 1.0);
@@ -209,38 +209,38 @@
           vec2 coord = uv;
 
           // --------------------------
-          // Horizontal Glitch Scan Lines matching your reference image
+          // Rare CRT Glitch Scan Lines
           // --------------------------
           float scanLineCount = floor(resolution.y / 4.0);
           float lineId = floor(coord.y * scanLineCount);
           float lineRandom = random(vec2(lineId, floor(time * 4.0)));
 
-          // 15% chance this line is horizontally shifted (glitch offset)
-          if(lineRandom > 0.85) {
-            coord.x += random(vec2(lineId, time)) * 0.03;
+          // 8% chance this line is horizontally shifted (glitch offset)
+          if(lineRandom > 0.92) {
+            coord.x += random(vec2(lineId, time)) * 0.015;
           }
-          // 10% chance this entire line is solid black exactly like your reference image
-          if(lineRandom < 0.10) {
+          // 7% chance this entire line drops to solid black like a faulty CRT
+          if(lineRandom < 0.07) {
             outputColor = vec4(vec3(0.0) * handMask, 1.0);
             return;
           }
 
           // --------------------------
-          // Blocky Pixelated TV Static Grain
+          // 1PX TINY ANALOG TV STATIC GRAIN
           // --------------------------
-          // Snap coordinates to grid to get blocky low res grain matching your reference
-          float grainPixelSize = 2.5;
+          // 1.0 pixel grain size = ultra tiny specks exactly like old TV static
+          float grainPixelSize = 1.0;
           vec2 grainUV = floor(coord * resolution / grainPixelSize) * grainPixelSize / resolution;
-          // Fast animation to make grain flicker
-          float staticGrain = random(vec2(grainUV.x, grainUV.y + floor(time * 16.0)));
+          // Fast 30fps flicker for authentic static feel
+          float staticGrain = random(vec2(grainUV.x, grainUV.y + floor(time * 30.0)));
 
-          // High contrast threshold to get nearly pure black / white static
-          staticGrain = step(0.5, staticGrain);
+          // Natural ~50% black / white distribution for real TV static
+          staticGrain = step(0.48, staticGrain);
+          // Subtle analog dither so it does not look perfectly digital
+          staticGrain -= random(grainUV + time) * 0.12;
 
           // Use original hand luma to preserve 3D shape / shading without showing original texture
-          staticGrain *= smoothstep(0.0, 1.0, luma * 1.4);
-          // Add very subtle dithering
-          staticGrain += random(grainUV + time) * 0.08;
+          staticGrain *= luma * 1.5;
 
           vec3 finalColor = vec3(clamp(staticGrain, 0.0, 1.0));
 
@@ -868,7 +868,7 @@
       addEventListener("resize", () => {
         renderer.setSize(innerWidth, innerHeight);
         composer.setSize(innerWidth, innerHeight);
-        ascii.setSize(innerWidth, innerHeight);
+        ascii.setSizeSize(innerWidth, innerHeight);
         matrix.setSize(innerWidth, innerHeight);
 
         const c = renderer.domElement;

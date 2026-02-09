@@ -61,7 +61,7 @@
           <option value="crosshatch">Crosshatch</option>
           <option value="waveLines">Wave Lines</option>
           <option value="noise">Noise Field</option>
-          <option value="voronoi">Voronoi</option>
+          <option value="voronoi" selected>Voronoi</option>
           <option value="vhs">VHS</option>
         </select>
       </div>
@@ -115,7 +115,7 @@
         }
       `;
 
-      // --- NEW: High-Quality Ordered Dither Shader ---
+      // --- High-Quality Ordered Dither Shader ---
       const ditherShader = `
         precision highp float;
         uniform vec2 resolution;
@@ -280,99 +280,89 @@
         }
       `;
 
-      // --- NEW: Voronoi Effect matching reference image ---
+      // PERFECTED VORONOI: Mosaic Flat Cellular Shading matching reference image
       const voronoiShader = `
         precision highp float;
         uniform float time;
         uniform vec2 resolution;
-
-        // Hash function for Voronoi point generation
+        
         vec2 hash(vec2 p) {
           p = vec2(dot(p, vec2(127.1, 311.7)), dot(p, vec2(269.5, 183.3)));
           return -1.0 + 2.0 * fract(sin(p) * 43758.5453123);
         }
-
-        // Simple random for global grain
-        float random_grain(vec2 st) {
-            return fract(sin(dot(st.xy, vec2(12.9898,78.233))) * 43758.5453123);
+        
+        float rand(vec2 co) {
+          return fract(sin(dot(co.xy, vec2(12.9898, 78.233))) * 43758.5453);
         }
         
         void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor) {
-          vec4 original_scene_color = texture2D(inputBuffer, uv);
-          float luma = dot(original_scene_color.rgb, vec3(0.299, 0.587, 0.114));
+          vec4 original = texture2D(inputBuffer, uv);
+          float originalLuma = dot(original.rgb, vec3(0.299, 0.587, 0.114));
           
-          // Hand mask to apply effect only on the hands.
-          // Adjust smoothstep values for a cleaner cut-off.
-          float handMask = smoothstep(0.01, 0.05, luma);
+          // Strict mask for hands
+          float handMask = smoothstep(0.01, 0.04, originalLuma);
           
-          float voronoi_pattern_value = 0.0; // This will hold the grayscale Voronoi cell + border result
-
-          if (handMask > 0.01) { // Only calculate Voronoi cell logic if we are on a hand
-            float cellScale = 35.0; // Control cell size (smaller scale = larger cells)
-            vec2 coord = uv * cellScale;
-            
-            vec2 i_coord = floor(coord); // Integer part of scaled UV (cell ID)
-            vec2 f_coord = fract(coord); // Fractional part of scaled UV (position within cell)
-
-            float min_dist_sq = 100.0; // Squared distance to the nearest Voronoi point
-            float second_min_dist_sq = 100.0; // Squared distance to the second nearest Voronoi point
-            vec2 nearest_point_in_cell_space = vec2(0.0); // Stores the absolute position of the closest point
-
-            // Search 3x3 grid of neighboring cells for the closest Voronoi point
-            for (int y = -1; y <= 1; y++) {
-              for (int x = -1; x <= 1; x++) {
-                vec2 neighbor_offset = vec2(float(x), float(y));
-                vec2 cell_id = i_coord + neighbor_offset; // ID of the current neighbor cell
-
-                // Generate a pseudo-random point within this cell, normalized to [0,1]
-                vec2 point_within_cell = hash(cell_id) * 0.5 + 0.5; 
-
-                // Vector from current pixel (f_coord) to this random point
-                vec2 diff = neighbor_offset + point_within_cell - f_coord;
-                float dist_sq = dot(diff, diff); // Squared Euclidean distance
-
-                if (dist_sq < min_dist_sq) {
-                  second_min_dist_sq = min_dist_sq; // Store previous min_dist as second_min
-                  min_dist_sq = dist_sq;           // Update min_dist
-                  nearest_point_in_cell_space = cell_id + point_within_cell; // Store the absolute position in cell space
-                } else if (dist_sq < second_min_dist_sq) {
-                  second_min_dist_sq = dist_sq; // Update second_min_dist
-                }
+          // Setup Voronoi coordinate space (keeps cells square)
+          float cellScale = 42.0; 
+          vec2 ratio = vec2(resolution.x / resolution.y, 1.0);
+          
+          // Subtle drift
+          vec2 drift = vec2(time * 0.15, time * 0.1);
+          vec2 coord = uv * ratio * cellScale + drift;
+          
+          vec2 cell = floor(coord);
+          vec2 local = fract(coord);
+          
+          float minDist = 8.0;
+          float secondMinDist = 8.0;
+          vec2 centerUV = vec2(0.0);
+          
+          // Find closest and second closest cell points
+          for(int y = -1; y <= 1; y++) {
+            for(int x = -1; x <= 1; x++) {
+              vec2 neighbor = vec2(float(x), float(y));
+              vec2 cellPos = cell + neighbor;
+              
+              // Fixed random point per cell, slowly oscillating
+              vec2 point = vec2(0.5) + 0.4 * sin(time * 1.5 + 6.2831 * hash(cellPos));
+              
+              vec2 diff = neighbor + point - local;
+              float dist = length(diff);
+              
+              if(dist < minDist) {
+                secondMinDist = minDist;
+                minDist = dist;
+                // Map the cell's center point back to true UV coordinates for texture sampling
+                centerUV = (cellPos + point - drift) / (ratio * cellScale);
+              } else if(dist < secondMinDist) {
+                secondMinDist = dist;
               }
             }
-
-            // Convert the nearest point's absolute cell-space position back to UV space
-            vec2 cell_representative_uv = nearest_point_in_cell_space / cellScale;
-            // Sample the original luma at this representative UV to get a uniform color for the cell
-            float sampled_cell_luma = dot(texture2D(inputBuffer, cell_representative_uv).rgb, vec3(0.299, 0.587, 0.114));
-
-            // Quantize the luma to discrete steps for the posterized grayscale look
-            float num_luma_levels = 8.0; // Roughly 8 shades of grey as in the reference image
-            float cell_luma_quantized = floor(sampled_cell_luma * num_luma_levels) / (num_luma_levels - 1.0);
-            cell_luma_quantized = clamp(cell_luma_quantized, 0.0, 1.0); // Ensure it's in [0,1] range
-
-            // Calculate distance to the Voronoi cell border.
-            // The border is where a pixel is equidistant to two Voronoi points.
-            float dist_to_nearest_edge = sqrt(second_min_dist_sq) - sqrt(min_dist_sq);
-            float border_thickness = 0.012; // Thin black border (adjust as needed)
-
-            // Use smoothstep to create a crisp black border: 0.0 for border, 1.0 for cell interior
-            float border_effect = smoothstep(0.0, border_thickness, dist_to_nearest_edge);
-
-            // Final cell color is quantized luma, multiplied by border effect (0 for border, color for interior)
-            voronoi_pattern_value = cell_luma_quantized * border_effect;
           }
           
-          // Add global fine grain texture
-          float grain_intensity = 0.05; // Adjust this for more/less grain
-          float grain_frequency = 1000.0; // High frequency for fine grain
-          float grain = (random_grain(uv * grain_frequency) - 0.5) * grain_intensity;
+          // SAMPLE THE EXACT CELL CENTER to get solid, flat colors per cell
+          vec4 cellColor = texture2D(inputBuffer, centerUV);
+          float cellLuma = dot(cellColor.rgb, vec3(0.299, 0.587, 0.114));
           
-          // Combine: Voronoi pattern on hands, black background, with global grain.
-          vec3 final_output_color = vec3(voronoi_pattern_value);
-          final_output_color += grain;
+          // Boost contrast so highlights are bright white and shadows are deep gray
+          cellLuma = smoothstep(0.05, 0.6, cellLuma * 1.3);
           
-          outputColor = vec4(final_output_color, 1.0);
+          // Draw crisp thin black borders
+          float borderDist = secondMinDist - minDist;
+          float border = smoothstep(0.01, 0.08, borderDist); 
+          
+          // Combine flat mosaic color with black borders
+          float finalLuma = cellLuma * border;
+          
+          // Apply hand mask
+          finalLuma *= handMask;
+          
+          // Add subtle global film grain over both the background and cells
+          float grain = (rand(uv * (time + 1.0)) - 0.5) * 0.12;
+          
+          vec3 finalOutput = vec3(finalLuma + grain);
+          
+          outputColor = vec4(finalOutput, 1.0);
         }
       `;
 
@@ -418,7 +408,7 @@
         }
       `;
 
-      // Matrix Rain: Corrected Vertical Orientation
+      // Enhanced Matrix Rain: Hands stand out, background has falling rain
       class MatrixRainEffect {
         constructor(renderer, camera) {
           this.renderer = renderer;
@@ -700,7 +690,7 @@
             .value.set(canvas.width, canvas.height);
         }
       }
-      
+
       // helper effect factory
       function makeEffect(name, shader, uniforms = {}) {
         const map = new Map();
@@ -805,7 +795,7 @@
       });
 
       const voronoi = makeEffect("Voronoi", voronoiShader, {
-        time: 0.0, // No direct time animation in the cells, but still pass for consistency
+        time: 0.0,
         resolution: new THREE.Vector2(innerWidth, innerHeight),
       });
 
@@ -867,7 +857,7 @@
       const composer = new EffectComposer(renderer);
       composer.addPass(new RenderPass(scene, camera));
 
-      let pass = new EffectPass(camera, dots);
+      let pass = new EffectPass(camera, voronoi);
       composer.addPass(pass);
 
       /* ================= UI ================= */
@@ -947,7 +937,7 @@
           voronoi,
           vhs,
           waveLines,
-          dither // Add dither to the resize update list
+          dither
         ].forEach((e) => {
           if (e && e.uniforms && e.uniforms.get && e.uniforms.get("resolution"))
             e.uniforms.get("resolution").value.set(w, h);

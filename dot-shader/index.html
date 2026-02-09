@@ -115,12 +115,44 @@
         }
       `;
 
+      // --- NEW: High-Quality Ordered Dither Shader ---
       const ditherShader = `
         precision highp float;
-        void mainImage(const in vec4 i,const in vec2 uv,out vec4 o){
-          vec4 c=texture2D(inputBuffer,uv);
-          float g=dot(c.rgb,vec3(.299,.587,.114));
-          o=vec4(vec3(step(.5,fract(g*6.))),1.);
+        uniform vec2 resolution;
+
+        // 8x8 Bayer matrix (un-normalized)
+        const float bayer[64] = float[](
+           0.0, 32.0,  8.0, 40.0,  2.0, 34.0, 10.0, 42.0,
+          48.0, 16.0, 56.0, 24.0, 50.0, 18.0, 58.0, 26.0,
+          12.0, 44.0,  4.0, 36.0, 14.0, 46.0,  6.0, 38.0,
+          60.0, 28.0, 52.0, 20.0, 62.0, 30.0, 54.0, 22.0,
+           3.0, 35.0, 11.0, 43.0,  1.0, 33.0,  9.0, 41.0,
+          51.0, 19.0, 59.0, 27.0, 49.0, 17.0, 57.0, 25.0,
+          15.0, 47.0,  7.0, 39.0, 13.0, 45.0,  5.0, 37.0,
+          63.0, 31.0, 55.0, 23.0, 61.0, 29.0, 53.0, 21.0
+        );
+
+        void mainImage(const in vec4 i, const in vec2 uv, out vec4 o) {
+          // 1. Get original color and calculate luminance
+          vec4 c = texture2D(inputBuffer, uv);
+          float luma = dot(c.rgb, vec3(0.299, 0.587, 0.114));
+
+          // 2. Get screen-space pixel coordinates
+          vec2 screenCoord = uv * resolution;
+
+          // 3. Find the corresponding coordinate in the 8x8 Bayer matrix
+          int x = int(mod(screenCoord.x, 8.0));
+          int y = int(mod(screenCoord.y, 8.0));
+          int bayerIndex = y * 8 + x;
+
+          // 4. Get the threshold from the matrix and normalize it to a 0.0-1.0 range
+          float threshold = bayer[bayerIndex] / 64.0;
+
+          // 5. Compare the luminance to the threshold
+          float dithered = step(threshold, luma);
+          
+          // Output the pure black or white result
+          o = vec4(vec3(dithered), 1.0);
         }
       `;
 
@@ -349,7 +381,7 @@
         }
       `;
 
-      // Enhanced Matrix Rain: Hands stand out, background has falling rain
+      // Matrix Rain: Corrected Vertical Orientation
       class MatrixRainEffect {
         constructor(renderer, camera) {
           this.renderer = renderer;
@@ -631,14 +663,8 @@
             .value.set(canvas.width, canvas.height);
         }
       }
-
-      // add missing DitherEffect class
-      class DitherEffect extends Effect {
-        constructor() {
-          super("Dither", ditherShader);
-        }
-      }
-
+      
+      // --- NEW: Using makeEffect for Dither ---
       // helper effect factory
       function makeEffect(name, shader, uniforms = {}) {
         const map = new Map();
@@ -700,7 +726,9 @@
       /* ================= CREATE EFFECTS ================= */
 
       const dots = new DotsEffect(10);
-      const dither = new DitherEffect();
+      const dither = makeEffect("Dither", ditherShader, {
+        resolution: new THREE.Vector2(innerWidth, innerHeight)
+      });
       const pixel = new PixelationEffect(6);
       const scan = new ScanlineEffect({ density: 1.1 });
 
@@ -883,6 +911,7 @@
           voronoi,
           vhs,
           waveLines,
+          dither // Add dither to the resize update list
         ].forEach((e) => {
           if (e && e.uniforms && e.uniforms.get && e.uniforms.get("resolution"))
             e.uniforms.get("resolution").value.set(w, h);

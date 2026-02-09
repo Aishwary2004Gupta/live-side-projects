@@ -49,7 +49,7 @@
       <div>
         <label>Effect</label>
         <select id="effect">
-          <option value="dots" selected>Dots</option>
+          <option value="dots">Dots</option>
           <option value="dither">Dither</option>
           <option value="ascii">ASCII</option>
           <option value="halftone">Halftone</option>
@@ -60,7 +60,7 @@
           <option value="edge">Edge Detection</option>
           <option value="crosshatch">Crosshatch</option>
           <option value="waveLines">Wave Lines</option>
-          <option value="noise">Noise Field</option>
+          <option value="noise" selected>Noise Field</option>
           <option value="voronoi">Voronoi</option>
           <option value="vhs">VHS</option>
         </select>
@@ -248,13 +248,12 @@
         }
       `;
 
-      // Pure Voronoi Effect - Entirely replaces the hands
+      // Improved Non-Cartoony Voronoi - Cracked Frosted Glass
       const voronoiShader = `
         precision highp float;
         uniform float time;
         uniform vec2 resolution;
         
-        // Hash function
         vec2 hash(vec2 p) {
           p = vec2(dot(p, vec2(127.1, 311.7)), dot(p, vec2(269.5, 183.3)));
           return -1.0 + 2.0 * fract(sin(p) * 43758.5453123);
@@ -264,65 +263,54 @@
           vec4 original = texture2D(inputBuffer, uv);
           float luma = dot(original.rgb, vec3(0.299, 0.587, 0.114));
           
-          // Strict mask for hands
           float handMask = smoothstep(0.02, 0.06, luma);
-          
-          // Pure black background
           if (handMask < 0.01) {
             outputColor = vec4(0.0, 0.0, 0.0, 1.0);
             return;
           }
           
-          // Set scale for Voronoi cells
-          float cellScale = 25.0;
+          float cellScale = 18.0;
           vec2 coord = uv * cellScale;
-          
-          // Add slow drifting movement to the whole pattern
-          coord.y += time * 0.4;
-          coord.x += sin(time * 0.2) * 1.5;
+          coord += vec2(time * 0.15, time * 0.08);
           
           vec2 cell = floor(coord);
           vec2 local = fract(coord);
           
           float minDist = 1.0;
-          vec2 closestCell = vec2(0.0);
+          float secondMinDist = 1.0;
           
-          // Search neighboring cells
           for(int y = -1; y <= 1; y++) {
             for(int x = -1; x <= 1; x++) {
               vec2 neighbor = vec2(float(x), float(y));
               vec2 cellPos = cell + neighbor;
-              
-              // Generate random point for this cell, animated
-              vec2 randVec = hash(cellPos);
-              vec2 point = vec2(0.5) + 0.5 * sin(time * 2.0 + 6.2831 * randVec);
-              
+              vec2 point = vec2(0.5) + 0.35 * hash(cellPos);
               vec2 diff = neighbor + point - local;
               float dist = length(diff);
               
               if(dist < minDist) {
+                secondMinDist = minDist;
                 minDist = dist;
-                closestCell = cellPos;
+              } else if(dist < secondMinDist) {
+                secondMinDist = dist;
               }
             }
           }
           
-          // Generate a vibrant color based on the cell ID
-          vec2 cellHash = hash(closestCell);
-          vec3 cellColor = 0.5 + 0.5 * cos(time * 0.5 + cellHash.xyx * 5.0 + vec3(0, 2, 4));
+          // Sharp thin dark border
+          float border = smoothstep(0.015, 0.025, secondMinDist - minDist);
           
-          // Create solid dark borders between cells
-          float border = smoothstep(0.04, 0.1, minDist);
+          // Monochrome cell brightness no cartoon colors
+          float cellBrightness = 0.4 + 0.5 * fract(sin(dot(floor(coord), vec2(42.321, 23.123))) * 32421.32);
           
-          // Completely replace original image with Voronoi cells.
-          // Multiply by luma to preserve the 3D depth, shadows, and highlights.
-          vec3 finalColor = cellColor * border * (luma * 1.6 + 0.1);
-          
+          float finalValue = mix(0.0, cellBrightness, border) * (luma * 1.3 + 0.05);
+          // Very subtle cool tint, remove multiplyers to get pure grayscale
+          vec3 finalColor = vec3(finalValue * 0.95, finalValue, finalValue * 1.08);
+
           outputColor = vec4(finalColor * handMask, 1.0);
         }
       `;
 
-      // Matrix Rain that accumulates on hands to show outline
+      // Improved Matrix Rain: Hands are made of matrix code, matches your reference
       class MatrixRainEffect {
         constructor(renderer, camera) {
           this.renderer = renderer;
@@ -331,47 +319,41 @@
           this.ctx = this.canvas.getContext("2d", { willReadFrequently: true });
           this.domElement = this.canvas;
 
-          // Create an accumulation canvas to build up the rain
-          this.accumulationCanvas = document.createElement("canvas");
-          this.accumulationCtx = this.accumulationCanvas.getContext("2d");
-
-          this.chars = "ｦｧｨｩｪｫｬｭｮｯﾀﾁﾂﾃﾄﾅﾆﾇﾈﾉﾊﾋﾌﾍﾎﾏﾐﾑﾒﾓﾔﾕﾗﾘﾘﾜ01";
+          this.chars = "ｦｧｨｩｪｫｬｭｮｯ012789";
           this.cols = 0;
           this.rows = 0;
           this.drops = [];
           this.startTime = performance.now();
           this.frameCount = 0;
 
-          this.fontSize = 12;
+          // Smaller font for dense characters matching reference image
+          this.fontSize = 8;
           this.fontFamily = "monospace";
           this.setSize(
             renderer.domElement.clientWidth,
             renderer.domElement.clientHeight,
           );
 
-          // Create render target for scene capture (full) and a small mask target for fast sampling
           this.renderTarget = new THREE.WebGLRenderTarget(
             renderer.domElement.clientWidth,
             renderer.domElement.clientHeight,
             { format: THREE.RGBAFormat },
           );
-          // maskTarget will be resized in setSize to match the rain grid (cols x rows)
           this.maskTarget = new THREE.WebGLRenderTarget(1, 1, {
             format: THREE.RGBAFormat,
           });
           this.maskTarget.texture.minFilter = THREE.NearestFilter;
           this.maskTarget.texture.magFilter = THREE.NearestFilter;
           this._maskBuffer = null;
+
+          // Store character grid so entire hand is always filled with characters
+          this.cellCharacter = [];
         }
 
         setSize(width, height) {
           this.canvas.width = width;
           this.canvas.height = height;
-          this.accumulationCanvas.width = width;
-          this.accumulationCanvas.height = height;
-
           this.ctx.font = `${this.fontSize}px ${this.fontFamily}`;
-          this.accumulationCtx.font = `${this.fontSize}px ${this.fontFamily}`;
           this.cols = Math.floor(width / (this.fontSize * 0.6));
           this.rows = Math.floor(height / this.fontSize);
 
@@ -379,10 +361,13 @@
             .fill(0)
             .map(() => Math.random() * this.rows);
 
-          if (this.renderTarget) {
-            this.renderTarget.setSize(width, height);
+          // Pre fill character grid
+          this.cellCharacter = new Array(this.cols * this.rows);
+          for(let i=0; i<this.cellCharacter.length; i++) {
+            this.cellCharacter[i] = this.chars[Math.floor(Math.random() * this.chars.length)];
           }
-          // Resize the small mask render target to the rain grid size for cheap sampling
+
+          if (this.renderTarget) this.renderTarget.setSize(width, height);
           if (this.maskTarget) {
             const mw = Math.max(1, this.cols);
             const mh = Math.max(1, this.rows);
@@ -396,19 +381,14 @@
           const elapsed = (now - this.startTime) / 1000;
           this.frameCount++;
 
-          // Render the scene into a small mask render target sized to the rain grid
           const oldTarget = this.renderer.getRenderTarget();
-          if (this.maskTarget) {
-            this.renderer.setRenderTarget(this.maskTarget);
-            this.renderer.render(scene, camera);
-            this.renderer.setRenderTarget(oldTarget);
-          }
+          this.renderer.setRenderTarget(this.maskTarget);
+          this.renderer.render(scene, camera);
+          this.renderer.setRenderTarget(oldTarget);
 
-          // Clear to black so the rain fills the whole screen
           this.ctx.fillStyle = "black";
           this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
 
-          // Read the entire small mask once per frame into _maskBuffer (fast)
           const maskBuf = this._maskBuffer;
           if (this.maskTarget && maskBuf) {
             try {
@@ -420,68 +400,42 @@
                 this.maskTarget.height,
                 maskBuf,
               );
-            } catch (err) {
-              // if read fails, zero out buffer to avoid exceptions
-              maskBuf.fill(0);
-            }
+            } catch (err) { maskBuf.fill(0); }
           }
 
-          // Draw matrix rain across the whole canvas. Use the small mask buffer
-          // to quickly determine whether the drop is over a bright (hand) region.
+          // Update drop positions
           for (let i = 0; i < this.cols; i++) {
-            const char =
-              this.chars[Math.floor(Math.random() * this.chars.length)];
-            const speed = 2.0 + (Math.sin(i * 0.1 + elapsed) * 0.5 + 0.5) * 1.2;
+            const speed = 0.4 + Math.random() * 0.5;
             this.drops[i] += speed * 0.4;
-
-            const yPos = this.drops[i] * this.fontSize;
-            const x = i * (this.fontSize * 0.6);
-
-            const colIndex = i;
-            let rowIndex = Math.floor(yPos / this.fontSize);
-            rowIndex = Math.max(0, Math.min(this.rows - 1, rowIndex));
-
-            let isHand = false;
-            if (
-              maskBuf &&
-              colIndex >= 0 &&
-              colIndex < this.maskTarget.width &&
-              rowIndex >= 0 &&
-              rowIndex < this.maskTarget.height
-            ) {
-              // mask buffer is bottom-left origin: index = ((y)*width + x)*4
-              const maskY = rowIndex; // since rows mapped to fontSize, keep same orientation
-              const idx = (maskY * this.maskTarget.width + colIndex) * 4;
-              const r = maskBuf[idx];
-              const g = maskBuf[idx + 1];
-              const b = maskBuf[idx + 2];
-              const brightness = (r + g + b) / 3;
-              if (brightness > 20) isHand = true;
+            // Randomly change character at drop head position
+            if(Math.random() > 0.7) {
+              const y = Math.floor(this.drops[i]);
+              this.cellCharacter[y * this.cols + i] = this.chars[Math.floor(Math.random() * this.chars.length)];
             }
+            if (this.drops[i] >= this.rows) this.drops[i] = 0;
+          }
 
-            this.ctx.fillStyle = isHand
-              ? "rgba(0,120,0,1)"
-              : "rgba(0,255,100,0.9)";
-            this.ctx.fillText(char, x, yPos);
+          // Render the FULL grid of characters inside the hand mask so hand shape is always visible
+          for(let y = 0; y < this.rows; y++) {
+            for(let x = 0; x < this.cols; x++) {
+              const idx = (y * this.maskTarget.width + x) * 4;
+              const brightness = (maskBuf[idx] + maskBuf[idx+1] + maskBuf[idx+2]) / 3;
+              // Skip everything not on the hand
+              if(brightness < 15) continue;
 
-            for (let j = 1; j < 12; j++) {
-              const tailY = yPos - j * this.fontSize;
-              if (tailY < -this.fontSize) break;
-              const alphaBase = isHand ? 0.25 : 0.35;
-              const alpha = Math.max(0, (1 - j / 12) * alphaBase);
-              const tailColor = isHand
-                ? `rgba(0,120,0,${alpha})`
-                : `rgba(0,200,60,${alpha})`;
-              this.ctx.fillStyle = tailColor;
-              this.ctx.fillText(
-                this.chars[Math.floor(Math.random() * this.chars.length)],
-                x,
-                tailY,
-              );
-            }
+              const drawX = x * (this.fontSize * 0.6);
+              const drawY = y * this.fontSize;
 
-            if (yPos > this.canvas.height + 100) {
-              this.drops[i] = -10 + Math.random() * 5;
+              // Brighter / white characters on highlights, darker green on shadows
+              if(brightness > 180) {
+                this.ctx.fillStyle = `rgba(200, 255, 200, 0.95)`;
+              } else if (brightness > 100) {
+                this.ctx.fillStyle = `rgba(40, 180, 60, 0.8)`;
+              } else {
+                this.ctx.fillStyle = `rgba(10, 90, 20, 0.6)`;
+              }
+
+              this.ctx.fillText(this.cellCharacter[y * this.cols + x], drawX, drawY);
             }
           }
         }
@@ -868,7 +822,7 @@
       addEventListener("resize", () => {
         renderer.setSize(innerWidth, innerHeight);
         composer.setSize(innerWidth, innerHeight);
-        ascii.setSizeSize(innerWidth, innerHeight);
+        ascii.setSize(innerWidth, innerHeight);
         matrix.setSize(innerWidth, innerHeight);
 
         const c = renderer.domElement;

@@ -49,7 +49,7 @@
       <div>
         <label>Effect</label>
         <select id="effect">
-          <option value="dots" selected>Dots</option>
+          <option value="dots">Dots</option>
           <option value="dither">Dither</option>
           <option value="ascii">ASCII</option>
           <option value="halftone">Halftone</option>
@@ -60,7 +60,7 @@
           <option value="edge">Edge Detection</option>
           <option value="crosshatch">Crosshatch</option>
           <option value="waveLines">Wave Lines</option>
-          <option value="noise">Noise Field</option>
+          <option value="noise" selected>Noise Field</option>
           <option value="voronoi">Voronoi</option>
           <option value="vhs">VHS</option>
         </select>
@@ -248,7 +248,7 @@
         }
       `;
 
-      // Improved Non-Cartoony Voronoi - Cracked Frosted Glass
+      // Non-Cartoony Voronoi - Cracked Frosted Glass
       const voronoiShader = `
         precision highp float;
         uniform float time;
@@ -296,21 +296,17 @@
             }
           }
           
-          // Sharp thin dark border
           float border = smoothstep(0.015, 0.025, secondMinDist - minDist);
-          
-          // Monochrome cell brightness no cartoon colors
           float cellBrightness = 0.4 + 0.5 * fract(sin(dot(floor(coord), vec2(42.321, 23.123))) * 32421.32);
           
           float finalValue = mix(0.0, cellBrightness, border) * (luma * 1.3 + 0.05);
-          // Very subtle cool tint, remove multiplyers to get pure grayscale
           vec3 finalColor = vec3(finalValue * 0.95, finalValue, finalValue * 1.08);
 
           outputColor = vec4(finalColor * handMask, 1.0);
         }
       `;
 
-      // Improved Matrix Rain: Hands are made of matrix code, matches your reference
+      // Matrix Rain: Corrected Vertical Orientation
       class MatrixRainEffect {
         constructor(renderer, camera) {
           this.renderer = renderer;
@@ -326,7 +322,6 @@
           this.startTime = performance.now();
           this.frameCount = 0;
 
-          // Smaller font for dense characters matching reference image
           this.fontSize = 8;
           this.fontFamily = "monospace";
           this.setSize(
@@ -346,7 +341,6 @@
           this.maskTarget.texture.magFilter = THREE.NearestFilter;
           this._maskBuffer = null;
 
-          // Store character grid so entire hand is always filled with characters
           this.cellCharacter = [];
         }
 
@@ -361,11 +355,9 @@
             .fill(0)
             .map(() => Math.random() * this.rows);
 
-          // Pre fill character grid
           this.cellCharacter = new Array(this.cols * this.rows);
-          for (let i = 0; i < this.cellCharacter.length; i++) {
-            this.cellCharacter[i] =
-              this.chars[Math.floor(Math.random() * this.chars.length)];
+          for(let i=0; i<this.cellCharacter.length; i++) {
+            this.cellCharacter[i] = this.chars[Math.floor(Math.random() * this.chars.length)];
           }
 
           if (this.renderTarget) this.renderTarget.setSize(width, height);
@@ -401,38 +393,33 @@
                 this.maskTarget.height,
                 maskBuf,
               );
-            } catch (err) {
-              maskBuf.fill(0);
-            }
+            } catch (err) { maskBuf.fill(0); }
           }
 
-          // Update drop positions
           for (let i = 0; i < this.cols; i++) {
             const speed = 0.4 + Math.random() * 0.5;
             this.drops[i] += speed * 0.4;
-            // Randomly change character at drop head position
-            if (Math.random() > 0.7) {
-              const y = Math.floor(this.drops[i]);
-              this.cellCharacter[y * this.cols + i] =
-                this.chars[Math.floor(Math.random() * this.chars.length)];
+            if(Math.random() > 0.7) {
+              const y = Math.floor(this.drops[i]) % this.rows;
+              this.cellCharacter[y * this.cols + i] = this.chars[Math.floor(Math.random() * this.chars.length)];
             }
             if (this.drops[i] >= this.rows) this.drops[i] = 0;
           }
 
-          // Render the FULL grid of characters inside the hand mask so hand shape is always visible
-          for (let y = 0; y < this.rows; y++) {
-            for (let x = 0; x < this.cols; x++) {
-              const idx = (y * this.maskTarget.width + x) * 4;
-              const brightness =
-                (maskBuf[idx] + maskBuf[idx + 1] + maskBuf[idx + 2]) / 3;
-              // Skip everything not on the hand
-              if (brightness < 15) continue;
+          for(let y = 0; y < this.rows; y++) {
+            for(let x = 0; x < this.cols; x++) {
+              // WebGL origin is bottom-left, Canvas is top-left
+              // We flip the Y when sampling the mask buffer
+              const sampleY = (this.maskTarget.height - 1) - y;
+              const idx = (sampleY * this.maskTarget.width + x) * 4;
+              
+              const brightness = (maskBuf[idx] + maskBuf[idx+1] + maskBuf[idx+2]) / 3;
+              if(brightness < 15) continue;
 
               const drawX = x * (this.fontSize * 0.6);
               const drawY = y * this.fontSize;
 
-              // Brighter / white characters on highlights, darker green on shadows
-              if (brightness > 180) {
+              if(brightness > 180) {
                 this.ctx.fillStyle = `rgba(200, 255, 200, 0.95)`;
               } else if (brightness > 100) {
                 this.ctx.fillStyle = `rgba(40, 180, 60, 0.8)`;
@@ -440,11 +427,7 @@
                 this.ctx.fillStyle = `rgba(10, 90, 20, 0.6)`;
               }
 
-              this.ctx.fillText(
-                this.cellCharacter[y * this.cols + x],
-                drawX,
-                drawY,
-              );
+              this.ctx.fillText(this.cellCharacter[y * this.cols + x], drawX, drawY);
             }
           }
         }

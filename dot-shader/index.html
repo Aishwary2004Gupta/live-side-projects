@@ -33,7 +33,8 @@
         flex-direction: column;
         color: #555;
         user-select: none;
-        transition: transform 0.3s ease;
+        /* Smooth transition for the panel itself */
+        transition: transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
       }
 
       #sidebar.collapsed {
@@ -164,7 +165,7 @@
         z-index: 9;
         opacity: 0;
         pointer-events: none;
-        transition: opacity 0.3s;
+        transition: opacity 0.3s ease;
       }
 
       #floatingToggle.visible {
@@ -320,7 +321,7 @@
         }
       `;
 
-      const noiseShader = `
+      const noise_shader = `
         precision highp float;
         uniform float time;
         uniform vec2 resolution;
@@ -675,9 +676,14 @@
       const baseFrustumSize = 350;
       let camera;
       let isPanelOpen = true;
+      
+      // Layout State
+      let currentLayoutWidth = window.innerWidth - 280;
+      let targetLayoutWidth = window.innerWidth - 280;
+      const sidebarWidth = 280;
 
       function updateCamera() {
-        const aspect = (innerWidth - (isPanelOpen ? 280 : 0)) / innerHeight;
+        const aspect = currentLayoutWidth / window.innerHeight;
         camera.left = (-baseFrustumSize * aspect) / 2;
         camera.right = (baseFrustumSize * aspect) / 2;
         camera.top = baseFrustumSize / 2;
@@ -693,7 +699,7 @@
       /* ================= RENDERERS ================= */
 
       const renderer = new THREE.WebGLRenderer({ antialias: true });
-      renderer.setSize(innerWidth - 280, innerHeight);
+      renderer.setSize(currentLayoutWidth, window.innerHeight);
       document.body.appendChild(renderer.domElement);
 
       const ascii = new AsciiEffect(renderer, " .:-=+*#%@", { invert: true });
@@ -746,7 +752,7 @@
         resolution: new THREE.Vector2(innerWidth, innerHeight),
       });
 
-      const noise = makeEffect("Noise", noiseShader, {
+      const noise = makeEffect("Noise", noise_shader, {
         time: 0.0,
         resolution: new THREE.Vector2(innerWidth, innerHeight),
       });
@@ -832,20 +838,15 @@
           sidebar.classList.remove('collapsed');
           toggleBtn.textContent = '—';
           floatingToggle.classList.remove('visible');
-          renderer.setSize(innerWidth - 280, innerHeight);
+          targetLayoutWidth = window.innerWidth - sidebarWidth;
         } else {
           sidebar.classList.add('collapsed');
           toggleBtn.textContent = '+';
           floatingToggle.classList.add('visible');
-          renderer.setSize(innerWidth, innerHeight);
+          targetLayoutWidth = window.innerWidth;
         }
         
-        updateCamera();
-        
-        // Update ascii/matrix sizes if active
-        const current = document.querySelector('#effectList li.active')?.getAttribute('data-value');
-        if (current === "ascii") ascii.setSize(innerWidth - (isPanelOpen ? 280 : 0), innerHeight);
-        if (current === "matrix") matrix.setSize(innerWidth - (isPanelOpen ? 280 : 0), innerHeight);
+        // Note: We do not set size here. The animate loop handles it smoothly.
       }
 
       // Click on header to toggle
@@ -863,7 +864,8 @@
           else document.body.appendChild(ascii.domElement);
           if(matrix.domElement.parentNode) matrix.domElement.style.display = 'none';
           
-          ascii.setSize(innerWidth - (isPanelOpen ? 280 : 0), innerHeight);
+          // Set initial size
+          ascii.setSize(currentLayoutWidth, window.innerHeight);
           controls.dispose();
           controls = new OrbitControls(camera, ascii.domElement);
           pixelUI.style.display = "none";
@@ -877,7 +879,7 @@
           if(matrix.domElement.parentNode) matrix.domElement.style.display = 'block';
           else document.body.appendChild(matrix.domElement);
 
-          matrix.setSize(innerWidth - (isPanelOpen ? 280 : 0), innerHeight);
+          matrix.setSize(currentLayoutWidth, window.innerHeight);
           controls.dispose();
           controls = new OrbitControls(camera, matrix.domElement);
           pixelUI.style.display = "none";
@@ -915,25 +917,45 @@
         blockify.uniforms.get("pixelSize").value = value;
       };
 
-      /* ================= RESIZE ================= */
+      /* ================= RESIZE & ANIMATION LOGIC ================= */
 
-      addEventListener("resize", () => {
-        const w = innerWidth - (isPanelOpen ? 280 : 0);
-        const h = innerHeight;
+      // Update all renderers and cameras based on the current width
+      function updateLayout(width) {
+        const height = window.innerHeight;
         
-        renderer.setSize(w, h);
-        composer.setSize(w, h);
-        ascii.setSize(w, h);
-        matrix.setSize(w, h);
+        // Main Renderer
+        renderer.setSize(width, height);
+        composer.setSize(width, height);
+        
+        // Update Camera
+        updateCamera();
 
+        // Update Shader Uniforms
         const c = renderer.domElement;
-        const rw = c.width, rh = c.height;
         [dots, halftone, blockify, contour, edge, crosshatch, noise, voronoi, vhs, waveLines, dither].forEach((e) => {
-          if (e && e.uniforms && e.uniforms.get && e.uniforms.get("resolution"))
-            e.uniforms.get("resolution").value.set(rw, rh);
+          if (e && e.uniforms && e.uniforms.get && e.uniforms.get("resolution")) {
+            e.uniforms.get("resolution").value.set(c.width, c.height);
+          }
         });
 
-        updateCamera();
+        // Update Special Effects
+        const currentEffect = document.querySelector('#effectList li.active')?.getAttribute('data-value');
+        if (currentEffect === "ascii") {
+          ascii.setSize(width, height);
+        } else if (currentEffect === "matrix") {
+          matrix.setSize(width, height);
+        }
+      }
+
+      // Window Resize Handler
+      addEventListener("resize", () => {
+        // Recalculate target based on sidebar state
+        if (isPanelOpen) {
+          targetLayoutWidth = window.innerWidth - sidebarWidth;
+        } else {
+          targetLayoutWidth = window.innerWidth;
+        }
+        // Note: actual resize happens in animate loop
       });
 
       /* ================= LOOP ================= */
@@ -943,7 +965,21 @@
       function animate() {
         requestAnimationFrame(animate);
         controls.update();
-        
+
+        // Smooth Resizing Logic
+        if (Math.abs(currentLayoutWidth - targetLayoutWidth) > 0.5) {
+          // Linear interpolation (lerp) for smooth transition
+          // 0.15 is the easing factor (lower = slower/smoother)
+          currentLayoutWidth += (targetLayoutWidth - currentLayoutWidth) * 0.15;
+          
+          // Snap to target if very close to stop micro-calculations
+          if (Math.abs(currentLayoutWidth - targetLayoutWidth) < 1) {
+            currentLayoutWidth = targetLayoutWidth;
+          }
+          
+          updateLayout(currentLayoutWidth);
+        }
+
         const current = activeEffectName();
 
         if (current === "ascii") {

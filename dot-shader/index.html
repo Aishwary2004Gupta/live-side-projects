@@ -33,7 +33,6 @@
         flex-direction: column;
         color: #555;
         user-select: none;
-        /* Smooth transition for the panel itself */
         transition: transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
       }
 
@@ -442,6 +441,154 @@
         }
       `;
 
+      /* ========== UPDATED EFFECTS ========== */
+
+      // 1. CONTOUR (Architectural Sketch)
+      // Uses Sobel to find edges, mixes them with the original color luminance
+      // to create a drawing on paper effect.
+      const contourShader = `
+        precision highp float;
+        uniform vec2 resolution;
+        vec4 sampleOffset(vec2 uv, vec2 off){ return texture2D(inputBuffer, uv + off / resolution); }
+        void mainImage(const in vec4 i,const in vec2 uv,out vec4 o){
+          // Sobel kernels
+          float sx = -1.0*dot(sampleOffset(uv, vec2(-1.,-1.)).rgb, vec3(0.3)) + 1.0*dot(sampleOffset(uv, vec2(1.,-1.)).rgb, vec3(0.3))
+                   -2.0*dot(sampleOffset(uv, vec2(-1.,0.)).rgb, vec3(0.3)) + 2.0*dot(sampleOffset(uv, vec2(1.,0.)).rgb, vec3(0.3))
+                   -1.0*dot(sampleOffset(uv, vec2(-1.,1.)).rgb, vec3(0.3)) + 1.0*dot(sampleOffset(uv, vec2(1.,1.)).rgb, vec3(0.3));
+          float sy = -1.0*dot(sampleOffset(uv, vec2(-1.,-1.)).rgb, vec3(0.3)) -2.0*dot(sampleOffset(uv, vec2(0.,-1.)).rgb, vec3(0.3)) -1.0*dot(sampleOffset(uv, vec2(1.,-1.)).rgb, vec3(0.3))
+                   +1.0*dot(sampleOffset(uv, vec2(-1.,1.)).rgb, vec3(0.3)) +2.0*dot(sampleOffset(uv, vec2(0.,1.)).rgb, vec3(0.3)) +1.0*dot(sampleOffset(uv, vec2(1.,1.)).rgb, vec3(0.3));
+          
+          float g = length(vec2(sx,sy));
+          
+          // Original color
+          vec4 original = texture2D(inputBuffer, uv);
+          float luma = dot(original.rgb, vec3(0.299, 0.587, 0.114));
+
+          // Paper and Ink colors
+          vec3 paper = vec3(0.94, 0.94, 0.90); // Off-white
+          vec3 ink = vec3(0.05, 0.05, 0.1);    // Dark blue-black
+          
+          // Create soft shading based on luma
+          vec3 shadedPaper = mix(paper, paper * 0.8, luma); 
+          
+          // Edge intensity
+          float edge = smoothstep(0.05, 0.3, g);
+          
+          // Final mix: Shaded paper, but edges are ink
+          vec3 finalColor = mix(shadedPaper, ink, edge);
+          
+          o = vec4(finalColor, 1.0);
+        }
+      `;
+
+      // 2. EDGE (Neon / Cyberpunk)
+      // Detects edges and overlays a glowing color (Hot Pink)
+      const edgeShader = `
+        precision highp float;
+        uniform vec2 resolution;
+        vec4 sampleOffset(vec2 uv, vec2 off){ return texture2D(inputBuffer, uv + off / resolution); }
+        void mainImage(const in vec4 i,const in vec2 uv,out vec4 o){
+          // Laplacian kernel
+          float c = -4.0*dot(sampleOffset(uv, vec2(0.,0.)).rgb, vec3(0.3));
+          c += 1.0*dot(sampleOffset(uv, vec2(-1.,0.)).rgb, vec3(0.3));
+          c += 1.0*dot(sampleOffset(uv, vec2(1.,0.)).rgb, vec3(0.3));
+          c += 1.0*dot(sampleOffset(uv, vec2(0.,-1.)).rgb, vec3(0.3));
+          c += 1.0*dot(sampleOffset(uv, vec2(0.,1.)).rgb, vec3(0.3));
+          
+          float edgeStrength = abs(c);
+          
+          // Base image dimmed
+          vec4 base = texture2D(inputBuffer, uv);
+          vec3 dimmed = base.rgb * 0.4; 
+          
+          // Neon Color (Hot Pink/Cyan)
+          vec3 neonColor = vec3(1.0, 0.2, 0.6); 
+          
+          // Glow effect
+          float glow = smoothstep(0.01, 0.3, edgeStrength);
+          
+          // Combine
+          vec3 finalColor = mix(dimmed, neonColor, glow);
+          
+          o = vec4(finalColor, 1.0);
+        }
+      `;
+
+      // 3. THRESHOLD (Dithered / Retro Print)
+      // Uses a Bayer matrix to dither the threshold, preventing flat banding
+      const thresholdShader = `
+        precision highp float;
+        uniform vec2 resolution;
+        
+        // 4x4 Bayer Matrix
+        float getDither(vec2 pos) {
+            int x = int(mod(pos.x, 4.0));
+            int y = int(mod(pos.y, 4.0));
+            int index = x + y * 4;
+            float dither[16] = float[](
+                0.0, 8.0, 2.0, 10.0,
+                12.0, 4.0, 14.0, 6.0,
+                3.0, 11.0, 1.0, 9.0,
+                15.0, 7.0, 13.0, 5.0
+            );
+            return dither[index] / 16.0;
+        }
+
+        void mainImage(const in vec4 i,const in vec2 uv,out vec4 o){
+          vec4 c = texture2D(inputBuffer, uv);
+          float luma = dot(c.rgb, vec3(.2126,.7152,.0722));
+          
+          vec2 screenPos = uv * resolution;
+          float ditherValue = getDither(screenPos);
+          
+          // Use luma + dither to determine threshold
+          float t = step(0.4 + ditherValue * 0.3, luma);
+          
+          // Add a subtle blue tint to the black parts for style
+          vec3 color = mix(vec3(0.05, 0.05, 0.1), vec3(1.0), t);
+          
+          o = vec4(color, 1.0);
+        }
+      `;
+
+      const blockifyShader = `
+        precision highp float;
+        uniform float pixelSize;
+        uniform vec2 resolution;
+        void mainImage(const in vec4 i,const in vec2 uv,out vec4 o){
+          vec2 s = pixelSize / resolution;
+          vec2 u = s * floor(uv / s);
+          vec4 c = texture2D(inputBuffer, u);
+          o = c;
+        }
+      `;
+
+      const crosshatchShader = `
+        precision highp float;
+        uniform vec2 resolution;
+        float hatchLine(vec2 p, vec2 dir, float spacing, float thickness) {
+          float v = dot(p, dir);
+          float m = abs(mod(v, spacing) - spacing * 0.5);
+          return 1.0 - smoothstep(thickness * 0.5, thickness, m);
+        }
+        void mainImage(const in vec4 i,const in vec2 uv,out vec4 o){
+          vec4 src = texture2D(inputBuffer, uv);
+          float l = dot(src.rgb, vec3(.2126,.7152,.0722));
+          float minRes = min(resolution.x, resolution.y);
+          vec2 p = uv * minRes;
+          float darkness = 1.0 - l;
+          float baseSpacing = mix(30.0, 6.0, smoothstep(0.0, 1.0, darkness));
+          float baseThickness = mix(1.2, 4.5, smoothstep(0.0, 1.0, darkness));
+          float a1 = hatchLine(p, normalize(vec2(1.0, 1.0)), baseSpacing, baseThickness);
+          float a2 = hatchLine(p, normalize(vec2(1.0, -1.0)), baseSpacing * 0.7, baseThickness * 0.85);
+          float a3 = hatchLine(p, normalize(vec2(1.0, 0.0)), baseSpacing * 0.5, baseThickness * 0.6);
+          float hatch = clamp(a1 * 0.9 + a2 * 0.7 + a3 * 0.5, 0.0, 1.0);
+          float ink = mix(1.0 - hatch, l * 0.8 + 0.2 * (1.0 - l), 0.0);
+          vec3 color = vec3(ink);
+          o = vec4(color, 1.0);
+        }
+      `;
+
       class MatrixRainEffect {
         constructor(renderer, camera) {
           this.renderer = renderer;
@@ -546,85 +693,6 @@
           }
         }
       }
-
-      const contourShader = `
-        precision highp float;
-        uniform vec2 resolution;
-        vec4 sampleOffset(vec2 uv, vec2 off){ return texture2D(inputBuffer, uv + off / resolution); }
-        void mainImage(const in vec4 i,const in vec2 uv,out vec4 o){
-          float sx = -1.0*dot(sampleOffset(uv, vec2(-1.,-1.)).rgb, vec3(0.3)) + 1.0*dot(sampleOffset(uv, vec2(1.,-1.)).rgb, vec3(0.3))
-                   -2.0*dot(sampleOffset(uv, vec2(-1.,0.)).rgb, vec3(0.3)) + 2.0*dot(sampleOffset(uv, vec2(1.,0.)).rgb, vec3(0.3))
-                   -1.0*dot(sampleOffset(uv, vec2(-1.,1.)).rgb, vec3(0.3)) + 1.0*dot(sampleOffset(uv, vec2(1.,1.)).rgb, vec3(0.3));
-          float sy = -1.0*dot(sampleOffset(uv, vec2(-1.,-1.)).rgb, vec3(0.3)) -2.0*dot(sampleOffset(uv, vec2(0.,-1.)).rgb, vec3(0.3)) -1.0*dot(sampleOffset(uv, vec2(1.,-1.)).rgb, vec3(0.3))
-                   +1.0*dot(sampleOffset(uv, vec2(-1.,1.)).rgb, vec3(0.3)) +2.0*dot(sampleOffset(uv, vec2(0.,1.)).rgb, vec3(0.3)) +1.0*dot(sampleOffset(uv, vec2(1.,1.)).rgb, vec3(0.3));
-          float g = length(vec2(sx,sy));
-          o = vec4(vec3(1.0 - g), 1.0);
-        }
-      `;
-
-      const edgeShader = `
-        precision highp float;
-        uniform vec2 resolution;
-        vec4 sampleOffset(vec2 uv, vec2 off){ return texture2D(inputBuffer, uv + off / resolution); }
-        void mainImage(const in vec4 i,const in vec2 uv,out vec4 o){
-          float c = -4.0*dot(sampleOffset(uv, vec2(0.,0.)).rgb, vec3(0.3));
-          c += 1.0*dot(sampleOffset(uv, vec2(-1.,0.)).rgb, vec3(0.3));
-          c += 1.0*dot(sampleOffset(uv, vec2(1.,0.)).rgb, vec3(0.3));
-          c += 1.0*dot(sampleOffset(uv, vec2(0.,-1.)).rgb, vec3(0.3));
-          c += 1.0*dot(sampleOffset(uv, vec2(0.,1.)).rgb, vec3(0.3));
-          c = abs(c);
-          o = vec4(vec3(step(0.15, c)), 1.0);
-        }
-      `;
-
-      const blockifyShader = `
-        precision highp float;
-        uniform float pixelSize;
-        uniform vec2 resolution;
-        void mainImage(const in vec4 i,const in vec2 uv,out vec4 o){
-          vec2 s = pixelSize / resolution;
-          vec2 u = s * floor(uv / s);
-          vec4 c = texture2D(inputBuffer, u);
-          o = c;
-        }
-      `;
-
-      const thresholdShader = `
-        precision highp float;
-        uniform float thresh;
-        void mainImage(const in vec4 i,const in vec2 uv,out vec4 o){
-          vec4 c = texture2D(inputBuffer, uv);
-          float l = dot(c.rgb, vec3(.2126,.7152,.0722));
-          float v = step(thresh, l);
-          o = vec4(vec3(v),1.0);
-        }
-      `;
-
-      const crosshatchShader = `
-        precision highp float;
-        uniform vec2 resolution;
-        float hatchLine(vec2 p, vec2 dir, float spacing, float thickness) {
-          float v = dot(p, dir);
-          float m = abs(mod(v, spacing) - spacing * 0.5);
-          return 1.0 - smoothstep(thickness * 0.5, thickness, m);
-        }
-        void mainImage(const in vec4 i,const in vec2 uv,out vec4 o){
-          vec4 src = texture2D(inputBuffer, uv);
-          float l = dot(src.rgb, vec3(.2126,.7152,.0722));
-          float minRes = min(resolution.x, resolution.y);
-          vec2 p = uv * minRes;
-          float darkness = 1.0 - l;
-          float baseSpacing = mix(30.0, 6.0, smoothstep(0.0, 1.0, darkness));
-          float baseThickness = mix(1.2, 4.5, smoothstep(0.0, 1.0, darkness));
-          float a1 = hatchLine(p, normalize(vec2(1.0, 1.0)), baseSpacing, baseThickness);
-          float a2 = hatchLine(p, normalize(vec2(1.0, -1.0)), baseSpacing * 0.7, baseThickness * 0.85);
-          float a3 = hatchLine(p, normalize(vec2(1.0, 0.0)), baseSpacing * 0.5, baseThickness * 0.6);
-          float hatch = clamp(a1 * 0.9 + a2 * 0.7 + a3 * 0.5, 0.0, 1.0);
-          float ink = mix(1.0 - hatch, l * 0.8 + 0.2 * (1.0 - l), 0.0);
-          vec3 color = vec3(ink);
-          o = vec4(color, 1.0);
-        }
-      `;
 
       class DotsEffect extends Effect {
         constructor(v) {
@@ -736,7 +804,7 @@
       });
 
       const threshold = makeEffect("Threshold", thresholdShader, {
-        thresh: 0.5,
+        resolution: new THREE.Vector2(innerWidth, innerHeight),
       });
 
       const edge = makeEffect("Edge", edgeShader, {
@@ -845,14 +913,9 @@
           floatingToggle.classList.add('visible');
           targetLayoutWidth = window.innerWidth;
         }
-        
-        // Note: We do not set size here. The animate loop handles it smoothly.
       }
 
-      // Click on header to toggle
       document.querySelector('h2').addEventListener('click', togglePanel);
-      
-      // Floating button to reopen
       floatingToggle.addEventListener('click', togglePanel);
 
       function switchEffect(val) {
@@ -864,7 +927,6 @@
           else document.body.appendChild(ascii.domElement);
           if(matrix.domElement.parentNode) matrix.domElement.style.display = 'none';
           
-          // Set initial size
           ascii.setSize(currentLayoutWidth, window.innerHeight);
           controls.dispose();
           controls = new OrbitControls(camera, ascii.domElement);
@@ -919,26 +981,20 @@
 
       /* ================= RESIZE & ANIMATION LOGIC ================= */
 
-      // Update all renderers and cameras based on the current width
       function updateLayout(width) {
         const height = window.innerHeight;
         
-        // Main Renderer
         renderer.setSize(width, height);
         composer.setSize(width, height);
-        
-        // Update Camera
         updateCamera();
 
-        // Update Shader Uniforms
         const c = renderer.domElement;
-        [dots, halftone, blockify, contour, edge, crosshatch, noise, voronoi, vhs, waveLines, dither].forEach((e) => {
+        [dots, halftone, blockify, contour, edge, crosshatch, noise, voronoi, vhs, waveLines, dither, threshold].forEach((e) => {
           if (e && e.uniforms && e.uniforms.get && e.uniforms.get("resolution")) {
             e.uniforms.get("resolution").value.set(c.width, c.height);
           }
         });
 
-        // Update Special Effects
         const currentEffect = document.querySelector('#effectList li.active')?.getAttribute('data-value');
         if (currentEffect === "ascii") {
           ascii.setSize(width, height);
@@ -947,15 +1003,12 @@
         }
       }
 
-      // Window Resize Handler
       addEventListener("resize", () => {
-        // Recalculate target based on sidebar state
         if (isPanelOpen) {
           targetLayoutWidth = window.innerWidth - sidebarWidth;
         } else {
           targetLayoutWidth = window.innerWidth;
         }
-        // Note: actual resize happens in animate loop
       });
 
       /* ================= LOOP ================= */
@@ -968,15 +1021,10 @@
 
         // Smooth Resizing Logic
         if (Math.abs(currentLayoutWidth - targetLayoutWidth) > 0.5) {
-          // Linear interpolation (lerp) for smooth transition
-          // 0.15 is the easing factor (lower = slower/smoother)
           currentLayoutWidth += (targetLayoutWidth - currentLayoutWidth) * 0.15;
-          
-          // Snap to target if very close to stop micro-calculations
           if (Math.abs(currentLayoutWidth - targetLayoutWidth) < 1) {
             currentLayoutWidth = targetLayoutWidth;
           }
-          
           updateLayout(currentLayoutWidth);
         }
 

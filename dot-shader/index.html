@@ -420,10 +420,10 @@
           this.chars = "ｦｧｨｩｪｫｬｭｮｯ012789";
           this.cols = 0;
           this.rows = 0;
-          
+
           this.drops = [];
           this.speeds = [];
-          
+
           this.startTime = performance.now();
           this.frameCount = 0;
 
@@ -457,13 +457,18 @@
           this.rows = Math.floor(height / this.fontSize);
 
           // Drops start randomly above and around screen
-          this.drops = Array(this.cols).fill(0).map(() => -(Math.random() * this.rows));
+          this.drops = Array(this.cols)
+            .fill(0)
+            .map(() => -(Math.random() * this.rows));
           // Each column gets a random falling speed
-          this.speeds = Array(this.cols).fill(0).map(() => 0.3 + Math.random() * 0.6);
+          this.speeds = Array(this.cols)
+            .fill(0)
+            .map(() => 0.3 + Math.random() * 0.6);
 
           this.cellCharacter = new Array(this.cols * this.rows);
-          for(let i=0; i<this.cellCharacter.length; i++) {
-            this.cellCharacter[i] = this.chars[Math.floor(Math.random() * this.chars.length)];
+          for (let i = 0; i < this.cellCharacter.length; i++) {
+            this.cellCharacter[i] =
+              this.chars[Math.floor(Math.random() * this.chars.length)];
           }
 
           if (this.renderTarget) this.renderTarget.setSize(width, height);
@@ -489,21 +494,29 @@
           if (this.maskTarget && maskBuf) {
             try {
               this.renderer.readRenderTargetPixels(
-                this.maskTarget, 0, 0, this.maskTarget.width, this.maskTarget.height, maskBuf
+                this.maskTarget,
+                0,
+                0,
+                this.maskTarget.width,
+                this.maskTarget.height,
+                maskBuf,
               );
-            } catch (err) { maskBuf.fill(0); }
+            } catch (err) {
+              maskBuf.fill(0);
+            }
           }
 
           // 1. Update drop physics
           for (let i = 0; i < this.cols; i++) {
             this.drops[i] += this.speeds[i];
-            
+
             // Randomly flip a character in this column
-            if(Math.random() > 0.8) {
+            if (Math.random() > 0.8) {
               const y = Math.max(0, Math.floor(this.drops[i])) % this.rows;
-              this.cellCharacter[y * this.cols + i] = this.chars[Math.floor(Math.random() * this.chars.length)];
+              this.cellCharacter[y * this.cols + i] =
+                this.chars[Math.floor(Math.random() * this.chars.length)];
             }
-            
+
             // Reset drop if it falls way past the screen
             if (this.drops[i] >= this.rows + 20) {
               this.drops[i] = -(Math.random() * 20); // start above
@@ -512,33 +525,37 @@
           }
 
           // 2. Render Loop: Hands (dense/bright) vs Background (sparse/dark rain)
-          for(let y = 0; y < this.rows; y++) {
-            for(let x = 0; x < this.cols; x++) {
-              const sampleY = (this.maskTarget.height - 1) - y;
+          for (let y = 0; y < this.rows; y++) {
+            for (let x = 0; x < this.cols; x++) {
+              const sampleY = this.maskTarget.height - 1 - y;
               const idx = (sampleY * this.maskTarget.width + x) * 4;
-              
-              const brightness = (maskBuf[idx] + maskBuf[idx+1] + maskBuf[idx+2]) / 3;
+
+              const brightness =
+                (maskBuf[idx] + maskBuf[idx + 1] + maskBuf[idx + 2]) / 3;
               const drawX = x * (this.fontSize * 0.6);
               const drawY = y * this.fontSize;
 
-              if(brightness > 15) {
+              if (brightness > 15) {
                 // --- DRAW HANDS ---
                 // Hands are full-density, easily discernible via bright whites/greens
-                if(brightness > 180) {
+                if (brightness > 180) {
                   this.ctx.fillStyle = `rgba(200, 255, 200, 0.95)`;
                 } else if (brightness > 100) {
                   this.ctx.fillStyle = `rgba(40, 200, 60, 0.85)`;
                 } else {
                   this.ctx.fillStyle = `rgba(10, 110, 20, 0.7)`;
                 }
-                this.ctx.fillText(this.cellCharacter[y * this.cols + x], drawX, drawY);
-                
+                this.ctx.fillText(
+                  this.cellCharacter[y * this.cols + x],
+                  drawX,
+                  drawY,
+                );
               } else {
                 // --- DRAW BACKGROUND RAIN ---
                 // Background is sparse, drawn only where trails exist, and much darker
                 const dropY = this.drops[x];
                 const distance = dropY - y;
-                
+
                 // Tail length of 25 for background rain
                 if (distance >= 0 && distance < 25) {
                   if (distance < 1) {
@@ -546,14 +563,16 @@
                     this.ctx.fillStyle = `rgba(100, 200, 100, 0.6)`;
                   } else {
                     // Rain tail (fading out)
-                    const alpha = 0.4 * (1.0 - (distance / 25));
+                    const alpha = 0.4 * (1.0 - distance / 25);
                     this.ctx.fillStyle = `rgba(0, 120, 20, ${alpha})`;
                   }
-                  
+
                   // Use occasional random characters for the tail to look dynamic
                   let char = this.cellCharacter[y * this.cols + x];
-                  if (Math.random() > 0.95) char = this.chars[Math.floor(Math.random() * this.chars.length)];
-                  
+                  if (Math.random() > 0.95)
+                    char =
+                      this.chars[Math.floor(Math.random() * this.chars.length)];
+
                   this.ctx.fillText(char, drawX, drawY);
                 }
               }
@@ -753,7 +772,7 @@
 
       const dots = new DotsEffect(10);
       const dither = makeEffect("Dither", ditherShader, {
-        resolution: new THREE.Vector2(innerWidth, innerHeight)
+        resolution: new THREE.Vector2(innerWidth, innerHeight),
       });
       const pixel = new PixelationEffect(6);
       const scan = new ScanlineEffect({ density: 1.1 });
@@ -937,7 +956,7 @@
           voronoi,
           vhs,
           waveLines,
-          dither
+          dither,
         ].forEach((e) => {
           if (e && e.uniforms && e.uniforms.get && e.uniforms.get("resolution"))
             e.uniforms.get("resolution").value.set(w, h);

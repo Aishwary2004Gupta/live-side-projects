@@ -6,19 +6,18 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
     <style>
-      @import url("https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;600&display=swap");
+      @import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;600&display=swap');
 
-      html,
-      body {
+      html, body {
         margin: 0;
         width: 100%;
         height: 100%;
         overflow: hidden;
         background: #010101;
-        font-family: "Fira Code", "Courier New", monospace;
+        font-family: 'Fira Code', 'Courier New', monospace;
       }
 
-      /* --- NEW SIDEBAR STYLES --- */
+      /* --- COLLAPSIBLE SIDEBAR STYLES --- */
       #sidebar {
         position: fixed;
         top: 0;
@@ -34,6 +33,11 @@
         flex-direction: column;
         color: #555;
         user-select: none;
+        transition: transform 0.3s ease;
+      }
+
+      #sidebar.collapsed {
+        transform: translateX(100%);
       }
 
       h2 {
@@ -42,12 +46,23 @@
         margin: 0 0 25px 0;
         font-weight: 600;
         letter-spacing: 0.5px;
+        display: flex;
+        align-items: center;
+        cursor: pointer;
       }
 
-      h2::before {
-        content: "— ";
+      #toggleBtn {
         color: #555;
-        margin-right: 5px;
+        margin-right: 8px;
+        font-weight: 400;
+        transition: color 0.2s;
+        user-select: none;
+        width: 20px;
+        display: inline-block;
+      }
+
+      h2:hover #toggleBtn {
+        color: #fff;
       }
 
       ul {
@@ -58,15 +73,18 @@
         flex-direction: column;
         gap: 14px;
         overflow-y: auto;
+        opacity: 1;
+        transition: opacity 0.2s;
       }
 
-      /* Scrollbar styling for list */
-      ul::-webkit-scrollbar {
-        width: 4px;
+      #sidebar.collapsed ul,
+      #sidebar.collapsed #pixelUI {
+        opacity: 0;
+        pointer-events: none;
       }
-      ul::-webkit-scrollbar-thumb {
-        background: #222;
-      }
+
+      ul::-webkit-scrollbar { width: 4px; }
+      ul::-webkit-scrollbar-thumb { background: #222; }
 
       li {
         cursor: pointer;
@@ -84,27 +102,17 @@
         transform: translateY(-1px);
       }
 
-      li:hover {
-        color: #999;
-      }
+      li:hover { color: #999; }
+      li.active { color: #fff; font-weight: 600; text-shadow: 0 0 8px rgba(255, 255, 255, 0.15); }
+      li.active::before { content: "●"; color: #fff; }
 
-      li.active {
-        color: #fff;
-        font-weight: 600;
-        text-shadow: 0 0 8px rgba(255, 255, 255, 0.15);
-      }
-
-      li.active::before {
-        content: "●";
-        color: #fff;
-      }
-
-      /* Minimal Slider Styling */
       #pixelUI {
         margin-top: auto;
         padding-top: 20px;
         border-top: 1px solid #1a1a1a;
-        display: none; /* Hidden by default */
+        display: none;
+        opacity: 1;
+        transition: opacity 0.2s;
       }
 
       #pixelUI label {
@@ -114,13 +122,13 @@
         color: #555;
       }
 
-      input[type="range"] {
+      input[type=range] {
         -webkit-appearance: none;
         width: 100%;
         background: transparent;
       }
 
-      input[type="range"]::-webkit-slider-thumb {
+      input[type=range]::-webkit-slider-thumb {
         -webkit-appearance: none;
         height: 12px;
         width: 12px;
@@ -130,19 +138,49 @@
         margin-top: -5px;
       }
 
-      input[type="range"]::-webkit-slider-runnable-track {
+      input[type=range]::-webkit-slider-runnable-track {
         width: 100%;
         height: 2px;
         cursor: pointer;
         background: #333;
       }
+
+      /* Toggle button visible when collapsed */
+      #floatingToggle {
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        width: 40px;
+        height: 40px;
+        background: #0a0a0a;
+        border: 1px solid #333;
+        color: #fff;
+        font-family: 'Fira Code', monospace;
+        font-size: 18px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        z-index: 9;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.3s;
+      }
+
+      #floatingToggle.visible {
+        opacity: 1;
+        pointer-events: auto;
+      }
     </style>
   </head>
 
   <body>
-    <!-- NEW SIDEBAR STRUCTURE -->
+    <!-- Floating toggle for when sidebar is hidden -->
+    <div id="floatingToggle">+</div>
+
+    <!-- Sidebar -->
     <div id="sidebar">
-      <h2>Effects</h2>
+      <h2><span id="toggleBtn">—</span> Effects</h2>
       <ul id="effectList">
         <li data-value="ascii">ASCII</li>
         <li data-value="dither">Dithering</li>
@@ -209,7 +247,6 @@
         }
       `;
 
-      // --- High-Quality Ordered Dither Shader ---
       const ditherShader = `
         precision highp float;
         uniform vec2 resolution;
@@ -421,19 +458,12 @@
           this.frameCount = 0;
           this.fontSize = 8;
           this.fontFamily = "monospace";
-          this.setSize(
-            renderer.domElement.clientWidth,
-            renderer.domElement.clientHeight,
-          );
+          this.setSize(renderer.domElement.clientWidth, renderer.domElement.clientHeight);
 
           this.renderTarget = new THREE.WebGLRenderTarget(
-            renderer.domElement.clientWidth,
-            renderer.domElement.clientHeight,
-            { format: THREE.RGBAFormat },
+            renderer.domElement.clientWidth, renderer.domElement.clientHeight, { format: THREE.RGBAFormat }
           );
-          this.maskTarget = new THREE.WebGLRenderTarget(1, 1, {
-            format: THREE.RGBAFormat,
-          });
+          this.maskTarget = new THREE.WebGLRenderTarget(1, 1, { format: THREE.RGBAFormat });
           this.maskTarget.texture.minFilter = THREE.NearestFilter;
           this.maskTarget.texture.magFilter = THREE.NearestFilter;
           this._maskBuffer = null;
@@ -446,16 +476,11 @@
           this.ctx.font = `${this.fontSize}px ${this.fontFamily}`;
           this.cols = Math.floor(width / (this.fontSize * 0.6));
           this.rows = Math.floor(height / this.fontSize);
-          this.drops = Array(this.cols)
-            .fill(0)
-            .map(() => -(Math.random() * this.rows));
-          this.speeds = Array(this.cols)
-            .fill(0)
-            .map(() => 0.3 + Math.random() * 0.6);
+          this.drops = Array(this.cols).fill(0).map(() => -(Math.random() * this.rows));
+          this.speeds = Array(this.cols).fill(0).map(() => 0.3 + Math.random() * 0.6);
           this.cellCharacter = new Array(this.cols * this.rows);
-          for (let i = 0; i < this.cellCharacter.length; i++) {
-            this.cellCharacter[i] =
-              this.chars[Math.floor(Math.random() * this.chars.length)];
+          for(let i=0; i<this.cellCharacter.length; i++) {
+            this.cellCharacter[i] = this.chars[Math.floor(Math.random() * this.chars.length)];
           }
           if (this.renderTarget) this.renderTarget.setSize(width, height);
           if (this.maskTarget) {
@@ -476,63 +501,43 @@
           const maskBuf = this._maskBuffer;
           if (this.maskTarget && maskBuf) {
             try {
-              this.renderer.readRenderTargetPixels(
-                this.maskTarget,
-                0,
-                0,
-                this.maskTarget.width,
-                this.maskTarget.height,
-                maskBuf,
-              );
-            } catch (err) {
-              maskBuf.fill(0);
-            }
+              this.renderer.readRenderTargetPixels(this.maskTarget, 0, 0, this.maskTarget.width, this.maskTarget.height, maskBuf);
+            } catch (err) { maskBuf.fill(0); }
           }
           for (let i = 0; i < this.cols; i++) {
             this.drops[i] += this.speeds[i];
-            if (Math.random() > 0.8) {
+            if(Math.random() > 0.8) {
               const y = Math.max(0, Math.floor(this.drops[i])) % this.rows;
-              this.cellCharacter[y * this.cols + i] =
-                this.chars[Math.floor(Math.random() * this.chars.length)];
+              this.cellCharacter[y * this.cols + i] = this.chars[Math.floor(Math.random() * this.chars.length)];
             }
             if (this.drops[i] >= this.rows + 20) {
               this.drops[i] = -(Math.random() * 20);
               this.speeds[i] = 0.3 + Math.random() * 0.6;
             }
           }
-          for (let y = 0; y < this.rows; y++) {
-            for (let x = 0; x < this.cols; x++) {
-              const sampleY = this.maskTarget.height - 1 - y;
+          for(let y = 0; y < this.rows; y++) {
+            for(let x = 0; x < this.cols; x++) {
+              const sampleY = (this.maskTarget.height - 1) - y;
               const idx = (sampleY * this.maskTarget.width + x) * 4;
-              const brightness =
-                (maskBuf[idx] + maskBuf[idx + 1] + maskBuf[idx + 2]) / 3;
+              const brightness = (maskBuf[idx] + maskBuf[idx+1] + maskBuf[idx+2]) / 3;
               const drawX = x * (this.fontSize * 0.6);
               const drawY = y * this.fontSize;
-              if (brightness > 15) {
-                if (brightness > 180)
-                  this.ctx.fillStyle = `rgba(200, 255, 200, 0.95)`;
-                else if (brightness > 100)
-                  this.ctx.fillStyle = `rgba(40, 200, 60, 0.85)`;
+              if(brightness > 15) {
+                if(brightness > 180) this.ctx.fillStyle = `rgba(200, 255, 200, 0.95)`;
+                else if (brightness > 100) this.ctx.fillStyle = `rgba(40, 200, 60, 0.85)`;
                 else this.ctx.fillStyle = `rgba(10, 110, 20, 0.7)`;
-                this.ctx.fillText(
-                  this.cellCharacter[y * this.cols + x],
-                  drawX,
-                  drawY,
-                );
+                this.ctx.fillText(this.cellCharacter[y * this.cols + x], drawX, drawY);
               } else {
                 const dropY = this.drops[x];
                 const distance = dropY - y;
                 if (distance >= 0 && distance < 25) {
-                  if (distance < 1)
-                    this.ctx.fillStyle = `rgba(100, 200, 100, 0.6)`;
+                  if (distance < 1) this.ctx.fillStyle = `rgba(100, 200, 100, 0.6)`;
                   else {
-                    const alpha = 0.4 * (1.0 - distance / 25);
+                    const alpha = 0.4 * (1.0 - (distance / 25));
                     this.ctx.fillStyle = `rgba(0, 120, 20, ${alpha})`;
                   }
                   let char = this.cellCharacter[y * this.cols + x];
-                  if (Math.random() > 0.95)
-                    char =
-                      this.chars[Math.floor(Math.random() * this.chars.length)];
+                  if (Math.random() > 0.95) char = this.chars[Math.floor(Math.random() * this.chars.length)];
                   this.ctx.fillText(char, drawX, drawY);
                 }
               }
@@ -541,7 +546,6 @@
         }
       }
 
-      // Contour / Sobel edges with threshold
       const contourShader = `
         precision highp float;
         uniform vec2 resolution;
@@ -557,7 +561,6 @@
         }
       `;
 
-      // Edge / Laplacian for different edge detection
       const edgeShader = `
         precision highp float;
         uniform vec2 resolution;
@@ -573,7 +576,6 @@
         }
       `;
 
-      // Blockify / pixelate
       const blockifyShader = `
         precision highp float;
         uniform float pixelSize;
@@ -586,7 +588,6 @@
         }
       `;
 
-      // Threshold
       const thresholdShader = `
         precision highp float;
         uniform float thresh;
@@ -598,7 +599,6 @@
         }
       `;
 
-      // Crosshatch
       const crosshatchShader = `
         precision highp float;
         uniform vec2 resolution;
@@ -630,15 +630,7 @@
           super("Dots", dotsShader, {
             uniforms: new Map([
               ["pixelSize", new THREE.Uniform(v)],
-              [
-                "resolution",
-                new THREE.Uniform(
-                  new THREE.Vector2(
-                    innerWidth * devicePixelRatio,
-                    innerHeight * devicePixelRatio,
-                  ),
-                ),
-              ],
+              ["resolution", new THREE.Uniform(new THREE.Vector2(innerWidth * devicePixelRatio, innerHeight * devicePixelRatio))],
             ]),
           });
           this.v = v;
@@ -646,9 +638,7 @@
         update(renderer) {
           this.uniforms.get("pixelSize").value = this.v;
           const canvas = renderer.domElement;
-          this.uniforms
-            .get("resolution")
-            .value.set(canvas.width, canvas.height);
+          this.uniforms.get("resolution").value.set(canvas.width, canvas.height);
         }
       }
 
@@ -681,15 +671,17 @@
       const scene = new THREE.Scene();
       scene.background = new THREE.Color("#010101");
 
-      const frustumSize = 350;
+      // Dynamic frustum size based on panel visibility
+      const baseFrustumSize = 350;
       let camera;
+      let isPanelOpen = true;
 
       function updateCamera() {
-        const aspect = innerWidth / innerHeight;
-        camera.left = (-frustumSize * aspect) / 2;
-        camera.right = (frustumSize * aspect) / 2;
-        camera.top = frustumSize / 2;
-        camera.bottom = -frustumSize / 2;
+        const aspect = (innerWidth - (isPanelOpen ? 280 : 0)) / innerHeight;
+        camera.left = (-baseFrustumSize * aspect) / 2;
+        camera.right = (baseFrustumSize * aspect) / 2;
+        camera.top = baseFrustumSize / 2;
+        camera.bottom = -baseFrustumSize / 2;
         camera.updateProjectionMatrix();
       }
 
@@ -701,7 +693,7 @@
       /* ================= RENDERERS ================= */
 
       const renderer = new THREE.WebGLRenderer({ antialias: true });
-      renderer.setSize(innerWidth, innerHeight);
+      renderer.setSize(innerWidth - 280, innerHeight);
       document.body.appendChild(renderer.domElement);
 
       const ascii = new AsciiEffect(renderer, " .:-=+*#%@", { invert: true });
@@ -718,7 +710,7 @@
 
       const dots = new DotsEffect(10);
       const dither = makeEffect("Dither", ditherShader, {
-        resolution: new THREE.Vector2(innerWidth, innerHeight),
+        resolution: new THREE.Vector2(innerWidth, innerHeight)
       });
       const pixel = new PixelationEffect(6);
       const scan = new ScanlineEffect({ density: 1.1 });
@@ -821,29 +813,57 @@
       const composer = new EffectComposer(renderer);
       composer.addPass(new RenderPass(scene, camera));
 
-      // Start with Voronoi to match the user's focus
       let pass = new EffectPass(camera, voronoi);
       composer.addPass(pass);
 
       /* ================= UI LOGIC ================= */
 
-      const listItems = document.querySelectorAll("#effectList li");
+      const sidebar = document.getElementById('sidebar');
+      const toggleBtn = document.getElementById('toggleBtn');
+      const floatingToggle = document.getElementById('floatingToggle');
+      const listItems = document.querySelectorAll('#effectList li');
       const pixelUI = document.getElementById("pixelUI");
       const pixelInput = document.getElementById("pixelSize");
+
+      function togglePanel() {
+        isPanelOpen = !isPanelOpen;
+        
+        if (isPanelOpen) {
+          sidebar.classList.remove('collapsed');
+          toggleBtn.textContent = '—';
+          floatingToggle.classList.remove('visible');
+          renderer.setSize(innerWidth - 280, innerHeight);
+        } else {
+          sidebar.classList.add('collapsed');
+          toggleBtn.textContent = '+';
+          floatingToggle.classList.add('visible');
+          renderer.setSize(innerWidth, innerHeight);
+        }
+        
+        updateCamera();
+        
+        // Update ascii/matrix sizes if active
+        const current = document.querySelector('#effectList li.active')?.getAttribute('data-value');
+        if (current === "ascii") ascii.setSize(innerWidth - (isPanelOpen ? 280 : 0), innerHeight);
+        if (current === "matrix") matrix.setSize(innerWidth - (isPanelOpen ? 280 : 0), innerHeight);
+      }
+
+      // Click on header to toggle
+      document.querySelector('h2').addEventListener('click', togglePanel);
+      
+      // Floating button to reopen
+      floatingToggle.addEventListener('click', togglePanel);
 
       function switchEffect(val) {
         composer.removePass(pass);
 
-        // Handle Special HTML Overlay Effects
         if (val === "ascii") {
-          renderer.domElement.style.display = "none";
-          if (ascii.domElement.parentNode)
-            ascii.domElement.style.display = "block";
+          renderer.domElement.style.display = 'none';
+          if(ascii.domElement.parentNode) ascii.domElement.style.display = 'block';
           else document.body.appendChild(ascii.domElement);
-          if (matrix.domElement.parentNode)
-            matrix.domElement.style.display = "none";
-
-          ascii.setSize(innerWidth, innerHeight);
+          if(matrix.domElement.parentNode) matrix.domElement.style.display = 'none';
+          
+          ascii.setSize(innerWidth - (isPanelOpen ? 280 : 0), innerHeight);
           controls.dispose();
           controls = new OrbitControls(camera, ascii.domElement);
           pixelUI.style.display = "none";
@@ -851,27 +871,22 @@
         }
 
         if (val === "matrix") {
-          renderer.domElement.style.display = "none";
-          if (ascii.domElement.parentNode)
-            ascii.domElement.style.display = "none";
-
-          if (matrix.domElement.parentNode)
-            matrix.domElement.style.display = "block";
+          renderer.domElement.style.display = 'none';
+          if(ascii.domElement.parentNode) ascii.domElement.style.display = 'none';
+          
+          if(matrix.domElement.parentNode) matrix.domElement.style.display = 'block';
           else document.body.appendChild(matrix.domElement);
 
-          matrix.setSize(innerWidth, innerHeight);
+          matrix.setSize(innerWidth - (isPanelOpen ? 280 : 0), innerHeight);
           controls.dispose();
           controls = new OrbitControls(camera, matrix.domElement);
           pixelUI.style.display = "none";
           return;
         }
 
-        // Handle Shader Effects
-        if (ascii.domElement.parentNode)
-          ascii.domElement.style.display = "none";
-        if (matrix.domElement.parentNode)
-          matrix.domElement.style.display = "none";
-        renderer.domElement.style.display = "block";
+        if(ascii.domElement.parentNode) ascii.domElement.style.display = 'none';
+        if(matrix.domElement.parentNode) matrix.domElement.style.display = 'none';
+        renderer.domElement.style.display = 'block';
 
         controls.dispose();
         controls = new OrbitControls(camera, renderer.domElement);
@@ -881,22 +896,14 @@
         pass = new EffectPass(camera, map[val]);
         composer.addPass(pass);
 
-        // Toggle slider visibility
-        pixelUI.style.display =
-          val === "dots" || val === "blockify" || val === "halftone"
-            ? "block"
-            : "none";
+        pixelUI.style.display = (val === "dots" || val === "blockify" || val === "halftone") ? "block" : "none";
       }
 
-      // Add click listeners to sidebar items
-      listItems.forEach((item) => {
-        item.addEventListener("click", () => {
-          // Remove active class from all
-          listItems.forEach((li) => li.classList.remove("active"));
-          // Add active class to clicked
-          item.classList.add("active");
-          // Switch effect
-          const effectValue = item.getAttribute("data-value");
+      listItems.forEach(item => {
+        item.addEventListener('click', () => {
+          listItems.forEach(li => li.classList.remove('active'));
+          item.classList.add('active');
+          const effectValue = item.getAttribute('data-value');
           switchEffect(effectValue);
         });
       });
@@ -911,29 +918,19 @@
       /* ================= RESIZE ================= */
 
       addEventListener("resize", () => {
-        renderer.setSize(innerWidth, innerHeight);
-        composer.setSize(innerWidth, innerHeight);
-        ascii.setSize(innerWidth, innerHeight);
-        matrix.setSize(innerWidth, innerHeight);
+        const w = innerWidth - (isPanelOpen ? 280 : 0);
+        const h = innerHeight;
+        
+        renderer.setSize(w, h);
+        composer.setSize(w, h);
+        ascii.setSize(w, h);
+        matrix.setSize(w, h);
 
         const c = renderer.domElement;
-        const w = c.width,
-          h = c.height;
-        [
-          dots,
-          halftone,
-          blockify,
-          contour,
-          edge,
-          crosshatch,
-          noise,
-          voronoi,
-          vhs,
-          waveLines,
-          dither,
-        ].forEach((e) => {
+        const rw = c.width, rh = c.height;
+        [dots, halftone, blockify, contour, edge, crosshatch, noise, voronoi, vhs, waveLines, dither].forEach((e) => {
           if (e && e.uniforms && e.uniforms.get && e.uniforms.get("resolution"))
-            e.uniforms.get("resolution").value.set(w, h);
+            e.uniforms.get("resolution").value.set(rw, rh);
         });
 
         updateCamera();
@@ -941,21 +938,18 @@
 
       /* ================= LOOP ================= */
 
-      const activeEffectName = () =>
-        document
-          .querySelector("#effectList li.active")
-          ?.getAttribute("data-value");
+      const activeEffectName = () => document.querySelector('#effectList li.active')?.getAttribute('data-value');
 
       function animate() {
         requestAnimationFrame(animate);
         controls.update();
-
+        
         const current = activeEffectName();
 
         if (current === "ascii") {
           ascii.render(scene, camera);
         } else if (current === "matrix") {
-          composer.render(); // Need depth buffer for matrix
+          composer.render();
           matrix.render(scene, camera);
         } else {
           composer.render();

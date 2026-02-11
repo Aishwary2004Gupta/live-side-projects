@@ -234,9 +234,6 @@
         ScanlineEffect,
       } from "https://esm.sh/postprocessing@6.35.4?deps=three@0.160.0";
 
-      // 🎯 PERMANENT FOCUS POINT, always look at the point where hands meet, never changes
-      const handsFocusPoint = new THREE.Vector3(0, 0, 0);
-
       /* ================= SHADERS / EFFECTS ================= */
 
       const dotsShader = `
@@ -607,13 +604,7 @@
           float sy = -1.0*dot(sampleOffset(uv, vec2(-1.,-1.)).rgb, vec3(0.3)) -2.0*dot(sampleOffset(uv, vec2(0.,-1.)).rgb, vec3(0.3)) -1.0*dot(sampleOffset(uv, vec2(1.,-1.)).rgb, vec3(0.3))
                    +1.0*dot(sampleOffset(uv, vec2(-1.,1.)).rgb, vec3(0.3)) +2.0*dot(sampleOffset(uv, vec2(0.,1.)).rgb, vec3(0.3)) +1.0*dot(sampleOffset(uv, vec2(1.,1.)).rgb, vec3(0.3));
           float g = length(vec2(sx,sy));
-          vec3 paper = vec3(0.94, 0.94, 0.90);
-          vec3 ink = vec3(0.05, 0.05, 0.1);
-          float luma = dot(texture2D(inputBuffer, uv).rgb, vec3(0.299, 0.587, 0.114));
-          vec3 shadedPaper = mix(paper, paper * 0.8, luma); 
-          float edge = smoothstep(0.05, 0.3, g);
-          vec3 finalColor = mix(shadedPaper, ink, edge);
-          o = vec4(finalColor, 1.0);
+          o = vec4(vec3(1.0 - g), 1.0);
         }
       `;
 
@@ -627,13 +618,8 @@
           c += 1.0*dot(sampleOffset(uv, vec2(1.,0.)).rgb, vec3(0.3));
           c += 1.0*dot(sampleOffset(uv, vec2(0.,-1.)).rgb, vec3(0.3));
           c += 1.0*dot(sampleOffset(uv, vec2(0.,1.)).rgb, vec3(0.3));
-          float edgeStrength = abs(c);
-          vec4 base = texture2D(inputBuffer, uv);
-          vec3 dimmed = base.rgb * 0.4; 
-          vec3 neonColor = vec3(1.0, 0.2, 0.6); 
-          float glow = smoothstep(0.01, 0.3, edgeStrength);
-          vec3 finalColor = mix(dimmed, neonColor, glow);
-          o = vec4(finalColor, 1.0);
+          c = abs(c);
+          o = vec4(vec3(step(0.15, c)), 1.0);
         }
       `;
 
@@ -651,27 +637,12 @@
 
       const thresholdShader = `
         precision highp float;
-        uniform vec2 resolution;
-        float getDither(vec2 pos) {
-            int x = int(mod(pos.x, 4.0));
-            int y = int(mod(pos.y, 4.0));
-            int index = x + y * 4;
-            float dither[16] = float[](
-                0.0, 8.0, 2.0, 10.0,
-                12.0, 4.0, 14.0, 6.0,
-                3.0, 11.0, 1.0, 9.0,
-                15.0, 7.0, 13.0, 5.0
-            );
-            return dither[index] / 16.0;
-        }
+        uniform float thresh;
         void mainImage(const in vec4 i,const in vec2 uv,out vec4 o){
           vec4 c = texture2D(inputBuffer, uv);
-          float luma = dot(c.rgb, vec3(.2126,.7152,.0722));
-          vec2 screenPos = uv * resolution;
-          float ditherValue = getDither(screenPos);
-          float t = step(0.4 + ditherValue * 0.3, luma);
-          vec3 color = mix(vec3(0.05, 0.05, 0.1), vec3(1.0), t);
-          o = vec4(color, 1.0);
+          float l = dot(c.rgb, vec3(.2126,.7152,.0722));
+          float v = step(thresh, l);
+          o = vec4(vec3(v),1.0);
         }
       `;
 
@@ -779,7 +750,6 @@
       camera = new THREE.OrthographicCamera(0, 0, 0, 0, 0.01, 500);
       camera.position.set(0, 0, -5);
       camera.zoom = 140;
-      camera.lookAt(handsFocusPoint);
       updateCamera();
 
       /* ================= RENDERERS ================= */
@@ -822,7 +792,7 @@
       });
 
       const threshold = makeEffect("Threshold", thresholdShader, {
-        resolution: new THREE.Vector2(innerWidth, innerHeight),
+        thresh: 0.5,
       });
 
       const edge = makeEffect("Edge", edgeShader, {
@@ -874,8 +844,6 @@
       let controls = new OrbitControls(camera, renderer.domElement);
       controls.enablePan = false;
       controls.enableDamping = true;
-      controls.target = handsFocusPoint;
-      controls.update();
 
       /* ================= LIGHTS ================= */
 
@@ -884,23 +852,24 @@
       dl.position.set(5, 10, 0);
       scene.add(dl);
 
-      /* ================= MODEL POSITION / ROTATION / SCALE ================= */
+      /* ================= MODEL ================= */
 
       new GLTFLoader().load(
         "https://cdn.maximeheckel.com/models/creation-of-adam.glb",
         (g) => {
           const m = g.scene;
-          // Smaller size
-          m.scale.setScalar(3.2);
-          // Rotation adjusted for perfect hand visibility
-          m.rotation.x = -0.1;
-          m.rotation.y = -Math.PI / 2 + 0.08;
-          // Position adjusted so hands meet exactly at our focus point
-          m.position.set(1.8, -1.4, 0);
+          m.position.set(2.25, -2, 0);
+          // CHANGED: Rotation for better hand visibility
+          m.rotation.x = Math.PI * 2;
+          m.rotation.y = -Math.PI / 2;
+          // CHANGED: Slightly smaller scale
+          m.scale.setScalar(3.5);
           scene.add(m);
 
-          controls.update();
-          camera.lookAt(handsFocusPoint);
+          const box = new THREE.Box3().setFromObject(m);
+          const c = box.getCenter(new THREE.Vector3());
+          controls.target.copy(c);
+          camera.lookAt(c);
         },
       );
 
@@ -946,6 +915,11 @@
       function switchEffect(val) {
         composer.removePass(pass);
 
+        // Store current camera and controls state
+        const currentTarget = controls.target.clone();
+        const currentPosition = camera.position.clone();
+        const currentZoom = camera.zoom;
+
         if (val === "ascii") {
           renderer.domElement.style.display = "none";
           if (ascii.domElement.parentNode)
@@ -957,13 +931,14 @@
           ascii.setSize(currentLayoutWidth, window.innerHeight);
           controls.dispose();
           controls = new OrbitControls(camera, ascii.domElement);
-          // ✅ Always keep focus on hands
-          controls.target = handsFocusPoint;
+          // Restore camera state
+          controls.target.copy(currentTarget);
+          camera.position.copy(currentPosition);
+          camera.zoom = currentZoom;
+          updateCamera();
+          camera.lookAt(controls.target);
           controls.enablePan = false;
           controls.enableDamping = true;
-          camera.lookAt(handsFocusPoint);
-          controls.update();
-
           pixelUI.style.display = "none";
           return;
         }
@@ -980,13 +955,14 @@
           matrix.setSize(currentLayoutWidth, window.innerHeight);
           controls.dispose();
           controls = new OrbitControls(camera, matrix.domElement);
-          // ✅ Always keep focus on hands
-          controls.target = handsFocusPoint;
+          // Restore camera state
+          controls.target.copy(currentTarget);
+          camera.position.copy(currentPosition);
+          camera.zoom = currentZoom;
+          updateCamera();
+          camera.lookAt(controls.target);
           controls.enablePan = false;
           controls.enableDamping = true;
-          camera.lookAt(handsFocusPoint);
-          controls.update();
-
           pixelUI.style.display = "none";
           return;
         }
@@ -999,12 +975,14 @@
 
         controls.dispose();
         controls = new OrbitControls(camera, renderer.domElement);
-        // ✅ Always keep focus on hands
-        controls.target = handsFocusPoint;
         controls.enablePan = false;
         controls.enableDamping = true;
-        camera.lookAt(handsFocusPoint);
-        controls.update();
+        // Restore camera state
+        controls.target.copy(currentTarget);
+        camera.position.copy(currentPosition);
+        camera.zoom = currentZoom;
+        updateCamera();
+        camera.lookAt(controls.target);
 
         pass = new EffectPass(camera, map[val]);
         composer.addPass(pass);
@@ -1043,6 +1021,8 @@
 
         // Update Camera
         updateCamera();
+        // Ensure camera is looking at the correct target
+        camera.lookAt(controls.target);
 
         // Update Shader Uniforms
         const c = renderer.domElement;
@@ -1058,7 +1038,6 @@
           vhs,
           waveLines,
           dither,
-          threshold
         ].forEach((e) => {
           if (
             e &&

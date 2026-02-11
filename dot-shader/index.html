@@ -242,68 +242,67 @@
 
       const complexShader = `
         precision highp float;
+
         uniform float pixelSize;
         uniform vec2 resolution;
 
-        float rand(vec2 co) {
-          return fract(sin(dot(co.xy, vec2(12.9898, 78.233))) * 43758.5453);
+        float crossSDF(vec2 p) {
+            p = abs(p - 0.5);
+            return min(p.x, p.y);
         }
 
-        void mainImage(const in vec4 i, const in vec2 uv, out vec4 o) {
-          vec2 cellSize = pixelSize / resolution;
-          vec2 cellPos = floor(uv / cellSize);
-          vec2 localUv = fract(uv / cellSize);
-          vec2 centered = localUv - 0.5;
+        float circleSDF(vec2 p) {
+            return length(p - 0.5);
+        }
 
-          // Sample original color at cell center
-          vec2 centerUv = (cellPos + 0.5) * cellSize;
-          vec4 color = texture2D(inputBuffer, centerUv);
+        float triangleSDF(vec2 p) {
+            const float r = 1.0;
+            const float k = sqrt(3.0);
+            p.x = abs(p.x) - r;
+            p.y = p.y + r/k;
+            if( p.x+k*p.y>0.0 ) p = vec2(p.x-k*p.y,-k*p.x-p.y)/2.0;
+            p.x -= clamp( p.x, -2.0*r, 0.0 );
+            return -length(p)*sign(p.y);
+        }
 
-          // Calculate luminance
-          float luma = dot(color.rgb, vec3(0.299, 0.587, 0.114));
-          // Enhance contrast slightly
-          luma = smoothstep(0.0, 0.85, luma);
+        void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor) {
+            vec2 normalizedPixelSize = pixelSize / resolution;
+            vec2 uvPixel = normalizedPixelSize * floor(uv / normalizedPixelSize);
+            vec4 color = texture2D(inputBuffer, uvPixel);
 
-          // Print colors based on the image provided
-          vec3 paper = vec3(0.95, 0.95, 0.93);
-          vec3 ink = vec3(0.0, 0.47, 1.0); // Bright vibrant blue
+            float luma = dot(vec3(0.2126, 0.7152, 0.0722), color.rgb);
+            
+            vec2 cellUV = fract(uv / normalizedPixelSize);
 
-          float dist = length(centered);
-          float pattern = 0.0;
+            // Paper default
+            vec4 outColor = vec4(1.0);
 
-          // Determine shape based on luminance
-          if (luma < 0.08) {
-            pattern = 0.0; // Empty paper
-          } else if (luma < 0.25) {
-            // Small dot
-            pattern = step(dist, 0.18);
-          } else if (luma < 0.45) {
-            // Plus sign
-            float stick1 = step(abs(centered.x), 0.12) * step(abs(centered.y), 0.35);
-            float stick2 = step(abs(centered.y), 0.12) * step(abs(centered.x), 0.35);
-            pattern = max(stick1, stick2);
-          } else if (luma < 0.65) {
-            // Square with circular hole
-            float sq = step(max(abs(centered.x), abs(centered.y)), 0.4);
-            float hole = step(dist, 0.2);
-            pattern = clamp(sq - hole, 0.0, 1.0);
-          } else if (luma < 0.85) {
-            // Mini 4x4 Checker
-            float check = mod(floor(localUv.x * 2.0) + floor(localUv.y * 2.0), 2.0);
-            float bounds = step(max(abs(centered.x), abs(centered.y)), 0.45);
-            pattern = check * bounds;
-          } else {
-            // Solid block
-            pattern = step(max(abs(centered.x), abs(centered.y)), 0.45);
-          }
+            float d = circleSDF(cellUV);
 
-          vec3 finalColor = mix(paper, ink, pattern);
+            // Mid tones: blue circles on white
+            if (luma > 0.2) {
+              if (d < 0.3) {
+                outColor = vec4(0.0, 0.31, 0.933, 1.0);
+              } else {
+                outColor = vec4(1.0);
+              }
+            }
 
-          // Add subtle print grain
-          float noise = rand(uv * resolution) * 0.06 - 0.03;
-          finalColor += noise;
+            // Bright tones: invert (white circles on blue)
+            if (luma > 0.75) {
+              if (d < 0.3) {
+                outColor = vec4(1.0);
+              } else {
+                outColor = vec4(0.0, 0.31, 0.933, 1.0);
+              }
+            }
 
-          o = vec4(finalColor, 1.0);
+            // Highlights: solid blue
+            if (luma > 0.99) {
+              outColor = vec4(0.0, 0.31, 0.933, 1.0);
+            }
+
+            outputColor = outColor;
         }
       `;
 

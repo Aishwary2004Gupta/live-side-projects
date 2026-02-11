@@ -34,7 +34,6 @@
         flex-direction: column;
         color: #555;
         user-select: none;
-        /* Smooth transition for the panel itself */
         transition: transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
       }
 
@@ -125,7 +124,7 @@
         margin-top: auto;
         padding-top: 20px;
         border-top: 1px solid #1a1a1a;
-        display: none; /* Hidden by default */
+        display: none;
         opacity: 1;
         transition: opacity 0.2s;
       }
@@ -202,6 +201,9 @@
         <li data-value="halftone">Halftone</li>
         <li data-value="matrix">Matrix Rain</li>
         <li data-value="dots" class="active">Dots</li>
+        <!-- NEW COMPLEX PIXELS MENU ITEM -->
+        <li data-value="complexPixels">Complex Pixels</li>
+        <!----------------------------------->
         <li data-value="contour">Contour</li>
         <li data-value="blockify">Blockify</li>
         <li data-value="threshold">Threshold</li>
@@ -242,21 +244,18 @@
         uniform vec2 resolution;
         void mainImage(const in vec4 i, const in vec2 uv, out vec4 o) {
           vec2 normalizedPixelSize = pixelSize / resolution;
-          float rowIndex = floor(uv.x / normalizedPixelSize.x);
           vec2 uvPixel = normalizedPixelSize * floor(uv / normalizedPixelSize);
           vec4 color = texture2D(inputBuffer, uvPixel);
 
           float luma = dot(vec3(0.2126, 0.7152, 0.0722), color.rgb);
-
           vec2 cellUV = fract(uv / normalizedPixelSize);
 
           float radius = luma > 0.5 ? 0.3 : luma > 0.001 ? 0.12 : 0.075;
           vec2 circleCenter = luma > 0.5 ? vec2(0.5, 0.5) : vec2(0.25, 0.25);
 
           float distanceFromCenter = distance(cellUV, circleCenter);
-
           float circleMask = smoothstep(radius, radius - 0.05, distanceFromCenter);
-          color.rgb = vec3(circleMask, circleMask, circleMask) * max(luma, 0.05);
+          color.rgb = vec3(circleMask) * max(luma, 0.05);
 
           o = color;
         }
@@ -297,7 +296,7 @@
         void mainImage(const in vec4 i, const in vec2 uv, out vec4 o) {
           vec2 s = pixelSize / resolution;
           vec2 u = s * floor(uv / s) + 0.5*s;
-          vec4 c = texture2D(inputBuffer, u / (1.0));
+          vec4 c = texture2D(inputBuffer, u);
           float l = dot(c.rgb, vec3(.2126,.7152,.0722));
           vec2 f = fract(uv / s);
           float r = (1.0 - l) * 0.5;
@@ -456,143 +455,6 @@
         }
       `;
 
-      class MatrixRainEffect {
-        constructor(renderer, camera) {
-          this.renderer = renderer;
-          this.camera = camera;
-          this.canvas = document.createElement("canvas");
-          this.ctx = this.canvas.getContext("2d", { willReadFrequently: true });
-          this.domElement = this.canvas;
-
-          this.chars = "ｦｧｨｩｪｫｬｭｮｯ012789";
-          this.cols = 0;
-          this.rows = 0;
-          this.drops = [];
-          this.speeds = [];
-          this.startTime = performance.now();
-          this.frameCount = 0;
-          this.fontSize = 8;
-          this.fontFamily = "monospace";
-          this.setSize(
-            renderer.domElement.clientWidth,
-            renderer.domElement.clientHeight,
-          );
-
-          this.renderTarget = new THREE.WebGLRenderTarget(
-            renderer.domElement.clientWidth,
-            renderer.domElement.clientHeight,
-            { format: THREE.RGBAFormat },
-          );
-          this.maskTarget = new THREE.WebGLRenderTarget(1, 1, {
-            format: THREE.RGBAFormat,
-          });
-          this.maskTarget.texture.minFilter = THREE.NearestFilter;
-          this.maskTarget.texture.magFilter = THREE.NearestFilter;
-          this._maskBuffer = null;
-          this.cellCharacter = [];
-        }
-
-        setSize(width, height) {
-          this.canvas.width = width;
-          this.canvas.height = height;
-          this.ctx.font = `${this.fontSize}px ${this.fontFamily}`;
-          this.cols = Math.floor(width / (this.fontSize * 0.6));
-          this.rows = Math.floor(height / this.fontSize);
-          this.drops = Array(this.cols)
-            .fill(0)
-            .map(() => -(Math.random() * this.rows));
-          this.speeds = Array(this.cols)
-            .fill(0)
-            .map(() => 0.3 + Math.random() * 0.6);
-          this.cellCharacter = new Array(this.cols * this.rows);
-          for (let i = 0; i < this.cellCharacter.length; i++) {
-            this.cellCharacter[i] =
-              this.chars[Math.floor(Math.random() * this.chars.length)];
-          }
-          if (this.renderTarget) this.renderTarget.setSize(width, height);
-          if (this.maskTarget) {
-            const mw = Math.max(1, this.cols);
-            const mh = Math.max(1, this.rows);
-            this.maskTarget.setSize(mw, mh);
-            this._maskBuffer = new Uint8Array(mw * mh * 4);
-          }
-        }
-
-        render(scene, camera) {
-          const oldTarget = this.renderer.getRenderTarget();
-          this.renderer.setRenderTarget(this.maskTarget);
-          this.renderer.render(scene, camera);
-          this.renderer.setRenderTarget(oldTarget);
-          this.ctx.fillStyle = "black";
-          this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
-          const maskBuf = this._maskBuffer;
-          if (this.maskTarget && maskBuf) {
-            try {
-              this.renderer.readRenderTargetPixels(
-                this.maskTarget,
-                0,
-                0,
-                this.maskTarget.width,
-                this.maskTarget.height,
-                maskBuf,
-              );
-            } catch (err) {
-              maskBuf.fill(0);
-            }
-          }
-          for (let i = 0; i < this.cols; i++) {
-            this.drops[i] += this.speeds[i];
-            if (Math.random() > 0.8) {
-              const y = Math.max(0, Math.floor(this.drops[i])) % this.rows;
-              this.cellCharacter[y * this.cols + i] =
-                this.chars[Math.floor(Math.random() * this.chars.length)];
-            }
-            if (this.drops[i] >= this.rows + 20) {
-              this.drops[i] = -(Math.random() * 20);
-              this.speeds[i] = 0.3 + Math.random() * 0.6;
-            }
-          }
-          for (let y = 0; y < this.rows; y++) {
-            for (let x = 0; x < this.cols; x++) {
-              const sampleY = this.maskTarget.height - 1 - y;
-              const idx = (sampleY * this.maskTarget.width + x) * 4;
-              const brightness =
-                (maskBuf[idx] + maskBuf[idx + 1] + maskBuf[idx + 2]) / 3;
-              const drawX = x * (this.fontSize * 0.6);
-              const drawY = y * this.fontSize;
-              if (brightness > 15) {
-                if (brightness > 180)
-                  this.ctx.fillStyle = `rgba(200, 255, 200, 0.95)`;
-                else if (brightness > 100)
-                  this.ctx.fillStyle = `rgba(40, 200, 60, 0.85)`;
-                else this.ctx.fillStyle = `rgba(10, 110, 20, 0.7)`;
-                this.ctx.fillText(
-                  this.cellCharacter[y * this.cols + x],
-                  drawX,
-                  drawY,
-                );
-              } else {
-                const dropY = this.drops[x];
-                const distance = dropY - y;
-                if (distance >= 0 && distance < 25) {
-                  if (distance < 1)
-                    this.ctx.fillStyle = `rgba(100, 200, 100, 0.6)`;
-                  else {
-                    const alpha = 0.4 * (1.0 - distance / 25);
-                    this.ctx.fillStyle = `rgba(0, 120, 20, ${alpha})`;
-                  }
-                  let char = this.cellCharacter[y * this.cols + x];
-                  if (Math.random() > 0.95)
-                    char =
-                      this.chars[Math.floor(Math.random() * this.chars.length)];
-                  this.ctx.fillText(char, drawX, drawY);
-                }
-              }
-            }
-          }
-        }
-      }
-
       const contourShader = `
         precision highp float;
         uniform vec2 resolution;
@@ -672,6 +534,90 @@
         }
       `;
 
+      // NEW COMPLEX PIXELS SHADER (blue/white tile patterns)
+      const complexPixelShader = `
+        precision highp float;
+        uniform vec2 resolution;
+        uniform float patternSize;
+
+        float hash(vec2 p) {
+          return fract(sin(dot(p, vec2(127.1,311.7))) * 43758.5453);
+        }
+
+        float patternDots(vec2 uv, float d){
+          vec2 c = vec2(0.5);
+          float r = mix(0.12, 0.45, d);
+          return step(length(uv - c), r);
+        }
+
+        float patternPlus(vec2 uv, float d){
+          float w = mix(0.06, 0.22, d);
+          float hLine = step(abs(uv.y - 0.5), w);
+          float vLine = step(abs(uv.x - 0.5), w);
+          return max(hLine, vLine);
+        }
+
+        float patternDiag(vec2 uv, float d){
+          float t = fract((uv.x + uv.y) * 5.0);
+          return step(t, d);
+        }
+
+        float patternChecker(vec2 uv, float d){
+          vec2 g = step(0.5, fract(uv * 4.0));
+          float c = mod(g.x + g.y, 2.0);
+          return step(1.0 - d, c);
+        }
+
+        float patternLines(vec2 uv, float d){
+          float t = fract(uv.y * 8.0);
+          return step(t, d);
+        }
+
+        void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor){
+          vec4 c = texture2D(inputBuffer, uv);
+          float luma = dot(c.rgb, vec3(0.299,0.587,0.114));
+
+          // Mask for the hands/body
+          float mask = smoothstep(0.18, 0.32, luma);
+          if(mask < 0.001){
+            outputColor = vec4(1.0); // white paper background
+            return;
+          }
+
+          // Grid setup
+          vec2 grid = resolution / patternSize;
+          vec2 cellId = floor(uv * grid);
+          vec2 cellUV = fract(uv * grid);
+
+          float rnd = hash(cellId);
+          int pat = int(floor(rnd * 5.0)); // 0..4
+
+          // Darker areas get denser patterns
+          float density = clamp(1.0 - luma * 1.2, 0.0, 1.0);
+
+          float shape = 0.0;
+          if(pat == 0){
+            shape = patternDots(cellUV, density);
+          }else if(pat == 1){
+            shape = patternPlus(cellUV, density);
+          }else if(pat == 2){
+            shape = patternDiag(cellUV, density);
+          }else if(pat == 3){
+            shape = patternChecker(cellUV, density);
+          }else{
+            shape = patternLines(cellUV, density);
+          }
+
+          float inkMask = shape * mask;
+          vec3 bg = vec3(1.0);                // paper
+          vec3 fg = vec3(0.05, 0.45, 1.0);    // blue ink
+
+          vec3 col = mix(bg, fg, inkMask);
+          outputColor = vec4(col, 1.0);
+        }
+      `;
+      // END COMPLEX PIXELS SHADER
+
       class DotsEffect extends Effect {
         constructor(v) {
           super("Dots", dotsShader, {
@@ -711,6 +657,7 @@
         return new (class extends Effect {
           constructor() {
             super(name, shader, { uniforms: map });
+            this.uniforms = map;
           }
           update(renderer) {
             if (map.has("resolution")) {
@@ -728,12 +675,10 @@
       const scene = new THREE.Scene();
       scene.background = new THREE.Color("#010101");
 
-      // Dynamic frustum size based on panel visibility
       const baseFrustumSize = 350;
       let camera;
       let isPanelOpen = true;
 
-      // Layout State
       let currentLayoutWidth = window.innerWidth - 280;
       let targetLayoutWidth = window.innerWidth - 280;
       const sidebarWidth = 280;
@@ -823,6 +768,13 @@
         resolution: new THREE.Vector2(innerWidth, innerHeight),
       });
 
+      // NEW COMPLEX PIXELS EFFECT INSTANCE
+      const complexPixels = makeEffect("ComplexPixels", complexPixelShader, {
+        patternSize: 10.0,
+        resolution: new THREE.Vector2(innerWidth, innerHeight),
+      });
+      // END NEW EFFECT
+
       const map = {
         dots: dots,
         dither: dither,
@@ -837,6 +789,7 @@
         noise: noise,
         voronoi: voronoi,
         vhs: vhs,
+        complexPixels: complexPixels, // NEW
       };
 
       /* ================= CONTROLS ================= */
@@ -859,10 +812,7 @@
         (g) => {
           const m = g.scene;
           m.position.set(2.25, -2, 0);
-          // CHANGED: Rotation for better hand visibility
-          m.rotation.x = Math.PI * 2;
-          m.rotation.y = -Math.PI / 2;
-          // CHANGED: Slightly smaller scale
+          m.rotation.y = -Math.PI / 6;
           m.scale.setScalar(3.5);
           scene.add(m);
 
@@ -906,16 +856,12 @@
         }
       }
 
-      // Click on header to toggle
       document.querySelector("h2").addEventListener("click", togglePanel);
-
-      // Floating button to reopen
       floatingToggle.addEventListener("click", togglePanel);
 
       function switchEffect(val) {
         composer.removePass(pass);
 
-        // Store current camera and controls state
         const currentTarget = controls.target.clone();
         const currentPosition = camera.position.clone();
         const currentZoom = camera.zoom;
@@ -931,7 +877,6 @@
           ascii.setSize(currentLayoutWidth, window.innerHeight);
           controls.dispose();
           controls = new OrbitControls(camera, ascii.domElement);
-          // Restore camera state
           controls.target.copy(currentTarget);
           camera.position.copy(currentPosition);
           camera.zoom = currentZoom;
@@ -955,7 +900,6 @@
           matrix.setSize(currentLayoutWidth, window.innerHeight);
           controls.dispose();
           controls = new OrbitControls(camera, matrix.domElement);
-          // Restore camera state
           controls.target.copy(currentTarget);
           camera.position.copy(currentPosition);
           camera.zoom = currentZoom;
@@ -977,7 +921,6 @@
         controls = new OrbitControls(camera, renderer.domElement);
         controls.enablePan = false;
         controls.enableDamping = true;
-        // Restore camera state
         controls.target.copy(currentTarget);
         camera.position.copy(currentPosition);
         camera.zoom = currentZoom;
@@ -988,7 +931,10 @@
         composer.addPass(pass);
 
         pixelUI.style.display =
-          val === "dots" || val === "blockify" || val === "halftone"
+          val === "dots" ||
+          val === "blockify" ||
+          val === "halftone" ||
+          val === "complexPixels"   // NEW
             ? "block"
             : "none";
       }
@@ -1007,24 +953,20 @@
         dots.v = value;
         halftone.uniforms.get("pixelSize").value = value;
         blockify.uniforms.get("pixelSize").value = value;
+        complexPixels.uniforms.get("patternSize").value = value; // NEW
       };
 
       /* ================= RESIZE & ANIMATION LOGIC ================= */
 
-      // Update all renderers and cameras based on the current width
       function updateLayout(width) {
         const height = window.innerHeight;
 
-        // Main Renderer
         renderer.setSize(width, height);
         composer.setSize(width, height);
 
-        // Update Camera
         updateCamera();
-        // Ensure camera is looking at the correct target
         camera.lookAt(controls.target);
 
-        // Update Shader Uniforms
         const c = renderer.domElement;
         [
           dots,
@@ -1038,6 +980,7 @@
           vhs,
           waveLines,
           dither,
+          complexPixels, // NEW
         ].forEach((e) => {
           if (
             e &&
@@ -1049,7 +992,6 @@
           }
         });
 
-        // Update Special Effects
         const currentEffect = document
           .querySelector("#effectList li.active")
           ?.getAttribute("data-value");
@@ -1060,9 +1002,7 @@
         }
       }
 
-      // Window Resize Handler
       addEventListener("resize", () => {
-        // Recalculate target based on sidebar state
         if (isPanelOpen) {
           targetLayoutWidth = window.innerWidth - sidebarWidth;
         } else {
@@ -1070,7 +1010,6 @@
         }
       });
 
-      // Initialize UI visibility for the default selected effect (Dots)
       pixelUI.style.display = "block";
 
       /* ================= LOOP ================= */
@@ -1084,17 +1023,11 @@
         requestAnimationFrame(animate);
         controls.update();
 
-        // Smooth Resizing Logic
         if (Math.abs(currentLayoutWidth - targetLayoutWidth) > 0.5) {
-          // Linear interpolation (lerp) for smooth transition
-          // 0.15 is the easing factor (lower = slower/smoother)
           currentLayoutWidth += (targetLayoutWidth - currentLayoutWidth) * 0.15;
-
-          // Snap to target if very close to stop micro-calculations
           if (Math.abs(currentLayoutWidth - targetLayoutWidth) < 1) {
             currentLayoutWidth = targetLayoutWidth;
           }
-
           updateLayout(currentLayoutWidth);
         }
 

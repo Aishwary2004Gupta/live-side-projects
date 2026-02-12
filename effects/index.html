@@ -234,7 +234,6 @@
       } from "https://esm.sh/postprocessing@6.35.4?deps=three@0.160.0";
 
       const handsFocusPoint = new THREE.Vector3(0, 0, 0);
-      const standardBg = "vec3(0.04)"; // Normalized version of #0a0a0a
 
       /* ================= SHADERS / EFFECTS ================= */
 
@@ -383,9 +382,9 @@
           vec2 circleCenter = luma > 0.5 ? vec2(0.5, 0.5) : vec2(0.25, 0.25);
           float distanceFromCenter = distance(cellUV, circleCenter);
           float circleMask = smoothstep(radius, radius - 0.05, distanceFromCenter);
-          
-          // Render dots on the deep charcoal background
-          o = vec4(mix(${standardBg}, vec3(1.0), circleMask * luma), 1.0);
+          color.rgb = vec3(circleMask) * max(luma, 0.05);
+
+          o = color;
         }
       `;
 
@@ -413,7 +412,7 @@
           int bayerIndex = y * 8 + x;
           float threshold = bayer[bayerIndex] / 64.0;
           float dithered = step(threshold, luma);
-          o = vec4(mix(${standardBg}, vec3(1.0), dithered), 1.0);
+          o = vec4(vec3(dithered), 1.0);
         }
       `;
 
@@ -430,7 +429,7 @@
           float r = (1.0 - l) * 0.5;
           float d = distance(f, vec2(.5));
           float m = smoothstep(r+0.02, r, d);
-          o = vec4(mix(${standardBg}, vec3(1.0), m), 1.0);
+          o = vec4(vec3(m),1.0);
         }
       `;
 
@@ -454,10 +453,11 @@
           float dist = abs(yPos - 0.5);
           float thickness = luma * 0.4;
           float line = smoothstep(thickness + 0.05, thickness, dist);
-          vec3 finalColor = mix(${standardBg}, vec3(1.0), line);
+          vec3 finalColor = vec3(line);
           float grain = random(uv * (time + 0.1)) * 0.18;
           finalColor += grain;
-          o = vec4(finalColor * handMask + ${standardBg} * (1.0-handMask), 1.0);
+          finalColor *= handMask;
+          o = vec4(finalColor, 1.0);
         }
       `;
 
@@ -474,7 +474,7 @@
           float luma = dot(texture2D(inputBuffer, uv).rgb, vec3(0.299, 0.587, 0.114));
           float handMask = smoothstep(0.02, 0.06, luma);
           if (handMask < 0.001) {
-            outputColor = vec4(${standardBg}, 1.0);
+            outputColor = vec4(vec3(0.0), 1.0);
             return;
           }
           vec2 coord = uv;
@@ -485,7 +485,7 @@
             coord.x += random(vec2(lineId, time)) * 0.015;
           }
           if(lineRandom < 0.07) {
-            outputColor = vec4(${standardBg}, 1.0);
+            outputColor = vec4(vec3(0.0) * handMask, 1.0);
             return;
           }
           float grainPixelSize = 1.0;
@@ -494,8 +494,8 @@
           staticGrain = step(0.48, staticGrain);
           staticGrain -= random(grainUV + time) * 0.12;
           staticGrain *= luma * 1.5;
-          vec3 finalColor = mix(${standardBg}, vec3(1.0), clamp(staticGrain, 0.0, 1.0));
-          outputColor = vec4(finalColor * handMask + ${standardBg} * (1.0-handMask), 1.0);
+          vec3 finalColor = vec3(clamp(staticGrain, 0.0, 1.0));
+          outputColor = vec4(finalColor * handMask, 1.0);
         }
       `;
 
@@ -548,9 +548,10 @@
           float borderDist = secondMinDist - minDist;
           float border = smoothstep(0.01, 0.08, borderDist); 
           float finalLuma = cellLuma * border;
+          finalLuma *= handMask;
           float grain = (rand(uv * (time + 1.0)) - 0.5) * 0.12;
-          vec3 finalOutput = mix(${standardBg}, vec3(1.0), finalLuma + grain);
-          outputColor = vec4(finalOutput * handMask + ${standardBg} * (1.0-handMask), 1.0);
+          vec3 finalOutput = vec3(finalLuma + grain);
+          outputColor = vec4(finalOutput, 1.0);
         }
       `;
 
@@ -646,7 +647,7 @@
           this.renderer.setRenderTarget(this.maskTarget);
           this.renderer.render(scene, camera);
           this.renderer.setRenderTarget(oldTarget);
-          this.ctx.fillStyle = "#0a0a0a"; // Matched background
+          this.ctx.fillStyle = "black";
           this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
           const maskBuf = this._maskBuffer;
           if (this.maskTarget && maskBuf) {
@@ -727,7 +728,7 @@
           float sy = -1.0*dot(sampleOffset(uv, vec2(-1.,-1.)).rgb, vec3(0.3)) -2.0*dot(sampleOffset(uv, vec2(0.,-1.)).rgb, vec3(0.3)) -1.0*dot(sampleOffset(uv, vec2(1.,-1.)).rgb, vec3(0.3))
                    +1.0*dot(sampleOffset(uv, vec2(-1.,1.)).rgb, vec3(0.3)) +2.0*dot(sampleOffset(uv, vec2(0.,1.)).rgb, vec3(0.3)) +1.0*dot(sampleOffset(uv, vec2(1.,1.)).rgb, vec3(0.3));
           float g = length(vec2(sx,sy));
-          o = vec4(mix(${standardBg}, vec3(1.0), 1.0 - g), 1.0);
+          o = vec4(vec3(1.0 - g), 1.0);
         }
       `;
 
@@ -742,7 +743,7 @@
           c += 1.0*dot(sampleOffset(uv, vec2(0.,-1.)).rgb, vec3(0.3));
           c += 1.0*dot(sampleOffset(uv, vec2(0.,1.)).rgb, vec3(0.3));
           c = abs(c);
-          o = vec4(mix(${standardBg}, vec3(1.0), step(0.15, c)), 1.0);
+          o = vec4(vec3(step(0.15, c)), 1.0);
         }
       `;
 
@@ -765,7 +766,7 @@
           vec4 c = texture2D(inputBuffer, uv);
           float l = dot(c.rgb, vec3(.2126,.7152,.0722));
           float v = step(thresh, l);
-          o = vec4(mix(${standardBg}, vec3(1.0), v), 1.0);
+          o = vec4(vec3(v),1.0);
         }
       `;
 
@@ -790,7 +791,7 @@
           float a3 = hatchLine(p, normalize(vec2(1.0, 0.0)), baseSpacing * 0.5, baseThickness * 0.6);
           float hatch = clamp(a1 * 0.9 + a2 * 0.7 + a3 * 0.5, 0.0, 1.0);
           float ink = mix(1.0 - hatch, l * 0.8 + 0.2 * (1.0 - l), 0.0);
-          vec3 color = mix(${standardBg}, vec3(1.0), ink);
+          vec3 color = vec3(ink);
           o = vec4(color, 1.0);
         }
       `;
@@ -816,7 +817,7 @@
       /* ================= SCENE ================= */
 
       const scene = new THREE.Scene();
-      scene.background = new THREE.Color("#0a0a0a"); // UPDATED: Matched background
+      scene.background = new THREE.Color("#010101");
 
       const baseFrustumSize = 350;
       let camera;
@@ -850,7 +851,7 @@
       const ascii = new AsciiEffect(renderer, " .:-=+*#%@", { invert: true });
       ascii.domElement.style.position = "absolute";
       ascii.domElement.style.color = "white";
-      ascii.domElement.style.background = "#0a0a0a"; // UPDATED: Matched background
+      ascii.domElement.style.background = "black";
 
       const matrix = new MatrixRainEffect(renderer, camera);
       matrix.domElement.style.position = "absolute";
@@ -1086,10 +1087,12 @@
 
       pixelInput.oninput = (e) => {
         const value = +e.target.value;
+        // Update all effects that use pixelSize
         ["dots", "halftone", "blockify", "complex", "woven"].forEach((key) => {
           if (map[key].uniforms) {
             map[key].uniforms.get("pixelSize").value = value;
           } else if (map[key].v) {
+            // Special case for the original DotsEffect
             map[key].v = value;
           }
         });

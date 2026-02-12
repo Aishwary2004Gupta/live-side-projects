@@ -34,7 +34,6 @@
         flex-direction: column;
         color: #555;
         user-select: none;
-        /* Smooth transition for the panel itself */
         transition: transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
       }
 
@@ -125,7 +124,7 @@
         margin-top: auto;
         padding-top: 20px;
         border-top: 1px solid #1a1a1a;
-        display: none; /* Hidden by default */
+        display: none;
         opacity: 1;
         transition: opacity 0.2s;
       }
@@ -197,12 +196,13 @@
     <div id="sidebar">
       <h2><span id="toggleBtn">—</span> Effects</h2>
       <ul id="effectList">
+        <li data-value="dots" class="active">Dots</li>
+        <li data-value="complex">Complex Pixel</li>
+        <li data-value="woven">Woven</li>
         <li data-value="ascii">ASCII</li>
         <li data-value="dither">Dithering</li>
-        <li data-value="complex">Complex Pixel</li>
         <li data-value="halftone">Halftone</li>
         <li data-value="matrix">Matrix Rain</li>
-        <li data-value="dots" class="active">Dots</li>
         <li data-value="contour">Contour</li>
         <li data-value="blockify">Blockify</li>
         <li data-value="threshold">Threshold</li>
@@ -231,78 +231,138 @@
         RenderPass,
         EffectPass,
         Effect,
-        PixelationEffect,
-        ScanlineEffect,
       } from "https://esm.sh/postprocessing@6.35.4?deps=three@0.160.0";
 
-      // 🎯 PERMANENT FOCUS POINT, always look at the point where hands meet, never changes
       const handsFocusPoint = new THREE.Vector3(0, 0, 0);
 
       /* ================= SHADERS / EFFECTS ================= */
 
-      const complexShader = `
+      const wovenShader = `
         precision highp float;
-
         uniform float pixelSize;
         uniform vec2 resolution;
 
-        float crossSDF(vec2 p) {
-            p = abs(p - 0.5);
-            return min(p.x, p.y);
+        float random(vec2 st) {
+            return fract(sin(dot(st.xy, vec2(12.9898,78.233))) * 43758.5453123);
         }
 
-        float circleSDF(vec2 p) {
-            return length(p - 0.5);
+        vec3 rgbToHsv(vec3 c) {
+            vec4 K = vec4(0.0, -1.0 / 3.0, 2.0 / 3.0, -1.0);
+            vec4 p = mix(vec4(c.bg, K.wz), vec4(c.gb, K.xy), step(c.b, c.g));
+            vec4 q = mix(vec4(p.xyw, c.r), vec4(c.r, p.yzx), step(p.x, c.r));
+            float d = q.x - min(q.w, q.y);
+            float e = 1.0e-10;
+            return vec3(abs(q.z + (q.w - q.y) / (6.0 * d + e)), d / (q.x + e), q.x);
         }
 
-        float triangleSDF(vec2 p) {
-            const float r = 1.0;
-            const float k = sqrt(3.0);
-            p.x = abs(p.x) - r;
-            p.y = p.y + r/k;
-            if( p.x+k*p.y>0.0 ) p = vec2(p.x-k*p.y,-k*p.x-p.y)/2.0;
-            p.x -= clamp( p.x, -2.0*r, 0.0 );
-            return -length(p)*sign(p.y);
+        vec3 hsvToRgb(vec3 c) {
+            vec4 K = vec4(1.0, 2.0 / 3.0, 1.0 / 3.0, 3.0);
+            vec3 p = abs(fract(c.xxx + K.xyz) * 6.0 - K.www);
+            return c.z * mix(K.xxx, clamp(p - K.xxx, 0.0, 1.0), c.y);
         }
+
+        float noise(vec2 st) {
+            vec2 i = floor(st);
+            vec2 f = fract(st);
+
+            float a = random(i);
+            float b = random(i + vec2(1.0, 0.0));
+            float c = random(i + vec2(0.0, 1.0));
+            float d = random(i + vec2(1.0, 1.0));
+
+            vec2 u = f * f * (3.0 - 2.0 * f);
+
+            return mix(a, b, u.x) +
+                   (c - a) * u.y * (1.0 - u.x) +
+                   (d - b) * u.x * u.y;
+        }
+
 
         void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor) {
             vec2 normalizedPixelSize = pixelSize / resolution;
             vec2 uvPixel = normalizedPixelSize * floor(uv / normalizedPixelSize);
-            vec4 color = texture2D(inputBuffer, uvPixel);
+            vec4 color = texture(inputBuffer, uvPixel);
 
-            float luma = dot(vec3(0.2126, 0.7152, 0.0722), color.rgb);
-            
+            vec2 cellPosition = floor(uv / normalizedPixelSize);
             vec2 cellUV = fract(uv / normalizedPixelSize);
 
-            // Paper default
-            vec4 outColor = vec4(1.0);
+            float rowOffset = sin((random(vec2(0.0, uvPixel.y)) - 0.5) * 0.25);
+            cellUV.x += rowOffset; 
+            vec2 centered = cellUV - 0.5;
 
-            float d = circleSDF(cellUV);
+            float noiseAmount = 0.18;
+            vec2 noisyCenter = centered + (vec2(
+                random(cellPosition + centered ),
+                random(cellPosition + centered)
+            ) - 0.5) * noiseAmount;
 
-            // Mid tones: blue circles on white
-            if (luma > 0.2) {
-              if (d < 0.3) {
-                outColor = vec4(0.0, 0.31, 0.933, 1.0);
-              } else {
-                outColor = vec4(1.0);
-              }
+            float isAlternate = mod(cellPosition.x, 2.0);
+            float angle = isAlternate == 0.0 ? radians(-65.0) : radians(65.0);
+            
+            vec2 rotated = vec2(
+                noisyCenter.x * cos(angle) - noisyCenter.y * sin(angle),
+                noisyCenter.x * sin(angle) + noisyCenter.y * cos(angle)
+            );
+            
+            float aspectRatio = 1.55;
+            float ellipse = length(vec2(rotated.x, rotated.y * aspectRatio - 0.075));
+            color.rgb *= smoothstep(0.2, 1.0, 1.0 - ellipse);
+            
+            float stripeNoise = noise(vec2(centered.x, centered.y * 100.0)); 
+            color.rgb *= stripeNoise + 0.4;
+           
+            float hueShift = (random(cellPosition) - 0.5) * 0.08;
+            vec3 hsv = rgbToHsv(color.rgb);
+            hsv.x += hueShift;
+            color.rgb = hsvToRgb(hsv);
+
+            color.rgb *= smoothstep(0.2, 1.0, 1.0 - ellipse);
+            outputColor = color;
+        }
+      `;
+      
+      const complexShader = `
+        precision highp float;
+        uniform float pixelSize;
+        uniform vec2 resolution;
+
+        float circleSDF(vec2 p) {
+          return length(p - 0.5);
+        }
+
+        void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor) {
+          vec2 normalizedPixelSize = pixelSize / resolution;
+          vec2 uvPixel = normalizedPixelSize * floor(uv / normalizedPixelSize);
+          vec4 color = texture2D(inputBuffer, uvPixel);
+
+          float luma = dot(vec3(0.2126, 0.7152, 0.0722), color.rgb);
+          
+          vec2 cellUV = fract(uv / normalizedPixelSize);
+          color = vec4(1.0);
+
+          float d = circleSDF(cellUV);
+          
+          if (luma > 0.2) {
+            if (d < 0.3) {
+              color = vec4(0.0,0.31,0.933,1.0);
+            } else {
+              color = vec4(1.0,1.0,1.0,1.0);
             }
+          }
 
-            // Bright tones: invert (white circles on blue)
-            if (luma > 0.75) {
-              if (d < 0.3) {
-                outColor = vec4(1.0);
-              } else {
-                outColor = vec4(0.0, 0.31, 0.933, 1.0);
-              }
+          if(luma > 0.75) {
+            if(d < 0.3) {
+              color = vec4(1.0,1.0,1.0,1.0);
+            } else {
+              color = vec4(0.0,0.31,0.933,1.0);
             }
+          }
 
-            // Highlights: solid blue
-            if (luma > 0.99) {
-              outColor = vec4(0.0, 0.31, 0.933, 1.0);
-            }
+          if(luma > 0.99) {
+            color = vec4(0.0,0.31,0.933,1.0);
+          }
 
-            outputColor = outColor;
+          outputColor = color;
         }
       `;
 
@@ -312,21 +372,17 @@
         uniform vec2 resolution;
         void mainImage(const in vec4 i, const in vec2 uv, out vec4 o) {
           vec2 normalizedPixelSize = pixelSize / resolution;
-          float rowIndex = floor(uv.x / normalizedPixelSize.x);
           vec2 uvPixel = normalizedPixelSize * floor(uv / normalizedPixelSize);
           vec4 color = texture2D(inputBuffer, uvPixel);
 
           float luma = dot(vec3(0.2126, 0.7152, 0.0722), color.rgb);
-
           vec2 cellUV = fract(uv / normalizedPixelSize);
 
           float radius = luma > 0.5 ? 0.3 : luma > 0.001 ? 0.12 : 0.075;
           vec2 circleCenter = luma > 0.5 ? vec2(0.5, 0.5) : vec2(0.25, 0.25);
-
           float distanceFromCenter = distance(cellUV, circleCenter);
-
           float circleMask = smoothstep(radius, radius - 0.05, distanceFromCenter);
-          color.rgb = vec3(circleMask, circleMask, circleMask) * max(luma, 0.05);
+          color.rgb = vec3(circleMask) * max(luma, 0.05);
 
           o = color;
         }
@@ -367,7 +423,7 @@
         void mainImage(const in vec4 i, const in vec2 uv, out vec4 o) {
           vec2 s = pixelSize / resolution;
           vec2 u = s * floor(uv / s) + 0.5*s;
-          vec4 c = texture2D(inputBuffer, u / (1.0));
+          vec4 c = texture2D(inputBuffer, u);
           float l = dot(c.rgb, vec3(.2126,.7152,.0722));
           vec2 f = fract(uv / s);
           float r = (1.0 - l) * 0.5;
@@ -539,23 +595,14 @@
           this.rows = 0;
           this.drops = [];
           this.speeds = [];
-          this.startTime = performance.now();
-          this.frameCount = 0;
           this.fontSize = 8;
           this.fontFamily = "monospace";
-          this.setSize(
-            renderer.domElement.clientWidth,
-            renderer.domElement.clientHeight,
-          );
+          this.setSize(renderer.domElement.clientWidth, renderer.domElement.clientHeight);
 
           this.renderTarget = new THREE.WebGLRenderTarget(
-            renderer.domElement.clientWidth,
-            renderer.domElement.clientHeight,
-            { format: THREE.RGBAFormat },
+            renderer.domElement.clientWidth, renderer.domElement.clientHeight, { format: THREE.RGBAFormat }
           );
-          this.maskTarget = new THREE.WebGLRenderTarget(1, 1, {
-            format: THREE.RGBAFormat,
-          });
+          this.maskTarget = new THREE.WebGLRenderTarget(1, 1, { format: THREE.RGBAFormat });
           this.maskTarget.texture.minFilter = THREE.NearestFilter;
           this.maskTarget.texture.magFilter = THREE.NearestFilter;
           this._maskBuffer = null;
@@ -568,17 +615,9 @@
           this.ctx.font = `${this.fontSize}px ${this.fontFamily}`;
           this.cols = Math.floor(width / (this.fontSize * 0.6));
           this.rows = Math.floor(height / this.fontSize);
-          this.drops = Array(this.cols)
-            .fill(0)
-            .map(() => -(Math.random() * this.rows));
-          this.speeds = Array(this.cols)
-            .fill(0)
-            .map(() => 0.3 + Math.random() * 0.6);
-          this.cellCharacter = new Array(this.cols * this.rows);
-          for (let i = 0; i < this.cellCharacter.length; i++) {
-            this.cellCharacter[i] =
-              this.chars[Math.floor(Math.random() * this.chars.length)];
-          }
+          this.drops = Array(this.cols).fill(0).map(() => -(Math.random() * this.rows));
+          this.speeds = Array(this.cols).fill(0).map(() => 0.3 + Math.random() * 0.6);
+          this.cellCharacter = new Array(this.cols * this.rows).fill(0).map(() => this.chars[Math.floor(Math.random() * this.chars.length)]);
           if (this.renderTarget) this.renderTarget.setSize(width, height);
           if (this.maskTarget) {
             const mw = Math.max(1, this.cols);
@@ -598,63 +637,43 @@
           const maskBuf = this._maskBuffer;
           if (this.maskTarget && maskBuf) {
             try {
-              this.renderer.readRenderTargetPixels(
-                this.maskTarget,
-                0,
-                0,
-                this.maskTarget.width,
-                this.maskTarget.height,
-                maskBuf,
-              );
-            } catch (err) {
-              maskBuf.fill(0);
-            }
+              this.renderer.readRenderTargetPixels(this.maskTarget, 0, 0, this.maskTarget.width, this.maskTarget.height, maskBuf);
+            } catch (err) { maskBuf.fill(0); }
           }
           for (let i = 0; i < this.cols; i++) {
             this.drops[i] += this.speeds[i];
             if (Math.random() > 0.8) {
               const y = Math.max(0, Math.floor(this.drops[i])) % this.rows;
-              this.cellCharacter[y * this.cols + i] =
-                this.chars[Math.floor(Math.random() * this.chars.length)];
+              this.cellCharacter[y * this.cols + i] = this.chars[Math.floor(Math.random() * this.chars.length)];
             }
             if (this.drops[i] >= this.rows + 20) {
               this.drops[i] = -(Math.random() * 20);
               this.speeds[i] = 0.3 + Math.random() * 0.6;
             }
           }
-          for (let y = 0; y < this.rows; y++) {
-            for (let x = 0; x < this.cols; x++) {
+          for(let y = 0; y < this.rows; y++) {
+            for(let x = 0; x < this.cols; x++) {
               const sampleY = this.maskTarget.height - 1 - y;
               const idx = (sampleY * this.maskTarget.width + x) * 4;
-              const brightness =
-                (maskBuf[idx] + maskBuf[idx + 1] + maskBuf[idx + 2]) / 3;
+              const brightness = (maskBuf[idx] + maskBuf[idx+1] + maskBuf[idx+2]) / 3;
               const drawX = x * (this.fontSize * 0.6);
               const drawY = y * this.fontSize;
-              if (brightness > 15) {
-                if (brightness > 180)
-                  this.ctx.fillStyle = `rgba(200, 255, 200, 0.95)`;
-                else if (brightness > 100)
-                  this.ctx.fillStyle = `rgba(40, 200, 60, 0.85)`;
+              if(brightness > 15) {
+                if(brightness > 180) this.ctx.fillStyle = `rgba(200, 255, 200, 0.95)`;
+                else if (brightness > 100) this.ctx.fillStyle = `rgba(40, 200, 60, 0.85)`;
                 else this.ctx.fillStyle = `rgba(10, 110, 20, 0.7)`;
-                this.ctx.fillText(
-                  this.cellCharacter[y * this.cols + x],
-                  drawX,
-                  drawY,
-                );
+                this.ctx.fillText(this.cellCharacter[y * this.cols + x], drawX, drawY);
               } else {
                 const dropY = this.drops[x];
                 const distance = dropY - y;
                 if (distance >= 0 && distance < 25) {
-                  if (distance < 1)
-                    this.ctx.fillStyle = `rgba(100, 200, 100, 0.6)`;
+                  if (distance < 1) this.ctx.fillStyle = `rgba(100, 200, 100, 0.6)`;
                   else {
-                    const alpha = 0.4 * (1.0 - distance / 25);
+                    const alpha = 0.4 * (1.0 - (distance / 25));
                     this.ctx.fillStyle = `rgba(0, 120, 20, ${alpha})`;
                   }
                   let char = this.cellCharacter[y * this.cols + x];
-                  if (Math.random() > 0.95)
-                    char =
-                      this.chars[Math.floor(Math.random() * this.chars.length)];
+                  if (Math.random() > 0.95) char = this.chars[Math.floor(Math.random() * this.chars.length)];
                   this.ctx.fillText(char, drawX, drawY);
                 }
               }
@@ -674,13 +693,7 @@
           float sy = -1.0*dot(sampleOffset(uv, vec2(-1.,-1.)).rgb, vec3(0.3)) -2.0*dot(sampleOffset(uv, vec2(0.,-1.)).rgb, vec3(0.3)) -1.0*dot(sampleOffset(uv, vec2(1.,-1.)).rgb, vec3(0.3))
                    +1.0*dot(sampleOffset(uv, vec2(-1.,1.)).rgb, vec3(0.3)) +2.0*dot(sampleOffset(uv, vec2(0.,1.)).rgb, vec3(0.3)) +1.0*dot(sampleOffset(uv, vec2(1.,1.)).rgb, vec3(0.3));
           float g = length(vec2(sx,sy));
-          vec3 paper = vec3(0.94, 0.94, 0.90);
-          vec3 ink = vec3(0.05, 0.05, 0.1);
-          float luma = dot(texture2D(inputBuffer, uv).rgb, vec3(0.299, 0.587, 0.114));
-          vec3 shadedPaper = mix(paper, paper * 0.8, luma); 
-          float edge = smoothstep(0.05, 0.3, g);
-          vec3 finalColor = mix(shadedPaper, ink, edge);
-          o = vec4(finalColor, 1.0);
+          o = vec4(vec3(1.0 - g), 1.0);
         }
       `;
 
@@ -694,13 +707,8 @@
           c += 1.0*dot(sampleOffset(uv, vec2(1.,0.)).rgb, vec3(0.3));
           c += 1.0*dot(sampleOffset(uv, vec2(0.,-1.)).rgb, vec3(0.3));
           c += 1.0*dot(sampleOffset(uv, vec2(0.,1.)).rgb, vec3(0.3));
-          float edgeStrength = abs(c);
-          vec4 base = texture2D(inputBuffer, uv);
-          vec3 dimmed = base.rgb * 0.4; 
-          vec3 neonColor = vec3(1.0, 0.2, 0.6); 
-          float glow = smoothstep(0.01, 0.3, edgeStrength);
-          vec3 finalColor = mix(dimmed, neonColor, glow);
-          o = vec4(finalColor, 1.0);
+          c = abs(c);
+          o = vec4(vec3(step(0.15, c)), 1.0);
         }
       `;
 
@@ -718,27 +726,12 @@
 
       const thresholdShader = `
         precision highp float;
-        uniform vec2 resolution;
-        float getDither(vec2 pos) {
-            int x = int(mod(pos.x, 4.0));
-            int y = int(mod(pos.y, 4.0));
-            int index = x + y * 4;
-            float dither[16] = float[](
-                0.0, 8.0, 2.0, 10.0,
-                12.0, 4.0, 14.0, 6.0,
-                3.0, 11.0, 1.0, 9.0,
-                15.0, 7.0, 13.0, 5.0
-            );
-            return dither[index] / 16.0;
-        }
+        uniform float thresh;
         void mainImage(const in vec4 i,const in vec2 uv,out vec4 o){
           vec4 c = texture2D(inputBuffer, uv);
-          float luma = dot(c.rgb, vec3(.2126,.7152,.0722));
-          vec2 screenPos = uv * resolution;
-          float ditherValue = getDither(screenPos);
-          float t = step(0.4 + ditherValue * 0.3, luma);
-          vec3 color = mix(vec3(0.05, 0.05, 0.1), vec3(1.0), t);
-          o = vec4(color, 1.0);
+          float l = dot(c.rgb, vec3(.2126,.7152,.0722));
+          float v = step(thresh, l);
+          o = vec4(vec3(v),1.0);
         }
       `;
 
@@ -767,40 +760,7 @@
           o = vec4(color, 1.0);
         }
       `;
-
-      class DotsEffect extends Effect {
-        constructor(v) {
-          super("Dots", dotsShader, {
-            uniforms: new Map([
-              ["pixelSize", new THREE.Uniform(v)],
-              [
-                "resolution",
-                new THREE.Uniform(
-                  new THREE.Vector2(
-                    innerWidth * devicePixelRatio,
-                    innerHeight * devicePixelRatio,
-                  ),
-                ),
-              ],
-            ]),
-          });
-          this.v = v;
-        }
-        update(renderer) {
-          this.uniforms.get("pixelSize").value = this.v;
-          const canvas = renderer.domElement;
-          this.uniforms
-            .get("resolution")
-            .value.set(canvas.width, canvas.height);
-        }
-      }
-
-      class DitherEffect extends Effect {
-        constructor() {
-          super("Dither", ditherShader);
-        }
-      }
-
+      
       function makeEffect(name, shader, uniforms = {}) {
         const map = new Map();
         for (const k in uniforms) map.set(k, new THREE.Uniform(uniforms[k]));
@@ -824,12 +784,10 @@
       const scene = new THREE.Scene();
       scene.background = new THREE.Color("#010101");
 
-      // Dynamic frustum size based on panel visibility
       const baseFrustumSize = 350;
       let camera;
       let isPanelOpen = true;
 
-      // Layout State
       let currentLayoutWidth = window.innerWidth - 280;
       let targetLayoutWidth = window.innerWidth - 280;
       const sidebarWidth = 280;
@@ -867,19 +825,26 @@
 
       /* ================= CREATE EFFECTS ================= */
 
-      const dots = new DotsEffect(10);
-      const dither = makeEffect("Dither", ditherShader, {
-        resolution: new THREE.Vector2(innerWidth, innerHeight),
-      });
-      const pixel = new PixelationEffect(6);
-      const scan = new ScanlineEffect({ density: 1.1 });
-
-      const halftone = makeEffect("Halftone", halftoneShader, {
+      const dots = makeEffect("Dots", dotsShader, {
         pixelSize: 10.0,
         resolution: new THREE.Vector2(innerWidth, innerHeight),
       });
 
       const complex = makeEffect("Complex", complexShader, {
+        pixelSize: 10.0,
+        resolution: new THREE.Vector2(innerWidth, innerHeight),
+      });
+      
+      const woven = makeEffect("Woven", wovenShader, {
+        pixelSize: 10.0,
+        resolution: new THREE.Vector2(innerWidth, innerHeight),
+      });
+
+      const dither = makeEffect("Dither", ditherShader, {
+        resolution: new THREE.Vector2(innerWidth, innerHeight),
+      });
+
+      const halftone = makeEffect("Halftone", halftoneShader, {
         pixelSize: 10.0,
         resolution: new THREE.Vector2(innerWidth, innerHeight),
       });
@@ -894,7 +859,7 @@
       });
 
       const threshold = makeEffect("Threshold", thresholdShader, {
-        resolution: new THREE.Vector2(innerWidth, innerHeight),
+        thresh: 0.5,
       });
 
       const edge = makeEffect("Edge", edgeShader, {
@@ -926,20 +891,21 @@
       });
 
       const map = {
-        dots: dots,
-        dither: dither,
-        complex: complex,
-        halftone: halftone,
-        matrix: matrix,
-        contour: contour,
-        blockify: blockify,
-        threshold: threshold,
-        edge: edge,
-        crosshatch: crosshatch,
-        waveLines: waveLines,
-        noise: noise,
-        voronoi: voronoi,
-        vhs: vhs,
+        dots,
+        complex,
+        woven,
+        dither,
+        halftone,
+        matrix,
+        contour,
+        blockify,
+        threshold,
+        edge,
+        crosshatch,
+        waveLines,
+        noise,
+        voronoi,
+        vhs,
       };
 
       /* ================= CONTROLS ================= */
@@ -947,7 +913,7 @@
       let controls = new OrbitControls(camera, renderer.domElement);
       controls.enablePan = false;
       controls.enableDamping = true;
-      controls.target = handsFocusPoint;
+      controls.target.copy(handsFocusPoint);
       controls.update();
 
       /* ================= LIGHTS ================= */
@@ -957,21 +923,19 @@
       dl.position.set(5, 10, 0);
       scene.add(dl);
 
-      /* ================= MODEL POSITION / ROTATION / SCALE ================= */
+      /* ================= MODEL ================= */
 
       new GLTFLoader().load(
         "https://cdn.maximeheckel.com/models/creation-of-adam.glb",
         (g) => {
           const m = g.scene;
-          // Smaller size
           m.scale.setScalar(3.2);
-          // Rotation adjusted for perfect hand visibility
           m.rotation.x = -0.1;
           m.rotation.y = -Math.PI / 2 + 0.08;
-          // Position adjusted so hands meet exactly at our focus point
           m.position.set(1.8, -1.4, 0);
           scene.add(m);
 
+          controls.target.copy(handsFocusPoint);
           controls.update();
           camera.lookAt(handsFocusPoint);
         },
@@ -1010,83 +974,58 @@
         }
       }
 
-      // Click on header to toggle
       document.querySelector("h2").addEventListener("click", togglePanel);
-
-      // Floating button to reopen
       floatingToggle.addEventListener("click", togglePanel);
+
+      function resetControls(domElement) {
+        controls.dispose();
+        controls = new OrbitControls(camera, domElement);
+        controls.enablePan = false;
+        controls.enableDamping = true;
+        controls.target.copy(handsFocusPoint);
+        camera.lookAt(handsFocusPoint);
+        controls.update();
+      }
 
       function switchEffect(val) {
         composer.removePass(pass);
 
         if (val === "ascii") {
           renderer.domElement.style.display = "none";
-          if (ascii.domElement.parentNode)
-            ascii.domElement.style.display = "block";
+          if (ascii.domElement.parentNode) ascii.domElement.style.display = "block";
           else document.body.appendChild(ascii.domElement);
-          if (matrix.domElement.parentNode)
-            matrix.domElement.style.display = "none";
+          if (matrix.domElement.parentNode) matrix.domElement.style.display = "none";
 
           ascii.setSize(currentLayoutWidth, window.innerHeight);
-          controls.dispose();
-          controls = new OrbitControls(camera, ascii.domElement);
-          // ✅ Always keep focus on hands
-          controls.target = handsFocusPoint;
-          controls.enablePan = false;
-          controls.enableDamping = true;
-          camera.lookAt(handsFocusPoint);
-          controls.update();
-
+          resetControls(ascii.domElement);
           pixelUI.style.display = "none";
           return;
         }
 
         if (val === "matrix") {
           renderer.domElement.style.display = "none";
-          if (ascii.domElement.parentNode)
-            ascii.domElement.style.display = "none";
+          if (ascii.domElement.parentNode) ascii.domElement.style.display = "none";
 
-          if (matrix.domElement.parentNode)
-            matrix.domElement.style.display = "block";
+          if (matrix.domElement.parentNode) matrix.domElement.style.display = "block";
           else document.body.appendChild(matrix.domElement);
 
           matrix.setSize(currentLayoutWidth, window.innerHeight);
-          controls.dispose();
-          controls = new OrbitControls(camera, matrix.domElement);
-          // ✅ Always keep focus on hands
-          controls.target = handsFocusPoint;
-          controls.enablePan = false;
-          controls.enableDamping = true;
-          camera.lookAt(handsFocusPoint);
-          controls.update();
-
+          resetControls(matrix.domElement);
           pixelUI.style.display = "none";
           return;
         }
 
-        if (ascii.domElement.parentNode)
-          ascii.domElement.style.display = "none";
-        if (matrix.domElement.parentNode)
-          matrix.domElement.style.display = "none";
+        if (ascii.domElement.parentNode) ascii.domElement.style.display = "none";
+        if (matrix.domElement.parentNode) matrix.domElement.style.display = "none";
         renderer.domElement.style.display = "block";
 
-        controls.dispose();
-        controls = new OrbitControls(camera, renderer.domElement);
-        // ✅ Always keep focus on hands
-        controls.target = handsFocusPoint;
-        controls.enablePan = false;
-        controls.enableDamping = true;
-        camera.lookAt(handsFocusPoint);
-        controls.update();
+        resetControls(renderer.domElement);
 
         pass = new EffectPass(camera, map[val]);
         composer.addPass(pass);
 
         pixelUI.style.display =
-          val === "dots" ||
-          val === "blockify" ||
-          val === "halftone" ||
-          val === "complex"
+          ["dots", "blockify", "halftone", "complex", "woven"].includes(val)
             ? "block"
             : "none";
       }
@@ -1102,66 +1041,36 @@
 
       pixelInput.oninput = (e) => {
         const value = +e.target.value;
-        dots.v = value;
-        halftone.uniforms.get("pixelSize").value = value;
-        blockify.uniforms.get("pixelSize").value = value;
-        complex.uniforms.get("pixelSize").value = value;
+        // Update all effects that use pixelSize
+        ["dots", "halftone", "blockify", "complex", "woven"].forEach(key => {
+            if(map[key].uniforms) {
+                map[key].uniforms.get("pixelSize").value = value;
+            } else if (map[key].v) { // Special case for the original DotsEffect
+                map[key].v = value;
+            }
+        });
       };
 
       /* ================= RESIZE & ANIMATION LOGIC ================= */
 
-      // Update all renderers and cameras based on the current width
       function updateLayout(width) {
         const height = window.innerHeight;
-
-        // Main Renderer
         renderer.setSize(width, height);
         composer.setSize(width, height);
-
-        // Update Camera
         updateCamera();
 
-        // Update Shader Uniforms
         const c = renderer.domElement;
-        [
-          dots,
-          halftone,
-          blockify,
-          complex,
-          contour,
-          edge,
-          crosshatch,
-          noise,
-          voronoi,
-          vhs,
-          waveLines,
-          dither,
-          threshold,
-        ].forEach((e) => {
-          if (
-            e &&
-            e.uniforms &&
-            e.uniforms.get &&
-            e.uniforms.get("resolution")
-          ) {
+        Object.values(map).forEach((e) => {
+          if (e && e.uniforms && e.uniforms.get && e.uniforms.get("resolution")) {
             e.uniforms.get("resolution").value.set(c.width, c.height);
           }
         });
 
-        // Update Special Effects
-        const currentEffect = document
-          .querySelector("#effectList li.active")
-          ?.getAttribute("data-value");
-        if (currentEffect === "ascii") {
-          ascii.setSize(width, height);
-        } else if (currentEffect === "matrix") {
-          matrix.setSize(width, height);
-        }
+        if(ascii.domElement.parentNode) ascii.setSize(width, height);
+        if(matrix.domElement.parentNode) matrix.setSize(width, height);
       }
 
-      // Window Resize Handler
       addEventListener("resize", () => {
-        // Recalculate target based on sidebar state
         if (isPanelOpen) {
           targetLayoutWidth = window.innerWidth - sidebarWidth;
         } else {
@@ -1169,31 +1078,20 @@
         }
       });
 
-      // Initialize UI visibility for the default selected effect (Dots)
       pixelUI.style.display = "block";
 
-      /* ================= LOOP ================= */
-
       const activeEffectName = () =>
-        document
-          .querySelector("#effectList li.active")
-          ?.getAttribute("data-value");
+        document.querySelector("#effectList li.active")?.getAttribute("data-value");
 
       function animate() {
         requestAnimationFrame(animate);
         controls.update();
 
-        // Smooth Resizing Logic
         if (Math.abs(currentLayoutWidth - targetLayoutWidth) > 0.5) {
-          // Linear interpolation (lerp) for smooth transition
-          // 0.15 is the easing factor (lower = slower/smoother)
           currentLayoutWidth += (targetLayoutWidth - currentLayoutWidth) * 0.15;
-
-          // Snap to target if very close to stop micro-calculations
           if (Math.abs(currentLayoutWidth - targetLayoutWidth) < 1) {
             currentLayoutWidth = targetLayoutWidth;
           }
-
           updateLayout(currentLayoutWidth);
         }
 
@@ -1208,6 +1106,7 @@
           composer.render();
         }
       }
+
       animate();
     </script>
   </body>

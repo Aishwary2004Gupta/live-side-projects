@@ -34,6 +34,7 @@
         flex-direction: column;
         color: #555;
         user-select: none;
+        /* Smooth transition for the panel itself */
         transition: transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
       }
 
@@ -124,7 +125,7 @@
         margin-top: auto;
         padding-top: 20px;
         border-top: 1px solid #1a1a1a;
-        display: none;
+        display: none; /* Hidden by default */
         opacity: 1;
         transition: opacity 0.2s;
       }
@@ -196,12 +197,12 @@
     <div id="sidebar">
       <h2><span id="toggleBtn">—</span> Effects</h2>
       <ul id="effectList">
-        <li data-value="dots" class="active">Dots</li>
-        <li data-value="complex">Complex Pixel</li>
         <li data-value="ascii">ASCII</li>
         <li data-value="dither">Dithering</li>
+        <li data-value="complex">Complex Pixel</li>
         <li data-value="halftone">Halftone</li>
         <li data-value="matrix">Matrix Rain</li>
+        <li data-value="dots" class="active">Dots</li>
         <li data-value="contour">Contour</li>
         <li data-value="blockify">Blockify</li>
         <li data-value="threshold">Threshold</li>
@@ -234,53 +235,74 @@
         ScanlineEffect,
       } from "https://esm.sh/postprocessing@6.35.4?deps=three@0.160.0";
 
+      // 🎯 PERMANENT FOCUS POINT, always look at the point where hands meet, never changes
       const handsFocusPoint = new THREE.Vector3(0, 0, 0);
 
       /* ================= SHADERS / EFFECTS ================= */
 
-      // Complex Pixel shader (your code)
       const complexShader = `
         precision highp float;
+
         uniform float pixelSize;
         uniform vec2 resolution;
 
+        float crossSDF(vec2 p) {
+            p = abs(p - 0.5);
+            return min(p.x, p.y);
+        }
+
         float circleSDF(vec2 p) {
-          return length(p - 0.5);
+            return length(p - 0.5);
+        }
+
+        float triangleSDF(vec2 p) {
+            const float r = 1.0;
+            const float k = sqrt(3.0);
+            p.x = abs(p.x) - r;
+            p.y = p.y + r/k;
+            if( p.x+k*p.y>0.0 ) p = vec2(p.x-k*p.y,-k*p.x-p.y)/2.0;
+            p.x -= clamp( p.x, -2.0*r, 0.0 );
+            return -length(p)*sign(p.y);
         }
 
         void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor) {
-          vec2 normalizedPixelSize = pixelSize / resolution;
-          vec2 uvPixel = normalizedPixelSize * floor(uv / normalizedPixelSize);
-          vec4 color = texture2D(inputBuffer, uvPixel);
+            vec2 normalizedPixelSize = pixelSize / resolution;
+            vec2 uvPixel = normalizedPixelSize * floor(uv / normalizedPixelSize);
+            vec4 color = texture2D(inputBuffer, uvPixel);
 
-          float luma = dot(vec3(0.2126, 0.7152, 0.0722), color.rgb);
-          
-          vec2 cellUV = fract(uv / normalizedPixelSize);
-          color = vec4(1.0);
+            float luma = dot(vec3(0.2126, 0.7152, 0.0722), color.rgb);
+            
+            vec2 cellUV = fract(uv / normalizedPixelSize);
 
-          float d = circleSDF(cellUV);
-          
-          if (luma > 0.2) {
-            if (d < 0.3) {
-              color = vec4(0.0,0.31,0.933,1.0);
-            } else {
-              color = vec4(1.0,1.0,1.0,1.0);
+            // Paper default
+            vec4 outColor = vec4(1.0);
+
+            float d = circleSDF(cellUV);
+
+            // Mid tones: blue circles on white
+            if (luma > 0.2) {
+              if (d < 0.3) {
+                outColor = vec4(0.0, 0.31, 0.933, 1.0);
+              } else {
+                outColor = vec4(1.0);
+              }
             }
-          }
 
-          if(luma > 0.75) {
-            if(d < 0.3) {
-              color = vec4(1.0,1.0,1.0,1.0);
-            } else {
-              color = vec4(0.0,0.31,0.933,1.0);
+            // Bright tones: invert (white circles on blue)
+            if (luma > 0.75) {
+              if (d < 0.3) {
+                outColor = vec4(1.0);
+              } else {
+                outColor = vec4(0.0, 0.31, 0.933, 1.0);
+              }
             }
-          }
 
-          if(luma > 0.99) {
-            color = vec4(0.0,0.31,0.933,1.0);
-          }
+            // Highlights: solid blue
+            if (luma > 0.99) {
+              outColor = vec4(0.0, 0.31, 0.933, 1.0);
+            }
 
-          outputColor = color;
+            outputColor = outColor;
         }
       `;
 
@@ -290,17 +312,21 @@
         uniform vec2 resolution;
         void mainImage(const in vec4 i, const in vec2 uv, out vec4 o) {
           vec2 normalizedPixelSize = pixelSize / resolution;
+          float rowIndex = floor(uv.x / normalizedPixelSize.x);
           vec2 uvPixel = normalizedPixelSize * floor(uv / normalizedPixelSize);
           vec4 color = texture2D(inputBuffer, uvPixel);
 
           float luma = dot(vec3(0.2126, 0.7152, 0.0722), color.rgb);
+
           vec2 cellUV = fract(uv / normalizedPixelSize);
 
           float radius = luma > 0.5 ? 0.3 : luma > 0.001 ? 0.12 : 0.075;
           vec2 circleCenter = luma > 0.5 ? vec2(0.5, 0.5) : vec2(0.25, 0.25);
+
           float distanceFromCenter = distance(cellUV, circleCenter);
+
           float circleMask = smoothstep(radius, radius - 0.05, distanceFromCenter);
-          color.rgb = vec3(circleMask) * max(luma, 0.05);
+          color.rgb = vec3(circleMask, circleMask, circleMask) * max(luma, 0.05);
 
           o = color;
         }
@@ -341,7 +367,7 @@
         void mainImage(const in vec4 i, const in vec2 uv, out vec4 o) {
           vec2 s = pixelSize / resolution;
           vec2 u = s * floor(uv / s) + 0.5*s;
-          vec4 c = texture2D(inputBuffer, u);
+          vec4 c = texture2D(inputBuffer, u / (1.0));
           float l = dot(c.rgb, vec3(.2126,.7152,.0722));
           vec2 f = fract(uv / s);
           float r = (1.0 - l) * 0.5;
@@ -648,7 +674,13 @@
           float sy = -1.0*dot(sampleOffset(uv, vec2(-1.,-1.)).rgb, vec3(0.3)) -2.0*dot(sampleOffset(uv, vec2(0.,-1.)).rgb, vec3(0.3)) -1.0*dot(sampleOffset(uv, vec2(1.,-1.)).rgb, vec3(0.3))
                    +1.0*dot(sampleOffset(uv, vec2(-1.,1.)).rgb, vec3(0.3)) +2.0*dot(sampleOffset(uv, vec2(0.,1.)).rgb, vec3(0.3)) +1.0*dot(sampleOffset(uv, vec2(1.,1.)).rgb, vec3(0.3));
           float g = length(vec2(sx,sy));
-          o = vec4(vec3(1.0 - g), 1.0);
+          vec3 paper = vec3(0.94, 0.94, 0.90);
+          vec3 ink = vec3(0.05, 0.05, 0.1);
+          float luma = dot(texture2D(inputBuffer, uv).rgb, vec3(0.299, 0.587, 0.114));
+          vec3 shadedPaper = mix(paper, paper * 0.8, luma); 
+          float edge = smoothstep(0.05, 0.3, g);
+          vec3 finalColor = mix(shadedPaper, ink, edge);
+          o = vec4(finalColor, 1.0);
         }
       `;
 
@@ -662,8 +694,13 @@
           c += 1.0*dot(sampleOffset(uv, vec2(1.,0.)).rgb, vec3(0.3));
           c += 1.0*dot(sampleOffset(uv, vec2(0.,-1.)).rgb, vec3(0.3));
           c += 1.0*dot(sampleOffset(uv, vec2(0.,1.)).rgb, vec3(0.3));
-          c = abs(c);
-          o = vec4(vec3(step(0.15, c)), 1.0);
+          float edgeStrength = abs(c);
+          vec4 base = texture2D(inputBuffer, uv);
+          vec3 dimmed = base.rgb * 0.4; 
+          vec3 neonColor = vec3(1.0, 0.2, 0.6); 
+          float glow = smoothstep(0.01, 0.3, edgeStrength);
+          vec3 finalColor = mix(dimmed, neonColor, glow);
+          o = vec4(finalColor, 1.0);
         }
       `;
 
@@ -681,12 +718,27 @@
 
       const thresholdShader = `
         precision highp float;
-        uniform float thresh;
+        uniform vec2 resolution;
+        float getDither(vec2 pos) {
+            int x = int(mod(pos.x, 4.0));
+            int y = int(mod(pos.y, 4.0));
+            int index = x + y * 4;
+            float dither[16] = float[](
+                0.0, 8.0, 2.0, 10.0,
+                12.0, 4.0, 14.0, 6.0,
+                3.0, 11.0, 1.0, 9.0,
+                15.0, 7.0, 13.0, 5.0
+            );
+            return dither[index] / 16.0;
+        }
         void mainImage(const in vec4 i,const in vec2 uv,out vec4 o){
           vec4 c = texture2D(inputBuffer, uv);
-          float l = dot(c.rgb, vec3(.2126,.7152,.0722));
-          float v = step(thresh, l);
-          o = vec4(vec3(v),1.0);
+          float luma = dot(c.rgb, vec3(.2126,.7152,.0722));
+          vec2 screenPos = uv * resolution;
+          float ditherValue = getDither(screenPos);
+          float t = step(0.4 + ditherValue * 0.3, luma);
+          vec3 color = mix(vec3(0.05, 0.05, 0.1), vec3(1.0), t);
+          o = vec4(color, 1.0);
         }
       `;
 
@@ -772,10 +824,12 @@
       const scene = new THREE.Scene();
       scene.background = new THREE.Color("#010101");
 
+      // Dynamic frustum size based on panel visibility
       const baseFrustumSize = 350;
       let camera;
       let isPanelOpen = true;
 
+      // Layout State
       let currentLayoutWidth = window.innerWidth - 280;
       let targetLayoutWidth = window.innerWidth - 280;
       const sidebarWidth = 280;
@@ -840,7 +894,7 @@
       });
 
       const threshold = makeEffect("Threshold", thresholdShader, {
-        thresh: 0.5,
+        resolution: new THREE.Vector2(innerWidth, innerHeight),
       });
 
       const edge = makeEffect("Edge", edgeShader, {
@@ -873,9 +927,8 @@
 
       const map = {
         dots: dots,
-        complex: complex,
-        ascii: ascii, // not used via map but kept for clarity
         dither: dither,
+        complex: complex,
         halftone: halftone,
         matrix: matrix,
         contour: contour,
@@ -894,7 +947,7 @@
       let controls = new OrbitControls(camera, renderer.domElement);
       controls.enablePan = false;
       controls.enableDamping = true;
-      controls.target.copy(handsFocusPoint);
+      controls.target = handsFocusPoint;
       controls.update();
 
       /* ================= LIGHTS ================= */
@@ -904,19 +957,21 @@
       dl.position.set(5, 10, 0);
       scene.add(dl);
 
-      /* ================= MODEL ================= */
+      /* ================= MODEL POSITION / ROTATION / SCALE ================= */
 
       new GLTFLoader().load(
         "https://cdn.maximeheckel.com/models/creation-of-adam.glb",
         (g) => {
           const m = g.scene;
+          // Smaller size
           m.scale.setScalar(3.2);
+          // Rotation adjusted for perfect hand visibility
           m.rotation.x = -0.1;
           m.rotation.y = -Math.PI / 2 + 0.08;
+          // Position adjusted so hands meet exactly at our focus point
           m.position.set(1.8, -1.4, 0);
           scene.add(m);
 
-          controls.target.copy(handsFocusPoint);
           controls.update();
           camera.lookAt(handsFocusPoint);
         },
@@ -955,18 +1010,11 @@
         }
       }
 
+      // Click on header to toggle
       document.querySelector("h2").addEventListener("click", togglePanel);
-      floatingToggle.addEventListener("click", togglePanel);
 
-      function resetControls(domElement) {
-        controls.dispose();
-        controls = new OrbitControls(camera, domElement);
-        controls.enablePan = false;
-        controls.enableDamping = true;
-        controls.target.copy(handsFocusPoint);
-        camera.lookAt(handsFocusPoint);
-        controls.update();
-      }
+      // Floating button to reopen
+      floatingToggle.addEventListener("click", togglePanel);
 
       function switchEffect(val) {
         composer.removePass(pass);
@@ -980,7 +1028,15 @@
             matrix.domElement.style.display = "none";
 
           ascii.setSize(currentLayoutWidth, window.innerHeight);
-          resetControls(ascii.domElement);
+          controls.dispose();
+          controls = new OrbitControls(camera, ascii.domElement);
+          // ✅ Always keep focus on hands
+          controls.target = handsFocusPoint;
+          controls.enablePan = false;
+          controls.enableDamping = true;
+          camera.lookAt(handsFocusPoint);
+          controls.update();
+
           pixelUI.style.display = "none";
           return;
         }
@@ -995,7 +1051,15 @@
           else document.body.appendChild(matrix.domElement);
 
           matrix.setSize(currentLayoutWidth, window.innerHeight);
-          resetControls(matrix.domElement);
+          controls.dispose();
+          controls = new OrbitControls(camera, matrix.domElement);
+          // ✅ Always keep focus on hands
+          controls.target = handsFocusPoint;
+          controls.enablePan = false;
+          controls.enableDamping = true;
+          camera.lookAt(handsFocusPoint);
+          controls.update();
+
           pixelUI.style.display = "none";
           return;
         }
@@ -1006,13 +1070,23 @@
           matrix.domElement.style.display = "none";
         renderer.domElement.style.display = "block";
 
-        resetControls(renderer.domElement);
+        controls.dispose();
+        controls = new OrbitControls(camera, renderer.domElement);
+        // ✅ Always keep focus on hands
+        controls.target = handsFocusPoint;
+        controls.enablePan = false;
+        controls.enableDamping = true;
+        camera.lookAt(handsFocusPoint);
+        controls.update();
 
         pass = new EffectPass(camera, map[val]);
         composer.addPass(pass);
 
         pixelUI.style.display =
-          val === "dots" || val === "blockify" || val === "halftone" || val === "complex"
+          val === "dots" ||
+          val === "blockify" ||
+          val === "halftone" ||
+          val === "complex"
             ? "block"
             : "none";
       }
@@ -1036,18 +1110,24 @@
 
       /* ================= RESIZE & ANIMATION LOGIC ================= */
 
+      // Update all renderers and cameras based on the current width
       function updateLayout(width) {
         const height = window.innerHeight;
+
+        // Main Renderer
         renderer.setSize(width, height);
         composer.setSize(width, height);
+
+        // Update Camera
         updateCamera();
 
+        // Update Shader Uniforms
         const c = renderer.domElement;
         [
           dots,
-          complex,
           halftone,
           blockify,
+          complex,
           contour,
           edge,
           crosshatch,
@@ -1056,12 +1136,19 @@
           vhs,
           waveLines,
           dither,
+          threshold,
         ].forEach((e) => {
-          if (e.uniforms && e.uniforms.get && e.uniforms.get("resolution")) {
+          if (
+            e &&
+            e.uniforms &&
+            e.uniforms.get &&
+            e.uniforms.get("resolution")
+          ) {
             e.uniforms.get("resolution").value.set(c.width, c.height);
           }
         });
 
+        // Update Special Effects
         const currentEffect = document
           .querySelector("#effectList li.active")
           ?.getAttribute("data-value");
@@ -1072,7 +1159,9 @@
         }
       }
 
+      // Window Resize Handler
       addEventListener("resize", () => {
+        // Recalculate target based on sidebar state
         if (isPanelOpen) {
           targetLayoutWidth = window.innerWidth - sidebarWidth;
         } else {
@@ -1080,7 +1169,10 @@
         }
       });
 
+      // Initialize UI visibility for the default selected effect (Dots)
       pixelUI.style.display = "block";
+
+      /* ================= LOOP ================= */
 
       const activeEffectName = () =>
         document
@@ -1091,11 +1183,17 @@
         requestAnimationFrame(animate);
         controls.update();
 
+        // Smooth Resizing Logic
         if (Math.abs(currentLayoutWidth - targetLayoutWidth) > 0.5) {
+          // Linear interpolation (lerp) for smooth transition
+          // 0.15 is the easing factor (lower = slower/smoother)
           currentLayoutWidth += (targetLayoutWidth - currentLayoutWidth) * 0.15;
+
+          // Snap to target if very close to stop micro-calculations
           if (Math.abs(currentLayoutWidth - targetLayoutWidth) < 1) {
             currentLayoutWidth = targetLayoutWidth;
           }
+
           updateLayout(currentLayoutWidth);
         }
 
@@ -1110,7 +1208,6 @@
           composer.render();
         }
       }
-
       animate();
     </script>
   </body>

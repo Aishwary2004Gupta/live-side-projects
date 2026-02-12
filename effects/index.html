@@ -388,6 +388,7 @@
         }
       `;
 
+      // UPDATED: Dark background instead of pure black/white
       const ditherShader = `
         precision highp float;
         uniform vec2 resolution;
@@ -412,7 +413,10 @@
           int bayerIndex = y * 8 + x;
           float threshold = bayer[bayerIndex] / 64.0;
           float dithered = step(threshold, luma);
-          o = vec4(vec3(dithered), 1.0);
+          // Use dark gray (#0a0a0a) instead of black (0.0)
+          vec3 bg = vec3(0.04); 
+          vec3 fg = vec3(1.0);
+          o = vec4(mix(bg, fg, dithered), 1.0);
         }
       `;
 
@@ -590,7 +594,7 @@
           this.ctx = this.canvas.getContext("2d", { willReadFrequently: true });
           this.domElement = this.canvas;
 
-          this.chars = "ｦｧｨｩｪｫｬｭｮｯ012789";
+          this.chars = "ｦｧｩｪｫｬｭｮｯ012789";
           this.cols = 0;
           this.rows = 0;
           this.drops = [];
@@ -697,6 +701,7 @@
         }
       `;
 
+      // UPDATED: Neon edges on dark background
       const edgeShader = `
         precision highp float;
         uniform vec2 resolution;
@@ -707,8 +712,12 @@
           c += 1.0*dot(sampleOffset(uv, vec2(1.,0.)).rgb, vec3(0.3));
           c += 1.0*dot(sampleOffset(uv, vec2(0.,-1.)).rgb, vec3(0.3));
           c += 1.0*dot(sampleOffset(uv, vec2(0.,1.)).rgb, vec3(0.3));
-          c = abs(c);
-          o = vec4(vec3(step(0.15, c)), 1.0);
+          float edgeStrength = abs(c);
+          vec3 bg = vec3(0.04); // Dark gray background
+          vec3 neonColor = vec3(1.0, 0.2, 0.6); 
+          float glow = smoothstep(0.01, 0.3, edgeStrength);
+          vec3 finalColor = mix(bg, neonColor, glow);
+          o = vec4(finalColor, 1.0);
         }
       `;
 
@@ -724,14 +733,32 @@
         }
       `;
 
+      // UPDATED: Dithered threshold with dark background
       const thresholdShader = `
         precision highp float;
-        uniform float thresh;
+        uniform vec2 resolution;
+        float getDither(vec2 pos) {
+            int x = int(mod(pos.x, 4.0));
+            int y = int(mod(pos.y, 4.0));
+            int index = x + y * 4;
+            float dither[16] = float[](
+                0.0, 8.0, 2.0, 10.0,
+                12.0, 4.0, 14.0, 6.0,
+                3.0, 11.0, 1.0, 9.0,
+                15.0, 7.0, 13.0, 5.0
+            );
+            return dither[index] / 16.0;
+        }
         void mainImage(const in vec4 i,const in vec2 uv,out vec4 o){
           vec4 c = texture2D(inputBuffer, uv);
-          float l = dot(c.rgb, vec3(.2126,.7152,.0722));
-          float v = step(thresh, l);
-          o = vec4(vec3(v),1.0);
+          float luma = dot(c.rgb, vec3(.2126,.7152,.0722));
+          vec2 screenPos = uv * resolution;
+          float ditherValue = getDither(screenPos);
+          float t = step(0.4 + ditherValue * 0.3, luma);
+          vec3 bg = vec3(0.04); // Dark gray background
+          vec3 fg = vec3(1.0);
+          vec3 color = mix(bg, fg, t);
+          o = vec4(color, 1.0);
         }
       `;
 
@@ -782,7 +809,7 @@
       /* ================= SCENE ================= */
 
       const scene = new THREE.Scene();
-      scene.background = new THREE.Color("#010101");
+      scene.background = new THREE.Color("#0a0a0a"); // Matched to Dots effect background
 
       const baseFrustumSize = 350;
       let camera;
@@ -816,7 +843,7 @@
       const ascii = new AsciiEffect(renderer, " .:-=+*#%@", { invert: true });
       ascii.domElement.style.position = "absolute";
       ascii.domElement.style.color = "white";
-      ascii.domElement.style.background = "black";
+      ascii.domElement.style.background = "#0a0a0a"; // Matched to Dots effect background
 
       const matrix = new MatrixRainEffect(renderer, camera);
       matrix.domElement.style.position = "absolute";
@@ -859,7 +886,7 @@
       });
 
       const threshold = makeEffect("Threshold", thresholdShader, {
-        thresh: 0.5,
+        resolution: new THREE.Vector2(innerWidth, innerHeight),
       });
 
       const edge = makeEffect("Edge", edgeShader, {

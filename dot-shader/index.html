@@ -34,7 +34,6 @@
         flex-direction: column;
         color: #555;
         user-select: none;
-        /* Smooth transition for the panel itself */
         transition: transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
       }
 
@@ -125,7 +124,7 @@
         margin-top: auto;
         padding-top: 20px;
         border-top: 1px solid #1a1a1a;
-        display: none; /* Hidden by default */
+        display: none;
         opacity: 1;
         transition: opacity 0.2s;
       }
@@ -197,12 +196,12 @@
     <div id="sidebar">
       <h2><span id="toggleBtn">—</span> Effects</h2>
       <ul id="effectList">
+        <li data-value="dots" class="active">Dots</li>
+        <li data-value="complex">Complex Pixel</li>
         <li data-value="ascii">ASCII</li>
         <li data-value="dither">Dithering</li>
-        <li data-value="complex">Complex Pixel</li>
         <li data-value="halftone">Halftone</li>
         <li data-value="matrix">Matrix Rain</li>
-        <li data-value="dots" class="active">Dots</li>
         <li data-value="contour">Contour</li>
         <li data-value="blockify">Blockify</li>
         <li data-value="threshold">Threshold</li>
@@ -235,34 +234,17 @@
         ScanlineEffect,
       } from "https://esm.sh/postprocessing@6.35.4?deps=three@0.160.0";
 
-      // 🎯 PERMANENT FOCUS POINT, always look at the point where hands meet, never changes
       const handsFocusPoint = new THREE.Vector3(0, 0, 0);
 
       /* ================= SHADERS / EFFECTS ================= */
 
       const complexShader = `
         precision highp float;
-
         uniform float pixelSize;
         uniform vec2 resolution;
 
-        float crossSDF(vec2 p) {
-            p = abs(p - 0.5);
-            return min(p.x, p.y);
-        }
-
         float circleSDF(vec2 p) {
             return length(p - 0.5);
-        }
-
-        float triangleSDF(vec2 p) {
-            const float r = 1.0;
-            const float k = sqrt(3.0);
-            p.x = abs(p.x) - r;
-            p.y = p.y + r/k;
-            if( p.x+k*p.y>0.0 ) p = vec2(p.x-k*p.y,-k*p.x-p.y)/2.0;
-            p.x -= clamp( p.x, -2.0*r, 0.0 );
-            return -length(p)*sign(p.y);
         }
 
         void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor) {
@@ -273,36 +255,31 @@
             float luma = dot(vec3(0.2126, 0.7152, 0.0722), color.rgb);
             
             vec2 cellUV = fract(uv / normalizedPixelSize);
-
-            // Paper default
-            vec4 outColor = vec4(1.0);
+            color = vec4(1.0);
 
             float d = circleSDF(cellUV);
-
-            // Mid tones: blue circles on white
+            
             if (luma > 0.2) {
               if (d < 0.3) {
-                outColor = vec4(0.0, 0.31, 0.933, 1.0);
+                color = vec4(0.0,0.31,0.933,1.0);
               } else {
-                outColor = vec4(1.0);
+                color = vec4(1.0,1.0,1.0,1.0);
               }
             }
 
-            // Bright tones: invert (white circles on blue)
-            if (luma > 0.75) {
-              if (d < 0.3) {
-                outColor = vec4(1.0);
+            if(luma > 0.75) {
+              if(d < 0.3) {
+                color = vec4(1.0,1.0,1.0,1.0);
               } else {
-                outColor = vec4(0.0, 0.31, 0.933, 1.0);
+                color = vec4(0.0,0.31,0.933,1.0);
               }
             }
 
-            // Highlights: solid blue
-            if (luma > 0.99) {
-              outColor = vec4(0.0, 0.31, 0.933, 1.0);
+            if(luma > 0.99) {
+              color = vec4(0.0,0.31,0.933,1.0);
             }
 
-            outputColor = outColor;
+            outputColor = color;
         }
       `;
 
@@ -534,7 +511,7 @@
           this.ctx = this.canvas.getContext("2d", { willReadFrequently: true });
           this.domElement = this.canvas;
 
-          this.chars = "ｦｧｨｩｪｫｬｭｮｯ012789";
+          this.chars = "ｦｧｩｪｬｭｯ012789";
           this.cols = 0;
           this.rows = 0;
           this.drops = [];
@@ -824,12 +801,10 @@
       const scene = new THREE.Scene();
       scene.background = new THREE.Color("#010101");
 
-      // Dynamic frustum size based on panel visibility
       const baseFrustumSize = 350;
       let camera;
       let isPanelOpen = true;
 
-      // Layout State
       let currentLayoutWidth = window.innerWidth - 280;
       let targetLayoutWidth = window.innerWidth - 280;
       const sidebarWidth = 280;
@@ -878,7 +853,7 @@
         pixelSize: 10.0,
         resolution: new THREE.Vector2(innerWidth, innerHeight),
       });
-
+      
       const complex = makeEffect("Complex", complexShader, {
         pixelSize: 10.0,
         resolution: new THREE.Vector2(innerWidth, innerHeight),
@@ -963,12 +938,9 @@
         "https://cdn.maximeheckel.com/models/creation-of-adam.glb",
         (g) => {
           const m = g.scene;
-          // Smaller size
           m.scale.setScalar(3.2);
-          // Rotation adjusted for perfect hand visibility
           m.rotation.x = -0.1;
           m.rotation.y = -Math.PI / 2 + 0.08;
-          // Position adjusted so hands meet exactly at our focus point
           m.position.set(1.8, -1.4, 0);
           scene.add(m);
 
@@ -1010,10 +982,7 @@
         }
       }
 
-      // Click on header to toggle
       document.querySelector("h2").addEventListener("click", togglePanel);
-
-      // Floating button to reopen
       floatingToggle.addEventListener("click", togglePanel);
 
       function switchEffect(val) {
@@ -1030,7 +999,6 @@
           ascii.setSize(currentLayoutWidth, window.innerHeight);
           controls.dispose();
           controls = new OrbitControls(camera, ascii.domElement);
-          // ✅ Always keep focus on hands
           controls.target = handsFocusPoint;
           controls.enablePan = false;
           controls.enableDamping = true;
@@ -1053,7 +1021,6 @@
           matrix.setSize(currentLayoutWidth, window.innerHeight);
           controls.dispose();
           controls = new OrbitControls(camera, matrix.domElement);
-          // ✅ Always keep focus on hands
           controls.target = handsFocusPoint;
           controls.enablePan = false;
           controls.enableDamping = true;
@@ -1072,7 +1039,6 @@
 
         controls.dispose();
         controls = new OrbitControls(camera, renderer.domElement);
-        // ✅ Always keep focus on hands
         controls.target = handsFocusPoint;
         controls.enablePan = false;
         controls.enableDamping = true;
@@ -1083,10 +1049,7 @@
         composer.addPass(pass);
 
         pixelUI.style.display =
-          val === "dots" ||
-          val === "blockify" ||
-          val === "halftone" ||
-          val === "complex"
+          val === "dots" || val === "blockify" || val === "halftone" || val === "complex"
             ? "block"
             : "none";
       }
@@ -1110,18 +1073,13 @@
 
       /* ================= RESIZE & ANIMATION LOGIC ================= */
 
-      // Update all renderers and cameras based on the current width
       function updateLayout(width) {
         const height = window.innerHeight;
 
-        // Main Renderer
         renderer.setSize(width, height);
         composer.setSize(width, height);
-
-        // Update Camera
         updateCamera();
 
-        // Update Shader Uniforms
         const c = renderer.domElement;
         [
           dots,
@@ -1136,7 +1094,7 @@
           vhs,
           waveLines,
           dither,
-          threshold,
+          threshold
         ].forEach((e) => {
           if (
             e &&
@@ -1148,7 +1106,6 @@
           }
         });
 
-        // Update Special Effects
         const currentEffect = document
           .querySelector("#effectList li.active")
           ?.getAttribute("data-value");
@@ -1159,9 +1116,7 @@
         }
       }
 
-      // Window Resize Handler
       addEventListener("resize", () => {
-        // Recalculate target based on sidebar state
         if (isPanelOpen) {
           targetLayoutWidth = window.innerWidth - sidebarWidth;
         } else {
@@ -1169,7 +1124,6 @@
         }
       });
 
-      // Initialize UI visibility for the default selected effect (Dots)
       pixelUI.style.display = "block";
 
       /* ================= LOOP ================= */
@@ -1183,17 +1137,11 @@
         requestAnimationFrame(animate);
         controls.update();
 
-        // Smooth Resizing Logic
         if (Math.abs(currentLayoutWidth - targetLayoutWidth) > 0.5) {
-          // Linear interpolation (lerp) for smooth transition
-          // 0.15 is the easing factor (lower = slower/smoother)
           currentLayoutWidth += (targetLayoutWidth - currentLayoutWidth) * 0.15;
-
-          // Snap to target if very close to stop micro-calculations
           if (Math.abs(currentLayoutWidth - targetLayoutWidth) < 1) {
             currentLayoutWidth = targetLayoutWidth;
           }
-
           updateLayout(currentLayoutWidth);
         }
 

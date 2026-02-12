@@ -320,7 +320,7 @@
             outputColor = color;
         }
       `;
-      
+
       const complexShader = `
         precision highp float;
         uniform float pixelSize;
@@ -597,12 +597,19 @@
           this.speeds = [];
           this.fontSize = 8;
           this.fontFamily = "monospace";
-          this.setSize(renderer.domElement.clientWidth, renderer.domElement.clientHeight);
+          this.setSize(
+            renderer.domElement.clientWidth,
+            renderer.domElement.clientHeight,
+          );
 
           this.renderTarget = new THREE.WebGLRenderTarget(
-            renderer.domElement.clientWidth, renderer.domElement.clientHeight, { format: THREE.RGBAFormat }
+            renderer.domElement.clientWidth,
+            renderer.domElement.clientHeight,
+            { format: THREE.RGBAFormat },
           );
-          this.maskTarget = new THREE.WebGLRenderTarget(1, 1, { format: THREE.RGBAFormat });
+          this.maskTarget = new THREE.WebGLRenderTarget(1, 1, {
+            format: THREE.RGBAFormat,
+          });
           this.maskTarget.texture.minFilter = THREE.NearestFilter;
           this.maskTarget.texture.magFilter = THREE.NearestFilter;
           this._maskBuffer = null;
@@ -615,9 +622,17 @@
           this.ctx.font = `${this.fontSize}px ${this.fontFamily}`;
           this.cols = Math.floor(width / (this.fontSize * 0.6));
           this.rows = Math.floor(height / this.fontSize);
-          this.drops = Array(this.cols).fill(0).map(() => -(Math.random() * this.rows));
-          this.speeds = Array(this.cols).fill(0).map(() => 0.3 + Math.random() * 0.6);
-          this.cellCharacter = new Array(this.cols * this.rows).fill(0).map(() => this.chars[Math.floor(Math.random() * this.chars.length)]);
+          this.drops = Array(this.cols)
+            .fill(0)
+            .map(() => -(Math.random() * this.rows));
+          this.speeds = Array(this.cols)
+            .fill(0)
+            .map(() => 0.3 + Math.random() * 0.6);
+          this.cellCharacter = new Array(this.cols * this.rows)
+            .fill(0)
+            .map(
+              () => this.chars[Math.floor(Math.random() * this.chars.length)],
+            );
           if (this.renderTarget) this.renderTarget.setSize(width, height);
           if (this.maskTarget) {
             const mw = Math.max(1, this.cols);
@@ -637,43 +652,63 @@
           const maskBuf = this._maskBuffer;
           if (this.maskTarget && maskBuf) {
             try {
-              this.renderer.readRenderTargetPixels(this.maskTarget, 0, 0, this.maskTarget.width, this.maskTarget.height, maskBuf);
-            } catch (err) { maskBuf.fill(0); }
+              this.renderer.readRenderTargetPixels(
+                this.maskTarget,
+                0,
+                0,
+                this.maskTarget.width,
+                this.maskTarget.height,
+                maskBuf,
+              );
+            } catch (err) {
+              maskBuf.fill(0);
+            }
           }
           for (let i = 0; i < this.cols; i++) {
             this.drops[i] += this.speeds[i];
             if (Math.random() > 0.8) {
               const y = Math.max(0, Math.floor(this.drops[i])) % this.rows;
-              this.cellCharacter[y * this.cols + i] = this.chars[Math.floor(Math.random() * this.chars.length)];
+              this.cellCharacter[y * this.cols + i] =
+                this.chars[Math.floor(Math.random() * this.chars.length)];
             }
             if (this.drops[i] >= this.rows + 20) {
               this.drops[i] = -(Math.random() * 20);
               this.speeds[i] = 0.3 + Math.random() * 0.6;
             }
           }
-          for(let y = 0; y < this.rows; y++) {
-            for(let x = 0; x < this.cols; x++) {
+          for (let y = 0; y < this.rows; y++) {
+            for (let x = 0; x < this.cols; x++) {
               const sampleY = this.maskTarget.height - 1 - y;
               const idx = (sampleY * this.maskTarget.width + x) * 4;
-              const brightness = (maskBuf[idx] + maskBuf[idx+1] + maskBuf[idx+2]) / 3;
+              const brightness =
+                (maskBuf[idx] + maskBuf[idx + 1] + maskBuf[idx + 2]) / 3;
               const drawX = x * (this.fontSize * 0.6);
               const drawY = y * this.fontSize;
-              if(brightness > 15) {
-                if(brightness > 180) this.ctx.fillStyle = `rgba(200, 255, 200, 0.95)`;
-                else if (brightness > 100) this.ctx.fillStyle = `rgba(40, 200, 60, 0.85)`;
+              if (brightness > 15) {
+                if (brightness > 180)
+                  this.ctx.fillStyle = `rgba(200, 255, 200, 0.95)`;
+                else if (brightness > 100)
+                  this.ctx.fillStyle = `rgba(40, 200, 60, 0.85)`;
                 else this.ctx.fillStyle = `rgba(10, 110, 20, 0.7)`;
-                this.ctx.fillText(this.cellCharacter[y * this.cols + x], drawX, drawY);
+                this.ctx.fillText(
+                  this.cellCharacter[y * this.cols + x],
+                  drawX,
+                  drawY,
+                );
               } else {
                 const dropY = this.drops[x];
                 const distance = dropY - y;
                 if (distance >= 0 && distance < 25) {
-                  if (distance < 1) this.ctx.fillStyle = `rgba(100, 200, 100, 0.6)`;
+                  if (distance < 1)
+                    this.ctx.fillStyle = `rgba(100, 200, 100, 0.6)`;
                   else {
-                    const alpha = 0.4 * (1.0 - (distance / 25));
+                    const alpha = 0.4 * (1.0 - distance / 25);
                     this.ctx.fillStyle = `rgba(0, 120, 20, ${alpha})`;
                   }
                   let char = this.cellCharacter[y * this.cols + x];
-                  if (Math.random() > 0.95) char = this.chars[Math.floor(Math.random() * this.chars.length)];
+                  if (Math.random() > 0.95)
+                    char =
+                      this.chars[Math.floor(Math.random() * this.chars.length)];
                   this.ctx.fillText(char, drawX, drawY);
                 }
               }
@@ -760,7 +795,7 @@
           o = vec4(color, 1.0);
         }
       `;
-      
+
       function makeEffect(name, shader, uniforms = {}) {
         const map = new Map();
         for (const k in uniforms) map.set(k, new THREE.Uniform(uniforms[k]));
@@ -834,7 +869,7 @@
         pixelSize: 10.0,
         resolution: new THREE.Vector2(innerWidth, innerHeight),
       });
-      
+
       const woven = makeEffect("Woven", wovenShader, {
         pixelSize: 10.0,
         resolution: new THREE.Vector2(innerWidth, innerHeight),
@@ -992,9 +1027,11 @@
 
         if (val === "ascii") {
           renderer.domElement.style.display = "none";
-          if (ascii.domElement.parentNode) ascii.domElement.style.display = "block";
+          if (ascii.domElement.parentNode)
+            ascii.domElement.style.display = "block";
           else document.body.appendChild(ascii.domElement);
-          if (matrix.domElement.parentNode) matrix.domElement.style.display = "none";
+          if (matrix.domElement.parentNode)
+            matrix.domElement.style.display = "none";
 
           ascii.setSize(currentLayoutWidth, window.innerHeight);
           resetControls(ascii.domElement);
@@ -1004,9 +1041,11 @@
 
         if (val === "matrix") {
           renderer.domElement.style.display = "none";
-          if (ascii.domElement.parentNode) ascii.domElement.style.display = "none";
+          if (ascii.domElement.parentNode)
+            ascii.domElement.style.display = "none";
 
-          if (matrix.domElement.parentNode) matrix.domElement.style.display = "block";
+          if (matrix.domElement.parentNode)
+            matrix.domElement.style.display = "block";
           else document.body.appendChild(matrix.domElement);
 
           matrix.setSize(currentLayoutWidth, window.innerHeight);
@@ -1015,8 +1054,10 @@
           return;
         }
 
-        if (ascii.domElement.parentNode) ascii.domElement.style.display = "none";
-        if (matrix.domElement.parentNode) matrix.domElement.style.display = "none";
+        if (ascii.domElement.parentNode)
+          ascii.domElement.style.display = "none";
+        if (matrix.domElement.parentNode)
+          matrix.domElement.style.display = "none";
         renderer.domElement.style.display = "block";
 
         resetControls(renderer.domElement);
@@ -1024,10 +1065,15 @@
         pass = new EffectPass(camera, map[val]);
         composer.addPass(pass);
 
-        pixelUI.style.display =
-          ["dots", "blockify", "halftone", "complex", "woven"].includes(val)
-            ? "block"
-            : "none";
+        pixelUI.style.display = [
+          "dots",
+          "blockify",
+          "halftone",
+          "complex",
+          "woven",
+        ].includes(val)
+          ? "block"
+          : "none";
       }
 
       listItems.forEach((item) => {
@@ -1042,12 +1088,13 @@
       pixelInput.oninput = (e) => {
         const value = +e.target.value;
         // Update all effects that use pixelSize
-        ["dots", "halftone", "blockify", "complex", "woven"].forEach(key => {
-            if(map[key].uniforms) {
-                map[key].uniforms.get("pixelSize").value = value;
-            } else if (map[key].v) { // Special case for the original DotsEffect
-                map[key].v = value;
-            }
+        ["dots", "halftone", "blockify", "complex", "woven"].forEach((key) => {
+          if (map[key].uniforms) {
+            map[key].uniforms.get("pixelSize").value = value;
+          } else if (map[key].v) {
+            // Special case for the original DotsEffect
+            map[key].v = value;
+          }
         });
       };
 
@@ -1061,13 +1108,18 @@
 
         const c = renderer.domElement;
         Object.values(map).forEach((e) => {
-          if (e && e.uniforms && e.uniforms.get && e.uniforms.get("resolution")) {
+          if (
+            e &&
+            e.uniforms &&
+            e.uniforms.get &&
+            e.uniforms.get("resolution")
+          ) {
             e.uniforms.get("resolution").value.set(c.width, c.height);
           }
         });
 
-        if(ascii.domElement.parentNode) ascii.setSize(width, height);
-        if(matrix.domElement.parentNode) matrix.setSize(width, height);
+        if (ascii.domElement.parentNode) ascii.setSize(width, height);
+        if (matrix.domElement.parentNode) matrix.setSize(width, height);
       }
 
       addEventListener("resize", () => {
@@ -1081,7 +1133,9 @@
       pixelUI.style.display = "block";
 
       const activeEffectName = () =>
-        document.querySelector("#effectList li.active")?.getAttribute("data-value");
+        document
+          .querySelector("#effectList li.active")
+          ?.getAttribute("data-value");
 
       function animate() {
         requestAnimationFrame(animate);

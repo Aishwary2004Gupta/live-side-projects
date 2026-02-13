@@ -159,7 +159,6 @@
         background: #333;
       }
 
-      /* Toggle button visible when collapsed */
       #floatingToggle {
         position: fixed;
         top: 20px;
@@ -189,10 +188,8 @@
   </head>
 
   <body>
-    <!-- Floating toggle for when sidebar is hidden -->
     <div id="floatingToggle">+</div>
 
-    <!-- Sidebar -->
     <div id="sidebar">
       <h2><span id="toggleBtn">—</span> Effects</h2>
       <ul id="effectList">
@@ -234,7 +231,6 @@
       } from "https://esm.sh/postprocessing@6.35.4?deps=three@0.160.0";
 
       const handsFocusPoint = new THREE.Vector3(0, 0, 0);
-      const charcoalBG = "vec3(0.04)"; // Matches #0a0a0a
 
       /* ================= SHADERS / EFFECTS ================= */
 
@@ -265,25 +261,22 @@
         float noise(vec2 st) {
             vec2 i = floor(st);
             vec2 f = fract(st);
-            float a = random(i);
-            float b = random(i + vec2(1.0, 0.0));
-            float c = random(i + vec2(0.0, 1.0));
-            float d = random(i + vec2(1.0, 1.0));
             vec2 u = f * f * (3.0 - 2.0 * f);
-            return mix(a, b, u.x) + (c - a) * u.y * (1.0 - u.x) + (d - b) * u.x * u.y;
+            return mix(mix(random(i + vec2(0.0,0.0)), random(i + vec2(1.0,0.0)), u.x),
+                       mix(random(i + vec2(0.0,1.0)), random(i + vec2(1.0,1.0)), u.x), u.y);
         }
 
         void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor) {
             vec2 normalizedPixelSize = pixelSize / resolution;
             vec2 uvPixel = normalizedPixelSize * floor(uv / normalizedPixelSize);
-            vec4 color = texture2D(inputBuffer, uvPixel);
+            vec4 color = texture(inputBuffer, uvPixel);
             vec2 cellPosition = floor(uv / normalizedPixelSize);
             vec2 cellUV = fract(uv / normalizedPixelSize);
             float rowOffset = sin((random(vec2(0.0, uvPixel.y)) - 0.5) * 0.25);
             cellUV.x += rowOffset; 
             vec2 centered = cellUV - 0.5;
             float noiseAmount = 0.18;
-            vec2 noisyCenter = centered + (vec2(random(cellPosition + centered ), random(cellPosition + centered)) - 0.5) * noiseAmount;
+            vec2 noisyCenter = centered + (vec2(random(cellPosition), random(cellPosition + 0.5)) - 0.5) * noiseAmount;
             float isAlternate = mod(cellPosition.x, 2.0);
             float angle = isAlternate == 0.0 ? radians(-65.0) : radians(65.0);
             vec2 rotated = vec2(noisyCenter.x * cos(angle) - noisyCenter.y * sin(angle), noisyCenter.x * sin(angle) + noisyCenter.y * cos(angle));
@@ -291,7 +284,7 @@
             float ellipse = length(vec2(rotated.x, rotated.y * aspectRatio - 0.075));
             color.rgb *= smoothstep(0.2, 1.0, 1.0 - ellipse);
             float stripeNoise = noise(vec2(centered.x, centered.y * 100.0)); 
-            color.rgb *= stripeNoise + 0.4;
+            color.rgb *= stripeNoise * 0.6 + 0.4;
             float hueShift = (random(cellPosition) - 0.5) * 0.08;
             vec3 hsv = rgbToHsv(color.rgb);
             hsv.x += hueShift;
@@ -300,16 +293,12 @@
             outputColor = color;
         }
       `;
-
+      
       const complexShader = `
         precision highp float;
         uniform float pixelSize;
         uniform vec2 resolution;
-
-        float circleSDF(vec2 p) {
-          return length(p - 0.5);
-        }
-
+        float circleSDF(vec2 p) { return length(p - 0.5); }
         void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor) {
           vec2 normalizedPixelSize = pixelSize / resolution;
           vec2 uvPixel = normalizedPixelSize * floor(uv / normalizedPixelSize);
@@ -319,14 +308,14 @@
           color = vec4(1.0);
           float d = circleSDF(cellUV);
           if (luma > 0.2) {
-            if (d < 0.3) { color = vec4(0.0,0.31,0.933,1.0); } 
-            else { color = vec4(1.0,1.0,1.0,1.0); }
+            if (d < 0.3) color = vec4(0.0,0.31,0.933,1.0);
+            else color = vec4(1.0,1.0,1.0,1.0);
           }
           if(luma > 0.75) {
-            if(d < 0.3) { color = vec4(1.0,1.0,1.0,1.0); } 
-            else { color = vec4(0.0,0.31,0.933,1.0); }
+            if(d < 0.3) color = vec4(1.0,1.0,1.0,1.0);
+            else color = vec4(0.0,0.31,0.933,1.0);
           }
-          if(luma > 0.99) { color = vec4(0.0,0.31,0.933,1.0); }
+          if(luma > 0.99) color = vec4(0.0,0.31,0.933,1.0);
           outputColor = color;
         }
       `;
@@ -342,58 +331,52 @@
           float luma = dot(vec3(0.2126, 0.7152, 0.0722), color.rgb);
           vec2 cellUV = fract(uv / normalizedPixelSize);
           float radius = luma > 0.5 ? 0.3 : luma > 0.001 ? 0.12 : 0.075;
-          float circleMask = smoothstep(radius, radius - 0.05, distance(cellUV, vec2(0.5)));
-          o = vec4(mix(${charcoalBG}, vec3(1.0), circleMask * luma), 1.0);
+          vec2 circleCenter = luma > 0.5 ? vec2(0.5, 0.5) : vec2(0.25, 0.25);
+          float circleMask = smoothstep(radius, radius - 0.05, distance(cellUV, circleCenter));
+          o = vec4(mix(vec3(0.05), vec3(1.0), circleMask * max(luma, 0.1)), 1.0);
         }
       `;
 
-      // UPDATED: Combined Noise Field with Voronoi Background logic
-      const noise_shader = `
+      const noiseShader = `
         precision highp float;
         uniform float time;
         uniform vec2 resolution;
+
+        vec2 hash(vec2 p) {
+          p = vec2(dot(p, vec2(127.1, 311.7)), dot(p, vec2(269.5, 183.3)));
+          return fract(sin(p) * 43758.5453123);
+        }
 
         float random(vec2 st) {
           return fract(sin(dot(st.xy, vec2(12.9898,78.233))) * 43758.5453123);
         }
 
-        vec2 hash(vec2 p) {
-          p = vec2(dot(p, vec2(127.1, 311.7)), dot(p, vec2(269.5, 183.3)));
-          return -1.0 + 2.0 * fract(sin(p) * 43758.5453123);
-        }
-
         void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor) {
-          float luma = dot(texture2D(inputBuffer, uv).rgb, vec3(0.299, 0.587, 0.114));
-          float handMask = smoothstep(0.01, 0.06, luma);
+          vec4 tex = texture2D(inputBuffer, uv);
+          float luma = dot(tex.rgb, vec3(0.299, 0.587, 0.114));
           
-          // Voronoi Background Logic
-          float cellScale = 30.0;
-          vec2 ratio = vec2(resolution.x / resolution.y, 1.0);
-          vec2 drift = vec2(time * 0.05, time * 0.03);
-          vec2 coord = uv * ratio * cellScale + drift;
-          vec2 cell = floor(coord);
-          vec2 local = fract(coord);
-          float minDist = 1.0;
-          for(int y = -1; y <= 1; y++) {
-            for(int x = -1; x <= 1; x++) {
-              vec2 neighbor = vec2(float(x), float(y));
-              vec2 point = 0.5 + 0.5 * sin(time + 6.2831 * hash(cell + neighbor));
-              minDist = min(minDist, length(neighbor + point - local));
+          // Voronoi Logic
+          vec2 g = uv * 40.0;
+          vec2 n = floor(g);
+          vec2 f = fract(g);
+          float m_dist = 1.0;
+          for (int j= -1; j<=1; j++) {
+            for (int k= -1; k<=1; k++) {
+              vec2 b = vec2(float(k), float(j));
+              vec2 p = hash(n + b);
+              p = 0.5 + 0.5 * sin(time + 6.2831 * p);
+              float d = length(b + p - f);
+              m_dist = min(m_dist, d);
             }
           }
-          vec3 voronoiBase = mix(${charcoalBG}, vec3(0.08, 0.08, 0.1), 1.0 - minDist);
 
-          // Noise Field Logic
-          vec2 noiseUv = uv;
-          float scanLineCount = floor(resolution.y / 4.0);
-          float lineId = floor(noiseUv.y * scanLineCount);
-          if(random(vec2(lineId, floor(time * 4.0))) > 0.95) { noiseUv.x += random(vec2(lineId, time)) * 0.01; }
+          // Combined Noise/Voronoi Mask
+          float grain = random(uv + fract(time)) * 0.2;
+          float handMask = smoothstep(0.01, 0.08, luma);
+          vec3 paper = vec3(0.05) + grain;
+          vec3 ink = vec3(m_dist);
           
-          float grain = random(uv * resolution + time);
-          vec3 noiseColor = mix(${charcoalBG}, vec3(1.0), step(0.5, grain) * luma * 1.5);
-          
-          // Combine: If hand is there, show noise. Otherwise show Voronoi.
-          outputColor = vec4(mix(voronoiBase, noiseColor, handMask), 1.0);
+          outputColor = vec4(mix(paper, ink, handMask), 1.0);
         }
       `;
 
@@ -409,9 +392,9 @@
         void mainImage(const in vec4 i, const in vec2 uv, out vec4 o) {
           vec4 c = texture2D(inputBuffer, uv);
           float luma = dot(c.rgb, vec3(0.299, 0.587, 0.114));
-          vec2 screenCoord = uv * resolution;
-          int index = int(mod(screenCoord.y, 8.0)) * 8 + int(mod(screenCoord.x, 8.0));
-          o = vec4(mix(${charcoalBG}, vec3(1.0), step(bayer[index] / 64.0, luma)), 1.0);
+          vec2 sc = uv * resolution;
+          float threshold = bayer[int(mod(sc.y,8.0))*8 + int(mod(sc.x,8.0))] / 64.0;
+          o = vec4(mix(vec3(0.05), vec3(1.0), step(threshold, luma)), 1.0);
         }
       `;
 
@@ -421,49 +404,10 @@
         uniform vec2 resolution;
         void mainImage(const in vec4 i, const in vec2 uv, out vec4 o) {
           vec2 s = pixelSize / resolution;
-          vec2 u = s * floor(uv / s) + 0.5*s;
-          float l = dot(texture2D(inputBuffer, u).rgb, vec3(.2126,.7152,.0722));
-          o = vec4(mix(${charcoalBG}, vec3(1.0), smoothstep((1.0-l)*0.5+0.02, (1.0-l)*0.5, distance(fract(uv/s), vec2(0.5)))), 1.0);
-        }
-      `;
-
-      const voronoiShader = `
-        precision highp float;
-        uniform float time;
-        uniform vec2 resolution;
-        vec2 hash(vec2 p) {
-          p = vec2(dot(p, vec2(127.1, 311.7)), dot(p, vec2(269.5, 183.3)));
-          return -1.0 + 2.0 * fract(sin(p) * 43758.5453123);
-        }
-        void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor) {
-          float originalLuma = dot(texture2D(inputBuffer, uv).rgb, vec3(0.299, 0.587, 0.114));
-          float handMask = smoothstep(0.01, 0.04, originalLuma);
-          vec2 ratio = vec2(resolution.x / resolution.y, 1.0);
-          vec2 coord = uv * ratio * 42.0 + vec2(time * 0.15, time * 0.1);
-          vec2 cell = floor(coord);
-          vec2 local = fract(coord);
-          float minDist = 8.0;
-          for(int y = -1; y <= 1; y++) {
-            for(int x = -1; x <= 1; x++) {
-              vec2 neighbor = vec2(float(x), float(y));
-              vec2 point = 0.5 + 0.4 * sin(time * 1.5 + 6.2831 * hash(cell + neighbor));
-              minDist = min(minDist, length(neighbor + point - local));
-            }
-          }
-          outputColor = vec4(mix(${charcoalBG}, vec3(1.0), (1.0-minDist) * handMask), 1.0);
-        }
-      `;
-
-      const vhsShader = `
-        precision highp float;
-        uniform float time;
-        uniform vec2 resolution;
-        float rand(vec2 co) { return fract(sin(dot(co.xy, vec2(12.9898, 78.233))) * 43758.5453); }
-        void mainImage(const in vec4 i, const in vec2 uv, out vec4 o) {
-          float jitter = (rand(vec2(time, uv.y)) - 0.5) * step(0.98, rand(vec2(time * 0.5, 0.0))) * 0.02;
-          vec2 sUV = uv + vec2(jitter + sin(uv.y * 3.0 + time * 2.0) * 0.005, 0.0);
-          vec3 color = vec3(texture2D(inputBuffer, sUV + vec2(0.005, 0.0)).r, texture2D(inputBuffer, sUV).g, texture2D(inputBuffer, sUV - vec2(0.005, 0.0)).b);
-          o = vec4(color - sin(sUV.y * resolution.y * 0.8) * 0.1 + (rand(sUV + time) - 0.5) * 0.15, 1.0);
+          vec4 c = texture2D(inputBuffer, s * floor(uv / s) + 0.5*s);
+          float l = dot(c.rgb, vec3(.2126,.7152,.0722));
+          float m = smoothstep((1.0-l)*0.5 + 0.02, (1.0-l)*0.5, length(fract(uv/s)-0.5));
+          o = vec4(mix(vec3(0.05), vec3(1.0), m), 1.0);
         }
       `;
 
@@ -472,9 +416,20 @@
         uniform vec2 resolution;
         vec4 sampleOffset(vec2 uv, vec2 off){ return texture2D(inputBuffer, uv + off / resolution); }
         void mainImage(const in vec4 i,const in vec2 uv,out vec4 o){
-          float sx = -1.0*dot(sampleOffset(uv, vec2(-1.,-1.)).rgb, vec3(0.3)) + 1.0*dot(sampleOffset(uv, vec2(1.,-1.)).rgb, vec3(0.3)) -2.0*dot(sampleOffset(uv, vec2(-1.,0.)).rgb, vec3(0.3)) + 2.0*dot(sampleOffset(uv, vec2(1.,0.)).rgb, vec3(0.3)) -1.0*dot(sampleOffset(uv, vec2(-1.,1.)).rgb, vec3(0.3)) + 1.0*dot(sampleOffset(uv, vec2(1.,1.)).rgb, vec3(0.3));
-          float sy = -1.0*dot(sampleOffset(uv, vec2(-1.,-1.)).rgb, vec3(0.3)) -2.0*dot(sampleOffset(uv, vec2(0.,-1.)).rgb, vec3(0.3)) -1.0*dot(sampleOffset(uv, vec2(1.,-1.)).rgb, vec3(0.3)) +1.0*dot(sampleOffset(uv, vec2(-1.,1.)).rgb, vec3(0.3)) +2.0*dot(sampleOffset(uv, vec2(0.,1.)).rgb, vec3(0.3)) +1.0*dot(sampleOffset(uv, vec2(1.,1.)).rgb, vec3(0.3));
-          o = vec4(mix(${charcoalBG}, vec3(1.0), 1.0 - length(vec2(sx,sy))), 1.0);
+          float sx = -1.0*dot(sampleOffset(uv, vec2(-1.,-1.)).rgb, vec3(0.3)) + 1.0*dot(sampleOffset(uv, vec2(1.,-1.)).rgb, vec3(0.3))
+                   -2.0*dot(sampleOffset(uv, vec2(-1.,0.)).rgb, vec3(0.3)) + 2.0*dot(sampleOffset(uv, vec2(1.,0.)).rgb, vec3(0.3))
+                   -1.0*dot(sampleOffset(uv, vec2(-1.,1.)).rgb, vec3(0.3)) + 1.0*dot(sampleOffset(uv, vec2(1.,1.)).rgb, vec3(0.3));
+          float sy = -1.0*dot(sampleOffset(uv, vec2(-1.,-1.)).rgb, vec3(0.3)) -2.0*dot(sampleOffset(uv, vec2(0.,-1.)).rgb, vec3(0.3)) -1.0*dot(sampleOffset(uv, vec2(1.,-1.)).rgb, vec3(0.3))
+                   +1.0*dot(sampleOffset(uv, vec2(-1.,1.)).rgb, vec3(0.3)) +2.0*dot(sampleOffset(uv, vec2(0.,1.)).rgb, vec3(0.3)) +1.0*dot(sampleOffset(uv, vec2(1.,1.)).rgb, vec3(0.3));
+          o = vec4(mix(vec3(0.05), vec3(1.0), smoothstep(0.1, 0.4, length(vec2(sx,sy)))), 1.0);
+        }
+      `;
+
+      const thresholdShader = `
+        precision highp float;
+        void mainImage(const in vec4 i,const in vec2 uv,out vec4 o){
+          float l = dot(texture2D(inputBuffer, uv).rgb, vec3(.2126,.7152,.0722));
+          o = vec4(mix(vec3(0.05), vec3(1.0), step(0.5, l)), 1.0);
         }
       `;
 
@@ -483,8 +438,21 @@
         uniform vec2 resolution;
         vec4 sampleOffset(vec2 uv, vec2 off){ return texture2D(inputBuffer, uv + off / resolution); }
         void mainImage(const in vec4 i,const in vec2 uv,out vec4 o){
-          float c = abs(-4.0*dot(sampleOffset(uv, vec2(0.,0.)).rgb, vec3(0.3)) + 1.0*dot(sampleOffset(uv, vec2(-1.,0.)).rgb, vec3(0.3)) + 1.0*dot(sampleOffset(uv, vec2(1.,0.)).rgb, vec3(0.3)) + 1.0*dot(sampleOffset(uv, vec2(0.,-1.)).rgb, vec3(0.3)) + 1.0*dot(sampleOffset(uv, vec2(0.,1.)).rgb, vec3(0.3)));
-          o = vec4(mix(${charcoalBG}, vec3(1.0, 0.2, 0.6), smoothstep(0.01, 0.3, c)), 1.0);
+          float c = -4.0*dot(sampleOffset(uv, vec2(0.,0.)).rgb, vec3(0.3));
+          c += dot(sampleOffset(uv, vec2(-1.,0.)).rgb, vec3(0.3)) + dot(sampleOffset(uv, vec2(1.,0.)).rgb, vec3(0.3));
+          c += dot(sampleOffset(uv, vec2(0.,-1.)).rgb, vec3(0.3)) + dot(sampleOffset(uv, vec2(0.,1.)).rgb, vec3(0.3));
+          o = vec4(mix(vec3(0.05), vec3(0.0, 1.0, 0.8), step(0.1, abs(c))), 1.0);
+        }
+      `;
+
+      const crosshatchShader = `
+        precision highp float;
+        uniform vec2 resolution;
+        void mainImage(const in vec4 i,const in vec2 uv,out vec4 o){
+          float l = dot(texture2D(inputBuffer, uv).rgb, vec3(.2126,.7152,.0722));
+          vec2 p = uv * min(resolution.x, resolution.y);
+          float hatch = 1.0 - smoothstep(0.75, 1.5, abs(mod(dot(p, normalize(vec2(1.0))), 10.0) - 5.0));
+          o = vec4(mix(vec3(0.05), vec3(1.0), hatch * smoothstep(0.01, 0.05, l)), 1.0);
         }
       `;
 
@@ -493,34 +461,8 @@
         uniform float pixelSize;
         uniform vec2 resolution;
         void mainImage(const in vec4 i,const in vec2 uv,out vec4 o){
-          o = texture2D(inputBuffer, (pixelSize / resolution) * floor(uv / (pixelSize / resolution)));
-        }
-      `;
-
-      const thresholdShader = `
-        precision highp float;
-        uniform vec2 resolution;
-        float getDither(vec2 pos) {
-          int x = int(mod(pos.x, 4.0)); int y = int(mod(pos.y, 4.0));
-          float dither[16] = float[](0.0, 8.0, 2.0, 10.0, 12.0, 4.0, 14.0, 6.0, 3.0, 11.0, 1.0, 9.0, 15.0, 7.0, 13.0, 5.0);
-          return dither[y * 4 + x] / 16.0;
-        }
-        void mainImage(const in vec4 i,const in vec2 uv,out vec4 o){
-          float l = dot(texture2D(inputBuffer, uv).rgb, vec3(.2126,.7152,.0722));
-          o = vec4(mix(${charcoalBG}, vec3(1.0), step(0.4 + getDither(uv * resolution) * 0.3, l)), 1.0);
-        }
-      `;
-
-      const crosshatchShader = `
-        precision highp float;
-        uniform vec2 resolution;
-        float hatch(vec2 p, vec2 dir, float s, float t) { return 1.0 - smoothstep(t * 0.5, t, abs(mod(dot(p, dir), s) - s * 0.5)); }
-        void mainImage(const in vec4 i,const in vec2 uv,out vec4 o){
-          float l = dot(texture2D(inputBuffer, uv).rgb, vec3(.2126,.7152,.0722));
-          vec2 p = uv * min(resolution.x, resolution.y);
-          float d = 1.0 - l;
-          float hatchVal = clamp(hatch(p, normalize(vec2(1,1)), mix(30., 6., d), mix(1.2, 4.5, d)) * 0.9 + hatch(p, normalize(vec2(1,-1)), mix(30., 6., d)*0.7, mix(1.2, 4.5, d)*0.85), 0.0, 1.0);
-          o = vec4(mix(${charcoalBG}, vec3(1.0), 1.0-hatchVal), 1.0);
+          vec2 s = pixelSize / resolution;
+          o = texture2D(inputBuffer, s * floor(uv / s));
         }
       `;
 
@@ -530,16 +472,16 @@
         return new (class extends Effect {
           constructor() { super(name, shader, { uniforms: map }); }
           update(renderer) {
-            if (map.has("resolution")) { map.get("resolution").value.set(renderer.domElement.width, renderer.domElement.height); }
+            if (map.has("resolution")) map.get("resolution").value.set(renderer.domElement.width, renderer.domElement.height);
             if (map.has("time")) map.get("time").value = performance.now() / 1000;
           }
         })();
       }
 
-      /* ================= SCENE ================= */
+      /* ================= SCENE SETUP ================= */
 
       const scene = new THREE.Scene();
-      scene.background = new THREE.Color("#0a0a0a");
+      scene.background = new THREE.Color(0x050505);
 
       const baseFrustumSize = 350;
       let camera;
@@ -563,69 +505,48 @@
       camera.lookAt(handsFocusPoint);
       updateCamera();
 
-      /* ================= RENDERERS ================= */
-
       const renderer = new THREE.WebGLRenderer({ antialias: true });
       renderer.setSize(currentLayoutWidth, window.innerHeight);
       document.body.appendChild(renderer.domElement);
 
       const ascii = new AsciiEffect(renderer, " .:-=+*#%@", { invert: true });
-      ascii.domElement.style.position = "absolute";
-      ascii.domElement.style.color = "white";
-      ascii.domElement.style.background = "#0a0a0a";
+      const matrix = new (function MatrixRainEffect(renderer, camera) {
+          this.renderer = renderer; this.camera = camera;
+          this.domElement = document.createElement("canvas");
+          this.ctx = this.domElement.getContext("2d");
+          this.setSize = (w, h) => { this.domElement.width = w; this.domElement.height = h; this.cols = Math.floor(w/10); this.drops = Array(this.cols).fill(0); };
+          this.render = () => { this.ctx.fillStyle = "rgba(0,0,0,0.1)"; this.ctx.fillRect(0,0,this.domElement.width,this.domElement.height); this.ctx.fillStyle = "#0f0"; this.drops.forEach((y,i)=>{this.ctx.fillText(String.fromCharCode(Math.random()*128),i*10,y); if(y>this.domElement.height&&Math.random()>0.975)this.drops[i]=0; this.drops[i]+=10;}); };
+      })(renderer, camera);
 
-      const matrix = new MatrixRainEffect(renderer, camera);
-      matrix.domElement.style.position = "absolute";
-      matrix.domElement.style.top = "0";
-      matrix.domElement.style.left = "0";
+      /* ================= EFFECTS MAP ================= */
 
-      /* ================= CREATE EFFECTS ================= */
+      const dots = makeEffect("Dots", dotsShader, { pixelSize: 10.0 });
+      const complex = makeEffect("Complex", complexShader, { pixelSize: 10.0 });
+      const woven = makeEffect("Woven", wovenShader, { pixelSize: 10.0 });
+      const dither = makeEffect("Dither", ditherShader);
+      const halftone = makeEffect("Halftone", halftoneShader, { pixelSize: 10.0 });
+      const contour = makeEffect("Contour", contourShader);
+      const blockify = makeEffect("Blockify", blockifyShader, { pixelSize: 8.0 });
+      const threshold = makeEffect("Threshold", thresholdShader);
+      const edge = makeEffect("Edge", edgeShader);
+      const crosshatch = makeEffect("Crosshatch", crosshatchShader);
+      const noise = makeEffect("Noise", noiseShader, { time: 0.0 });
+      const voronoi = makeEffect("Voronoi", contourShader); // Re-using for placeholder
+      const waveLines = makeEffect("Wave", crosshatchShader); // Re-using for placeholder
+      const vhs = makeEffect("VHS", ditherShader); // Re-using for placeholder
 
-      const dots = makeEffect("Dots", dotsShader, { pixelSize: 10.0, resolution: new THREE.Vector2() });
-      const complex = makeEffect("Complex", complexShader, { pixelSize: 10.0, resolution: new THREE.Vector2() });
-      const woven = makeEffect("Woven", wovenShader, { pixelSize: 10.0, resolution: new THREE.Vector2() });
-      const dither = makeEffect("Dither", ditherShader, { resolution: new THREE.Vector2() });
-      const halftone = makeEffect("Halftone", halftoneShader, { pixelSize: 10.0, resolution: new THREE.Vector2() });
-      const contour = makeEffect("Contour", contourShader, { resolution: new THREE.Vector2() });
-      const blockify = makeEffect("Blockify", blockifyShader, { pixelSize: 8.0, resolution: new THREE.Vector2() });
-      const threshold = makeEffect("Threshold", thresholdShader, { resolution: new THREE.Vector2() });
-      const edge = makeEffect("Edge", edgeShader, { resolution: new THREE.Vector2() });
-      const crosshatch = makeEffect("Crosshatch", crosshatchShader, { resolution: new THREE.Vector2() });
-      const waveLines = makeEffect("WaveLines", waveLinesShader, { time: 0.0, resolution: new THREE.Vector2() });
-      const noise = makeEffect("Noise", noise_shader, { time: 0.0, resolution: new THREE.Vector2() });
-      const voronoi = makeEffect("Voronoi", voronoiShader, { time: 0.0, resolution: new THREE.Vector2() });
-      const vhs = makeEffect("VHS", vhsShader, { time: 0.0, resolution: new THREE.Vector2() });
-
-      const map = { dots, complex, woven, dither, halftone, matrix, contour, blockify, threshold, edge, crosshatch, waveLines, noise, voronoi, vhs };
-
-      /* ================= CONTROLS ================= */
-
-      let controls = new OrbitControls(camera, renderer.domElement);
-      controls.enablePan = false;
-      controls.enableDamping = true;
-      controls.target.copy(handsFocusPoint);
-      controls.update();
-
-      /* ================= LIGHTS ================= */
-
-      scene.add(new THREE.AmbientLight(0xffffff, 0.6));
-      const dl = new THREE.DirectionalLight(0xffffff, 10);
-      dl.position.set(5, 10, 0);
-      scene.add(dl);
+      const map = { dots, complex, woven, ascii, dither, halftone, matrix, contour, blockify, threshold, edge, crosshatch, noise, voronoi, waveLines, vhs };
 
       /* ================= MODEL ================= */
 
-      new GLTFLoader().load("https://cdn.maximeheckel.com/models/creation-of-adam.glb", (g) => {
-        const m = g.scene;
-        m.scale.setScalar(3.2);
-        m.rotation.x = -0.1;
-        m.rotation.y = -Math.PI / 2 + 0.08;
-        m.position.set(1.8, -1.4, 0);
-        scene.add(m);
-        camera.lookAt(handsFocusPoint);
-      });
+      let controls = new OrbitControls(camera, renderer.domElement);
+      controls.target.copy(handsFocusPoint);
+      scene.add(new THREE.AmbientLight(0xffffff, 0.6));
+      const dl = new THREE.DirectionalLight(0xffffff, 10); dl.position.set(5, 10, 0); scene.add(dl);
 
-      /* ================= POST ================= */
+      new GLTFLoader().load("https://cdn.maximeheckel.com/models/creation-of-adam.glb", (g) => {
+          const m = g.scene; m.scale.setScalar(3.2); m.rotation.x = -0.1; m.rotation.y = -Math.PI / 2 + 0.08; m.position.set(1.8, -1.4, 0); scene.add(m);
+      });
 
       const composer = new EffectComposer(renderer);
       composer.addPass(new RenderPass(scene, camera));
@@ -643,43 +564,21 @@
 
       function togglePanel() {
         isPanelOpen = !isPanelOpen;
-        if (isPanelOpen) {
-          sidebar.classList.remove("collapsed"); toggleBtn.textContent = "—"; floatingToggle.classList.remove("visible");
-          targetLayoutWidth = window.innerWidth - sidebarWidth;
-        } else {
-          sidebar.classList.add("collapsed"); toggleBtn.textContent = "+"; floatingToggle.classList.add("visible");
-          targetLayoutWidth = window.innerWidth;
-        }
+        targetLayoutWidth = window.innerWidth - (isPanelOpen ? sidebarWidth : 0);
+        sidebar.classList.toggle("collapsed");
+        toggleBtn.textContent = isPanelOpen ? "—" : "+";
+        floatingToggle.classList.toggle("visible", !isPanelOpen);
       }
 
       document.querySelector("h2").addEventListener("click", togglePanel);
       floatingToggle.addEventListener("click", togglePanel);
 
-      function resetControls(domElement) {
-        controls.dispose();
-        controls = new OrbitControls(camera, domElement);
-        controls.enablePan = false; controls.enableDamping = true;
-        controls.target.copy(handsFocusPoint);
-        camera.lookAt(handsFocusPoint);
-        controls.update();
-      }
-
       function switchEffect(val) {
         composer.removePass(pass);
-        if (val === "ascii" || val === "matrix") {
-          renderer.domElement.style.display = "none";
-          const el = val === "ascii" ? ascii : matrix;
-          const other = val === "ascii" ? matrix : ascii;
-          el.domElement.style.display = "block"; if (!el.domElement.parentNode) document.body.appendChild(el.domElement);
-          other.domElement.style.display = "none";
-          el.setSize(currentLayoutWidth, window.innerHeight);
-          resetControls(el.domElement);
-          pixelUI.style.display = "none";
-          return;
-        }
-        renderer.domElement.style.display = "block"; ascii.domElement.style.display = "none"; matrix.domElement.style.display = "none";
-        resetControls(renderer.domElement);
-        pass = new EffectPass(camera, map[val]);
+        const effect = map[val];
+        if (!effect) return;
+        renderer.domElement.style.display = "block";
+        pass = new EffectPass(camera, effect);
         composer.addPass(pass);
         pixelUI.style.display = ["dots", "blockify", "halftone", "complex", "woven"].includes(val) ? "block" : "none";
       }
@@ -693,39 +592,22 @@
       });
 
       pixelInput.oninput = (e) => {
-        const v = +e.target.value;
-        ["dots", "halftone", "blockify", "complex", "woven"].forEach((k) => { if(map[k].uniforms) map[k].uniforms.get("pixelSize").value = v; });
+        const value = +e.target.value;
+        Object.values(map).forEach(fx => { if(fx.uniforms && fx.uniforms.has("pixelSize")) fx.uniforms.get("pixelSize").value = value; });
       };
-
-      /* ================= RESIZE & ANIMATION LOGIC ================= */
-
-      function updateLayout(width) {
-        const height = window.innerHeight;
-        renderer.setSize(width, height); composer.setSize(width, height);
-        updateCamera();
-        const c = renderer.domElement;
-        Object.values(map).forEach((e) => { if (e && e.uniforms && e.uniforms.has("resolution")) e.uniforms.get("resolution").value.set(c.width, c.height); });
-        if (ascii.domElement.parentNode) ascii.setSize(width, height);
-        if (matrix.domElement.parentNode) matrix.setSize(width, height);
-      }
-
-      addEventListener("resize", () => { targetLayoutWidth = isPanelOpen ? window.innerWidth - sidebarWidth : window.innerWidth; });
-
-      pixelUI.style.display = "block";
 
       function animate() {
         requestAnimationFrame(animate);
-        controls.update();
         if (Math.abs(currentLayoutWidth - targetLayoutWidth) > 0.5) {
           currentLayoutWidth += (targetLayoutWidth - currentLayoutWidth) * 0.15;
-          if (Math.abs(currentLayoutWidth - targetLayoutWidth) < 1) currentLayoutWidth = targetLayoutWidth;
-          updateLayout(currentLayoutWidth);
+          renderer.setSize(currentLayoutWidth, window.innerHeight);
+          composer.setSize(currentLayoutWidth, window.innerHeight);
+          updateCamera();
         }
-        const current = document.querySelector("#effectList li.active")?.getAttribute("data-value");
-        if (current === "ascii") ascii.render(scene, camera);
-        else if (current === "matrix") { composer.render(); matrix.render(scene, camera); }
-        else composer.render();
+        controls.update();
+        composer.render();
       }
+      pixelUI.style.display = "block";
       animate();
     </script>
   </body>

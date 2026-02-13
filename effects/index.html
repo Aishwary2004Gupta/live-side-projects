@@ -472,11 +472,14 @@
 
         void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor) {
           float luma = dot(texture2D(inputBuffer, uv).rgb, vec3(0.299, 0.587, 0.114));
-          float handMask = smoothstep(0.02, 0.06, luma);
-          if (handMask < 0.001) {
-            outputColor = vec4(vec3(0.0), 1.0);
-            return;
-          }
+          
+          // REMOVED: Hand Mask check that created black background
+          // float handMask = smoothstep(0.02, 0.06, luma);
+          // if (handMask < 0.001) {
+          //   outputColor = vec4(vec3(0.0), 1.0);
+          //   return;
+          // }
+
           vec2 coord = uv;
           float scanLineCount = floor(resolution.y / 4.0);
           float lineId = floor(coord.y * scanLineCount);
@@ -485,17 +488,27 @@
             coord.x += random(vec2(lineId, time)) * 0.015;
           }
           if(lineRandom < 0.07) {
-            outputColor = vec4(vec3(0.0) * handMask, 1.0);
-            return;
+            // REMOVED: Black out logic
+            // outputColor = vec4(vec3(0.0) * handMask, 1.0);
+            // return;
           }
+          
           float grainPixelSize = 1.0;
           vec2 grainUV = floor(coord * resolution / grainPixelSize) * grainPixelSize / resolution;
+          
+          // Generate noise
           float staticGrain = random(vec2(grainUV.x, grainUV.y + floor(time * 30.0)));
           staticGrain = step(0.48, staticGrain);
           staticGrain -= random(grainUV + time) * 0.12;
-          staticGrain *= luma * 1.5;
+          
+          // MODIFIED: Removed multiplication by luma so noise appears in background too
+          staticGrain *= 1.5; 
+          
           vec3 finalColor = vec3(clamp(staticGrain, 0.0, 1.0));
-          outputColor = vec4(finalColor * handMask, 1.0);
+          
+          // REMOVED: Masking that hid the background
+          // outputColor = vec4(finalColor * handMask, 1.0);
+          outputColor = vec4(finalColor, 1.0);
         }
       `;
 
@@ -532,8 +545,8 @@
               vec2 cellPos = cell + neighbor;
               vec2 point = vec2(0.5) + 0.4 * sin(time * 1.5 + 6.2831 * hash(cellPos));
               vec2 diff = neighbor + point - local;
-              float dist = length(diff);
-              if(dist < minDist) {
+              float dist              if(dist < = length(diff);
+ minDist) {
                 secondMinDist = minDist;
                 minDist = dist;
                 centerUV = (cellPos + point - drift) / (ratio * cellScale);
@@ -549,8 +562,11 @@
           float border = smoothstep(0.01, 0.08, borderDist); 
           float finalLuma = cellLuma * border;
           finalLuma *= handMask;
-          float grain = (rand(uv * (time + 1.0)) - 0.5) * 0.12;
-          vec3 finalOutput = vec3(finalLuma + grain);
+          
+          // REMOVED: Grainy visual from background
+          // float grain = (rand(uv * (time + 1.0)) - 0.5) * 0.12;
+          
+          vec3 finalOutput = vec3(finalLuma);
           outputColor = vec4(finalOutput, 1.0);
         }
       `;

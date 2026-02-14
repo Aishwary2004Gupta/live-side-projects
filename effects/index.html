@@ -44,7 +44,7 @@
       h2 {
         font-size: 16px;
         color: #fff;
-        margin: 25px 0 15px 0;
+        margin: 0 0 25px 0;
         font-weight: 600;
         letter-spacing: 0.5px;
         display: flex;
@@ -52,20 +52,10 @@
         cursor: pointer;
       }
 
-      h2:first-child {
-        margin-top: 0;
-      }
-
-      .separator {
-        height: 1px;
-        background: #1a1a1a;
-        margin: 10px 0;
-      }
-
       #toggleBtn {
         color: #555;
         margin-right: 8px;
-        font_weight: 400;
+        font-weight: 400;
         transition: color 0.2s;
         user-select: none;
         width: 20px;
@@ -86,7 +76,6 @@
         overflow-y: auto;
         opacity: 1;
         transition: opacity 0.2s;
-        padding-bottom: 20px;
       }
 
       #sidebar.collapsed ul,
@@ -113,7 +102,7 @@
       li::before {
         content: "○";
         font-size: 10px;
-        margin_right: 15px;
+        margin-right: 15px;
         display: inline-block;
         transform: translateY(-1px);
       }
@@ -123,7 +112,7 @@
       }
       li.active {
         color: #fff;
-        font_weight: 600;
+        font-weight: 600;
         text-shadow: 0 0 8px rgba(255, 255, 255, 0.15);
       }
       li.active::before {
@@ -131,25 +120,10 @@
         color: #fff;
       }
 
-      #loading {
-        position: fixed;
-        top: 20px;
-        left: 20px;
-        color: white;
-        font-size: 12px;
-        opacity: 0;
-        transition: opacity 0.2s;
-        z-index: 20;
-      }
-
-      #loading.visible {
-        opacity: 1;
-      }
-
       #pixelUI {
         margin-top: auto;
-        padding_top: 20px;
-        border_top: 1px solid #1a1a1a;
+        padding-top: 20px;
+        border-top: 1px solid #1a1a1a;
         display: none;
         opacity: 1;
         transition: opacity 0.2s;
@@ -158,7 +132,7 @@
       #pixelUI label {
         display: block;
         font-size: 11px;
-        margin_bottom: 10px;
+        margin-bottom: 10px;
         color: #555;
       }
 
@@ -176,7 +150,7 @@
         border-radius: 50%;
         background: #fff;
         cursor: pointer;
-        margin_top: -5px;
+        margin-top: -5px;
       }
 
       input[type="range"]::-webkit-slider-runnable-track {
@@ -202,7 +176,7 @@
         align-items: center;
         justify-content: center;
         cursor: pointer;
-        z_index: 9;
+        z-index: 9;
         opacity: 0;
         pointer-events: none;
         transition: opacity 0.3s ease;
@@ -216,15 +190,17 @@
   </head>
 
   <body>
-    <div id="loading">Loading model...</div>
+    <!-- Floating toggle for when sidebar is hidden -->
     <div id="floatingToggle">+</div>
 
+    <!-- Sidebar -->
     <div id="sidebar">
       <h2><span id="toggleBtn">—</span> Effects</h2>
       <ul id="effectList">
         <li data-value="dots" class="active">Dots</li>
         <li data-value="complex">Complex Pixel</li>
         <li data-value="woven">Woven</li>
+        <li data-value="lego">Lego</li>
         <li data-value="ascii">ASCII</li>
         <li data-value="dither">Dithering</li>
         <li data-value="halftone">Halftone</li>
@@ -237,18 +213,7 @@
         <li data-value="waveLines">Wave Lines</li>
         <li data-value="noise">Noise Field</li>
         <li data-value="voronoi">Voronoi</li>
-        <li data-value="lego">Lego</li>
         <li data-value="vhs">VHS</li>
-      </ul>
-
-      <div class="separator"></div>
-
-      <h2>Models</h2>
-      <ul id="modelList">
-        <li data-model="adam" class="active">Creation of Adam</li>
-        <li data-model="steamcontroller">Steam Controller</li>
-        <li data-model="bunny">Stanford Bunny</li>
-        <li data-model="teapot">Utah Teapot</li>
       </ul>
 
       <div id="pixelUI">
@@ -271,141 +236,202 @@
       } from "https://esm.sh/postprocessing@6.35.4?deps=three@0.160.0";
 
       const handsFocusPoint = new THREE.Vector3(0, 0, 0);
-      const loader = new GLTFLoader();
-      loader.setCrossOrigin('anonymous');
-      let currentModel = null;
 
-      const models = {
-        adam: {
-          url: "https://cdn.maximeheckel.com/models/creation-of-adam.glb",
-          scale: 3.2,
-          rotation: new THREE.Euler(-0.1, -Math.PI / 2 + 0.08, 0),
-          position: new THREE.Vector3(1.8, -1.4, 0),
-          zoom: 140
-        },
-        steamcontroller: {
-          url: "https://pub-83799c19c82c463f9053b374c0421372.r2.dev/steamcontroller.glb",
-          scale: 0.028,
-          rotation: new THREE.Euler(Math.PI, 0, 0),
-          position: new THREE.Vector3(0, 0, 0),
-          zoom: 90
-        },
-        bunny: {
-          url: "https://raw.githubusercontent.com/mrdoob/three.js/dev/examples/models/gltf/Bunny.glb",
-          scale: 110,
-          rotation: new THREE.Euler(0, Math.PI, 0),
-          position: new THREE.Vector3(0, -0.7, 0),
-          zoom: 90
-        },
-        teapot: {
-          url: "https://raw.githubusercontent.com/mrdoob/three.js/dev/examples/models/gltf/UtahTeapot.glb",
-          scale: 1.8,
-          rotation: new THREE.Euler(0, 0, 0),
-          position: new THREE.Vector3(0, 0, 0),
-          zoom: 95
-        }
-      }
+      /* ================= SHADERS / EFFECTS ================= */
 
       const wovenShader = `
-  precision highp float;
-  uniform float pixelSize;
-  uniform vec2 resolution;
+        precision highp float;
+        uniform float pixelSize;
+        uniform vec2 resolution;
 
-  float random(vec2 st) {
-    return fract(sin(dot(st.xy, vec2(12.9898,78.233))) * 43758.5453123);
-  }
+        float random(vec2 st) {
+          return fract(sin(dot(st.xy, vec2(12.9898,78.233))) * 43758.5453123);
+        }
 
-  vec3 rgbToHsv(vec3 c) {
-    vec4 K = vec4(0.0, -1.0 / 3.0, 2.0 / 3.0, -1.0);
-    vec4 p = mix(vec4(c.bg, K.wz), vec4(c.gb, K.xy), step(c.b, c.g));
-    vec4 q = mix(vec4(p.xyw, c.r), vec4(c.r, p.yzx), step(p.x, c.r));
-    float d = q.x - min(q.w, q.y);
-    float e = 1.0e-10;
-    return vec3(abs(q.z + (q.w - q.y) / (6.0 * d + e)), d / (q.x + e), q.x);
-  }
+        vec3 rgbToHsv(vec3 c) {
+          vec4 K = vec4(0.0, -1.0 / 3.0, 2.0 / 3.0, -1.0);
+          vec4 p = mix(vec4(c.bg, K.wz), vec4(c.gb, K.xy), step(c.b, c.g));
+          vec4 q = mix(vec4(p.xyw, c.r), vec4(c.r, p.yzx), step(p.x, c.r));
+          float d = q.x - min(q.w, q.y);
+          float e = 1.0e-10;
+          return vec3(abs(q.z + (q.w - q.y) / (6.0 * d + e)), d / (q.x + e), q.x);
+        }
 
-  vec3 hsvToRgb(vec3 c) {
-    vec4 K = vec4(1.0, 2.0 / 3.0, 1.0 / 3.0, 3.0);
-    vec3 p = abs(fract(c.xxx + K.xyz) * 6.0 - K.www);
-    return c.z * mix(K.xxx, clamp(p - K.xxx, 0.0, 1.0), c.y);
-  }
+        vec3 hsvToRgb(vec3 c) {
+          vec4 K = vec4(1.0, 2.0 / 3.0, 1.0 / 3.0, 3.0);
+          vec3 p = abs(fract(c.xxx + K.xyz) * 6.0 - K.www);
+          return c.z * mix(K.xxx, clamp(p - K.xxx, 0.0, 1.0), c.y);
+        }
 
-  float noise(vec2 st) {
-    vec2 i = floor(st);
-    vec2 f = fract(st);
+        float noise(vec2 st) {
+          vec2 i = floor(st);
+          vec2 f = fract(st);
 
-    float a = random(i);
-    float b = random(i + vec2(1.0, 0.0));
-    float c = random(i + vec2(0.0, 1.0));
-    float d = random(i + vec2(1.0, 1.0));
+          float a = random(i);
+          float b = random(i + vec2(1.0, 0.0));
+          float c = random(i + vec2(0.0, 1.0));
+          float d = random(i + vec2(1.0, 1.0));
 
-    vec2 u = f * f * (3.0 - 2.0 * f);
+          vec2 u = f * f * (3.0 - 2.0 * f);
 
-    return mix(a, b, u.x) +
-           (c - a) * u.y * (1.0 - u.x) +
-           (d - b) * u.x * u.y;
-  }
+          return mix(a, b, u.x) +
+                 (c - a) * u.y * (1.0 - u.x) +
+                 (d - b) * u.x * u.y;
+        }
 
-  void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor) {
-    vec2 normalizedPixelSize = pixelSize / resolution;
-    vec2 uvPixel = normalizedPixelSize * floor(uv / normalizedPixelSize);
-    vec4 color = texture(inputBuffer, uvPixel);
+        void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor) {
+          vec2 normalizedPixelSize = pixelSize / resolution;
+          vec2 uvPixel = normalizedPixelSize * floor(uv / normalizedPixelSize);
+          vec4 color = texture(inputBuffer, uvPixel);
 
-    float luma = dot(vec3(0.2126, 0.7152, 0.0722), color.rgb);
-    vec2 cellPosition = floor(uv / normalizedPixelSize);
-    vec2 cellUV = fract(uv / normalizedPixelSize);
+          float luma = dot(vec3(0.2126, 0.7152, 0.0722), color.rgb);
+          vec2 cellPosition = floor(uv / normalizedPixelSize);
+          vec2 cellUV = fract(uv / normalizedPixelSize);
 
-    if (luma < 0.001) {
-      vec2 centered = cellUV - 0.5;
-      float isAlternate = mod(cellPosition.x, 2.0);
-      float angle = isAlternate == 0.0 ? radians(-65.0) : radians(65.0);
-      
-      vec2 rotated = vec2(
-        centered.x * cos(angle) - centered.y * sin(angle),
-        centered.x * sin(angle) + centered.y * cos(angle)
-      );
-      
-      float aspectRatio = 1.55;
-      float ellipse = length(vec2(rotated.x, rotated.y * aspectRatio - 0.075));
-      float bgWoven = smoothstep(0.2, 1.0, 1.0 - ellipse) * 0.05;
-      outputColor = vec4(vec3(bgWoven), 1.0);
-      return;
-    }
+          // ---------------- WOVEN BACKGROUND PATTERN ----------------
+          if (luma < 0.001) {
+            vec2 centered = cellUV - 0.5;
+            float isAlternate = mod(cellPosition.x, 2.0);
+            float angle = isAlternate == 0.0 ? radians(-65.0) : radians(65.0);
+            
+            vec2 rotated = vec2(
+              centered.x * cos(angle) - centered.y * sin(angle),
+              centered.x * sin(angle) + centered.y * cos(angle)
+            );
+            
+            float aspectRatio = 1.55;
+            float ellipse = length(vec2(rotated.x, rotated.y * aspectRatio - 0.075));
+            float bgWoven = smoothstep(0.2, 1.0, 1.0 - ellipse) * 0.05;
+            outputColor = vec4(vec3(bgWoven), 1.0);
+            return;
+          }
 
-    float rowOffset = sin((random(vec2(0.0, uvPixel.y)) - 0.5) * 0.25);
-    cellUV.x += rowOffset; 
-    vec2 centered = cellUV - 0.5;
+          // ---------------- MAIN WOVEN EFFECT ----------------
+          float rowOffset = sin((random(vec2(0.0, uvPixel.y)) - 0.5) * 0.25);
+          cellUV.x += rowOffset; 
+          vec2 centered = cellUV - 0.5;
 
-    float noiseAmount = 0.18;
-    vec2 noisyCenter = centered + (vec2(
-      random(cellPosition + centered),
-      random(cellPosition + centered)
-    ) - 0.5) * noiseAmount;
+          float noiseAmount = 0.18;
+          vec2 noisyCenter = centered + (vec2(
+            random(cellPosition + centered),
+            random(cellPosition + centered)
+          ) - 0.5) * noiseAmount;
 
-    float isAlternate = mod(cellPosition.x, 2.0);
-    float angle = isAlternate == 0.0 ? radians(-65.0) : radians(65.0);
-    
-    vec2 rotated = vec2(
-      noisyCenter.x * cos(angle) - noisyCenter.y * sin(angle),
-      noisyCenter.x * sin(angle) + noisyCenter.y * cos(angle)
-    );
-    
-    float aspectRatio = 1.55;
-    float ellipse = length(vec2(rotated.x, rotated.y * aspectRatio - 0.075));
-    color.rgb *= smoothstep(0.2, 1.0, 1.0 - ellipse);
-    
-    float stripeNoise = noise(vec2(centered.x, centered.y * 100.0)); 
-    color.rgb *= stripeNoise + 0.4;
-   
-    float hueShift = (random(cellPosition) - 0.5) * 0.08;
-    vec3 hsv = rgbToHsv(color.rgb);
-    hsv.x += hueShift;
-    color.rgb = hsvToRgb(hsv);
+          float isAlternate = mod(cellPosition.x, 2.0);
+          float angle = isAlternate == 0.0 ? radians(-65.0) : radians(65.0);
+          
+          vec2 rotated = vec2(
+            noisyCenter.x * cos(angle) - noisyCenter.y * sin(angle),
+            noisyCenter.x * sin(angle) + noisyCenter.y * cos(angle)
+          );
+          
+          float aspectRatio = 1.55;
+          float ellipse = length(vec2(rotated.x, rotated.y * aspectRatio - 0.075));
+          color.rgb *= smoothstep(0.2, 1.0, 1.0 - ellipse);
+          
+          float stripeNoise = noise(vec2(centered.x, centered.y * 100.0)); 
+          color.rgb *= stripeNoise + 0.4;
+         
+          float hueShift = (random(cellPosition) - 0.5) * 0.08;
+          vec3 hsv = rgbToHsv(color.rgb);
+          hsv.x += hueShift;
+          color.rgb = hsvToRgb(hsv);
 
-    color.rgb *= smoothstep(0.2, 1.0, 1.0 - ellipse);
-    outputColor = color;
-  }
-`;
+          color.rgb *= smoothstep(0.2, 1.0, 1.0 - ellipse);
+          outputColor = color;
+        }
+      `;
+
+      const legoShader = `
+        precision highp float;
+        uniform float pixelSize;
+        uniform vec2 resolution;
+
+        float random(vec2 st) {
+          return fract(sin(dot(st.xy, vec2(12.9898,78.233))) * 43758.5453123);
+        }
+
+        vec3 rgbToHsv(vec3 c) {
+          vec4 K = vec4(0.0, -1.0 / 3.0, 2.0 / 3.0, -1.0);
+          vec4 p = mix(vec4(c.bg, K.wz), vec4(c.gb, K.xy), step(c.b, c.g));
+          vec4 q = mix(vec4(p.xyw, c.r), vec4(c.r, p.yzx), step(p.x, c.r));
+          float d = q.x - min(q.w, q.y);
+          float e = 1.0e-10;
+          return vec3(abs(q.z + (q.w - q.y) / (6.0 * d + e)), d / (q.x + e), q.x);
+        }
+
+        vec3 hsvToRgb(vec3 c) {
+          vec4 K = vec4(1.0, 2.0 / 3.0, 1.0 / 3.0, 3.0);
+          vec3 p = abs(fract(c.xxx + K.xyz) * 6.0 - K.www);
+          return c.z * mix(K.xxx, clamp(p - K.xxx, 0.0, 1.0), c.y);
+        }
+
+        const float colorNum = 16.0;
+        const float MASK_BORDER = 1.5;
+
+        void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor) {
+          float luma = dot(inputColor.rgb, vec3(0.2126, 0.7152, 0.0722));
+
+          vec2 normalizedPixelSize = pixelSize / resolution;
+          vec2 uvPixel = normalizedPixelSize * floor(uv / normalizedPixelSize);
+          vec4 color = texture(inputBuffer, uvPixel);
+
+          vec2 cellPosition = floor(uv / normalizedPixelSize);
+          vec2 cellUV = fract(uv / normalizedPixelSize);
+
+          // ================= LEGO BACKPLATE BACKGROUND =================
+          if (luma < 0.001) {
+            // Base dark plate color
+            vec4 bg = vec4(vec3(0.035), 1.0);
+
+            // Same stud shading as main bricks
+            vec2 lightDir = normalize(vec2(0.3, 0.3)); // light from top-left
+            float lighting = dot(normalize(cellUV - vec2(0.5)), lightDir) * 0.7;
+            float dis = abs(distance(cellUV, vec2(0.5)) * 2.0 - 0.5);
+            bg.rgb *= smoothstep(0.1, 0.0, dis) * lighting + 1.0;
+
+            // Beveled stud edge
+            vec2 centeredCellUV = cellUV * 2.0 - 1.0;
+            float mask = 1.0;
+            vec2 border = 1.05 - pow(centeredCellUV, vec2(8.0)) * MASK_BORDER;
+            mask *= border.x * border.y;
+            float maskStrength = smoothstep(0.0, 0.8, mask);
+            bg.rgb *= 0.8 + (maskStrength * 0.15);
+
+            outputColor = bg;
+            return;
+          }
+
+          // ================= MAIN COLORED LEGO BRICKS =================
+          // Quantize color to Lego-like palette
+          color.r = floor(color.r * (colorNum - 1.0) + 0.5) / (colorNum - 1.0);
+          color.g = floor(color.g * (colorNum - 1.0) + 0.5) / (colorNum - 1.0);
+          color.b = floor(color.b * (colorNum - 1.0) + 0.5) / (colorNum - 1.0);
+          color.rgb = clamp(color.rgb, 0.01, 0.95);
+
+          // Stud lighting
+          vec2 lightDir = normalize(vec2(0.3, 0.3)); // top-left
+          float lighting = dot(normalize(cellUV - vec2(0.5)), lightDir) * 0.7;
+          float dis = abs(distance(cellUV, vec2(0.5)) * 2.0 - 0.5);
+          color.rgb *= smoothstep(0.1, 0.0, dis) * lighting + 1.0;
+
+          // Beveled stud edge
+          vec2 centeredCellUV = cellUV * 2.0 - 1.0;
+          float mask = 1.0; 
+          vec2 border = 1.05 - pow(centeredCellUV, vec2(8.0)) * MASK_BORDER;
+          mask *= border.x * border.y;
+          float maskStrength = smoothstep(0.0, 0.8, mask);
+          color.rgb *= 0.8 + (maskStrength * 0.1);
+
+          // Small hue variation per brick
+          float hueShift = random(cellPosition) * 0.02;
+          vec3 hsv = rgbToHsv(color.rgb);
+          hsv.x += hueShift;
+          color.rgb = hsvToRgb(hsv);
+          
+          outputColor = color;
+        }
+      `;
 
       const complexShader = `
         precision highp float;
@@ -603,10 +629,13 @@
           vec4 original = texture2D(inputBuffer, uv);
           float originalLuma = dot(original.rgb, vec3(0.299, 0.587, 0.114));
           
+          // Enforce plain black background strictly
           if (originalLuma < 0.02) {
             outputColor = vec4(0.0, 0.0, 0.0, 1.0);
             return;
           }
+
+          float handMask = 1.0;
 
           float cellScale = 42.0; 
           vec2 ratio = vec2(resolution.x / resolution.y, 1.0);
@@ -645,87 +674,6 @@
         }
       `;
 
-      const legoShader = `
-        precision highp float;
-        uniform float pixelSize;
-        uniform vec2 resolution;
-        uniform vec2 lightPosition;
-
-        float random(vec2 st) {
-            return fract(sin(dot(st.xy, vec2(12.9898,78.233))) * 43758.5453123);
-        }
-
-        vec3 rgbToHsv(vec3 c) {
-            vec4 K = vec4(0.0, -1.0 / 3.0, 2.0 / 3.0, -1.0);
-            vec4 p = mix(vec4(c.bg, K.wz), vec4(c.gb, K.xy), step(c.b, c.g));
-            vec4 q = mix(vec4(p.xyw, c.r), vec4(c.r, p.yzx), step(p.x, c.r));
-            float d = q.x - min(q.w, q.y);
-            float e = 1.0e-10;
-            return vec3(abs(q.z + (q.w - q.y) / (6.0 * d + e)), d / (q.x + e), q.x);
-        }
-
-        vec3 hsvToRgb(vec3 c) {
-            vec4 K = vec4(1.0, 2.0 / 3.0, 1.0 / 3.0, 3.0);
-            vec3 p = abs(fract(c.xxx + K.xyz) * 6.0 - K.www);
-            return c.z * mix(K.xxx, clamp(p - K.xxx, 0.0, 1.0), c.y);
-        }
-
-        const float colorNum = 16.0;
-        const float MASK_BORDER = 1.5;
-        const float MASK_INTENSITY = 1.5;
-
-        void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor) {
-            vec2 normalizedPixelSize = pixelSize / resolution;
-            vec2 uvPixel = normalizedPixelSize * floor(uv / normalizedPixelSize);
-            vec4 color = texture(inputBuffer, uvPixel);
-
-            float luma = dot(vec3(0.2126, 0.7152, 0.0722), color.rgb);
-            
-            if (luma < 0.001) {
-                vec2 cellUV = fract(uv / normalizedPixelSize);
-                vec2 centered = cellUV - 0.5;
-
-                float stud = length(centered);
-
-                vec3 baseColor = vec3(0.035);
-
-                float indent = smoothstep(0.38, 0.22, stud);
-
-                color.rgb = mix(baseColor, baseColor * 0.82, indent);
-                
-                outputColor = color;
-                return;
-            }
-
-            color.r = floor(color.r * (colorNum - 1.0) + 0.5) / (colorNum - 1.0);
-            color.g = floor(color.g * (colorNum - 1.0) + 0.5) / (colorNum - 1.0);
-            color.b = floor(color.b * (colorNum - 1.0) + 0.5) / (colorNum - 1.0);
-
-            color.rgb = clamp(color.rgb, 0.01, 0.95);
-            
-            vec2 cellPosition = floor(uv / normalizedPixelSize);
-            vec2 cellUV = fract(uv / normalizedPixelSize);
-            
-            float lighting = dot(normalize(cellUV - vec2(0.5)), lightPosition) * 0.7;
-            float dis = abs(distance(cellUV, vec2(0.5)) * 2.0 - 0.5);
-            color.rgb *= smoothstep(0.1,0.0,dis) * lighting + 1.0;
-
-            vec2 centeredCellUV = cellUV * 2.0 - 1.0;
-            float mask = 1.0; 
-            vec2 border = 1.05 - pow(centeredCellUV, vec2(8.0)) * MASK_BORDER;
-            mask *= border.x * border.y;
-            float maskStrength = smoothstep(0.0, 0.8, mask);
-            color.rgb *=  0.8 + (maskStrength * 0.1);
-
-            float hueShift = random(cellPosition) * 0.02;
-            vec3 hsv = rgbToHsv(color.rgb);
-            hsv.x += hueShift;
-            color.rgb = hsvToRgb(hsv);
-            
-            outputColor = color;
-        }
-      `;
-
       const vhsShader = `
         precision highp float;
         uniform float time;
@@ -752,6 +700,141 @@
           o = vec4(color, 1.0);
         }
       `;
+
+      class MatrixRainEffect {
+        constructor(renderer, camera) {
+          this.renderer = renderer;
+          this.camera = camera;
+          this.canvas = document.createElement("canvas");
+          this.ctx = this.canvas.getContext("2d", { willReadFrequently: true });
+          this.domElement = this.canvas;
+
+          this.chars = "ｦｧｨｩｪｫｬｭｮｯ012789";
+          this.cols = 0;
+          this.rows = 0;
+          this.drops = [];
+          this.speeds = [];
+          this.fontSize = 8;
+          this.fontFamily = "monospace";
+          this.setSize(
+            renderer.domElement.clientWidth,
+            renderer.domElement.clientHeight,
+          );
+
+          this.renderTarget = new THREE.WebGLRenderTarget(
+            renderer.domElement.clientWidth,
+            renderer.domElement.clientHeight,
+            { format: THREE.RGBAFormat },
+          );
+          this.maskTarget = new THREE.WebGLRenderTarget(1, 1, {
+            format: THREE.RGBAFormat,
+          });
+          this.maskTarget.texture.minFilter = THREE.NearestFilter;
+          this.maskTarget.texture.magFilter = THREE.NearestFilter;
+          this._maskBuffer = null;
+          this.cellCharacter = [];
+        }
+
+        setSize(width, height) {
+          this.canvas.width = width;
+          this.canvas.height = height;
+          this.ctx.font = `${this.fontSize}px ${this.fontFamily}`;
+          this.cols = Math.floor(width / (this.fontSize * 0.6));
+          this.rows = Math.floor(height / this.fontSize);
+          this.drops = Array(this.cols)
+            .fill(0)
+            .map(() => -(Math.random() * this.rows));
+          this.speeds = Array(this.cols)
+            .fill(0)
+            .map(() => 0.3 + Math.random() * 0.6);
+          this.cellCharacter = new Array(this.cols * this.rows)
+            .fill(0)
+            .map(
+              () => this.chars[Math.floor(Math.random() * this.chars.length)],
+            );
+          if (this.renderTarget) this.renderTarget.setSize(width, height);
+          if (this.maskTarget) {
+            const mw = Math.max(1, this.cols);
+            const mh = Math.max(1, this.rows);
+            this.maskTarget.setSize(mw, mh);
+            this._maskBuffer = new Uint8Array(mw * mh * 4);
+          }
+        }
+
+        render(scene, camera) {
+          const oldTarget = this.renderer.getRenderTarget();
+          this.renderer.setRenderTarget(this.maskTarget);
+          this.renderer.render(scene, camera);
+          this.renderer.setRenderTarget(oldTarget);
+          this.ctx.fillStyle = "black";
+          this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+          const maskBuf = this._maskBuffer;
+          if (this.maskTarget && maskBuf) {
+            try {
+              this.renderer.readRenderTargetPixels(
+                this.maskTarget,
+                0,
+                0,
+                this.maskTarget.width,
+                this.maskTarget.height,
+                maskBuf,
+              );
+            } catch (err) {
+              maskBuf.fill(0);
+            }
+          }
+          for (let i = 0; i < this.cols; i++) {
+            this.drops[i] += this.speeds[i];
+            if (Math.random() > 0.8) {
+              const y = Math.max(0, Math.floor(this.drops[i])) % this.rows;
+              this.cellCharacter[y * this.cols + i] =
+                this.chars[Math.floor(Math.random() * this.chars.length)];
+            }
+            if (this.drops[i] >= this.rows + 20) {
+              this.drops[i] = -(Math.random() * 20);
+              this.speeds[i] = 0.3 + Math.random() * 0.6;
+            }
+          }
+          for (let y = 0; y < this.rows; y++) {
+            for (let x = 0; x < this.cols; x++) {
+              const sampleY = this.maskTarget.height - 1 - y;
+              const idx = (sampleY * this.maskTarget.width + x) * 4;
+              const brightness =
+                (maskBuf[idx] + maskBuf[idx + 1] + maskBuf[idx + 2]) / 3;
+              const drawX = x * (this.fontSize * 0.6);
+              const drawY = y * this.fontSize;
+              if (brightness > 15) {
+                if (brightness > 180)
+                  this.ctx.fillStyle = `rgba(200, 255, 200, 0.95)`;
+                else if (brightness > 100)
+                  this.ctx.fillStyle = `rgba(40, 200, 60, 0.85)`;
+                else this.ctx.fillStyle = `rgba(10, 110, 20, 0.7)`;
+                this.ctx.fillText(
+                  this.cellCharacter[y * this.cols + x],
+                  drawX,
+                  drawY,
+                );
+              } else {
+                const dropY = this.drops[x];
+                const distance = dropY - y;
+                if (distance >= 0 && distance < 25) {
+                  if (distance < 1)
+                    this.ctx.fillStyle = `rgba(100, 200, 100, 0.6)`;
+                  else {
+                    const alpha = 0.4 * (1.0 - distance / 25);
+                    this.ctx.fillStyle = `rgba(0, 120, 20, ${alpha})`;
+                  }
+                  let char = this.cellCharacter[y * this.cols + x];
+                  if (Math.random() > 0.95)
+                    char =
+                      this.chars[Math.floor(Math.random() * this.chars.length)];
+                  this.ctx.fillText(char, drawX, drawY);
+                }
+              }
+            }
+          }
+        }
+      }
 
       const contourShader = `
         precision highp float;
@@ -889,6 +972,11 @@
       ascii.domElement.style.color = "white";
       ascii.domElement.style.background = "black";
 
+      const matrix = new MatrixRainEffect(renderer, camera);
+      matrix.domElement.style.position = "absolute";
+      matrix.domElement.style.top = "0";
+      matrix.domElement.style.left = "0";
+
       /* ================= CREATE EFFECTS ================= */
 
       const dots = makeEffect("Dots", dotsShader, {
@@ -902,6 +990,11 @@
       });
 
       const woven = makeEffect("Woven", wovenShader, {
+        pixelSize: 10.0,
+        resolution: new THREE.Vector2(innerWidth, innerHeight),
+      });
+
+      const lego = makeEffect("Lego", legoShader, {
         pixelSize: 10.0,
         resolution: new THREE.Vector2(innerWidth, innerHeight),
       });
@@ -951,12 +1044,6 @@
         resolution: new THREE.Vector2(innerWidth, innerHeight),
       });
 
-      const lego = makeEffect("Lego", legoShader, {
-        pixelSize: 10.0,
-        resolution: new THREE.Vector2(innerWidth, innerHeight),
-        lightPosition: new THREE.Vector2(0.5, 1.0),
-      });
-
       const vhs = makeEffect("VHS", vhsShader, {
         time: 0.0,
         resolution: new THREE.Vector2(innerWidth, innerHeight),
@@ -966,8 +1053,10 @@
         dots,
         complex,
         woven,
+        lego,
         dither,
         halftone,
+        matrix,
         contour,
         blockify,
         threshold,
@@ -976,7 +1065,6 @@
         waveLines,
         noise,
         voronoi,
-        lego,
         vhs,
       };
 
@@ -995,52 +1083,23 @@
       dl.position.set(5, 10, 0);
       scene.add(dl);
 
-      /* ================= MODEL LOADING ================= */
+      /* ================= MODEL ================= */
 
-      const loadingIndicator = document.getElementById('loading');
+      new GLTFLoader().load(
+        "https://cdn.maximeheckel.com/models/creation-of-adam.glb",
+        (g) => {
+          const m = g.scene;
+          m.scale.setScalar(3.2);
+          m.rotation.x = -0.1;
+          m.rotation.y = -Math.PI / 2 + 0.08;
+          m.position.set(1.8, -1.4, 0);
+          scene.add(m);
 
-      function loadModel(modelId) {
-        if (currentModel) {
-          scene.remove(currentModel);
-        }
-
-        const def = models[modelId];
-        loadingIndicator.textContent = "Loading model...";
-        loadingIndicator.classList.add('visible');
-
-        loader.load(def.url, (gltf) => {
-          
-          currentModel = gltf.scene;
-          currentModel.scale.setScalar(def.scale);
-          currentModel.rotation.copy(def.rotation);
-          currentModel.position.copy(def.position);
-
-          scene.add(currentModel);
-
-          const targetZoom = def.zoom;
-          function animateZoom() {
-            if (Math.abs(camera.zoom - targetZoom) < 0.5) {
-              camera.zoom = targetZoom;
-            } else {
-              camera.zoom += (targetZoom - camera.zoom) * 0.1;
-              requestAnimationFrame(animateZoom);
-            }
-            camera.updateProjectionMatrix();
-          }
-          animateZoom();
-
-          controls.target.set(0, 0, 0);
+          controls.target.copy(handsFocusPoint);
           controls.update();
-          loadingIndicator.classList.remove('visible');
-
-        }, undefined, (err) => {
-          loadingIndicator.textContent = "Failed to load model";
-          setTimeout(() => loadingIndicator.classList.remove('visible'), 2000);
-          document.querySelector('[data-model="adam"]').click();
-        });
-      }
-
-      loadModel('adam');
+          camera.lookAt(handsFocusPoint);
+        },
+      );
 
       /* ================= POST ================= */
 
@@ -1056,7 +1115,6 @@
       const toggleBtn = document.getElementById("toggleBtn");
       const floatingToggle = document.getElementById("floatingToggle");
       const listItems = document.querySelectorAll("#effectList li");
-      const modelItems = document.querySelectorAll("#modelList li");
       const pixelUI = document.getElementById("pixelUI");
       const pixelInput = document.getElementById("pixelSize");
 
@@ -1092,8 +1150,40 @@
       function switchEffect(val) {
         composer.removePass(pass);
 
+        if (val === "ascii") {
+          renderer.domElement.style.display = "none";
+          if (ascii.domElement.parentNode)
+            ascii.domElement.style.display = "block";
+          else document.body.appendChild(ascii.domElement);
+          if (matrix.domElement.parentNode)
+            matrix.domElement.style.display = "none";
+
+          ascii.setSize(currentLayoutWidth, window.innerHeight);
+          resetControls(ascii.domElement);
+          pixelUI.style.display = "none";
+          return;
+        }
+
+        if (val === "matrix") {
+          renderer.domElement.style.display = "none";
+          if (ascii.domElement.parentNode)
+            ascii.domElement.style.display = "none";
+
+          if (matrix.domElement.parentNode)
+            matrix.domElement.style.display = "block";
+          else document.body.appendChild(matrix.domElement);
+
+          matrix.setSize(currentLayoutWidth, window.innerHeight);
+          resetControls(matrix.domElement);
+          pixelUI.style.display = "none";
+          return;
+        }
+
+        if (ascii.domElement.parentNode)
+          ascii.domElement.style.display = "none";
+        if (matrix.domElement.parentNode)
+          matrix.domElement.style.display = "none";
         renderer.domElement.style.display = "block";
-        if (ascii.domElement.parentNode) ascii.domElement.style.display = "none";
 
         resetControls(renderer.domElement);
 
@@ -1121,22 +1211,19 @@
         });
       });
 
-      modelItems.forEach((item) => {
-        item.addEventListener("click", () => {
-          modelItems.forEach((li) => li.classList.remove("active"));
-          item.classList.add("active");
-          const modelId = item.getAttribute("data-model");
-          loadModel(modelId);
-        });
-      });
-
       pixelInput.oninput = (e) => {
         const value = +e.target.value;
-        ["dots", "halftone", "blockify", "complex", "woven", "lego"].forEach((key) => {
-          if (map[key].uniforms) {
-            map[key].uniforms.get("pixelSize").value = value;
-          }
-        });
+        // Update all effects that use pixelSize
+        ["dots", "halftone", "blockify", "complex", "woven", "lego"].forEach(
+          (key) => {
+            if (map[key].uniforms) {
+              map[key].uniforms.get("pixelSize").value = value;
+            } else if (map[key].v) {
+              // Special case for the original DotsEffect
+              map[key].v = value;
+            }
+          },
+        );
       };
 
       /* ================= RESIZE & ANIMATION LOGIC ================= */
@@ -1160,6 +1247,7 @@
         });
 
         if (ascii.domElement.parentNode) ascii.setSize(width, height);
+        if (matrix.domElement.parentNode) matrix.setSize(width, height);
       }
 
       addEventListener("resize", () => {
@@ -1190,7 +1278,15 @@
         }
 
         const current = activeEffectName();
-        composer.render();
+
+        if (current === "ascii") {
+          ascii.render(scene, camera);
+        } else if (current === "matrix") {
+          composer.render();
+          matrix.render(scene, camera);
+        } else {
+          composer.render();
+        }
       }
 
       animate();

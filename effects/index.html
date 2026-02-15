@@ -79,8 +79,7 @@
       }
 
       #sidebar.collapsed ul,
-      #sidebar.collapsed #pixelUI,
-      #sidebar.collapsed #modelUI {
+      #sidebar.collapsed #pixelUI {
         opacity: 0;
         pointer-events: none;
       }
@@ -119,27 +118,6 @@
       li.active::before {
         content: "●";
         color: #fff;
-      }
-
-      #modelUI {
-        margin-top: 24px;
-      }
-
-      #modelUI label {
-        display: block;
-        font-size: 11px;
-        margin-bottom: 6px;
-        color: #555;
-      }
-
-      #modelSelect {
-        width: 100%;
-        background: #0a0a0a;
-        color: #ccc;
-        border: 1px solid #333;
-        padding: 6px 8px;
-        font-family: "Fira Code", monospace;
-        font-size: 12px;
       }
 
       #pixelUI {
@@ -238,16 +216,6 @@
         <li data-value="vhs">VHS</li>
       </ul>
 
-      <div id="modelUI">
-        <label>Model</label>
-        <select id="modelSelect">
-          <option value="hands">Hands (Creation of Adam)</option>
-          <option value="helmet">Damaged Helmet</option>
-          <option value="boombox">Boom Box</option>
-          <option value="duck">Duck</option>
-        </select>
-      </div>
-
       <div id="pixelUI">
         <label>Intensity / Size</label>
         <input type="range" min="6" max="32" value="10" id="pixelSize" />
@@ -320,7 +288,7 @@
           vec2 cellPosition = floor(uv / normalizedPixelSize);
           vec2 cellUV = fract(uv / normalizedPixelSize);
 
-          // ---------------- DARK WOVEN BACKGROUND ----------------
+          // ---------------- WOVEN BACKGROUND PATTERN ----------------
           if (luma < 0.001) {
             vec2 centered = cellUV - 0.5;
             float isAlternate = mod(cellPosition.x, 2.0);
@@ -413,13 +381,16 @@
 
           // ================= LEGO BACKPLATE BACKGROUND =================
           if (luma < 0.001) {
+            // Base dark plate color
             vec4 bg = vec4(vec3(0.035), 1.0);
 
-            vec2 lightDir = normalize(vec2(0.3, 0.3));
+            // Same stud shading as main bricks
+            vec2 lightDir = normalize(vec2(0.3, 0.3)); // light from top-left
             float lighting = dot(normalize(cellUV - vec2(0.5)), lightDir) * 0.7;
             float dis = abs(distance(cellUV, vec2(0.5)) * 2.0 - 0.5);
             bg.rgb *= smoothstep(0.1, 0.0, dis) * lighting + 1.0;
 
+            // Beveled stud edge
             vec2 centeredCellUV = cellUV * 2.0 - 1.0;
             float mask = 1.0;
             vec2 border = 1.05 - pow(centeredCellUV, vec2(8.0)) * MASK_BORDER;
@@ -432,16 +403,19 @@
           }
 
           // ================= MAIN COLORED LEGO BRICKS =================
+          // Quantize color to Lego-like palette
           color.r = floor(color.r * (colorNum - 1.0) + 0.5) / (colorNum - 1.0);
           color.g = floor(color.g * (colorNum - 1.0) + 0.5) / (colorNum - 1.0);
           color.b = floor(color.b * (colorNum - 1.0) + 0.5) / (colorNum - 1.0);
           color.rgb = clamp(color.rgb, 0.01, 0.95);
 
-          vec2 lightDir = normalize(vec2(0.3, 0.3));
+          // Stud lighting
+          vec2 lightDir = normalize(vec2(0.3, 0.3)); // top-left
           float lighting = dot(normalize(cellUV - vec2(0.5)), lightDir) * 0.7;
           float dis = abs(distance(cellUV, vec2(0.5)) * 2.0 - 0.5);
           color.rgb *= smoothstep(0.1, 0.0, dis) * lighting + 1.0;
 
+          // Beveled stud edge
           vec2 centeredCellUV = cellUV * 2.0 - 1.0;
           float mask = 1.0; 
           vec2 border = 1.05 - pow(centeredCellUV, vec2(8.0)) * MASK_BORDER;
@@ -449,6 +423,7 @@
           float maskStrength = smoothstep(0.0, 0.8, mask);
           color.rgb *= 0.8 + (maskStrength * 0.1);
 
+          // Small hue variation per brick
           float hueShift = random(cellPosition) * 0.02;
           vec3 hsv = rgbToHsv(color.rgb);
           hsv.x += hueShift;
@@ -654,10 +629,13 @@
           vec4 original = texture2D(inputBuffer, uv);
           float originalLuma = dot(original.rgb, vec3(0.299, 0.587, 0.114));
           
+          // Enforce plain black background strictly
           if (originalLuma < 0.02) {
             outputColor = vec4(0.0, 0.0, 0.0, 1.0);
             return;
           }
+
+          float handMask = 1.0;
 
           float cellScale = 42.0; 
           vec2 ratio = vec2(resolution.x / resolution.y, 1.0);
@@ -1105,96 +1083,23 @@
       dl.position.set(5, 10, 0);
       scene.add(dl);
 
-      /* ================= MODELS ================= */
+      /* ================= MODEL ================= */
 
-      const loader = new GLTFLoader();
-      let currentModel = null;
+      new GLTFLoader().load(
+        "https://cdn.maximeheckel.com/models/creation-of-adam.glb",
+        (g) => {
+          const m = g.scene;
+          m.scale.setScalar(3.2);
+          m.rotation.x = -0.1;
+          m.rotation.y = -Math.PI / 2 + 0.08;
+          m.position.set(1.8, -1.4, 0);
+          scene.add(m);
 
-      const MODELS = {
-        hands: {
-          url: "https://cdn.maximeheckel.com/models/creation-of-adam.glb",
-          scale: 3.2,
-          rotation: { x: -0.1, y: -Math.PI / 2 + 0.08, z: 0 },
-          position: { x: 1.8, y: -1.4, z: 0 },
+          controls.target.copy(handsFocusPoint);
+          controls.update();
+          camera.lookAt(handsFocusPoint);
         },
-        helmet: {
-          url: "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/master/2.0/DamagedHelmet/glTF-Binary/DamagedHelmet.glb",
-          scale: 1.2,
-          rotation: { x: 0, y: Math.PI, z: 0 },
-          position: { x: 0, y: 0, z: 0 },
-        },
-        boombox: {
-          url: "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/master/2.0/BoomBox/glTF-Binary/BoomBox.glb",
-          scale: 10.0,
-          rotation: { x: 0, y: Math.PI / 4.0, z: 0 },
-          position: { x: 0, y: -5, z: 0 },
-        },
-        duck: {
-          url: "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/master/2.0/Duck/glTF-Binary/Duck.glb",
-          scale: 1.0,
-          rotation: { x: 0, y: 0, z: 0 },
-          position: { x: 0, y: -2, z: 0 },
-        },
-      };
-
-      function disposeModel(root) {
-        if (!root) return;
-        root.traverse((obj) => {
-          if (obj.isMesh) {
-            if (obj.geometry) obj.geometry.dispose();
-            if (obj.material) {
-              if (Array.isArray(obj.material)) {
-                obj.material.forEach((m) => m.dispose && m.dispose());
-              } else {
-                obj.material.dispose && obj.material.dispose();
-              }
-            }
-          }
-        });
-      }
-
-      function loadModel(name) {
-        const cfg = MODELS[name];
-        if (!cfg) return;
-
-        if (currentModel) {
-          scene.remove(currentModel);
-          disposeModel(currentModel);
-          currentModel = null;
-        }
-
-        loader.load(
-          cfg.url,
-          (gltf) => {
-            const m = gltf.scene;
-            m.scale.setScalar(cfg.scale ?? 1.0);
-            m.rotation.set(
-              cfg.rotation?.x ?? 0,
-              cfg.rotation?.y ?? 0,
-              cfg.rotation?.z ?? 0,
-            );
-            m.position.set(
-              cfg.position?.x ?? 0,
-              cfg.position?.y ?? 0,
-              cfg.position?.z ?? 0,
-            );
-            scene.add(m);
-            currentModel = m;
-
-            controls.target.copy(handsFocusPoint);
-            controls.update();
-            camera.lookAt(handsFocusPoint);
-          },
-          undefined,
-          (err) => {
-            console.error("Failed to load model:", name, "from", cfg.url, err);
-            alert("Could not load model '" + name + "'. Check the URL or your connection.");
-          },
-        );
-      }
-
-      // initial model
-      loadModel("hands");
+      );
 
       /* ================= POST ================= */
 
@@ -1212,11 +1117,6 @@
       const listItems = document.querySelectorAll("#effectList li");
       const pixelUI = document.getElementById("pixelUI");
       const pixelInput = document.getElementById("pixelSize");
-      const modelSelect = document.getElementById("modelSelect");
-
-      modelSelect.addEventListener("change", (e) => {
-        loadModel(e.target.value);
-      });
 
       function togglePanel() {
         isPanelOpen = !isPanelOpen;
@@ -1313,11 +1213,13 @@
 
       pixelInput.oninput = (e) => {
         const value = +e.target.value;
+        // Update all effects that use pixelSize
         ["dots", "halftone", "blockify", "complex", "woven", "lego"].forEach(
           (key) => {
             if (map[key].uniforms) {
               map[key].uniforms.get("pixelSize").value = value;
             } else if (map[key].v) {
+              // Special case for the original DotsEffect
               map[key].v = value;
             }
           },

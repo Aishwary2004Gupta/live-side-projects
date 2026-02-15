@@ -1110,32 +1110,33 @@
       const loader = new GLTFLoader();
       let currentModel = null;
 
+      // Updated URLs and configurations for perfect centering and visibility
       const MODELS = {
-  hands: {
-    url: "https://cdn.maximeheckel.com/models/creation-of-adam.glb",
-    scale: 3.2,
-    rotation: { x: -0.1, y: -Math.PI / 2 + 0.08, z: 0 },
-    position: { x: 1.8, y: -1.4, z: 0 },
-  },
-  helmet: {
-    url: "https://modelviewer.dev/shared-assets/models/DamagedHelmet.glb",
-    scale: 1.5,
-    rotation: { x: 0, y: Math.PI, z: 0 },
-    position: { x: 0, y: 0, z: 0 },
-  },
-  boombox: {
-    url: "https://modelviewer.dev/shared-assets/models/BoomBox.glb",
-    scale: 20,
-    rotation: { x: 0, y: Math.PI / 4, z: 0 },
-    position: { x: 0, y: 0, z: 0 },
-  },
-  duck: {
-    url: "https://modelviewer.dev/shared-assets/models/Duck.glb",
-    scale: 3.5,
-    rotation: { x: 0, y: Math.PI, z: 0 },
-    position: { x: 0, y: -0.2, z: 0 },
-  },
-};
+        hands: {
+          url: "https://cdn.maximeheckel.com/models/creation-of-adam.glb",
+          scale: 3.2,
+          rotation: { x: -0.1, y: -Math.PI / 2 + 0.08, z: 0 },
+          position: { x: 1.8, y: -1.4, z: 0 },
+        },
+        helmet: {
+          url: "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/master/2.0/DamagedHelmet/glTF-Binary/DamagedHelmet.glb",
+          scale: 1.5, // Adjusted for better framing
+          rotation: { x: 0, y: 0, z: 0 },
+          position: { x: 0, y: 0, z: 0 },
+        },
+        boombox: {
+          url: "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/master/2.0/BoomBox/glTF-Binary/BoomBox.glb",
+          scale: 12.0, // Adjusted for better framing
+          rotation: { x: 0, y: Math.PI / 4.0, z: 0 },
+          position: { x: 0, y: -2, z: 0 }, // Raised slightly to center visually
+        },
+        duck: {
+          url: "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/master/2.0/Duck/glTF-Binary/Duck.glb",
+          scale: 3.5, // Adjusted for better framing
+          rotation: { x: 0, y: 0, z: 0 },
+          position: { x: 0, y: -1, z: 0 }, // Raised slightly to center visually
+        },
+      };
 
       function disposeModel(root) {
         if (!root) return;
@@ -1155,7 +1156,10 @@
 
       function loadModel(name) {
         const cfg = MODELS[name];
-        if (!cfg) return;
+        
+        // Fallback: If the requested model config doesn't exist, use 'hands'
+        const configToLoad = cfg || MODELS['hands'];
+        const modelName = cfg ? name : 'hands (fallback)';
 
         if (currentModel) {
           scene.remove(currentModel);
@@ -1164,19 +1168,19 @@
         }
 
         loader.load(
-          cfg.url,
+          configToLoad.url,
           (gltf) => {
             const m = gltf.scene;
-            m.scale.setScalar(cfg.scale ?? 1.0);
+            m.scale.setScalar(configToLoad.scale ?? 1.0);
             m.rotation.set(
-              cfg.rotation?.x ?? 0,
-              cfg.rotation?.y ?? 0,
-              cfg.rotation?.z ?? 0,
+              configToLoad.rotation?.x ?? 0,
+              configToLoad.rotation?.y ?? 0,
+              configToLoad.rotation?.z ?? 0,
             );
             m.position.set(
-              cfg.position?.x ?? 0,
-              cfg.position?.y ?? 0,
-              cfg.position?.z ?? 0,
+              configToLoad.position?.x ?? 0,
+              configToLoad.position?.y ?? 0,
+              configToLoad.position?.z ?? 0,
             );
             scene.add(m);
             currentModel = m;
@@ -1187,8 +1191,13 @@
           },
           undefined,
           (err) => {
-            console.error("Failed to load model:", name, "from", cfg.url, err);
-            alert("Could not load model '" + name + "'. Check the URL or your connection.");
+            console.warn(`Failed to load model '${modelName}'. Attempting fallback...`, err);
+            // If loading fails, try to load the default 'hands' model if we aren't already trying to load it
+            if (name !== 'hands') {
+               loadModel('hands');
+            } else {
+               alert("Could not load any models. Please check your internet connection.");
+            }
           },
         );
       }

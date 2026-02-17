@@ -261,6 +261,7 @@
       import { OrbitControls } from "https://esm.sh/three@0.160.0/examples/jsm/controls/OrbitControls.js";
       import { GLTFLoader } from "https://esm.sh/three@0.160.0/examples/jsm/loaders/GLTFLoader.js";
       import { AsciiEffect } from "https://esm.sh/three@0.160.0/examples/jsm/effects/AsciiEffect.js";
+      import { RoomEnvironment } from "https://esm.sh/three@0.160.0/examples/jsm/environments/RoomEnvironment.js";
 
       import {
         EffectComposer,
@@ -987,9 +988,18 @@
 
       /* ================= RENDERERS ================= */
 
-      const renderer = new THREE.WebGLRenderer({ antialias: true });
+      const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
       renderer.setSize(currentLayoutWidth, window.innerHeight);
+      renderer.setPixelRatio(window.devicePixelRatio);
+      renderer.toneMapping = THREE.ACESFilmicToneMapping;
+      renderer.toneMappingExposure = 1.0;
+      renderer.shadowMap.enabled = true;
+      renderer.shadowMap.type = THREE.PCFSoftShadowMap;
       document.body.appendChild(renderer.domElement);
+
+      // Environment for PBR materials (metals look metallic)
+      const pmremGenerator = new THREE.PMREMGenerator(renderer);
+      scene.environment = pmremGenerator.fromScene(new RoomEnvironment(), 0.04).texture;
 
       const ascii = new AsciiEffect(renderer, " .:-=+*#%@", { invert: true });
       ascii.domElement.style.position = "absolute";
@@ -1102,53 +1112,68 @@
 
       /* ================= LIGHTS ================= */
 
-      scene.add(new THREE.AmbientLight(0xffffff, 0.6));
-      const dl = new THREE.DirectionalLight(0xffffff, 10);
-      dl.position.set(5, 10, 0);
-      scene.add(dl);
+      scene.add(new THREE.AmbientLight(0xffffff, 0.4));
+      
+      const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 0.6);
+      hemiLight.position.set(0, 20, 0);
+      scene.add(hemiLight);
+
+      const dirLight = new THREE.DirectionalLight(0xffffff, 1.5);
+      dirLight.position.set(5, 10, 7);
+      dirLight.castShadow = true;
+      dirLight.shadow.mapSize.width = 1024;
+      dirLight.shadow.mapSize.height = 1024;
+      scene.add(dirLight);
 
       /* ================= MODELS ================= */
 
       const loader = new GLTFLoader();
       let currentModel = null;
 
-      // Updated URLs and configurations for perfect centering and visibility
+      // FIXED: Using reliable threejs.org URLs with proper CORS
       const MODELS = {
         hands: {
           url: "https://cdn.maximeheckel.com/models/creation-of-adam.glb",
           scale: 3.2,
           rotation: { x: -0.1, y: -Math.PI / 2 + 0.08, z: 0 },
           position: { x: 1.8, y: -1.4, z: 0 },
+          autoCenter: false // manual positioning
         },
         helmet: {
-          url: "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/master/2.0/DamagedHelmet/glTF-Binary/DamagedHelmet.glb",
+          url: "https://threejs.org/examples/models/gltf/DamagedHelmet/glTF-Binary/DamagedHelmet.glb",
           scale: 1.5,
-          rotation: { x: 0, y: 3, z: 0 },
+          rotation: { x: 0, y: Math.PI, z: 0 },
           position: { x: 0, y: 0, z: 0 },
+          autoCenter: true
         },
         duck: {
-          url: "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/master/2.0/Duck/glTF-Binary/Duck.glb",
+          url: "https://threejs.org/examples/models/gltf/Duck/glTF-Binary/Duck.glb",
           scale: 1.2,
           rotation: { x: 0, y: 0.5, z: 0 },
           position: { x: 0, y: -1, z: 0 },
+          autoCenter: true
         },
         boombox: {
-          url: "https://raw.githubusercontent.com/mrdoob/three.js/master/examples/models/gltf/BoomBox.glb",
-          scale: 60.0, // scale up because it is tiny natively
+          url: "https://threejs.org/examples/models/gltf/BoomBox/glTF-Binary/BoomBox.glb",
+          scale: 80.0, // increased for visibility
           rotation: { x: 0, y: Math.PI / 4.0, z: 0 },
           position: { x: 0, y: 0, z: 0 },
+          autoCenter: true
         },
         robot: {
-          url: "https://raw.githubusercontent.com/mrdoob/three.js/master/examples/models/gltf/RobotExpressive/RobotExpressive.glb",
-          scale: 0.8,
+          url: "https://threejs.org/examples/models/gltf/RobotExpressive/RobotExpressive.glb",
+          scale: 1.2,
           rotation: { x: 0, y: 0, z: 0 },
           position: { x: 0, y: -2, z: 0 },
+          autoCenter: true
         },
         shoe: {
-          url: "https://raw.githubusercontent.com/mrdoob/three.js/master/examples/models/gltf/MaterialsVariantsShoe/glTF-Binary/MaterialsVariantsShoe.glb",
-          scale: 15.0,
+          // FIXED: Using threejs.org domain instead of raw.githubusercontent
+          url: "https://threejs.org/examples/models/gltf/MaterialsVariantsShoe/glTF-Binary/MaterialsVariantsShoe.glb",
+          scale: 5.0, // adjusted for orthographic camera
           rotation: { x: 0, y: -Math.PI / 4, z: 0 },
-          position: { x: 0, y: 0, z: 0 },
+          position: { x: 0, y: -1, z: 0 },
+          autoCenter: true
         },
       };
 
@@ -1170,8 +1195,6 @@
 
       function loadModel(name) {
         const cfg = MODELS[name];
-
-        // Fallback: If the requested model config doesn't exist, use 'hands'
         const configToLoad = cfg || MODELS["hands"];
         const modelName = cfg ? name : "hands (fallback)";
 
@@ -1181,41 +1204,72 @@
           currentModel = null;
         }
 
+        console.log(`Loading model: ${modelName} from ${configToLoad.url}`);
+
         loader.load(
           configToLoad.url,
           (gltf) => {
             const m = gltf.scene;
+            
+            // Apply base transforms
             m.scale.setScalar(configToLoad.scale ?? 1.0);
             m.rotation.set(
               configToLoad.rotation?.x ?? 0,
               configToLoad.rotation?.y ?? 0,
               configToLoad.rotation?.z ?? 0,
             );
-            m.position.set(
-              configToLoad.position?.x ?? 0,
-              configToLoad.position?.y ?? 0,
-              configToLoad.position?.z ?? 0,
-            );
+            
+            // Auto-center model based on bounding box if enabled
+            if (configToLoad.autoCenter) {
+              m.updateMatrixWorld(true);
+              const box = new THREE.Box3().setFromObject(m);
+              const center = box.getCenter(new THREE.Vector3());
+              const size = box.getSize(new THREE.Vector3());
+              
+              // Center the model
+              m.position.x = -center.x;
+              m.position.y = -center.y + (configToLoad.position?.y ?? 0);
+              m.position.z = -center.z;
+              
+              console.log(`Model ${modelName} centered. Size:`, size);
+            } else {
+              m.position.set(
+                configToLoad.position?.x ?? 0,
+                configToLoad.position?.y ?? 0,
+                configToLoad.position?.z ?? 0,
+              );
+            }
+            
+            // Enable shadows
+            m.traverse((child) => {
+              if (child.isMesh) {
+                child.castShadow = true;
+                child.receiveShadow = true;
+              }
+            });
+
             scene.add(m);
             currentModel = m;
 
-            controls.target.copy(handsFocusPoint);
+            controls.target.set(0, 0, 0);
             controls.update();
-            camera.lookAt(handsFocusPoint);
+            camera.lookAt(0, 0, 0);
+            
+            console.log(`Successfully loaded: ${modelName}`);
           },
-          undefined,
+          (progress) => {
+            if (progress.total > 0) {
+              const percent = (progress.loaded / progress.total * 100).toFixed(0);
+              console.log(`${modelName}: ${percent}% loaded`);
+            }
+          },
           (err) => {
-            console.warn(
-              `Failed to load model '${modelName}'. Attempting fallback...`,
-              err,
-            );
-            // If loading fails, try to load the default 'hands' model if we aren't already trying to load it
+            console.error(`Failed to load model '${modelName}':`, err);
             if (name !== "hands") {
+              console.warn("Falling back to hands model...");
               loadModel("hands");
             } else {
-              alert(
-                "Could not load any models. Please check your internet connection.",
-              );
+              alert("Could not load any models. Please check your internet connection.");
             }
           },
         );

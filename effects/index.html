@@ -263,7 +263,7 @@
       import * as THREE from "https://esm.sh/three@0.160.0";
       import { OrbitControls } from "https://esm.sh/three@0.160.0/examples/jsm/controls/OrbitControls.js";
       import { GLTFLoader } from "https://esm.sh/three@0.160.0/examples/jsm/loaders/GLTFLoader.js";
-      import { OBJLoader } from "https://esm.sh/three@0.160.0/examples/jsm/loaders/OBJLoader.js"; // Added OBJ Loader
+      import { OBJLoader } from "https://esm.sh/three@0.160.0/examples/jsm/loaders/OBJLoader.js";
       import { AsciiEffect } from "https://esm.sh/three@0.160.0/examples/jsm/effects/AsciiEffect.js";
 
       import {
@@ -277,6 +277,7 @@
 
       /* ================= SHADERS / EFFECTS ================= */
 
+      // ENHANCED WOVEN SHADER with better contrast and colors
       const wovenShader = `
         precision highp float;
         uniform float pixelSize;
@@ -326,7 +327,8 @@
           vec2 cellPosition = floor(uv / normalizedPixelSize);
           vec2 cellUV = fract(uv / normalizedPixelSize);
 
-          // ---------------- DARK WOVEN BACKGROUND ----------------
+          // ---------------- ENHANCED WOVEN BACKGROUND ----------------
+          // Dark blue-grey background with visible pattern
           if (luma < 0.001) {
             vec2 centered = cellUV - 0.5;
             float isAlternate = mod(cellPosition.x, 2.0);
@@ -339,12 +341,23 @@
             
             float aspectRatio = 1.55;
             float ellipse = length(vec2(rotated.x, rotated.y * aspectRatio - 0.075));
-            float bgWoven = smoothstep(0.2, 1.0, 1.0 - ellipse) * 0.05;
-            outputColor = vec4(vec3(bgWoven), 1.0);
+            float pattern = smoothstep(0.2, 1.0, 1.0 - ellipse);
+            
+            // Dark blue-grey base color (not pure black)
+            vec3 bgBase = vec3(0.04, 0.05, 0.10); // Dark blue-grey
+            float bgIntensity = 0.15;
+            
+            // Apply pattern to background
+            vec3 bgColor = bgBase * pattern * bgIntensity * 3.0;
+            
+            // Add subtle noise for texture variation
+            bgColor += random(cellPosition * 0.5) * 0.03;
+            
+            outputColor = vec4(bgColor, 1.0);
             return;
           }
 
-          // ---------------- MAIN WOVEN EFFECT ----------------
+          // ---------------- ENHANCED MODEL WOVEN EFFECT ----------------
           float rowOffset = sin((random(vec2(0.0, uvPixel.y)) - 0.5) * 0.25);
           cellUV.x += rowOffset; 
           vec2 centered = cellUV - 0.5;
@@ -365,17 +378,30 @@
           
           float aspectRatio = 1.55;
           float ellipse = length(vec2(rotated.x, rotated.y * aspectRatio - 0.075));
-          color.rgb *= smoothstep(0.2, 1.0, 1.0 - ellipse);
           
+          // Sharper contrast for woven threads
+          float weaveMask = smoothstep(0.18, 0.85, 1.0 - ellipse);
+          color.rgb *= weaveMask;
+          
+          // Brightness boost to make model pop against dark background
+          color.rgb *= 1.4;
+          
+          // Enhanced stripe noise with brighter base
           float stripeNoise = noise(vec2(centered.x, centered.y * 100.0)); 
-          color.rgb *= stripeNoise + 0.4;
+          color.rgb *= stripeNoise * 0.6 + 0.9;
          
-          float hueShift = (random(cellPosition) - 0.5) * 0.08;
+          // More vibrant color processing
+          float hueShift = (random(cellPosition) - 0.5) * 0.10;
           vec3 hsv = rgbToHsv(color.rgb);
           hsv.x += hueShift;
+          hsv.y = clamp(hsv.y * 1.3, 0.0, 1.0); // Increase saturation
+          hsv.z = clamp(hsv.z * 1.2, 0.0, 1.0); // Increase brightness
           color.rgb = hsvToRgb(hsv);
 
-          color.rgb *= smoothstep(0.2, 1.0, 1.0 - ellipse);
+          // Add subtle edge glow to define thread edges
+          float edgeGlow = smoothstep(0.25, 0.0, ellipse) * 0.25;
+          color.rgb += vec3(edgeGlow) * 0.5;
+
           outputColor = color;
         }
       `;
@@ -737,7 +763,7 @@
           this.ctx = this.canvas.getContext("2d", { willReadFrequently: true });
           this.domElement = this.canvas;
 
-          this.chars = "ｦｧｨｩｪｫｭｮｯ012789";
+          this.chars = "ｦｧｨｩｪｫｬｭｮｯ012789";
           this.cols = 0;
           this.rows = 0;
           this.drops = [];

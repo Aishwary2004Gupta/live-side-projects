@@ -221,8 +221,8 @@
       <ul id="effectList">
         <li data-value="dots">Dots</li>
         <li data-value="complex">Complex Pixel</li>
-        <li data-value="woven" class="active">Woven</li>
-        <li data-value="lego">Lego</li>
+        <li data-value="woven">Woven</li>
+        <li data-value="lego" class="active">Lego</li>
         <li data-value="ascii">ASCII</li>
         <li data-value="dither">Dithering</li>
         <li data-value="halftone">Halftone</li>
@@ -406,131 +406,104 @@
         }
       `;
 
+      // IMPROVED LEGO SHADER with better background contrast
       const legoShader = `
-  precision highp float;
-  uniform float pixelSize;
-  uniform vec2 resolution;
+        precision highp float;
+        uniform float pixelSize;
+        uniform vec2 resolution;
 
-  float rand(vec2 st) {
-    return fract(sin(dot(st.xy, vec2(12.9898,78.233))) * 43758.5453123);
-  }
+        float random(vec2 st) {
+          return fract(sin(dot(st.xy, vec2(12.9898,78.233))) * 43758.5453123);
+        }
 
-  vec3 rgbToHsv(vec3 c) {
-    vec4 K = vec4(0.0, -1.0/3.0, 2.0/3.0, -1.0);
-    vec4 p = mix(vec4(c.bg, K.wz), vec4(c.gb, K.xy), step(c.b, c.g));
-    vec4 q = mix(vec4(p.xyw, c.r), vec4(c.r, p.yzx), step(p.x, c.r));
-    float d = q.x - min(q.w, q.y);
-    float e = 1.0e-10;
-    return vec3(abs(q.z + (q.w - q.y)/(6.0*d + e)), d/(q.x + e), q.x);
-  }
+        vec3 rgbToHsv(vec3 c) {
+          vec4 K = vec4(0.0, -1.0 / 3.0, 2.0 / 3.0, -1.0);
+          vec4 p = mix(vec4(c.bg, K.wz), vec4(c.gb, K.xy), step(c.b, c.g));
+          vec4 q = mix(vec4(p.xyw, c.r), vec4(c.r, p.yzx), step(p.x, c.r));
+          float d = q.x - min(q.w, q.y);
+          float e = 1.0e-10;
+          return vec3(abs(q.z + (q.w - q.y) / (6.0 * d + e)), d / (q.x + e), q.x);
+        }
 
-  vec3 hsvToRgb(vec3 c) {
-    vec4 K = vec4(1.0, 2.0/3.0, 1.0/3.0, 3.0);
-    vec3 p = abs(fract(c.xxx + K.xyz) * 6.0 - K.www);
-    return c.z * mix(K.xxx, clamp(p - K.xxx, 0.0, 1.0), c.y);
-  }
+        vec3 hsvToRgb(vec3 c) {
+          vec4 K = vec4(1.0, 2.0 / 3.0, 1.0 / 3.0, 3.0);
+          vec3 p = abs(fract(c.xxx + K.xyz) * 6.0 - K.www);
+          return c.z * mix(K.xxx, clamp(p - K.xxx, 0.0, 1.0), c.y);
+        }
 
-  void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor) {
+        const float colorNum = 16.0;
+        const float MASK_BORDER = 1.5;
 
-    vec2 s = pixelSize / resolution;
-    vec2 uvPixel = s * floor(uv / s);
-    vec4 texel = texture2D(inputBuffer, uvPixel);
+        void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor) {
+          float luma = dot(inputColor.rgb, vec3(0.2126, 0.7152, 0.0722));
 
-    float luma = dot(inputColor.rgb, vec3(0.2126, 0.7152, 0.0722));
+          vec2 normalizedPixelSize = pixelSize / resolution;
+          vec2 uvPixel = normalizedPixelSize * floor(uv / normalizedPixelSize);
+          vec4 color = texture(inputBuffer, uvPixel);
 
-    vec2 cellUV  = fract(uv / s);
-    vec2 cellPos = floor(uv / s);
+          vec2 cellPosition = floor(uv / normalizedPixelSize);
+          vec2 cellUV = fract(uv / normalizedPixelSize);
 
-    // -------------------- BACKGROUND (BASEPLATE) --------------------
-    if (luma < 0.001) {
+          // ================= IMPROVED LEGO BASEPLATE BACKGROUND =================
+          if (luma < 0.001) {
+            // Dark grey lego baseplate - much darker for better contrast
+            vec3 bgBase = vec3(0.02, 0.025, 0.03);
+            
+            vec2 lightDir = normalize(vec2(0.3, 0.3));
+            float lighting = dot(normalize(cellUV - vec2(0.5)), lightDir) * 0.5;
+            float dis = abs(distance(cellUV, vec2(0.5)) * 2.0 - 0.5);
+            float stud = smoothstep(0.1, 0.0, dis) * lighting + 0.2;
 
-      // Deep cool base color (better separation than neutral gray)
-      vec3 base = vec3(0.012, 0.014, 0.055);   // navy
-      vec3 tint = vec3(0.020, 0.010, 0.040);   // slight purple tint
-      base += tint * 0.35;
+            vec2 centeredCellUV = cellUV * 2.0 - 1.0;
+            float mask = 1.0;
+            vec2 border = 1.05 - pow(centeredCellUV, vec2(8.0)) * MASK_BORDER;
+            mask *= border.x * border.y;
+            float maskStrength = smoothstep(0.0, 0.8, mask);
+            stud *= 0.7 + (maskStrength * 0.2);
 
-      // Vignette to keep center slightly brighter (model reads clearer)
-      float d = distance(uv, vec2(0.5));
-      float vign = smoothstep(0.95, 0.25, d); // 1 at center -> 0 at edges
-      base *= (0.70 + 0.30 * vign);
+            // Combine base plate + raised stud (subtle)
+            vec3 bgColor = bgBase + (stud * 0.08);
+            // Add very subtle noise for texture
+            bgColor += random(cellPosition * 0.4) * 0.015;
+            
+            outputColor = vec4(bgColor, 1.0);
+            return;
+          }
 
-      // Stud shading
-      vec2 c = cellUV - 0.5;
-      float dist = length(c);
+          // ================= MAIN COLORED LEGO BRICKS (on model) =================
+          color.r = floor(color.r * (colorNum - 1.0) + 0.5) / (colorNum - 1.0);
+          color.g = floor(color.g * (colorNum - 1.0) + 0.5) / (colorNum - 1.0);
+          color.b = floor(color.b * (colorNum - 1.0) + 0.5) / (colorNum - 1.0);
+          color.rgb = clamp(color.rgb, 0.01, 0.95);
 
-      // stud body + rim
-      float stud = smoothstep(0.34, 0.22, dist);
-      float rim  = smoothstep(0.30, 0.24, dist) - smoothstep(0.24, 0.14, dist);
-      rim = clamp(rim, 0.0, 1.0);
+          vec2 lightDir = normalize(vec2(0.3, 0.3));
+          float lighting = dot(normalize(cellUV - vec2(0.5)), lightDir) * 0.7;
+          float dis = abs(distance(cellUV, vec2(0.5)) * 2.0 - 0.5);
+          color.rgb *= smoothstep(0.1, 0.0, dis) * lighting + 1.5; // +50% brightness boost
 
-      // fake light from top-left
-      vec2 lightDir = normalize(vec2(-0.6, 0.8));
-      float hl = dot(normalize(c + 1e-6), lightDir) * 0.5 + 0.5; // 0..1
-      hl = clamp(hl, 0.0, 1.0);
+          vec2 centeredCellUV = cellUV * 2.0 - 1.0;
+          float mask = 1.0; 
+          vec2 border = 1.05 - pow(centeredCellUV, vec2(8.0)) * MASK_BORDER;
+          mask *= border.x * border.y;
+          float maskStrength = smoothstep(0.0, 0.8, mask);
+          color.rgb *= 0.75 + (maskStrength * 0.25);
 
-      // seams (grid lines between baseplate tiles)
-      float seamX = smoothstep(0.985, 1.0, cellUV.x) + smoothstep(0.015, 0.0, cellUV.x);
-      float seamY = smoothstep(0.985, 1.0, cellUV.y) + smoothstep(0.015, 0.0, cellUV.y);
-      float seams = clamp(seamX + seamY, 0.0, 1.0);
+          // More vibrant colors
+          float hueShift = random(cellPosition) * 0.02;
+          vec3 hsv = rgbToHsv(color.rgb);
+          hsv.x += hueShift;
+          hsv.y = clamp(hsv.y * 1.4, 0.0, 1.0); // Increase saturation more
+          hsv.z = clamp(hsv.z * 1.25, 0.0, 1.0); // Increase brightness more
+          color.rgb = hsvToRgb(hsv);
 
-      // subtle per-tile variation
-      float n = (rand(cellPos * 0.5) - 0.5) * 0.02;
+          // Stronger edge glow on studs for better definition
+          float edgeGlow = smoothstep(0.28, 0.0, length(cellUV - 0.5)) * 0.22;
+          color.rgb += vec3(edgeGlow) * 0.5;
+          
+          outputColor = color;
+        }
+      `;
 
-      vec3 bg = base;
-
-      // stud lift + highlight
-      bg += stud * (0.020 + 0.020 * hl);
-
-      // rim spec
-      bg += rim * 0.020;
-
-      // seams slightly darker
-      bg -= seams * 0.018;
-
-      // tiny noise
-      bg += n;
-
-      outputColor = vec4(clamp(bg, 0.0, 1.0), 1.0);
-      return;
-    }
-
-    // -------------------- MODEL (LEGO BRICKS) --------------------
-    vec4 color = texel;
-
-    const float colorNum = 16.0;
-    color.r = floor(color.r * (colorNum - 1.0) + 0.5) / (colorNum - 1.0);
-    color.g = floor(color.g * (colorNum - 1.0) + 0.5) / (colorNum - 1.0);
-    color.b = floor(color.b * (colorNum - 1.0) + 0.5) / (colorNum - 1.0);
-    color.rgb = clamp(color.rgb, 0.02, 0.98);
-
-    // make model pop a bit more
-    color.rgb *= 1.15;
-
-    // stud lighting on model bricks
-    vec2 cc = cellUV - 0.5;
-    float dist2 = length(cc);
-    float stud2 = smoothstep(0.36, 0.22, dist2);
-
-    vec2 lightDir2 = normalize(vec2(-0.6, 0.8));
-    float hl2 = dot(normalize(cc + 1e-6), lightDir2) * 0.6 + 0.4;
-    hl2 = clamp(hl2, 0.0, 1.0);
-
-    float rim2 = smoothstep(0.32, 0.25, dist2) - smoothstep(0.25, 0.14, dist2);
-    rim2 = clamp(rim2, 0.0, 1.0);
-
-    color.rgb *= (0.90 + 0.22 * stud2 * hl2);
-    color.rgb += rim2 * 0.06;
-
-    // slight hue variation per brick
-    float hueShift = (rand(cellPos) - 0.5) * 0.03;
-    vec3 hsv = rgbToHsv(color.rgb);
-    hsv.x += hueShift;
-    hsv.y = clamp(hsv.y * 1.10, 0.0, 1.0);
-    color.rgb = hsvToRgb(hsv);
-
-    outputColor = vec4(clamp(color.rgb, 0.0, 1.0), 1.0);
-  }
-`;
       const complexShader = `
         precision highp float;
         uniform float pixelSize;
@@ -1334,14 +1307,14 @@
       }
 
       // initial model
-      loadModel("horse");
+      loadModel("fox");
 
       /* ================= POST ================= */
 
       const composer = new EffectComposer(renderer);
       composer.addPass(new RenderPass(scene, camera));
 
-      let pass = new EffectPass(camera, woven);
+      let pass = new EffectPass(camera, lego);
       composer.addPass(pass);
 
       /* ================= UI LOGIC ================= */

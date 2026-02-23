@@ -472,70 +472,71 @@
       `;
 
       const complexShader = `
-  precision highp float;
-  uniform float pixelSize;
-  uniform vec2 resolution;
+        precision highp float;
+        uniform float pixelSize;
+        uniform vec2 resolution;
 
-  float circle(vec2 uv, float r) {
-    return 1.0 - smoothstep(r - 0.05, r + 0.05, length(uv - 0.5));
-  }
+        float circle(vec2 uv, float r) {
+          return 1.0 - smoothstep(r - 0.05, r + 0.05, length(uv - 0.5));
+        }
 
-  float square(vec2 uv, float size) {
-    vec2 d = abs(uv - 0.5);
-    return step(max(d.x, d.y), size);
-  }
+        float square(vec2 uv, float size) {
+          vec2 d = abs(uv - 0.5);
+          return step(max(d.x, d.y), size);
+        }
 
-  float cross(vec2 uv, float thickness) {
-    float h = step(abs(uv.x - 0.5), thickness);
-    float v = step(abs(uv.y - 0.5), thickness);
-    return max(h, v);
-  }
+        float cross(vec2 uv, float thickness) {
+          float h = step(abs(uv.x - 0.5), thickness);
+          float v = step(abs(uv.y - 0.5), thickness);
+          return max(h, v);
+        }
 
-  void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor) {
+        void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor) {
 
-    vec2 cellSize = pixelSize / resolution;
-    vec2 uvPixel = cellSize * floor(uv / cellSize);
-    vec4 src = texture2D(inputBuffer, uvPixel);
+          vec2 cellSize = pixelSize / resolution;
+          vec2 uvPixel = cellSize * floor(uv / cellSize);
+          vec4 src = texture2D(inputBuffer, uvPixel);
 
-    float luma = dot(src.rgb, vec3(0.2126, 0.7152, 0.0722));
-    vec2 cellUV = fract(uv / cellSize);
+          float luma = dot(src.rgb, vec3(0.2126, 0.7152, 0.0722));
+          vec2 cellUV = fract(uv / cellSize);
 
-    // Base background (light grey instead of white for better contrast)
-    vec3 bg = vec3(0.92);
+          // Base background (light grey instead of white for better contrast)
+          vec3 bg = vec3(0.92);
 
-    float pattern = 0.0;
+          float pattern = 0.0;
 
-    // Dark areas → solid fill
-    if (luma < 0.15) {
-      pattern = 1.0;
-    }
-    // Mid-dark → cross
-    else if (luma < 0.35) {
-      pattern = cross(cellUV, 0.12);
-    }
-    // Mid tones → square
-    else if (luma < 0.55) {
-      pattern = square(cellUV, 0.30);
-    }
-    // Mid-light → circle
-    else if (luma < 0.75) {
-      pattern = circle(cellUV, 0.28);
-    }
-    // Bright → small dot
-    else {
-      pattern = circle(cellUV, 0.12);
-    }
+          // Dark areas → solid fill
+          if (luma < 0.15) {
+            pattern = 1.0;
+          }
+          // Mid-dark → cross
+          else if (luma < 0.35) {
+            pattern = cross(cellUV, 0.12);
+          }
+          // Mid tones → square
+          else if (luma < 0.55) {
+            pattern = square(cellUV, 0.30);
+          }
+          // Mid-light → circle
+          else if (luma < 0.75) {
+            pattern = circle(cellUV, 0.28);
+          }
+          // Bright → small dot
+          else {
+            pattern = circle(cellUV, 0.12);
+          }
 
-    // Preserve silhouette strength
-    float edgeBoost = smoothstep(0.0, 0.2, 1.0 - luma);
+          // Preserve silhouette strength
+          float edgeBoost = smoothstep(0.0, 0.2, 1.0 - luma);
 
-    vec3 blue = vec3(0.0, 0.31, 0.93);
+          vec3 blue = vec3(0.0, 0.31, 0.93);
 
-    vec3 finalColor = mix(bg, blue, pattern * (0.6 + edgeBoost * 0.4));
+          vec3 finalColor = mix(bg, blue, pattern * (0.6 + edgeBoost * 0.4));
 
-    outputColor = vec4(finalColor, 1.0);
-  }
-`;
+          outputColor = vec4(finalColor, 1.0);
+        }
+      `;
+      
       const dotsShader = `
         precision highp float;
         uniform float pixelSize;

@@ -208,10 +208,34 @@
         opacity: 1;
         pointer-events: auto;
       }
+
+      #axisTracker {
+  position: fixed;
+  top: 14px;
+  left: 14px;
+  z-index: 9999;
+  font-size: 12px;
+  line-height: 1.35;
+  color: #eaeaea;
+  background: rgba(10, 10, 10, 0.75);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  padding: 10px 12px;
+  border-radius: 8px;
+  backdrop-filter: blur(6px);
+  pointer-events: none; /* don’t block orbit controls */
+  white-space: pre;
+}
+#axisTracker b {
+  color: #ffffff;
+  font-weight: 600;
+}
     </style>
   </head>
 
   <body>
+
+    <div id="axisTracker"></div>
+
     <!-- Floating toggle for when sidebar is hidden -->
     <div id="floatingToggle">+</div>
 
@@ -277,6 +301,35 @@
       } from "https://esm.sh/postprocessing@6.35.4?deps=three@0.160.0";
 
       const handsFocusPoint = new THREE.Vector3(0, 0, 0);
+      const axisTracker = document.getElementById("axisTracker");
+
+      function radToDeg(r) {
+  return (r * 180) / Math.PI;
+}
+
+function fmtRad(r) {
+  return (Math.round(r * 1000) / 1000).toFixed(3);
+}
+
+function fmtDeg(r) {
+  return radToDeg(r).toFixed(1);
+}
+
+function updateAxisTracker() {
+  if (!axisTracker) return;
+
+  const r = currentModel?.rotation; // currentModel already exists in your code
+
+  const x = r ? r.x : 0;
+  const y = r ? r.y : 0;
+  const z = r ? r.z : 0;
+
+  axisTracker.innerHTML =
+`<b>Model Rotation</b>
+x: ${fmtRad(x)} rad  (${fmtDeg(x)}°)
+y: ${fmtRad(y)} rad  (${fmtDeg(y)}°)
+z: ${fmtRad(z)} rad  (${fmtDeg(z)}°)`;
+}
 
       /* ================= SHADERS / EFFECTS ================= */
 
@@ -1495,6 +1548,7 @@
       function animate() {
         requestAnimationFrame(animate);
         controls.update();
+        updateAxisTracker();
 
         if (Math.abs(currentLayoutWidth - targetLayoutWidth) > 0.5) {
           currentLayoutWidth += (targetLayoutWidth - currentLayoutWidth) * 0.15;

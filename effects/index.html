@@ -18,28 +18,33 @@
         font-family: "Fira Code", "Courier New", monospace;
       }
 
-      /* ===== Axis HUD (top-left) ===== */
+      /* Container to hold all canvases and catch pointer events for OrbitControls */
+      #canvasContainer {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        z-index: 1;
+        overflow: hidden;
+      }
+
+      /* ===== Axis HUD (top-left) - NO TEXT ===== */
       #axisHUD {
         position: fixed;
         top: 12px;
         left: 12px;
         z-index: 9999;
         display: flex;
-        gap: 10px;
-        align-items: flex-start;
         pointer-events: none; /* don't block OrbitControls */
       }
       #axisCanvas {
-        width: 120px;
-        height: 120px;
-        border-radius: 10px;
-        background: rgba(10, 10, 10, 0.65);
+        width: 100px;
+        height: 100px;
+        border-radius: 50%;
+        background: rgba(10, 10, 10, 0.45);
         border: 1px solid rgba(255, 255, 255, 0.12);
         backdrop-filter: blur(6px);
-      }
-      /* Hide text area since we don't want numbers anymore */
-      #axisText {
-        display: none; 
       }
 
       /* --- COLLAPSIBLE SIDEBAR STYLES --- */
@@ -236,19 +241,22 @@
   </head>
 
   <body>
-    <!-- Axis HUD -->
+    <!-- Axis HUD (Only compass) -->
     <div id="axisHUD">
-      <canvas id="axisCanvas" width="120" height="120"></canvas>
-      <div id="axisText"></div>
+      <canvas id="axisCanvas" width="100" height="100"></canvas>
     </div>
 
     <!-- Floating toggle for when sidebar is hidden -->
     <div id="floatingToggle">+</div>
 
+    <!-- Container for all canvases (handles unified orbit controls) -->
+    <div id="canvasContainer"></div>
+
     <!-- Sidebar -->
     <div id="sidebar">
       <h2><span id="toggleBtn">—</span> Effects</h2>
       <ul id="effectList">
+        <li data-value="normal" class="active">Normal</li>
         <li data-value="dots">Dots</li>
         <li data-value="complex">Complex Pixel</li>
         <li data-value="woven">Woven</li>
@@ -256,7 +264,6 @@
         <li data-value="ascii">ASCII</li>
         <li data-value="dither">Dithering</li>
         <li data-value="halftone">Halftone</li>
-        <li data-value="normal" class="active">Normal</li>
         <li data-value="matrix">Matrix Rain</li>
         <li data-value="contour">Contour</li>
         <li data-value="blockify">Blockify</li>
@@ -311,7 +318,6 @@
 
       /* ================= SHADERS ================= */
 
-      // Normal: Identity shader (no effect)
       const normalShader = `
         precision highp float;
         uniform vec2 resolution;
@@ -465,7 +471,6 @@
         }
       `;
 
-      // Reference-accurate Lego (with lightPosition)
       const legoShader = `
         precision highp float;
         uniform float pixelSize;
@@ -527,7 +532,6 @@
         }
       `;
 
-      // Simple Complex (kept minimal here; you can replace with your preferred)
       const complexShader = `
         precision highp float;
         uniform float pixelSize;
@@ -557,37 +561,19 @@
           float luma = dot(src.rgb, vec3(0.2126, 0.7152, 0.0722));
           vec2 cellUV = fract(uv / cellSize);
 
-          // Base background (light grey instead of white for better contrast)
+          // Base background
           vec3 bg = vec3(0.92);
 
           float pattern = 0.0;
 
-          // Dark areas → solid fill
-          if (luma < 0.15) {
-            pattern = 1.0;
-          }
-          // Mid-dark → cross
-          else if (luma < 0.35) {
-            pattern = cross(cellUV, 0.12);
-          }
-          // Mid tones → square
-          else if (luma < 0.55) {
-            pattern = square(cellUV, 0.30);
-          }
-          // Mid-light → circle
-          else if (luma < 0.75) {
-            pattern = circle(cellUV, 0.28);
-          }
-          // Bright → small dot
-          else {
-            pattern = circle(cellUV, 0.12);
-          }
+          if (luma < 0.15) pattern = 1.0;
+          else if (luma < 0.35) pattern = cross(cellUV, 0.12);
+          else if (luma < 0.55) pattern = square(cellUV, 0.30);
+          else if (luma < 0.75) pattern = circle(cellUV, 0.28);
+          else pattern = circle(cellUV, 0.12);
 
-          // Preserve silhouette strength
           float edgeBoost = smoothstep(0.0, 0.2, 1.0 - luma);
-
           vec3 blue = vec3(0.0, 0.31, 0.93);
-
           vec3 finalColor = mix(bg, blue, pattern * (0.6 + edgeBoost * 0.4));
 
           outputColor = vec4(finalColor, 1.0);
@@ -826,7 +812,7 @@
         })();
       }
 
-      /* ================= SCENE ================= */
+      /* ================= SCENE & RENDERER SETUP ================= */
 
       const scene = new THREE.Scene();
       scene.background = new THREE.Color("#010101");
@@ -854,18 +840,143 @@
       camera.lookAt(handsFocusPoint);
       updateCamera();
 
-      /* ================= RENDERERS ================= */
+      /* Grab container */
+      const canvasContainer = document.getElementById("canvasContainer");
 
       const renderer = new THREE.WebGLRenderer({ antialias: true });
       renderer.setSize(currentLayoutWidth, window.innerHeight);
-      document.body.appendChild(renderer.domElement);
+      renderer.domElement.style.position = "absolute";
+      canvasContainer.appendChild(renderer.domElement);
 
       const ascii = new AsciiEffect(renderer, " .:-=+*#%@", { invert: true });
       ascii.domElement.style.position = "absolute";
       ascii.domElement.style.color = "white";
       ascii.domElement.style.background = "black";
+      ascii.domElement.style.display = "none";
+      canvasContainer.appendChild(ascii.domElement);
 
-      /* ================= EFFECTS ================= */
+      /* ================= MATRIX RAIN CLASS ================= */
+      class MatrixRainEffect {
+        constructor(renderer, camera) {
+          this.renderer = renderer;
+          this.camera = camera;
+          this.canvas = document.createElement("canvas");
+          this.ctx = this.canvas.getContext("2d", { willReadFrequently: true });
+          this.domElement = this.canvas;
+          
+          this.domElement.style.position = "absolute";
+          this.domElement.style.top = "0";
+          this.domElement.style.left = "0";
+          this.domElement.style.display = "none";
+          this.domElement.style.pointerEvents = "none"; // Let interactions pass through if needed
+
+          this.chars = "ｦｧｨｩｪｫｬｭｮｯ012789";
+          this.cols = 0;
+          this.rows = 0;
+          this.drops = [];
+          this.speeds = [];
+          this.fontSize = 8;
+          this.fontFamily = "monospace";
+          this.setSize(currentLayoutWidth, window.innerHeight);
+
+          this.renderTarget = new THREE.WebGLRenderTarget(currentLayoutWidth, window.innerHeight, { format: THREE.RGBAFormat });
+          this.maskTarget = new THREE.WebGLRenderTarget(1, 1, { format: THREE.RGBAFormat });
+          this.maskTarget.texture.minFilter = THREE.NearestFilter;
+          this.maskTarget.texture.magFilter = THREE.NearestFilter;
+          this._maskBuffer = null;
+          this.cellCharacter = [];
+        }
+
+        setSize(width, height) {
+          this.canvas.width = width;
+          this.canvas.height = height;
+          this.domElement.style.width = width + "px";
+          this.domElement.style.height = height + "px";
+          
+          this.ctx.font = `${this.fontSize}px ${this.fontFamily}`;
+          this.cols = Math.floor(width / (this.fontSize * 0.6));
+          this.rows = Math.floor(height / this.fontSize);
+          this.drops = Array(this.cols).fill(0).map(() => -(Math.random() * this.rows));
+          this.speeds = Array(this.cols).fill(0).map(() => 0.3 + Math.random() * 0.6);
+          this.cellCharacter = new Array(this.cols * this.rows).fill(0).map(() => this.chars[Math.floor(Math.random() * this.chars.length)]);
+          
+          if (this.renderTarget) this.renderTarget.setSize(width, height);
+          if (this.maskTarget && this.cols > 0 && this.rows > 0) {
+            this.maskTarget.setSize(this.cols, this.rows);
+            this._maskBuffer = new Uint8Array(this.cols * this.rows * 4);
+          }
+        }
+
+        render(scene, camera) {
+          const oldTarget = this.renderer.getRenderTarget();
+          this.renderer.setRenderTarget(this.maskTarget);
+          this.renderer.render(scene, camera);
+          this.renderer.setRenderTarget(oldTarget);
+          
+          this.ctx.fillStyle = "black";
+          this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+          
+          const maskBuf = this._maskBuffer;
+          if (this.maskTarget && maskBuf) {
+            try {
+              this.renderer.readRenderTargetPixels(this.maskTarget, 0, 0, this.maskTarget.width, this.maskTarget.height, maskBuf);
+            } catch (err) {
+              maskBuf.fill(0);
+            }
+          }
+          
+          for (let i = 0; i < this.cols; i++) {
+            this.drops[i] += this.speeds[i];
+            if (Math.random() > 0.8) {
+              const y = Math.max(0, Math.floor(this.drops[i])) % this.rows;
+              this.cellCharacter[y * this.cols + i] = this.chars[Math.floor(Math.random() * this.chars.length)];
+            }
+            if (this.drops[i] >= this.rows + 20) {
+              this.drops[i] = -(Math.random() * 20);
+              this.speeds[i] = 0.3 + Math.random() * 0.6;
+            }
+          }
+          
+          for (let y = 0; y < this.rows; y++) {
+            for (let x = 0; x < this.cols; x++) {
+              const sampleY = this.maskTarget.height - 1 - y;
+              const idx = (sampleY * this.maskTarget.width + x) * 4;
+              const brightness = (maskBuf[idx] + maskBuf[idx + 1] + maskBuf[idx + 2]) / 3;
+              const drawX = x * (this.fontSize * 0.6);
+              const drawY = y * this.fontSize;
+              
+              if (brightness > 15) {
+                if (brightness > 180) this.ctx.fillStyle = `rgba(200, 255, 200, 0.95)`;
+                else if (brightness > 100) this.ctx.fillStyle = `rgba(40, 200, 60, 0.85)`;
+                else this.ctx.fillStyle = `rgba(10, 110, 20, 0.7)`;
+                this.ctx.fillText(this.cellCharacter[y * this.cols + x], drawX, drawY);
+              } else {
+                const dropY = this.drops[x];
+                const distance = dropY - y;
+                if (distance >= 0 && distance < 25) {
+                  if (distance < 1) this.ctx.fillStyle = `rgba(100, 200, 100, 0.6)`;
+                  else {
+                    const alpha = 0.4 * (1.0 - distance / 25);
+                    this.ctx.fillStyle = `rgba(0, 120, 20, ${alpha})`;
+                  }
+                  let char = this.cellCharacter[y * this.cols + x];
+                  if (Math.random() > 0.95) char = this.chars[Math.floor(Math.random() * this.chars.length)];
+                  this.ctx.fillText(char, drawX, drawY);
+                }
+              }
+            }
+          }
+        }
+      }
+
+      const matrix = new MatrixRainEffect(renderer, camera);
+      canvasContainer.appendChild(matrix.domElement);
+
+      /* ================= EFFECTS SETUP ================= */
+
+      const normal = makeEffect("Normal", normalShader, {
+        resolution: new THREE.Vector2(innerWidth, innerHeight),
+      });
 
       const dots = makeEffect("Dots", dotsShader, {
         pixelSize: 10.0,
@@ -886,10 +997,6 @@
         pixelSize: 10.0,
         resolution: new THREE.Vector2(innerWidth, innerHeight),
         lightPosition: new THREE.Vector2(0.8, 0.8),
-      });
-
-      const normal = makeEffect("Normal", normalShader, {
-        resolution: new THREE.Vector2(innerWidth, innerHeight),
       });
 
       const dither = makeEffect("Dither", ditherShader, {
@@ -943,11 +1050,11 @@
       });
 
       const map = {
+        normal,
         dots,
         complex,
         woven,
         lego,
-        normal,
         dither,
         halftone,
         contour,
@@ -962,8 +1069,8 @@
       };
 
       /* ================= CONTROLS ================= */
-
-      let controls = new OrbitControls(camera, renderer.domElement);
+      // Controls attached to PARENT CONTAINER so rotation works everywhere!
+      let controls = new OrbitControls(camera, canvasContainer);
       controls.enablePan = false;
       controls.enableDamping = true;
       controls.target.copy(handsFocusPoint);
@@ -1122,6 +1229,7 @@
             scene.add(m);
             currentModel = m;
 
+            // Reset camera target internally but do NOT recreate OrbitControls
             controls.target.copy(handsFocusPoint);
             controls.update();
             camera.lookAt(handsFocusPoint);
@@ -1144,147 +1252,6 @@
       let pass = new EffectPass(camera, normal);
       composer.addPass(pass);
 
-      /* ================= MATRIX RAIN EFFECT CLASS ================= */
-      class MatrixRainEffect {
-        constructor(renderer, camera) {
-          this.renderer = renderer;
-          this.camera = camera;
-          this.canvas = document.createElement("canvas");
-          this.ctx = this.canvas.getContext("2d", { willReadFrequently: true });
-          this.domElement = this.canvas;
-
-          this.chars = "ｦｧｨｩｪｫｬｭｮｯ012789";
-          this.cols = 0;
-          this.rows = 0;
-          this.drops = [];
-          this.speeds = [];
-          this.fontSize = 8;
-          this.fontFamily = "monospace";
-          this.setSize(
-            renderer.domElement.clientWidth,
-            renderer.domElement.clientHeight,
-          );
-
-          this.renderTarget = new THREE.WebGLRenderTarget(
-            renderer.domElement.clientWidth,
-            renderer.domElement.clientHeight,
-            { format: THREE.RGBAFormat },
-          );
-          this.maskTarget = new THREE.WebGLRenderTarget(1, 1, {
-            format: THREE.RGBAFormat,
-          });
-          this.maskTarget.texture.minFilter = THREE.NearestFilter;
-          this.maskTarget.texture.magFilter = THREE.NearestFilter;
-          this._maskBuffer = null;
-          this.cellCharacter = [];
-        }
-
-        setSize(width, height) {
-          this.canvas.width = width;
-          this.canvas.height = height;
-          this.ctx.font = `${this.fontSize}px ${this.fontFamily}`;
-          this.cols = Math.floor(width / (this.fontSize * 0.6));
-          this.rows = Math.floor(height / this.fontSize);
-          this.drops = Array(this.cols)
-            .fill(0)
-            .map(() => -(Math.random() * this.rows));
-          this.speeds = Array(this.cols)
-            .fill(0)
-            .map(() => 0.3 + Math.random() * 0.6);
-          this.cellCharacter = new Array(this.cols * this.rows)
-            .fill(0)
-            .map(
-              () => this.chars[Math.floor(Math.random() * this.chars.length)],
-            );
-          if (this.renderTarget) this.renderTarget.setSize(width, height);
-          if (this.maskTarget) {
-            const mw = Math.max(1, this.cols);
-            const mh = Math.max(1, this.rows);
-            this.maskTarget.setSize(mw, mh);
-            this._maskBuffer = new Uint8Array(mw * mh * 4);
-          }
-        }
-
-        render(scene, camera) {
-          const oldTarget = this.renderer.getRenderTarget();
-          this.renderer.setRenderTarget(this.maskTarget);
-          this.renderer.render(scene, camera);
-          this.renderer.setRenderTarget(oldTarget);
-          this.ctx.fillStyle = "black";
-          this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
-          const maskBuf = this._maskBuffer;
-          if (this.maskTarget && maskBuf) {
-            try {
-              this.renderer.readRenderTargetPixels(
-                this.maskTarget,
-                0,
-                0,
-                this.maskTarget.width,
-                this.maskTarget.height,
-                maskBuf,
-              );
-            } catch (err) {
-              maskBuf.fill(0);
-            }
-          }
-          for (let i = 0; i < this.cols; i++) {
-            this.drops[i] += this.speeds[i];
-            if (Math.random() > 0.8) {
-              const y = Math.max(0, Math.floor(this.drops[i])) % this.rows;
-              this.cellCharacter[y * this.cols + i] =
-                this.chars[Math.floor(Math.random() * this.chars.length)];
-            }
-            if (this.drops[i] >= this.rows + 20) {
-              this.drops[i] = -(Math.random() * 20);
-              this.speeds[i] = 0.3 + Math.random() * 0.6;
-            }
-          }
-          for (let y = 0; y < this.rows; y++) {
-            for (let x = 0; x < this.cols; x++) {
-              const sampleY = this.maskTarget.height - 1 - y;
-              const idx = (sampleY * this.maskTarget.width + x) * 4;
-              const brightness =
-                (maskBuf[idx] + maskBuf[idx + 1] + maskBuf[idx + 2]) / 3;
-              const drawX = x * (this.fontSize * 0.6);
-              const drawY = y * this.fontSize;
-              if (brightness > 15) {
-                if (brightness > 180)
-                  this.ctx.fillStyle = `rgba(200, 255, 200, 0.95)`;
-                else if (brightness > 100)
-                  this.ctx.fillStyle = `rgba(40, 200, 60, 0.85)`;
-                else this.ctx.fillStyle = `rgba(10, 110, 20, 0.7)`;
-                this.ctx.fillText(
-                  this.cellCharacter[y * this.cols + x],
-                  drawX,
-                  drawY,
-                );
-              } else {
-                const dropY = this.drops[x];
-                const distance = dropY - y;
-                if (distance >= 0 && distance < 25) {
-                  if (distance < 1)
-                    this.ctx.fillStyle = `rgba(100, 200, 100, 0.6)`;
-                  else {
-                    const alpha = 0.4 * (1.0 - distance / 25);
-                    this.ctx.fillStyle = `rgba(0, 120, 20, ${alpha})`;
-                  }
-                  let char = this.cellCharacter[y * this.cols + x];
-                  if (Math.random() > 0.95)
-                    char =
-                      this.chars[Math.floor(Math.random() * this.chars.length)];
-                  this.ctx.fillText(char, drawX, drawY);
-                }
-              }
-            }
-          }
-        }
-      }
-
-      const matrix = new MatrixRainEffect(renderer, camera);
-      matrix.domElement.style.position = "absolute";
-      matrix.domElement.style.top = "0";
-      matrix.domElement.style.left = "0";
-
       /* ================= UI ================= */
 
       const sidebar = document.getElementById("sidebar");
@@ -1298,23 +1265,10 @@
       // Axis HUD elements
       const axisCanvas = document.getElementById("axisCanvas");
       const axisCtx = axisCanvas.getContext("2d");
-      const axisText = document.getElementById("axisText");
-
-      function radToDeg(r) {
-        return (r * 180) / Math.PI;
-      }
-      function f3(n) {
-        return (Math.round(n * 1000) / 1000).toFixed(3);
-      }
-      function f1(n) {
-        return (Math.round(n * 10) / 10).toFixed(1);
-      }
 
       function drawAxis(v, color, label, cx, cy, scale) {
         const ex = cx + v.x * scale;
         const ey = cy - v.y * scale;
-
-        // depth tint: behind camera => dim
         const alpha = v.z < 0.0 ? 0.35 : 0.95;
 
         axisCtx.strokeStyle = color;
@@ -1328,25 +1282,18 @@
         axisCtx.stroke();
 
         axisCtx.globalAlpha = 1.0;
-        axisCtx.font = "12px 'Fira Code', monospace";
+        axisCtx.font = "14px 'Fira Code', monospace";
         axisCtx.fillText(label, ex + 4, ey + 4);
-
-        return { x: ex, y: ey };
       }
 
       function updateAxisHUD() {
         const w = axisCanvas.width;
         const h = axisCanvas.height;
-
         axisCtx.clearRect(0, 0, w, h);
-
-        // background
-        axisCtx.fillStyle = "rgba(10,10,10,0.35)";
-        axisCtx.fillRect(0, 0, w, h);
 
         const cx = w / 2;
         const cy = h / 2;
-        const scale = w * 0.33;
+        const scale = w * 0.35;
 
         // Use inverse camera quaternion so gizmo moves when you orbit (real-time)
         const invQ = camera.quaternion.clone().invert();
@@ -1363,12 +1310,9 @@
         axisCtx.stroke();
 
         // draw axes
-        const xP = drawAxis(xV, "#ff4d4d", "X", cx, cy, scale);
-        const yP = drawAxis(yV, "#46ff7a", "Y", cx, cy, scale);
-        const zP = drawAxis(zV, "#4da6ff", "Z", cx, cy, scale);
-
-        // Text is no longer updated to show numbers
-        // axisText.innerHTML = ... removed
+        drawAxis(xV, "#ff4d4d", "X", cx, cy, scale);
+        drawAxis(yV, "#46ff7a", "Y", cx, cy, scale);
+        drawAxis(zV, "#4da6ff", "Z", cx, cy, scale);
       }
 
       function togglePanel() {
@@ -1392,50 +1336,30 @@
       function switchEffect(val) {
         composer.removePass(pass);
 
-        if (val === "ascii") {
-          renderer.domElement.style.display = "none";
-          if (ascii.domElement.parentNode)
-            ascii.domElement.style.display = "block";
-          else document.body.appendChild(ascii.domElement);
+        // Hide all 3 rendering canvases
+        renderer.domElement.style.display = "none";
+        ascii.domElement.style.display = "none";
+        matrix.domElement.style.display = "none";
 
+        if (val === "ascii") {
+          ascii.domElement.style.display = "block";
           ascii.setSize(currentLayoutWidth, window.innerHeight);
           pixelUI.style.display = "none";
           return;
         }
 
         if (val === "matrix") {
-          renderer.domElement.style.display = "none";
-          if (ascii.domElement.parentNode)
-            ascii.domElement.style.display = "none";
-
-          if (matrix.domElement.parentNode)
-            matrix.domElement.style.display = "block";
-          else document.body.appendChild(matrix.domElement);
-
+          matrix.domElement.style.display = "block";
           matrix.setSize(currentLayoutWidth, window.innerHeight);
-          // Reset controls for matrix view
-          resetControls(matrix.domElement);
           pixelUI.style.display = "none";
           return;
         }
 
-        if (ascii.domElement.parentNode)
-          ascii.domElement.style.display = "none";
-        if (matrix.domElement.parentNode)
-          matrix.domElement.style.display = "none";
         renderer.domElement.style.display = "block";
-
         pass = new EffectPass(camera, map[val]);
         composer.addPass(pass);
 
-        pixelUI.style.display = [
-          "dots",
-          "blockify",
-          "halftone",
-          "complex",
-          "woven",
-          "lego",
-        ].includes(val)
+        pixelUI.style.display = ["dots", "blockify", "halftone", "complex", "woven", "lego"].includes(val)
           ? "block"
           : "none";
       }
@@ -1448,66 +1372,65 @@
         });
       });
 
+      // Default Initialization to Normal
+      switchEffect("normal");
+
       modelSelect.addEventListener("change", (e) => loadModel(e.target.value));
 
       pixelInput.oninput = (e) => {
         const value = +e.target.value;
-        ["dots", "halftone", "blockify", "complex", "woven", "lego"].forEach(
-          (key) => {
-            if (map[key]?.uniforms?.get("pixelSize"))
-              map[key].uniforms.get("pixelSize").value = value;
-          },
-        );
+        ["dots", "halftone", "blockify", "complex", "woven", "lego"].forEach((key) => {
+          if (map[key]?.uniforms?.get("pixelSize")) map[key].uniforms.get("pixelSize").value = value;
+        });
       };
 
       function updateLayout(width) {
         const height = window.innerHeight;
+        
+        // Ensure container follows split layout
+        canvasContainer.style.width = width + "px";
+
         renderer.setSize(width, height);
         composer.setSize(width, height);
         updateCamera();
 
-        const c = renderer.domElement;
         Object.values(map).forEach((e) => {
           if (e?.uniforms?.get?.("resolution"))
-            e.uniforms.get("resolution").value.set(c.width, c.height);
+            e.uniforms.get("resolution").value.set(width, height);
         });
 
-        if (ascii.domElement.parentNode) ascii.setSize(width, height);
-        if (matrix.domElement.parentNode) matrix.setSize(width, height);
+        if (ascii) ascii.setSize(width, height);
+        if (matrix) matrix.setSize(width, height);
       }
 
       addEventListener("resize", () => {
-        targetLayoutWidth = isPanelOpen
-          ? window.innerWidth - sidebarWidth
-          : window.innerWidth;
+        targetLayoutWidth = isPanelOpen ? window.innerWidth - sidebarWidth : window.innerWidth;
       });
 
-      const activeEffectName = () =>
-        document
-          .querySelector("#effectList li.active")
-          ?.getAttribute("data-value");
+      const activeEffectName = () => document.querySelector("#effectList li.active")?.getAttribute("data-value");
 
       /* ================= ANIMATE ================= */
 
       function animate() {
         requestAnimationFrame(animate);
+        
+        // Updates orbit controls attached to container
         controls.update();
 
         // smooth width animation when sidebar toggles
         if (Math.abs(currentLayoutWidth - targetLayoutWidth) > 0.5) {
           currentLayoutWidth += (targetLayoutWidth - currentLayoutWidth) * 0.15;
-          if (Math.abs(currentLayoutWidth - targetLayoutWidth) < 1)
-            currentLayoutWidth = targetLayoutWidth;
+          if (Math.abs(currentLayoutWidth - targetLayoutWidth) < 1) currentLayoutWidth = targetLayoutWidth;
           updateLayout(currentLayoutWidth);
         }
 
-        // real-time axis gizmo + numbers
+        // real-time axis compass
         updateAxisHUD();
 
         const current = activeEffectName();
-        if (current === "ascii") ascii.render(scene, camera);
-        else if (current === "matrix") {
-          composer.render();
+        if (current === "ascii") {
+          ascii.render(scene, camera);
+        } else if (current === "matrix") {
           matrix.render(scene, camera);
         } else {
           composer.render();

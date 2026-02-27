@@ -37,21 +37,9 @@
         border: 1px solid rgba(255, 255, 255, 0.12);
         backdrop-filter: blur(6px);
       }
+      /* Hide text area since we don't want numbers anymore */
       #axisText {
-        min-width: 260px;
-        font-size: 12px;
-        line-height: 1.35;
-        color: #eaeaea;
-        background: rgba(10, 10, 10, 0.65);
-        border: 1px solid rgba(255, 255, 255, 0.12);
-        padding: 10px 12px;
-        border-radius: 10px;
-        backdrop-filter: blur(6px);
-        white-space: pre;
-      }
-      #axisText b {
-        font-weight: 600;
-        color: #fff;
+        display: none; 
       }
 
       /* --- COLLAPSIBLE SIDEBAR STYLES --- */
@@ -266,9 +254,9 @@
         <li data-value="woven">Woven</li>
         <li data-value="lego">Lego</li>
         <li data-value="ascii">ASCII</li>
-        <li data-value="dither" class="active">Dithering</li>
+        <li data-value="dither">Dithering</li>
         <li data-value="halftone">Halftone</li>
-        <li data-value="normal">Normal</li>
+        <li data-value="normal" class="active">Normal</li>
         <li data-value="matrix">Matrix Rain</li>
         <li data-value="contour">Contour</li>
         <li data-value="blockify">Blockify</li>
@@ -322,6 +310,15 @@
       const handsFocusPoint = new THREE.Vector3(0, 0, 0);
 
       /* ================= SHADERS ================= */
+
+      // Normal: Identity shader (no effect)
+      const normalShader = `
+        precision highp float;
+        uniform vec2 resolution;
+        void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor) {
+          outputColor = texture2D(inputBuffer, uv);
+        }
+      `;
 
       const dotsShader = `
         precision highp float;
@@ -891,6 +888,10 @@
         lightPosition: new THREE.Vector2(0.8, 0.8),
       });
 
+      const normal = makeEffect("Normal", normalShader, {
+        resolution: new THREE.Vector2(innerWidth, innerHeight),
+      });
+
       const dither = makeEffect("Dither", ditherShader, {
         resolution: new THREE.Vector2(innerWidth, innerHeight),
       });
@@ -946,6 +947,7 @@
         complex,
         woven,
         lego,
+        normal,
         dither,
         halftone,
         contour,
@@ -1139,8 +1141,149 @@
       const composer = new EffectComposer(renderer);
       composer.addPass(new RenderPass(scene, camera));
 
-      let pass = new EffectPass(camera, dither);
+      let pass = new EffectPass(camera, normal);
       composer.addPass(pass);
+
+      /* ================= MATRIX RAIN EFFECT CLASS ================= */
+      class MatrixRainEffect {
+        constructor(renderer, camera) {
+          this.renderer = renderer;
+          this.camera = camera;
+          this.canvas = document.createElement("canvas");
+          this.ctx = this.canvas.getContext("2d", { willReadFrequently: true });
+          this.domElement = this.canvas;
+
+          this.chars = "ｦｧｨｩｪｫｬｭｮｯ012789";
+          this.cols = 0;
+          this.rows = 0;
+          this.drops = [];
+          this.speeds = [];
+          this.fontSize = 8;
+          this.fontFamily = "monospace";
+          this.setSize(
+            renderer.domElement.clientWidth,
+            renderer.domElement.clientHeight,
+          );
+
+          this.renderTarget = new THREE.WebGLRenderTarget(
+            renderer.domElement.clientWidth,
+            renderer.domElement.clientHeight,
+            { format: THREE.RGBAFormat },
+          );
+          this.maskTarget = new THREE.WebGLRenderTarget(1, 1, {
+            format: THREE.RGBAFormat,
+          });
+          this.maskTarget.texture.minFilter = THREE.NearestFilter;
+          this.maskTarget.texture.magFilter = THREE.NearestFilter;
+          this._maskBuffer = null;
+          this.cellCharacter = [];
+        }
+
+        setSize(width, height) {
+          this.canvas.width = width;
+          this.canvas.height = height;
+          this.ctx.font = `${this.fontSize}px ${this.fontFamily}`;
+          this.cols = Math.floor(width / (this.fontSize * 0.6));
+          this.rows = Math.floor(height / this.fontSize);
+          this.drops = Array(this.cols)
+            .fill(0)
+            .map(() => -(Math.random() * this.rows));
+          this.speeds = Array(this.cols)
+            .fill(0)
+            .map(() => 0.3 + Math.random() * 0.6);
+          this.cellCharacter = new Array(this.cols * this.rows)
+            .fill(0)
+            .map(
+              () => this.chars[Math.floor(Math.random() * this.chars.length)],
+            );
+          if (this.renderTarget) this.renderTarget.setSize(width, height);
+          if (this.maskTarget) {
+            const mw = Math.max(1, this.cols);
+            const mh = Math.max(1, this.rows);
+            this.maskTarget.setSize(mw, mh);
+            this._maskBuffer = new Uint8Array(mw * mh * 4);
+          }
+        }
+
+        render(scene, camera) {
+          const oldTarget = this.renderer.getRenderTarget();
+          this.renderer.setRenderTarget(this.maskTarget);
+          this.renderer.render(scene, camera);
+          this.renderer.setRenderTarget(oldTarget);
+          this.ctx.fillStyle = "black";
+          this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+          const maskBuf = this._maskBuffer;
+          if (this.maskTarget && maskBuf) {
+            try {
+              this.renderer.readRenderTargetPixels(
+                this.maskTarget,
+                0,
+                0,
+                this.maskTarget.width,
+                this.maskTarget.height,
+                maskBuf,
+              );
+            } catch (err) {
+              maskBuf.fill(0);
+            }
+          }
+          for (let i = 0; i < this.cols; i++) {
+            this.drops[i] += this.speeds[i];
+            if (Math.random() > 0.8) {
+              const y = Math.max(0, Math.floor(this.drops[i])) % this.rows;
+              this.cellCharacter[y * this.cols + i] =
+                this.chars[Math.floor(Math.random() * this.chars.length)];
+            }
+            if (this.drops[i] >= this.rows + 20) {
+              this.drops[i] = -(Math.random() * 20);
+              this.speeds[i] = 0.3 + Math.random() * 0.6;
+            }
+          }
+          for (let y = 0; y < this.rows; y++) {
+            for (let x = 0; x < this.cols; x++) {
+              const sampleY = this.maskTarget.height - 1 - y;
+              const idx = (sampleY * this.maskTarget.width + x) * 4;
+              const brightness =
+                (maskBuf[idx] + maskBuf[idx + 1] + maskBuf[idx + 2]) / 3;
+              const drawX = x * (this.fontSize * 0.6);
+              const drawY = y * this.fontSize;
+              if (brightness > 15) {
+                if (brightness > 180)
+                  this.ctx.fillStyle = `rgba(200, 255, 200, 0.95)`;
+                else if (brightness > 100)
+                  this.ctx.fillStyle = `rgba(40, 200, 60, 0.85)`;
+                else this.ctx.fillStyle = `rgba(10, 110, 20, 0.7)`;
+                this.ctx.fillText(
+                  this.cellCharacter[y * this.cols + x],
+                  drawX,
+                  drawY,
+                );
+              } else {
+                const dropY = this.drops[x];
+                const distance = dropY - y;
+                if (distance >= 0 && distance < 25) {
+                  if (distance < 1)
+                    this.ctx.fillStyle = `rgba(100, 200, 100, 0.6)`;
+                  else {
+                    const alpha = 0.4 * (1.0 - distance / 25);
+                    this.ctx.fillStyle = `rgba(0, 120, 20, ${alpha})`;
+                  }
+                  let char = this.cellCharacter[y * this.cols + x];
+                  if (Math.random() > 0.95)
+                    char =
+                      this.chars[Math.floor(Math.random() * this.chars.length)];
+                  this.ctx.fillText(char, drawX, drawY);
+                }
+              }
+            }
+          }
+        }
+      }
+
+      const matrix = new MatrixRainEffect(renderer, camera);
+      matrix.domElement.style.position = "absolute";
+      matrix.domElement.style.top = "0";
+      matrix.domElement.style.left = "0";
 
       /* ================= UI ================= */
 
@@ -1224,26 +1367,8 @@
         const yP = drawAxis(yV, "#46ff7a", "Y", cx, cy, scale);
         const zP = drawAxis(zV, "#4da6ff", "Z", cx, cy, scale);
 
-        // text (camera rotation changes live as you orbit)
-        const cR = camera.rotation;
-        const mR = currentModel
-          ? currentModel.rotation
-          : new THREE.Euler(0, 0, 0);
-
-        axisText.innerHTML = `<b>Camera Rotation</b>
-x: ${f3(cR.x)} rad (${f1(radToDeg(cR.x))}°)
-y: ${f3(cR.y)} rad (${f1(radToDeg(cR.y))}°)
-z: ${f3(cR.z)} rad (${f1(radToDeg(cR.z))}°)
-
-<b>Model Rotation</b>
-x: ${f3(mR.x)} rad (${f1(radToDeg(mR.x))}°)
-y: ${f3(mR.y)} rad (${f1(radToDeg(mR.y))}°)
-z: ${f3(mR.z)} rad (${f1(radToDeg(mR.z))}°)
-
-<b>Axis Endpoints (2D in gizmo)</b>
-X: (${xP.x.toFixed(0)}, ${xP.y.toFixed(0)})
-Y: (${yP.x.toFixed(0)}, ${yP.y.toFixed(0)})
-Z: (${zP.x.toFixed(0)}, ${zP.y.toFixed(0)})`;
+        // Text is no longer updated to show numbers
+        // axisText.innerHTML = ... removed
       }
 
       function togglePanel() {
@@ -1278,8 +1403,26 @@ Z: (${zP.x.toFixed(0)}, ${zP.y.toFixed(0)})`;
           return;
         }
 
+        if (val === "matrix") {
+          renderer.domElement.style.display = "none";
+          if (ascii.domElement.parentNode)
+            ascii.domElement.style.display = "none";
+
+          if (matrix.domElement.parentNode)
+            matrix.domElement.style.display = "block";
+          else document.body.appendChild(matrix.domElement);
+
+          matrix.setSize(currentLayoutWidth, window.innerHeight);
+          // Reset controls for matrix view
+          resetControls(matrix.domElement);
+          pixelUI.style.display = "none";
+          return;
+        }
+
         if (ascii.domElement.parentNode)
           ascii.domElement.style.display = "none";
+        if (matrix.domElement.parentNode)
+          matrix.domElement.style.display = "none";
         renderer.domElement.style.display = "block";
 
         pass = new EffectPass(camera, map[val]);
@@ -1330,6 +1473,7 @@ Z: (${zP.x.toFixed(0)}, ${zP.y.toFixed(0)})`;
         });
 
         if (ascii.domElement.parentNode) ascii.setSize(width, height);
+        if (matrix.domElement.parentNode) matrix.setSize(width, height);
       }
 
       addEventListener("resize", () => {
@@ -1362,7 +1506,12 @@ Z: (${zP.x.toFixed(0)}, ${zP.y.toFixed(0)})`;
 
         const current = activeEffectName();
         if (current === "ascii") ascii.render(scene, camera);
-        else composer.render();
+        else if (current === "matrix") {
+          composer.render();
+          matrix.render(scene, camera);
+        } else {
+          composer.render();
+        }
       }
 
       animate();

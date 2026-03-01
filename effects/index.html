@@ -870,7 +870,7 @@
           this.canvas = document.createElement("canvas");
           this.ctx = this.canvas.getContext("2d", { willReadFrequently: true });
           this.domElement = this.canvas;
-          
+
           this.domElement.style.position = "absolute";
           this.domElement.style.top = "0";
           this.domElement.style.left = "0";
@@ -886,8 +886,14 @@
           this.fontFamily = "monospace";
           this.setSize(currentLayoutWidth, window.innerHeight);
 
-          this.renderTarget = new THREE.WebGLRenderTarget(currentLayoutWidth, window.innerHeight, { format: THREE.RGBAFormat });
-          this.maskTarget = new THREE.WebGLRenderTarget(1, 1, { format: THREE.RGBAFormat });
+          this.renderTarget = new THREE.WebGLRenderTarget(
+            currentLayoutWidth,
+            window.innerHeight,
+            { format: THREE.RGBAFormat },
+          );
+          this.maskTarget = new THREE.WebGLRenderTarget(1, 1, {
+            format: THREE.RGBAFormat,
+          });
           this.maskTarget.texture.minFilter = THREE.NearestFilter;
           this.maskTarget.texture.magFilter = THREE.NearestFilter;
           this._maskBuffer = null;
@@ -899,14 +905,22 @@
           this.canvas.height = height;
           this.domElement.style.width = width + "px";
           this.domElement.style.height = height + "px";
-          
+
           this.ctx.font = `${this.fontSize}px ${this.fontFamily}`;
           this.cols = Math.floor(width / (this.fontSize * 0.6));
           this.rows = Math.floor(height / this.fontSize);
-          this.drops = Array(this.cols).fill(0).map(() => -(Math.random() * this.rows));
-          this.speeds = Array(this.cols).fill(0).map(() => 0.3 + Math.random() * 0.6);
-          this.cellCharacter = new Array(this.cols * this.rows).fill(0).map(() => this.chars[Math.floor(Math.random() * this.chars.length)]);
-          
+          this.drops = Array(this.cols)
+            .fill(0)
+            .map(() => -(Math.random() * this.rows));
+          this.speeds = Array(this.cols)
+            .fill(0)
+            .map(() => 0.3 + Math.random() * 0.6);
+          this.cellCharacter = new Array(this.cols * this.rows)
+            .fill(0)
+            .map(
+              () => this.chars[Math.floor(Math.random() * this.chars.length)],
+            );
+
           if (this.renderTarget) this.renderTarget.setSize(width, height);
           if (this.maskTarget && this.cols > 0 && this.rows > 0) {
             this.maskTarget.setSize(this.cols, this.rows);
@@ -919,55 +933,73 @@
           this.renderer.setRenderTarget(this.maskTarget);
           this.renderer.render(scene, camera);
           this.renderer.setRenderTarget(oldTarget);
-          
+
           this.ctx.fillStyle = "black";
           this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
-          
+
           const maskBuf = this._maskBuffer;
           if (this.maskTarget && maskBuf) {
             try {
-              this.renderer.readRenderTargetPixels(this.maskTarget, 0, 0, this.maskTarget.width, this.maskTarget.height, maskBuf);
+              this.renderer.readRenderTargetPixels(
+                this.maskTarget,
+                0,
+                0,
+                this.maskTarget.width,
+                this.maskTarget.height,
+                maskBuf,
+              );
             } catch (err) {
               maskBuf.fill(0);
             }
           }
-          
+
           for (let i = 0; i < this.cols; i++) {
             this.drops[i] += this.speeds[i];
             if (Math.random() > 0.8) {
               const y = Math.max(0, Math.floor(this.drops[i])) % this.rows;
-              this.cellCharacter[y * this.cols + i] = this.chars[Math.floor(Math.random() * this.chars.length)];
+              this.cellCharacter[y * this.cols + i] =
+                this.chars[Math.floor(Math.random() * this.chars.length)];
             }
             if (this.drops[i] >= this.rows + 20) {
               this.drops[i] = -(Math.random() * 20);
               this.speeds[i] = 0.3 + Math.random() * 0.6;
             }
           }
-          
+
           for (let y = 0; y < this.rows; y++) {
             for (let x = 0; x < this.cols; x++) {
               const sampleY = this.maskTarget.height - 1 - y;
               const idx = (sampleY * this.maskTarget.width + x) * 4;
-              const brightness = (maskBuf[idx] + maskBuf[idx + 1] + maskBuf[idx + 2]) / 3;
+              const brightness =
+                (maskBuf[idx] + maskBuf[idx + 1] + maskBuf[idx + 2]) / 3;
               const drawX = x * (this.fontSize * 0.6);
               const drawY = y * this.fontSize;
-              
+
               if (brightness > 15) {
-                if (brightness > 180) this.ctx.fillStyle = `rgba(200, 255, 200, 0.95)`;
-                else if (brightness > 100) this.ctx.fillStyle = `rgba(40, 200, 60, 0.85)`;
+                if (brightness > 180)
+                  this.ctx.fillStyle = `rgba(200, 255, 200, 0.95)`;
+                else if (brightness > 100)
+                  this.ctx.fillStyle = `rgba(40, 200, 60, 0.85)`;
                 else this.ctx.fillStyle = `rgba(10, 110, 20, 0.7)`;
-                this.ctx.fillText(this.cellCharacter[y * this.cols + x], drawX, drawY);
+                this.ctx.fillText(
+                  this.cellCharacter[y * this.cols + x],
+                  drawX,
+                  drawY,
+                );
               } else {
                 const dropY = this.drops[x];
                 const distance = dropY - y;
                 if (distance >= 0 && distance < 25) {
-                  if (distance < 1) this.ctx.fillStyle = `rgba(100, 200, 100, 0.6)`;
+                  if (distance < 1)
+                    this.ctx.fillStyle = `rgba(100, 200, 100, 0.6)`;
                   else {
                     const alpha = 0.4 * (1.0 - distance / 25);
                     this.ctx.fillStyle = `rgba(0, 120, 20, ${alpha})`;
                   }
                   let char = this.cellCharacter[y * this.cols + x];
-                  if (Math.random() > 0.95) char = this.chars[Math.floor(Math.random() * this.chars.length)];
+                  if (Math.random() > 0.95)
+                    char =
+                      this.chars[Math.floor(Math.random() * this.chars.length)];
                   this.ctx.fillText(char, drawX, drawY);
                 }
               }
@@ -1408,7 +1440,14 @@
         pass = new EffectPass(camera, map[val]);
         composer.addPass(pass);
 
-        pixelUI.style.display = ["dots", "blockify", "halftone", "complex", "woven", "lego"].includes(val)
+        pixelUI.style.display = [
+          "dots",
+          "blockify",
+          "halftone",
+          "complex",
+          "woven",
+          "lego",
+        ].includes(val)
           ? "block"
           : "none";
       }
@@ -1428,14 +1467,17 @@
 
       pixelInput.oninput = (e) => {
         const value = +e.target.value;
-        ["dots", "halftone", "blockify", "complex", "woven", "lego"].forEach((key) => {
-          if (map[key]?.uniforms?.get("pixelSize")) map[key].uniforms.get("pixelSize").value = value;
-        });
+        ["dots", "halftone", "blockify", "complex", "woven", "lego"].forEach(
+          (key) => {
+            if (map[key]?.uniforms?.get("pixelSize"))
+              map[key].uniforms.get("pixelSize").value = value;
+          },
+        );
       };
 
       function updateLayout(width) {
         const height = window.innerHeight;
-        
+
         // Ensure container follows split layout
         canvasContainer.style.width = width + "px";
 
@@ -1453,23 +1495,29 @@
       }
 
       addEventListener("resize", () => {
-        targetLayoutWidth = isPanelOpen ? window.innerWidth - sidebarWidth : window.innerWidth;
+        targetLayoutWidth = isPanelOpen
+          ? window.innerWidth - sidebarWidth
+          : window.innerWidth;
       });
 
-      const activeEffectName = () => document.querySelector("#effectList li.active")?.getAttribute("data-value");
+      const activeEffectName = () =>
+        document
+          .querySelector("#effectList li.active")
+          ?.getAttribute("data-value");
 
       /* ================= ANIMATE ================= */
 
       function animate() {
         requestAnimationFrame(animate);
-        
+
         // Updates orbit controls attached to container
         controls.update();
 
         // smooth width animation when sidebar toggles
         if (Math.abs(currentLayoutWidth - targetLayoutWidth) > 0.5) {
           currentLayoutWidth += (targetLayoutWidth - currentLayoutWidth) * 0.15;
-          if (Math.abs(currentLayoutWidth - targetLayoutWidth) < 1) currentLayoutWidth = targetLayoutWidth;
+          if (Math.abs(currentLayoutWidth - targetLayoutWidth) < 1)
+            currentLayoutWidth = targetLayoutWidth;
           updateLayout(currentLayoutWidth);
         }
 

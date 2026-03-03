@@ -109,7 +109,8 @@
 
       #sidebar.collapsed ul,
       #sidebar.collapsed #pixelUI,
-      #sidebar.collapsed #modelUI {
+      #sidebar.collapsed #modelUI,
+      #sidebar.collapsed #viewOptionsUI {
         opacity: 0;
         pointer-events: none;
       }
@@ -154,11 +155,49 @@
         margin-top: 24px;
       }
 
-      #modelUI label {
-        display: block;
+      /* --- View Options UI (New Section) --- */
+      #viewOptionsUI {
+        margin-top: 24px;
+      }
+
+      .option-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 10px;
+      }
+
+      .option-label {
         font-size: 11px;
-        margin-bottom: 6px;
-        color: #555;
+        color: #ccc;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      /* Custom Checkbox Styling */
+      .option-checkbox {
+        appearance: none;
+        width: 16px;
+        height: 16px;
+        border: 1px solid #333;
+        background: #0f0f0f;
+        border-radius: 3px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        position: relative;
+      }
+
+      .option-checkbox:checked::after {
+        content: "✓";
+        font-size: 10px;
+        color: #fff;
+      }
+
+      .option-checkbox:hover {
+        border-color: #555;
       }
 
       #modelSelect {
@@ -169,6 +208,7 @@
         padding: 6px 8px;
         font-family: "Fira Code", monospace;
         font-size: 12px;
+        margin-bottom: 15px;
       }
 
       #pixelUI {
@@ -267,7 +307,6 @@
         <li data-value="ascii">ASCII</li>
         <li data-value="halftone">Halftone</li>
         <li data-value="contour">Contour</li>
-        <!-- <li data-value="threshold">Threshold</li> -->
         <li data-value="edge">Edge Detection</li>
         <li data-value="crosshatch">Crosshatch</li>
         <li data-value="waveLines">Wave Lines</li>
@@ -276,6 +315,7 @@
         <li data-value="vhs">VHS</li>
       </ul>
 
+      <!-- Model Selector -->
       <div id="modelUI">
         <label>Model</label>
         <select id="modelSelect">
@@ -287,7 +327,6 @@
           <option value="sofa">GlamVelvetSofa</option>
           <option value="cesiumMan">Cesium Man</option>
           <option value="milkTruck">Milk Truck</option>
-          <!-- <option value="head">Head</option> -->
           <option value="dragon">Dragon</option>
           <option value="fox">Fox</option>
           <option value="hands">Hands (Creation of Adam)</option>
@@ -301,6 +340,19 @@
         </select>
       </div>
 
+      <!-- View Settings (New) -->
+      <div id="viewOptionsUI">
+        <label>View Options</label>
+        <div class="option-row">
+          <span class="option-label">
+            <input type="checkbox" id="horizRotCheckbox" class="option-checkbox" checked />
+            Lock Camera Height
+          </span>
+        </div>
+        <span style="font-size: 9px; color: #444; display:block; margin-top: -5px;">Restricts vertical camera movement</span>
+      </div>
+
+      <!-- Pixel Size Slider -->
       <div id="pixelUI">
         <label>Intensity / Size</label>
         <input type="range" min="6" max="32" value="10" id="pixelSize" />
@@ -1113,7 +1165,10 @@
       controls.enablePan = false;
       controls.enableDamping = true;
       controls.target.copy(handsFocusPoint);
+      
+      // Set default restriction
       controls.update();
+      setHorizontalRotation(true);
 
       /* ================= LIGHTS ================= */
 
@@ -1342,6 +1397,7 @@
       const pixelUI = document.getElementById("pixelUI");
       const pixelInput = document.getElementById("pixelSize");
       const modelSelect = document.getElementById("modelSelect");
+      const horizRotCheckbox = document.getElementById("horizRotCheckbox");
 
       // Axis HUD elements
       const axisCanvas = document.getElementById("axisCanvas");
@@ -1464,6 +1520,23 @@
       switchEffect("normal");
 
       modelSelect.addEventListener("change", (e) => loadModel(e.target.value));
+      
+      // Horizontal Rotation Toggle Logic
+      horizRotCheckbox.addEventListener("change", (e) => {
+        setHorizontalRotation(e.target.checked);
+      });
+
+      function setHorizontalRotation(lockVertical) {
+        if (lockVertical) {
+          // Lock to Horizon (PI / 2 radians)
+          controls.minPolarAngle = Math.PI / 2;
+          controls.maxPolarAngle = Math.PI / 2;
+        } else {
+          // Unlock Vertical Movement
+          controls.minPolarAngle = 0;
+          controls.maxPolarAngle = Math.PI;
+        }
+      }
 
       pixelInput.oninput = (e) => {
         const value = +e.target.value;

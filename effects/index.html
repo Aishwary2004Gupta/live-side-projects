@@ -109,8 +109,7 @@
 
       #sidebar.collapsed ul,
       #sidebar.collapsed #pixelUI,
-      #sidebar.collapsed #modelUI,
-      #sidebar.collapsed #settingsUI {
+      #sidebar.collapsed #modelUI {
         opacity: 0;
         pointer-events: none;
       }
@@ -151,11 +150,11 @@
         color: #fff;
       }
 
-      #modelUI, #settingsUI {
+      #modelUI {
         margin-top: 24px;
       }
 
-      #modelUI label, #settingsUI label {
+      #modelUI label {
         display: block;
         font-size: 11px;
         margin-bottom: 6px;
@@ -170,20 +169,6 @@
         padding: 6px 8px;
         font-family: "Fira Code", monospace;
         font-size: 12px;
-      }
-
-      #settingsUI {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        cursor: pointer;
-      }
-      #settingsUI input {
-        cursor: pointer;
-      }
-      #settingsUI span {
-        font-size: 11px;
-        color: #555;
       }
 
       #pixelUI {
@@ -282,6 +267,7 @@
         <li data-value="ascii">ASCII</li>
         <li data-value="halftone">Halftone</li>
         <li data-value="contour">Contour</li>
+        <!-- <li data-value="threshold">Threshold</li> -->
         <li data-value="edge">Edge Detection</li>
         <li data-value="crosshatch">Crosshatch</li>
         <li data-value="waveLines">Wave Lines</li>
@@ -301,6 +287,7 @@
           <option value="sofa">GlamVelvetSofa</option>
           <option value="cesiumMan">Cesium Man</option>
           <option value="milkTruck">Milk Truck</option>
+          <!-- <option value="head">Head</option> -->
           <option value="dragon">Dragon</option>
           <option value="fox">Fox</option>
           <option value="hands">Hands (Creation of Adam)</option>
@@ -312,11 +299,6 @@
           <option value="astronaut">Astronaut (OBJ)</option>
           <option value="horse">Horse (OBJ)</option>
         </select>
-      </div>
-
-      <div id="settingsUI">
-        <input type="checkbox" id="lockVertical" checked>
-        <span>Horizontal Rotation Only</span>
       </div>
 
       <div id="pixelUI">
@@ -349,9 +331,9 @@
         void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor) {
           outputColor = texture2D(inputBuffer, uv);
         }
-      \`;
+      `;
 
-      const dotsShader = \`
+      const dotsShader = `
         precision highp float;
         uniform float pixelSize;
         uniform vec2 resolution;
@@ -359,12 +341,15 @@
           vec2 s = pixelSize / resolution;
           vec2 u = s * floor(uv / s);
           vec4 c = texture2D(inputBuffer, u);
+
           float l = dot(vec3(0.2126, 0.7152, 0.0722), c.rgb);
           vec2 f = fract(uv / s);
+
           float radius = l > 0.5 ? 0.3 : l > 0.001 ? 0.12 : 0.075;
           vec2 center = l > 0.5 ? vec2(0.5) : vec2(0.25);
           float d = distance(f, center);
           float m = smoothstep(radius, radius - 0.05, d);
+
           o = vec4(vec3(m) * max(l, 0.05), 1.0);
         }
       `;
@@ -372,6 +357,7 @@
       const ditherShader = `
         precision highp float;
         uniform vec2 resolution;
+
         const float bayer[64] = float[](
            0.0, 32.0,  8.0, 40.0,  2.0, 34.0, 10.0, 42.0,
           48.0, 16.0, 56.0, 24.0, 50.0, 18.0, 58.0, 26.0,
@@ -382,14 +368,17 @@
           15.0, 47.0,  7.0, 39.0, 13.0, 45.0,  5.0, 37.0,
           63.0, 31.0, 55.0, 23.0, 61.0, 29.0, 53.0, 21.0
         );
+
         void mainImage(const in vec4 i, const in vec2 uv, out vec4 o) {
           vec4 c = texture2D(inputBuffer, uv);
           float l = dot(c.rgb, vec3(0.299, 0.587, 0.114));
+
           vec2 sc = uv * resolution;
           int x = int(mod(sc.x, 8.0));
           int y = int(mod(sc.y, 8.0));
           int idx = y * 8 + x;
           float t = bayer[idx] / 64.0;
+
           float d = step(t, l);
           o = vec4(vec3(d), 1.0);
         }
@@ -410,13 +399,15 @@
           float m = smoothstep(r+0.02, r, d);
           o = vec4(vec3(m),1.0);
         }
-      \`;
+      `;
 
-      const wovenShader = \`
+      const wovenShader = `
         precision highp float;
         uniform float pixelSize;
         uniform vec2 resolution;
+
         float random(vec2 st) { return fract(sin(dot(st.xy, vec2(12.9898,78.233))) * 43758.5453123); }
+
         vec3 rgbToHsv(vec3 c) {
           vec4 K = vec4(0.0, -1.0/3.0, 2.0/3.0, -1.0);
           vec4 p = mix(vec4(c.bg, K.wz), vec4(c.gb, K.xy), step(c.b, c.g));
@@ -425,24 +416,29 @@
           float e = 1.0e-10;
           return vec3(abs(q.z + (q.w - q.y) / (6.0*d + e)), d/(q.x+e), q.x);
         }
+
         vec3 hsvToRgb(vec3 c) {
           vec4 K = vec4(1.0, 2.0/3.0, 1.0/3.0, 3.0);
           vec3 p = abs(fract(c.xxx + K.xyz)*6.0 - K.www);
           return c.z * mix(K.xxx, clamp(p - K.xxx, 0.0, 1.0), c.y);
         }
+
         float noise(vec2 st){
           vec2 i=floor(st), f=fract(st);
           float a=random(i), b=random(i+vec2(1,0)), c=random(i+vec2(0,1)), d=random(i+vec2(1,1));
           vec2 u=f*f*(3.0-2.0*f);
           return mix(a,b,u.x) + (c-a)*u.y*(1.0-u.x) + (d-b)*u.x*u.y;
         }
+
         void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor) {
           vec2 s = pixelSize / resolution;
           vec2 uvPixel = s * floor(uv / s);
           vec4 color = texture2D(inputBuffer, uvPixel);
+
           float luma = dot(vec3(0.2126,0.7152,0.0722), color.rgb);
           vec2 cellPos = floor(uv / s);
           vec2 cellUV = fract(uv / s);
+
           if(luma < 0.001){
             vec2 centered = cellUV - 0.5;
             float alt = mod(cellPos.x,2.0);
@@ -453,32 +449,45 @@
             outputColor = vec4(vec3(pat),1.0);
             return;
           }
+
           float rowOffset = sin((random(vec2(0.0, uvPixel.y)) - 0.5) * 0.25);
           cellUV.x += rowOffset;
           vec2 centered = cellUV - 0.5;
+
           float noiseAmount = 0.18;
-          vec2 noisyCenter = centered + (vec2(random(cellPos + centered),random(cellPos + centered)) - 0.5) * noiseAmount;
+          vec2 noisyCenter = centered + (vec2(
+            random(cellPos + centered),
+            random(cellPos + centered)
+          ) - 0.5) * noiseAmount;
+
           float alt = mod(cellPos.x,2.0);
           float a = alt==0.0 ? radians(-65.0) : radians(65.0);
           vec2 r = vec2(noisyCenter.x*cos(a)-noisyCenter.y*sin(a), noisyCenter.x*sin(a)+noisyCenter.y*cos(a));
           float ellipse = length(vec2(r.x, r.y*1.55 - 0.075));
           color.rgb *= smoothstep(0.2, 1.0, 1.0-ellipse);
+
           float stripeNoise = noise(vec2(centered.x, centered.y * 100.0));
           color.rgb *= stripeNoise + 0.4;
+
           float hueShift = (random(cellPos)-0.5)*0.08;
           vec3 hsv = rgbToHsv(color.rgb);
           hsv.x += hueShift;
           color.rgb = hsvToRgb(hsv);
+
           outputColor = color;
         }
-      \`;
+      `;
 
-      const legoShader = \`
+      const legoShader = `
         precision highp float;
         uniform float pixelSize;
         uniform vec2 resolution;
         uniform vec2 lightPosition;
-        float random(vec2 st) { return fract(sin(dot(st.xy, vec2(12.9898,78.233))) * 43758.5453123); }
+
+        float random(vec2 st) {
+          return fract(sin(dot(st.xy, vec2(12.9898,78.233))) * 43758.5453123);
+        }
+
         vec3 rgbToHsv(vec3 c) {
           vec4 K = vec4(0.0, -1.0 / 3.0, 2.0 / 3.0, -1.0);
           vec4 p = mix(vec4(c.bg, K.wz), vec4(c.gb, K.xy), step(c.b, c.g));
@@ -487,68 +496,98 @@
           float e = 1.0e-10;
           return vec3(abs(q.z + (q.w - q.y) / (6.0 * d + e)), d / (q.x + e), q.x);
         }
+
         vec3 hsvToRgb(vec3 c) {
           vec4 K = vec4(1.0, 2.0 / 3.0, 1.0 / 3.0, 3.0);
           vec3 p = abs(fract(c.xxx + K.xyz) * 6.0 - K.www);
           return c.z * mix(K.xxx, clamp(p - K.xxx, 0.0, 1.0), c.y);
         }
+
         const float colorNum = 16.0;
         const float MASK_BORDER = 1.5;
+
         void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor) {
           vec2 s = pixelSize / resolution;
           vec2 uvPixel = s * floor(uv / s);
           vec4 color = texture2D(inputBuffer, uvPixel);
+
           color.r = floor(color.r * (colorNum - 1.0) + 0.5) / (colorNum - 1.0);
           color.g = floor(color.g * (colorNum - 1.0) + 0.5) / (colorNum - 1.0);
           color.b = floor(color.b * (colorNum - 1.0) + 0.5) / (colorNum - 1.0);
           color.rgb = clamp(color.rgb, 0.01, 0.95);
+
           vec2 cellPosition = floor(uv / s);
           vec2 cellUV = fract(uv / s);
+
           float lighting = dot(normalize(cellUV - vec2(0.5)), lightPosition) * 0.7;
           float dis = abs(distance(cellUV, vec2(0.5)) * 2.0 - 0.5);
           color.rgb *= smoothstep(0.1,0.0,dis) * lighting + 1.0;
+
           vec2 centeredCellUV = cellUV * 2.0 - 1.0;
           float mask = 1.0;
           vec2 border = 1.05 - pow(centeredCellUV, vec2(8.0)) * MASK_BORDER;
           mask *= border.x * border.y;
           float maskStrength = smoothstep(0.0, 0.8, mask);
           color.rgb *= 0.8 + (maskStrength * 0.1);
+
           float hueShift = random(cellPosition) * 0.02;
           vec3 hsv = rgbToHsv(color.rgb);
           hsv.x += hueShift;
           color.rgb = hsvToRgb(hsv);
+
           outputColor = color;
         }
-      \`;
+      `;
 
-      const complexShader = \`
+      const complexShader = `
         precision highp float;
         uniform float pixelSize;
         uniform vec2 resolution;
-        float circle(vec2 uv, float r) { return 1.0 - smoothstep(r - 0.05, r + 0.05, length(uv - 0.5)); }
-        float square(vec2 uv, float size) { vec2 d = abs(uv - 0.5); return step(max(d.x, d.y), size); }
-        float cross(vec2 uv, float thickness) { float h = step(abs(uv.x - 0.5), thickness); float v = step(abs(uv.y - 0.5), thickness); return max(h, v); }
+
+        float circle(vec2 uv, float r) {
+          return 1.0 - smoothstep(r - 0.05, r + 0.05, length(uv - 0.5));
+        }
+
+        float square(vec2 uv, float size) {
+          vec2 d = abs(uv - 0.5);
+          return step(max(d.x, d.y), size);
+        }
+
+        float cross(vec2 uv, float thickness) {
+          float h = step(abs(uv.x - 0.5), thickness);
+          float v = step(abs(uv.y - 0.5), thickness);
+          return max(h, v);
+        }
+
         void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor) {
+
           vec2 cellSize = pixelSize / resolution;
           vec2 uvPixel = cellSize * floor(uv / cellSize);
           vec4 src = texture2D(inputBuffer, uvPixel);
+
           float luma = dot(src.rgb, vec3(0.2126, 0.7152, 0.0722));
           vec2 cellUV = fract(uv / cellSize);
+
+          // Base background
           vec3 bg = vec3(0.92);
+
           float pattern = 0.0;
+
           if (luma < 0.15) pattern = 1.0;
           else if (luma < 0.35) pattern = cross(cellUV, 0.12);
           else if (luma < 0.55) pattern = square(cellUV, 0.30);
           else if (luma < 0.75) pattern = circle(cellUV, 0.28);
           else pattern = circle(cellUV, 0.12);
+
           float edgeBoost = smoothstep(0.0, 0.2, 1.0 - luma);
           vec3 blue = vec3(0.0, 0.31, 0.93);
           vec3 finalColor = mix(bg, blue, pattern * (0.6 + edgeBoost * 0.4));
+
           outputColor = vec4(finalColor, 1.0);
         }
-      \`;
+      `;
 
-      const contourShader = \`
+      const contourShader = `
         precision highp float;
         uniform vec2 resolution;
         vec4 sampleOffset(vec2 uv, vec2 off){ return texture2D(inputBuffer, uv + off / resolution); }
@@ -561,9 +600,9 @@
           float g = length(vec2(sx,sy));
           o = vec4(vec3(1.0 - g), 1.0);
         }
-      \`;
+      `;
 
-      const edgeShader = \`
+      const edgeShader = `
         precision highp float;
         uniform vec2 resolution;
         vec4 sampleOffset(vec2 uv, vec2 off){ return texture2D(inputBuffer, uv + off / resolution); }
@@ -576,9 +615,9 @@
           c = abs(c);
           o = vec4(vec3(step(0.15, c)), 1.0);
         }
-      \`;
+      `;
 
-      const blockifyShader = \`
+      const blockifyShader = `
         precision highp float;
         uniform float pixelSize;
         uniform vec2 resolution;
@@ -587,9 +626,19 @@
           vec2 u = s * floor(uv / s);
           o = texture2D(inputBuffer, u);
         }
-      \`;
+      `;
 
-      const crosshatchShader = \`
+      const thresholdShader = `
+        precision highp float;
+        uniform float thresh;
+        void mainImage(const in vec4 i,const in vec2 uv,out vec4 o){
+          vec4 c = texture2D(inputBuffer, uv);
+          float l = dot(c.rgb, vec3(.2126,.7152,.0722));
+          o = vec4(vec3(step(thresh, l)), 1.0);
+        }
+      `;
+
+      const crosshatchShader = `
         precision highp float;
         uniform vec2 resolution;
         float hatchLine(vec2 p, vec2 dir, float spacing, float thickness) {
@@ -611,75 +660,92 @@
           float hatch = clamp(a1 * 0.9 + a2 * 0.7 + a3 * 0.5, 0.0, 1.0);
           o = vec4(vec3(1.0 - hatch), 1.0);
         }
-      \`;
+      `;
 
-      const waveLinesShader = \`
+      const waveLinesShader = `
         precision highp float;
         uniform float time;
         uniform vec2 resolution;
+
         float random(vec2 st){ return fract(sin(dot(st.xy, vec2(12.9898,78.233))) * 43758.5453123); }
+
         void mainImage(const in vec4 i,const in vec2 uv,out vec4 o){
           vec4 c = texture2D(inputBuffer, uv);
           float l = dot(c.rgb, vec3(.2126,.7152,.0722));
           float handMask = smoothstep(0.01, 0.05, l);
+
           vec2 u = uv;
           u.y += sin(uv.x * 15.0 + time * 1.5) * 0.003 * l;
+
           float linesCount = max(resolution.y / 5.5, 50.0);
           float yPos = fract(u.y * linesCount);
           float dist = abs(yPos - 0.5);
           float thickness = l * 0.4;
           float line = smoothstep(thickness + 0.05, thickness, dist);
+
           vec3 col = vec3(line) + random(uv*(time+0.1))*0.18;
           col *= handMask;
           o = vec4(col, 1.0);
         }
-      \`;
+      `;
 
-      const noise_shader = \`
+      const noise_shader = `
         precision highp float;
         uniform float time;
         uniform vec2 resolution;
+
         float random(vec2 st){ return fract(sin(dot(st.xy, vec2(12.9898,78.233))) * 43758.5453123); }
+
         void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor) {
           float l = dot(texture2D(inputBuffer, uv).rgb, vec3(0.299, 0.587, 0.114));
           float mask = smoothstep(0.02, 0.06, l);
           if(mask < 0.001){ outputColor = vec4(0.0,0.0,0.0,1.0); return; }
+
           vec2 coord = uv;
           float scan = floor(resolution.y / 4.0);
           float lineId = floor(coord.y * scan);
           float r = random(vec2(lineId, floor(time*4.0)));
+
           if(r > 0.92) coord.x += random(vec2(lineId, time))*0.015;
           if(r < 0.07){ outputColor = vec4(0.0,0.0,0.0,1.0); return; }
+
           vec2 gUV = floor(coord * resolution) / resolution;
           float s = random(vec2(gUV.x, gUV.y + floor(time * 30.0)));
           s = step(0.48, s);
           s -= random(gUV + time) * 0.12;
           s *= l * 1.5;
+
           outputColor = vec4(vec3(clamp(s,0.0,1.0))*mask, 1.0);
         }
-      \`;
+      `;
 
-      const voronoiShader = \`
+      const voronoiShader = `
         precision highp float;
         uniform float time;
         uniform vec2 resolution;
+
         vec2 hash(vec2 p) {
           p = vec2(dot(p, vec2(127.1, 311.7)), dot(p, vec2(269.5, 183.3)));
           return -1.0 + 2.0 * fract(sin(p) * 43758.5453123);
         }
+
         void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor) {
           vec4 original = texture2D(inputBuffer, uv);
           float l = dot(original.rgb, vec3(0.299, 0.587, 0.114));
           if(l < 0.02){ outputColor = vec4(0.0,0.0,0.0,1.0); return; }
+
           float cellScale = 42.0;
           vec2 ratio = vec2(resolution.x / resolution.y, 1.0);
           vec2 drift = vec2(time * 0.15, time * 0.1);
           vec2 coord = uv * ratio * cellScale + drift;
+
           vec2 cell = floor(coord);
           vec2 local = fract(coord);
+
           float minD = 8.0;
           float secD = 8.0;
           vec2 centerUV = vec2(0.0);
+
           for(int y=-1;y<=1;y++){
             for(int x=-1;x<=1;x++){
               vec2 n = vec2(float(x), float(y));
@@ -696,35 +762,42 @@
               }
             }
           }
+
           vec4 cellColor = texture2D(inputBuffer, centerUV);
           float cellL = dot(cellColor.rgb, vec3(0.299, 0.587, 0.114));
           cellL = smoothstep(0.05, 0.6, cellL * 1.3);
+
           float borderDist = secD - minD;
           float border = smoothstep(0.01, 0.08, borderDist);
           float outL = cellL * border;
+
           outputColor = vec4(vec3(outL), 1.0);
         }
-      \`;
+      `;
 
-      const vhsShader = \`
+      const vhsShader = `
         precision highp float;
         uniform float time;
         uniform vec2 resolution;
+
         float rand(vec2 co){ return fract(sin(dot(co.xy, vec2(12.9898, 78.233))) * 43758.5453); }
+
         void mainImage(const in vec4 i, const in vec2 uv, out vec4 o) {
           float jitter = (rand(vec2(time, uv.y)) - 0.5) * step(0.98, rand(vec2(time * 0.5, 0.0))) * 0.02;
           float wave = sin(uv.y * 3.0 + time * 2.0) * 0.005;
           vec2 u = uv + vec2(jitter + wave, 0.0);
+
           float shift = 0.005;
           float r = texture2D(inputBuffer, u + vec2(shift, 0.0)).r;
           float g = texture2D(inputBuffer, u).g;
           float b = texture2D(inputBuffer, u - vec2(shift, 0.0)).b;
+
           vec3 color = vec3(r,g,b);
           color -= sin(u.y * resolution.y * 0.8) * 0.1;
           color += (rand(u + time) - 0.5) * 0.15;
           o = vec4(color, 1.0);
         }
-      \`;
+      `;
 
       /* ================= postprocessing helper ================= */
 
@@ -802,7 +875,7 @@
           this.domElement.style.top = "0";
           this.domElement.style.left = "0";
           this.domElement.style.display = "none";
-          this.domElement.style.pointerEvents = "none";
+          this.domElement.style.pointerEvents = "none"; // Let interactions pass through if needed
 
           this.chars = "ｦｧｨｩｪｫｬｭｮｯ012789";
           this.cols = 0;
@@ -833,12 +906,20 @@
           this.domElement.style.width = width + "px";
           this.domElement.style.height = height + "px";
 
-          this.ctx.font = \`\${this.fontSize}px \${this.fontFamily}\`;
+          this.ctx.font = `${this.fontSize}px ${this.fontFamily}`;
           this.cols = Math.floor(width / (this.fontSize * 0.6));
           this.rows = Math.floor(height / this.fontSize);
-          this.drops = Array(this.cols).fill(0).map(() => -(Math.random() * this.rows));
-          this.speeds = Array(this.cols).fill(0).map(() => 0.3 + Math.random() * 0.6);
-          this.cellCharacter = new Array(this.cols * this.rows).fill(0).map(() => this.chars[Math.floor(Math.random() * this.chars.length)]);
+          this.drops = Array(this.cols)
+            .fill(0)
+            .map(() => -(Math.random() * this.rows));
+          this.speeds = Array(this.cols)
+            .fill(0)
+            .map(() => 0.3 + Math.random() * 0.6);
+          this.cellCharacter = new Array(this.cols * this.rows)
+            .fill(0)
+            .map(
+              () => this.chars[Math.floor(Math.random() * this.chars.length)],
+            );
 
           if (this.renderTarget) this.renderTarget.setSize(width, height);
           if (this.maskTarget && this.cols > 0 && this.rows > 0) {
@@ -876,7 +957,8 @@
             this.drops[i] += this.speeds[i];
             if (Math.random() > 0.8) {
               const y = Math.max(0, Math.floor(this.drops[i])) % this.rows;
-              this.cellCharacter[y * this.cols + i] = this.chars[Math.floor(Math.random() * this.chars.length)];
+              this.cellCharacter[y * this.cols + i] =
+                this.chars[Math.floor(Math.random() * this.chars.length)];
             }
             if (this.drops[i] >= this.rows + 20) {
               this.drops[i] = -(Math.random() * 20);
@@ -888,26 +970,36 @@
             for (let x = 0; x < this.cols; x++) {
               const sampleY = this.maskTarget.height - 1 - y;
               const idx = (sampleY * this.maskTarget.width + x) * 4;
-              const brightness = (maskBuf[idx] + maskBuf[idx + 1] + maskBuf[idx + 2]) / 3;
+              const brightness =
+                (maskBuf[idx] + maskBuf[idx + 1] + maskBuf[idx + 2]) / 3;
               const drawX = x * (this.fontSize * 0.6);
               const drawY = y * this.fontSize;
 
               if (brightness > 15) {
-                if (brightness > 180) this.ctx.fillStyle = \`rgba(200, 255, 200, 0.95)\`;
-                else if (brightness > 100) this.ctx.fillStyle = \`rgba(40, 200, 60, 0.85)\`;
-                else this.ctx.fillStyle = \`rgba(10, 110, 20, 0.7)\`;
-                this.ctx.fillText(this.cellCharacter[y * this.cols + x], drawX, drawY);
+                if (brightness > 180)
+                  this.ctx.fillStyle = `rgba(200, 255, 200, 0.95)`;
+                else if (brightness > 100)
+                  this.ctx.fillStyle = `rgba(40, 200, 60, 0.85)`;
+                else this.ctx.fillStyle = `rgba(10, 110, 20, 0.7)`;
+                this.ctx.fillText(
+                  this.cellCharacter[y * this.cols + x],
+                  drawX,
+                  drawY,
+                );
               } else {
                 const dropY = this.drops[x];
                 const distance = dropY - y;
                 if (distance >= 0 && distance < 25) {
-                  if (distance < 1) this.ctx.fillStyle = \`rgba(100, 200, 100, 0.6)\`;
+                  if (distance < 1)
+                    this.ctx.fillStyle = `rgba(100, 200, 100, 0.6)`;
                   else {
                     const alpha = 0.4 * (1.0 - distance / 25);
-                    this.ctx.fillStyle = \`rgba(0, 120, 20, \${alpha})\`;
+                    this.ctx.fillStyle = `rgba(0, 120, 20, ${alpha})`;
                   }
                   let char = this.cellCharacter[y * this.cols + x];
-                  if (Math.random() > 0.95) char = this.chars[Math.floor(Math.random() * this.chars.length)];
+                  if (Math.random() > 0.95)
+                    char =
+                      this.chars[Math.floor(Math.random() * this.chars.length)];
                   this.ctx.fillText(char, drawX, drawY);
                 }
               }
@@ -964,7 +1056,9 @@
         resolution: new THREE.Vector2(innerWidth, innerHeight),
       });
 
-      const threshold = makeEffect("Threshold", thresholdShader, { thresh: 0.5 });
+      const threshold = makeEffect("Threshold", thresholdShader, {
+        thresh: 0.5,
+      });
 
       const edge = makeEffect("Edge", edgeShader, {
         resolution: new THREE.Vector2(innerWidth, innerHeight),
@@ -1014,14 +1108,11 @@
       };
 
       /* ================= CONTROLS ================= */
+      // Controls attached to PARENT CONTAINER so rotation works everywhere!
       let controls = new OrbitControls(camera, canvasContainer);
       controls.enablePan = false;
       controls.enableDamping = true;
       controls.target.copy(handsFocusPoint);
-      
-      // Default to horizontal only
-      controls.minPolarAngle = Math.PI / 2;
-      controls.maxPolarAngle = Math.PI / 2;
       controls.update();
 
       /* ================= LIGHTS ================= */
@@ -1160,7 +1251,8 @@
           if (obj.isMesh) {
             if (obj.geometry) obj.geometry.dispose();
             if (obj.material) {
-              if (Array.isArray(obj.material)) obj.material.forEach((m) => m.dispose && m.dispose());
+              if (Array.isArray(obj.material))
+                obj.material.forEach((m) => m.dispose && m.dispose());
               else obj.material.dispose && obj.material.dispose();
             }
           }
@@ -1169,37 +1261,65 @@
 
       function loadModel(name) {
         const cfg = MODELS[name] || MODELS["hands"];
+
         if (currentModel) {
           scene.remove(currentModel);
           disposeModel(currentModel);
           currentModel = null;
         }
+
         const isObj = cfg.url.toLowerCase().endsWith(".obj");
         const loader = isObj ? objLoader : gltfLoader;
+
         loader.load(
           cfg.url,
           (result) => {
-            let m = isObj ? result : result.scene;
+            let m;
             if (isObj) {
+              m = result;
               m.traverse((child) => {
                 if (child.isMesh) {
-                  if (!child.material || child.material.type === "MeshBasicMaterial") {
+                  if (
+                    !child.material ||
+                    child.material.type === "MeshBasicMaterial"
+                  ) {
                     child.material = new THREE.MeshStandardMaterial({
-                      color: 0xffffff, roughness: 0.5, metalness: 0.5,
+                      color: 0xffffff,
+                      roughness: 0.5,
+                      metalness: 0.5,
                     });
                   }
                 }
               });
+            } else {
+              m = result.scene;
             }
+
             m.scale.setScalar(cfg.scale ?? 1.0);
-            m.rotation.set(cfg.rotation?.x ?? 0, cfg.rotation?.y ?? 0, cfg.rotation?.z ?? 0);
-            m.position.set(cfg.position?.x ?? 0, cfg.position?.y ?? 0, cfg.position?.z ?? 0);
+            m.rotation.set(
+              cfg.rotation?.x ?? 0,
+              cfg.rotation?.y ?? 0,
+              cfg.rotation?.z ?? 0,
+            );
+            m.position.set(
+              cfg.position?.x ?? 0,
+              cfg.position?.y ?? 0,
+              cfg.position?.z ?? 0,
+            );
+
             scene.add(m);
             currentModel = m;
+
+            // Reset camera target internally but do NOT recreate OrbitControls
             controls.target.copy(handsFocusPoint);
             controls.update();
             camera.lookAt(handsFocusPoint);
-          }
+          },
+          undefined,
+          (err) => {
+            console.warn("Failed to load model, fallback to hands", err);
+            if (name !== "hands") loadModel("hands");
+          },
         );
       }
 
@@ -1209,6 +1329,7 @@
 
       const composer = new EffectComposer(renderer);
       composer.addPass(new RenderPass(scene, camera));
+
       let pass = new EffectPass(camera, normal);
       composer.addPass(pass);
 
@@ -1221,22 +1342,26 @@
       const pixelUI = document.getElementById("pixelUI");
       const pixelInput = document.getElementById("pixelSize");
       const modelSelect = document.getElementById("modelSelect");
-      const lockVertical = document.getElementById("lockVertical");
 
+      // Axis HUD elements
       const axisCanvas = document.getElementById("axisCanvas");
       const axisCtx = axisCanvas.getContext("2d");
 
       function drawAxis(v, color, label, cx, cy, scale) {
         const ex = cx + v.x * scale;
         const ey = cy - v.y * scale;
+        const alpha = v.z < 0.0 ? 0.35 : 0.95;
+
         axisCtx.strokeStyle = color;
         axisCtx.fillStyle = color;
-        axisCtx.globalAlpha = v.z < 0.0 ? 0.35 : 0.95;
+        axisCtx.globalAlpha = alpha;
         axisCtx.lineWidth = 3;
+
         axisCtx.beginPath();
         axisCtx.moveTo(cx, cy);
         axisCtx.lineTo(ex, ey);
         axisCtx.stroke();
+
         axisCtx.globalAlpha = 1.0;
         axisCtx.font = "14px 'Fira Code', monospace";
         axisCtx.fillText(label, ex + 4, ey + 4);
@@ -1246,17 +1371,26 @@
         const w = axisCanvas.width;
         const h = axisCanvas.height;
         axisCtx.clearRect(0, 0, w, h);
-        const cx = w / 2, cy = h / 2, scale = w * 0.35;
+
+        const cx = w / 2;
+        const cy = h / 2;
+        const scale = w * 0.35;
+
+        // Use inverse camera quaternion so gizmo moves when you orbit (real-time)
         const invQ = camera.quaternion.clone().invert();
         const xV = new THREE.Vector3(1, 0, 0).applyQuaternion(invQ);
         const yV = new THREE.Vector3(0, 1, 0).applyQuaternion(invQ);
         const zV = new THREE.Vector3(0, 0, 1).applyQuaternion(invQ);
+
+        // draw circle center
         axisCtx.globalAlpha = 0.9;
         axisCtx.strokeStyle = "rgba(255,255,255,0.15)";
         axisCtx.lineWidth = 1;
         axisCtx.beginPath();
         axisCtx.arc(cx, cy, scale, 0, Math.PI * 2);
         axisCtx.stroke();
+
+        // draw axes
         drawAxis(xV, "#ff4d4d", "X", cx, cy, scale);
         drawAxis(yV, "#46ff7a", "Y", cx, cy, scale);
         drawAxis(zV, "#4da6ff", "Z", cx, cy, scale);
@@ -1282,25 +1416,40 @@
 
       function switchEffect(val) {
         composer.removePass(pass);
+
+        // Hide all 3 rendering canvases
         renderer.domElement.style.display = "none";
         ascii.domElement.style.display = "none";
         matrix.domElement.style.display = "none";
+
         if (val === "ascii") {
           ascii.domElement.style.display = "block";
           ascii.setSize(currentLayoutWidth, window.innerHeight);
           pixelUI.style.display = "none";
           return;
         }
+
         if (val === "matrix") {
           matrix.domElement.style.display = "block";
           matrix.setSize(currentLayoutWidth, window.innerHeight);
           pixelUI.style.display = "none";
           return;
         }
+
         renderer.domElement.style.display = "block";
         pass = new EffectPass(camera, map[val]);
         composer.addPass(pass);
-        pixelUI.style.display = ["dots", "blockify", "halftone", "complex", "woven", "lego"].includes(val) ? "block" : "none";
+
+        pixelUI.style.display = [
+          "dots",
+          "blockify",
+          "halftone",
+          "complex",
+          "woven",
+          "lego",
+        ].includes(val)
+          ? "block"
+          : "none";
       }
 
       listItems.forEach((item) => {
@@ -1311,61 +1460,80 @@
         });
       });
 
-      lockVertical.addEventListener('change', (e) => {
-        if(e.target.checked) {
-          controls.minPolarAngle = Math.PI / 2;
-          controls.maxPolarAngle = Math.PI / 2;
-        } else {
-          controls.minPolarAngle = 0;
-          controls.maxPolarAngle = Math.PI;
-        }
-        controls.update();
-      });
+      // Default Initialization to Normal
+      switchEffect("normal");
 
       modelSelect.addEventListener("change", (e) => loadModel(e.target.value));
 
       pixelInput.oninput = (e) => {
         const value = +e.target.value;
-        ["dots", "halftone", "blockify", "complex", "woven", "lego"].forEach((key) => {
-          if (map[key]?.uniforms?.get("pixelSize")) map[key].uniforms.get("pixelSize").value = value;
-        });
+        ["dots", "halftone", "blockify", "complex", "woven", "lego"].forEach(
+          (key) => {
+            if (map[key]?.uniforms?.get("pixelSize"))
+              map[key].uniforms.get("pixelSize").value = value;
+          },
+        );
       };
 
       function updateLayout(width) {
         const height = window.innerHeight;
+
+        // Ensure container follows split layout
         canvasContainer.style.width = width + "px";
+
         renderer.setSize(width, height);
         composer.setSize(width, height);
         updateCamera();
+
         Object.values(map).forEach((e) => {
-          if (e?.uniforms?.get?.("resolution")) e.uniforms.get("resolution").value.set(width, height);
+          if (e?.uniforms?.get?.("resolution"))
+            e.uniforms.get("resolution").value.set(width, height);
         });
+
         if (ascii) ascii.setSize(width, height);
         if (matrix) matrix.setSize(width, height);
       }
 
       addEventListener("resize", () => {
-        targetLayoutWidth = isPanelOpen ? window.innerWidth - sidebarWidth : window.innerWidth;
+        targetLayoutWidth = isPanelOpen
+          ? window.innerWidth - sidebarWidth
+          : window.innerWidth;
       });
 
-      const activeEffectName = () => document.querySelector("#effectList li.active")?.getAttribute("data-value");
+      const activeEffectName = () =>
+        document
+          .querySelector("#effectList li.active")
+          ?.getAttribute("data-value");
+
+      /* ================= ANIMATE ================= */
 
       function animate() {
         requestAnimationFrame(animate);
+
+        // Updates orbit controls attached to container
         controls.update();
+
+        // smooth width animation when sidebar toggles
         if (Math.abs(currentLayoutWidth - targetLayoutWidth) > 0.5) {
           currentLayoutWidth += (targetLayoutWidth - currentLayoutWidth) * 0.15;
-          if (Math.abs(currentLayoutWidth - targetLayoutWidth) < 1) currentLayoutWidth = targetLayoutWidth;
+          if (Math.abs(currentLayoutWidth - targetLayoutWidth) < 1)
+            currentLayoutWidth = targetLayoutWidth;
           updateLayout(currentLayoutWidth);
         }
-        updateAxisHUD();
-        const current = activeEffectName();
-        if (current === "ascii") ascii.render(scene, camera);
-        else if (current === "matrix") matrix.render(scene, camera);
-        else composer.render();
-      }`
 
-      switchEffect("normal");
+        // real-time axis compass
+        updateAxisHUD();
+
+        const current = activeEffectName();
+        if (current === "ascii") {
+          ascii.render(scene, camera);
+        } else if (current === "matrix") {
+          matrix.render(scene, camera);
+        } else {
+          composer.render();
+        }
+      }
+
       animate();
     </script>
   </body>

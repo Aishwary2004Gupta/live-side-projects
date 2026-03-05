@@ -1,3 +1,4 @@
+```html
 <!doctype html>
 <html lang="en">
   <head>
@@ -209,7 +210,6 @@ outputColor=color;
 
       function makeEffect(name, shader, uniforms = {}) {
         const map = new Map();
-
         for (const k in uniforms) map.set(k, new THREE.Uniform(uniforms[k]));
 
         return new (class extends Effect {
@@ -231,14 +231,20 @@ outputColor=color;
       const scene = new THREE.Scene();
       scene.background = new THREE.Color("#010101");
 
+      /* Correct Orthographic Camera */
+
+      const frustumSize = 350;
+      let aspect = window.innerWidth / window.innerHeight;
+
       const camera = new THREE.OrthographicCamera(
-        -175,
-        175,
-        175,
-        -175,
+        (frustumSize * aspect) / -2,
+        (frustumSize * aspect) / 2,
+        frustumSize / 2,
+        frustumSize / -2,
         0.01,
         500,
       );
+
       camera.position.set(0, 0, -5);
       camera.zoom = 140;
       camera.updateProjectionMatrix();
@@ -256,6 +262,7 @@ outputColor=color;
       /* Lights */
 
       scene.add(new THREE.AmbientLight(0xffffff, 0.6));
+
       const dl = new THREE.DirectionalLight(0xffffff, 10);
       dl.position.set(5, 10, 0);
       scene.add(dl);
@@ -295,29 +302,23 @@ outputColor=color;
       let pass = new EffectPass(camera, lego);
       composer.addPass(pass);
 
-      /* Switch effect */
-
       function switchEffect(val) {
         composer.removePass(pass);
-
         pass = new EffectPass(camera, map[val]);
-
         composer.addPass(pass);
 
         document.getElementById("pixelUI").style.display =
           val === "lego" ? "block" : "none";
       }
 
-      /* UI events */
+      /* UI */
 
       document.querySelectorAll("#effectList li").forEach((item) => {
         item.addEventListener("click", () => {
           document
             .querySelectorAll("#effectList li")
             .forEach((li) => li.classList.remove("active"));
-
           item.classList.add("active");
-
           switchEffect(item.dataset.value);
         });
       });
@@ -370,7 +371,7 @@ outputColor=color;
         drawAxis(zV, "#4da6ff", "Z", cx, cy, scale);
       }
 
-      /* Sidebar toggle */
+      /* Sidebar */
 
       const sidebar = document.getElementById("sidebar");
       const toggleBtn = document.getElementById("toggleBtn");
@@ -395,6 +396,22 @@ outputColor=color;
       document.querySelector("h2").addEventListener("click", togglePanel);
       floatingToggle.addEventListener("click", togglePanel);
 
+      /* Resize Fix */
+
+      window.addEventListener("resize", () => {
+        const aspect = window.innerWidth / window.innerHeight;
+
+        camera.left = (-frustumSize * aspect) / 2;
+        camera.right = (frustumSize * aspect) / 2;
+        camera.top = frustumSize / 2;
+        camera.bottom = -frustumSize / 2;
+
+        camera.updateProjectionMatrix();
+
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        composer.setSize(window.innerWidth, window.innerHeight);
+      });
+
       /* Animation */
 
       function animate() {
@@ -410,3 +427,4 @@ outputColor=color;
     </script>
   </body>
 </html>
+```

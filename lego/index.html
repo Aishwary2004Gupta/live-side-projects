@@ -18,17 +18,14 @@
         font-family: "Fira Code", "Courier New", monospace;
       }
 
-      /* container */
       #canvasContainer {
         position: absolute;
         top: 0;
         left: 0;
         width: 100%;
         height: 100%;
-        overflow: hidden;
       }
 
-      /* compass */
       #axisHUD {
         position: fixed;
         top: 12px;
@@ -45,7 +42,6 @@
         border: 1px solid rgba(255, 255, 255, 0.12);
       }
 
-      /* sidebar */
       #sidebar {
         position: fixed;
         top: 0;
@@ -106,7 +102,6 @@
         content: "●";
       }
 
-      /* slider */
       #pixelUI {
         margin-top: auto;
         padding-top: 20px;
@@ -118,7 +113,6 @@
         width: 100%;
       }
 
-      /* floating button */
       #floatingToggle {
         position: fixed;
         top: 20px;
@@ -180,7 +174,7 @@
 
       const handsFocusPoint = new THREE.Vector3(0, 0, 0);
 
-      /* shaders */
+      /* Shaders */
 
       const normalShader = `
 precision highp float;
@@ -213,8 +207,6 @@ outputColor=color;
 }
 `;
 
-      /* effect helper */
-
       function makeEffect(name, shader, uniforms = {}) {
         const map = new Map();
 
@@ -234,52 +226,41 @@ outputColor=color;
         })();
       }
 
-      /* scene */
+      /* Scene */
 
       const scene = new THREE.Scene();
       scene.background = new THREE.Color("#010101");
 
-      let currentLayoutWidth = window.innerWidth - 280;
-      let targetLayoutWidth = window.innerWidth - 280;
-
-      const camera = new THREE.OrthographicCamera(0, 0, 0, 0, 0.01, 500);
+      const camera = new THREE.OrthographicCamera(
+        -175,
+        175,
+        175,
+        -175,
+        0.01,
+        500,
+      );
       camera.position.set(0, 0, -5);
       camera.zoom = 140;
-
-      function updateCamera() {
-        const aspect = currentLayoutWidth / window.innerHeight;
-        const size = 350;
-
-        camera.left = (-size * aspect) / 2;
-        camera.right = (size * aspect) / 2;
-        camera.top = size / 2;
-        camera.bottom = -size / 2;
-        camera.updateProjectionMatrix();
-      }
-
-      updateCamera();
+      camera.updateProjectionMatrix();
 
       const container = document.getElementById("canvasContainer");
 
       const renderer = new THREE.WebGLRenderer({ antialias: true });
-      renderer.setSize(currentLayoutWidth, window.innerHeight);
+      renderer.setSize(window.innerWidth, window.innerHeight);
       container.appendChild(renderer.domElement);
-
-      /* controls */
 
       const controls = new OrbitControls(camera, container);
       controls.enablePan = false;
       controls.enableDamping = true;
 
-      /* lights */
+      /* Lights */
 
       scene.add(new THREE.AmbientLight(0xffffff, 0.6));
-
       const dl = new THREE.DirectionalLight(0xffffff, 10);
       dl.position.set(5, 10, 0);
       scene.add(dl);
 
-      /* model */
+      /* Model */
 
       const loader = new GLTFLoader();
 
@@ -294,7 +275,7 @@ outputColor=color;
         },
       );
 
-      /* effects */
+      /* Effects */
 
       const normal = makeEffect("Normal", normalShader, {
         resolution: new THREE.Vector2(innerWidth, innerHeight),
@@ -314,13 +295,40 @@ outputColor=color;
       let pass = new EffectPass(camera, lego);
       composer.addPass(pass);
 
-      /* slider */
+      /* Switch effect */
+
+      function switchEffect(val) {
+        composer.removePass(pass);
+
+        pass = new EffectPass(camera, map[val]);
+
+        composer.addPass(pass);
+
+        document.getElementById("pixelUI").style.display =
+          val === "lego" ? "block" : "none";
+      }
+
+      /* UI events */
+
+      document.querySelectorAll("#effectList li").forEach((item) => {
+        item.addEventListener("click", () => {
+          document
+            .querySelectorAll("#effectList li")
+            .forEach((li) => li.classList.remove("active"));
+
+          item.classList.add("active");
+
+          switchEffect(item.dataset.value);
+        });
+      });
+
+      /* Slider */
 
       document.getElementById("pixelSize").oninput = (e) => {
         lego.uniforms.get("pixelSize").value = +e.target.value;
       };
 
-      /* compass */
+      /* Compass */
 
       const axisCanvas = document.getElementById("axisCanvas");
       const axisCtx = axisCanvas.getContext("2d");
@@ -362,7 +370,7 @@ outputColor=color;
         drawAxis(zV, "#4da6ff", "Z", cx, cy, scale);
       }
 
-      /* sidebar */
+      /* Sidebar toggle */
 
       const sidebar = document.getElementById("sidebar");
       const toggleBtn = document.getElementById("toggleBtn");
@@ -377,19 +385,17 @@ outputColor=color;
           sidebar.classList.remove("collapsed");
           toggleBtn.textContent = "—";
           floatingToggle.classList.remove("visible");
-          targetLayoutWidth = window.innerWidth - 280;
         } else {
           sidebar.classList.add("collapsed");
           toggleBtn.textContent = "+";
           floatingToggle.classList.add("visible");
-          targetLayoutWidth = window.innerWidth;
         }
       }
 
       document.querySelector("h2").addEventListener("click", togglePanel);
       floatingToggle.addEventListener("click", togglePanel);
 
-      /* animation */
+      /* Animation */
 
       function animate() {
         requestAnimationFrame(animate);

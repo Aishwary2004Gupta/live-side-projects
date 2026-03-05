@@ -1,3 +1,4 @@
+```html
 <!doctype html>
 <html lang="en">
   <head>
@@ -22,7 +23,6 @@
         position: absolute;
         top: 0;
         left: 0;
-        width: 100%;
         height: 100%;
       }
 
@@ -106,7 +106,6 @@
         margin-top: auto;
         padding-top: 20px;
         border-top: 1px solid #1a1a1a;
-        display: block;
       }
 
       input[type="range"] {
@@ -172,7 +171,84 @@
         Effect,
       } from "https://esm.sh/postprocessing@6.35.4?deps=three@0.160.0";
 
-      const handsFocusPoint = new THREE.Vector3(0, 0, 0);
+      /* Layout variables */
+
+      const sidebarWidth = 280;
+      let isPanelOpen = true;
+
+      let currentLayoutWidth = window.innerWidth - sidebarWidth;
+      let targetLayoutWidth = window.innerWidth - sidebarWidth;
+
+      const canvasContainer = document.getElementById("canvasContainer");
+
+      /* Scene */
+
+      const scene = new THREE.Scene();
+      scene.background = new THREE.Color("#010101");
+
+      /* Camera */
+
+      const frustumSize = 350;
+      let camera;
+
+      function createCamera(width) {
+        const aspect = width / window.innerHeight;
+
+        camera = new THREE.OrthographicCamera(
+          (-frustumSize * aspect) / 2,
+          (frustumSize * aspect) / 2,
+          frustumSize / 2,
+          -frustumSize / 2,
+          0.01,
+          500,
+        );
+
+        camera.position.set(0, 0, -5);
+        camera.zoom = 140;
+        camera.updateProjectionMatrix();
+      }
+
+      createCamera(currentLayoutWidth);
+
+      /* Renderer */
+
+      const renderer = new THREE.WebGLRenderer({ antialias: true });
+      renderer.setSize(currentLayoutWidth, window.innerHeight);
+      canvasContainer.appendChild(renderer.domElement);
+
+      /* Composer */
+
+      const composer = new EffectComposer(renderer);
+      composer.addPass(new RenderPass(scene, camera));
+
+      /* Controls */
+
+      const controls = new OrbitControls(camera, canvasContainer);
+      controls.enablePan = false;
+      controls.enableDamping = true;
+
+      /* Lights */
+
+      scene.add(new THREE.AmbientLight(0xffffff, 0.6));
+
+      const dl = new THREE.DirectionalLight(0xffffff, 10);
+      dl.position.set(5, 10, 0);
+      scene.add(dl);
+
+      /* Model */
+
+      const loader = new GLTFLoader();
+
+      loader.load(
+        "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/main/2.0/Fox/glTF-Binary/Fox.glb",
+        (g) => {
+          const m = g.scene;
+          m.scale.setScalar(0.02);
+          m.rotation.y = -Math.PI / 2 + 4;
+          m.position.y = -0.8;
+          scene.add(m);
+        },
+      );
 
       /* Shaders */
 
@@ -215,7 +291,6 @@ outputColor=color;
           constructor() {
             super(name, shader, { uniforms: map });
           }
-
           update(renderer) {
             if (map.has("resolution")) {
               const c = renderer.domElement;
@@ -224,64 +299,6 @@ outputColor=color;
           }
         })();
       }
-
-      /* Scene */
-
-      const scene = new THREE.Scene();
-      scene.background = new THREE.Color("#010101");
-
-      /* Correct Orthographic Camera */
-
-      const frustumSize = 350;
-      let aspect = window.innerWidth / window.innerHeight;
-
-      const camera = new THREE.OrthographicCamera(
-        (frustumSize * aspect) / -2,
-        (frustumSize * aspect) / 2,
-        frustumSize / 2,
-        frustumSize / -2,
-        0.01,
-        500,
-      );
-
-      camera.position.set(0, 0, -5);
-      camera.zoom = 140;
-      camera.updateProjectionMatrix();
-
-      const container = document.getElementById("canvasContainer");
-
-      const renderer = new THREE.WebGLRenderer({ antialias: true });
-      renderer.setSize(window.innerWidth, window.innerHeight);
-      container.appendChild(renderer.domElement);
-
-      const controls = new OrbitControls(camera, container);
-      controls.enablePan = false;
-      controls.enableDamping = true;
-
-      /* Lights */
-
-      scene.add(new THREE.AmbientLight(0xffffff, 0.6));
-
-      const dl = new THREE.DirectionalLight(0xffffff, 10);
-      dl.position.set(5, 10, 0);
-      scene.add(dl);
-
-      /* Model */
-
-      const loader = new GLTFLoader();
-
-      loader.load(
-        "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/main/2.0/Fox/glTF-Binary/Fox.glb",
-        (g) => {
-          const m = g.scene;
-          m.scale.setScalar(0.02);
-          m.rotation.y = -Math.PI / 2 + 4;
-          m.position.y = -0.8;
-          scene.add(m);
-        },
-      );
-
-      /* Effects */
 
       const normal = makeEffect("Normal", normalShader, {
         resolution: new THREE.Vector2(innerWidth, innerHeight),
@@ -295,38 +312,72 @@ outputColor=color;
 
       const map = { normal, lego };
 
-      const composer = new EffectComposer(renderer);
-      composer.addPass(new RenderPass(scene, camera));
-
       let pass = new EffectPass(camera, lego);
       composer.addPass(pass);
 
+      /* Switch effect */
+
       function switchEffect(val) {
         composer.removePass(pass);
+
         pass = new EffectPass(camera, map[val]);
+
         composer.addPass(pass);
-
-        document.getElementById("pixelUI").style.display =
-          val === "lego" ? "block" : "none";
       }
-
-      /* UI */
-
-      document.querySelectorAll("#effectList li").forEach((item) => {
-        item.addEventListener("click", () => {
-          document
-            .querySelectorAll("#effectList li")
-            .forEach((li) => li.classList.remove("active"));
-          item.classList.add("active");
-          switchEffect(item.dataset.value);
-        });
-      });
 
       /* Slider */
 
       document.getElementById("pixelSize").oninput = (e) => {
         lego.uniforms.get("pixelSize").value = +e.target.value;
       };
+
+      /* Sidebar toggle */
+
+      const sidebar = document.getElementById("sidebar");
+      const toggleBtn = document.getElementById("toggleBtn");
+      const floatingToggle = document.getElementById("floatingToggle");
+
+      function togglePanel() {
+        isPanelOpen = !isPanelOpen;
+
+        if (isPanelOpen) {
+          sidebar.classList.remove("collapsed");
+          toggleBtn.textContent = "—";
+          floatingToggle.classList.remove("visible");
+          targetLayoutWidth = window.innerWidth - sidebarWidth;
+        } else {
+          sidebar.classList.add("collapsed");
+          toggleBtn.textContent = "+";
+          floatingToggle.classList.add("visible");
+          targetLayoutWidth = window.innerWidth;
+        }
+      }
+
+      document.querySelector("h2").addEventListener("click", togglePanel);
+      floatingToggle.addEventListener("click", togglePanel);
+
+      /* Layout update */
+
+      function updateLayout(width) {
+        canvasContainer.style.width = width + "px";
+
+        renderer.setSize(width, window.innerHeight);
+        composer.setSize(width, window.innerHeight);
+
+        const aspect = width / window.innerHeight;
+
+        camera.left = (-frustumSize * aspect) / 2;
+        camera.right = (frustumSize * aspect) / 2;
+        camera.updateProjectionMatrix();
+      }
+
+      /* Resize */
+
+      window.addEventListener("resize", () => {
+        targetLayoutWidth = isPanelOpen
+          ? window.innerWidth - sidebarWidth
+          : window.innerWidth;
+      });
 
       /* Compass */
 
@@ -339,7 +390,6 @@ outputColor=color;
 
         axisCtx.strokeStyle = color;
         axisCtx.fillStyle = color;
-        axisCtx.lineWidth = 3;
 
         axisCtx.beginPath();
         axisCtx.moveTo(cx, cy);
@@ -361,55 +411,31 @@ outputColor=color;
 
         const invQ = camera.quaternion.clone().invert();
 
-        const xV = new THREE.Vector3(1, 0, 0).applyQuaternion(invQ);
-        const yV = new THREE.Vector3(0, 1, 0).applyQuaternion(invQ);
-        const zV = new THREE.Vector3(0, 0, 1).applyQuaternion(invQ);
-
-        drawAxis(xV, "#ff4d4d", "X", cx, cy, scale);
-        drawAxis(yV, "#46ff7a", "Y", cx, cy, scale);
-        drawAxis(zV, "#4da6ff", "Z", cx, cy, scale);
+        drawAxis(
+          new THREE.Vector3(1, 0, 0).applyQuaternion(invQ),
+          "#ff4d4d",
+          "X",
+          cx,
+          cy,
+          scale,
+        );
+        drawAxis(
+          new THREE.Vector3(0, 1, 0).applyQuaternion(invQ),
+          "#46ff7a",
+          "Y",
+          cx,
+          cy,
+          scale,
+        );
+        drawAxis(
+          new THREE.Vector3(0, 0, 1).applyQuaternion(invQ),
+          "#4da6ff",
+          "Z",
+          cx,
+          cy,
+          scale,
+        );
       }
-
-      /* Sidebar */
-
-      const sidebar = document.getElementById("sidebar");
-      const toggleBtn = document.getElementById("toggleBtn");
-      const floatingToggle = document.getElementById("floatingToggle");
-
-      let isPanelOpen = true;
-
-      function togglePanel() {
-        isPanelOpen = !isPanelOpen;
-
-        if (isPanelOpen) {
-          sidebar.classList.remove("collapsed");
-          toggleBtn.textContent = "—";
-          floatingToggle.classList.remove("visible");
-        } else {
-          sidebar.classList.add("collapsed");
-          toggleBtn.textContent = "+";
-          floatingToggle.classList.add("visible");
-        }
-      }
-
-      document.querySelector("h2").addEventListener("click", togglePanel);
-      floatingToggle.addEventListener("click", togglePanel);
-
-      /* Resize Fix */
-
-      window.addEventListener("resize", () => {
-        const aspect = window.innerWidth / window.innerHeight;
-
-        camera.left = (-frustumSize * aspect) / 2;
-        camera.right = (frustumSize * aspect) / 2;
-        camera.top = frustumSize / 2;
-        camera.bottom = -frustumSize / 2;
-
-        camera.updateProjectionMatrix();
-
-        renderer.setSize(window.innerWidth, window.innerHeight);
-        composer.setSize(window.innerWidth, window.innerHeight);
-      });
 
       /* Animation */
 
@@ -417,6 +443,13 @@ outputColor=color;
         requestAnimationFrame(animate);
 
         controls.update();
+
+        if (Math.abs(currentLayoutWidth - targetLayoutWidth) > 0.5) {
+          currentLayoutWidth += (targetLayoutWidth - currentLayoutWidth) * 0.15;
+
+          updateLayout(currentLayoutWidth);
+        }
+
         updateAxisHUD();
 
         composer.render();
@@ -426,3 +459,4 @@ outputColor=color;
     </script>
   </body>
 </html>
+```

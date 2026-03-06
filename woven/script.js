@@ -97,7 +97,7 @@ outputColor=texture2D(inputBuffer,uv);
 }
 `;
 
-const legoShader = `
+const wovenShader = `
 precision highp float;
 uniform float pixelSize;
 uniform vec2 resolution;
@@ -141,15 +141,15 @@ const normal = makeEffect("Normal", normalShader, {
     resolution: new THREE.Vector2(innerWidth, innerHeight),
 });
 
-const lego = makeEffect("Lego", legoShader, {
+const woven = makeEffect("Woven", wovenShader, {
     pixelSize: 10,
     resolution: new THREE.Vector2(innerWidth, innerHeight),
     lightPosition: new THREE.Vector2(0.8, 0.8),
 });
 
-const map = { normal, lego };
+const map = { normal, woven };
 
-let pass = new EffectPass(camera, lego);
+let pass = new EffectPass(camera, woven);
 composer.addPass(pass);
 
 /* Switch effect */
@@ -162,7 +162,7 @@ function switchEffect(val) {
     composer.addPass(pass);
 
     document.getElementById("pixelUI").style.display =
-        val === "lego" ? "block" : "none";
+        val === "woven" ? "block" : "none";
 }
 
 document.querySelectorAll("#effectList li").forEach((item) => {
@@ -180,7 +180,7 @@ document.querySelectorAll("#effectList li").forEach((item) => {
 /* Slider */
 
 document.getElementById("pixelSize").oninput = (e) => {
-    lego.uniforms.get("pixelSize").value = +e.target.value;
+    woven.uniforms.get("pixelSize").value = +e.target.value;
 };
 
 /* Sidebar toggle */

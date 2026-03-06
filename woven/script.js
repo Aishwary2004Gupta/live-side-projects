@@ -80,9 +80,9 @@ loader.load(
     "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/main/2.0/Duck/glTF-Binary/Duck.glb",
     (g) => {
         const m = g.scene;
-        m.scale.setScalar(0.02);
-        m.rotation.y = -Math.PI / 2 + 4;
-        m.position.y = -0.8;
+        m.scale.setScalar(1.2);
+        m.rotation.y = 0.5;
+        m.position.y = -1;
         scene.add(m);
     },
 );

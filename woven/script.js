@@ -210,12 +210,24 @@ composer.addPass(pass);
 /* Switch effect */
 
 function switchEffect(val) {
+
+    const effect = map[val];
+
+    if (!effect) return;
+
+    // remove old pass
     composer.removePass(pass);
 
-    pass = new EffectPass(camera, map[val]);
+    // dispose old pass (important)
+    if (pass && pass.dispose) pass.dispose();
 
+    // create new pass
+    pass = new EffectPass(camera, effect);
+
+    // add new pass
     composer.addPass(pass);
 
+    // update UI
     document.getElementById("pixelUI").style.display =
         val === "woven" ? "block" : "none";
 }

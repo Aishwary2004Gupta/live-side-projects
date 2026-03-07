@@ -204,8 +204,8 @@ const woven = makeEffect("Woven", wovenShader, {
 
 const map = { normal, woven };
 
-let pass = new EffectPass(camera, woven);
-composer.addPass(pass);
+let pass = null;
+switchEffect("woven");
 
 /* Switch effect */
 

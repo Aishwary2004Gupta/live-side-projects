@@ -232,6 +232,8 @@ function switchEffect(val) {
         val === "woven" ? "block" : "none";
 }
 
+switchEffect(document.querySelector("#effectList li.active").dataset.value);
+
 document.querySelectorAll("#effectList li").forEach((item) => {
     item.addEventListener("click", () => {
         document

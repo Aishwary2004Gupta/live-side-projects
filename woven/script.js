@@ -215,7 +215,7 @@ function switchEffect(val) {
     pass = new EffectPass(camera, map[val]);
 
     composer.addPass(pass);
-
+ 
     document.getElementById("pixelUI").style.display =
         val === "woven" ? "block" : "none";
 }

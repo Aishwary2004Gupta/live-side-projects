@@ -80,7 +80,7 @@ loader.load(
     "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/main/2.0/CesiumMilkTruck/glTF-Binary/CesiumMilkTruck.glb",
     (g) => {
         const m = g.scene;
-        m.scale.setScalar(1.2);
+        m.scale.setScalar(0.7);
         m.rotation.y = 0.5;
         m.position.y = -1;
         scene.add(m);

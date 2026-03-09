@@ -81,7 +81,7 @@ loader.load(
     (g) => {
         const m = g.scene;
         m.scale.setScalar(0.7);
-        m.rotation.y = 0.5;
+        m.rotation.y = -Math.PI / 2 + 1;
         m.position.y = -1;
         scene.add(m);
     },

@@ -196,17 +196,16 @@ const normal = makeEffect("Normal", normalShader, {
     resolution: new THREE.Vector2(innerWidth, innerHeight),
 });
 
-const woven = makeEffect("Woven", wovenShader, {
+const dots = makeEffect("Dots", wovenShader, {
     pixelSize: 10,
     resolution: new THREE.Vector2(innerWidth, innerHeight),
     lightPosition: new THREE.Vector2(0.8, 0.8),
 });
 
-const map = { normal, woven };
+const map = { normal, dots };
 
 let pass = null;
-switchEffect("woven");
-
+switchEffect("dots");
 /* Switch effect */
 
 function switchEffect(val) {

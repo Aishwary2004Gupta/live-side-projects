@@ -77,7 +77,7 @@ scene.add(dl);
 const loader = new GLTFLoader();
 
 loader.load(
-    "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/main/2.0/CesiumMilkTruck/glTF-Binary/CesiumMilkTruck.glb",
+    "https://raw.githubusercontent.com/pichiliani/ModelsOBJ/master/dragon.obj",
     (g) => {
         const m = g.scene;
         m.scale.setScalar(0.7);

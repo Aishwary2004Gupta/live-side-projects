@@ -149,7 +149,7 @@ function loadModel(url) {
 
 /* Load example model */
 
-loadModel("https://raw.githubusercontent.com/pichiliani/ModelsOBJ/master/dragon.obj");
+loadModel("http://raw.githubusercontent.com/alecjacobson/common-3d-test-models/refs/heads/master/data/xyzrgb_dragon.obj");
 
 /* Shaders */
 

@@ -76,6 +76,7 @@ scene.add(dl);
 /* Model */
 
 const loader = new GLTFLoader();
+const objLoader = new OBJLoader();
 
 loader.load(
     "https://raw.githubusercontent.com/pichiliani/ModelsOBJ/master/dragon.obj",

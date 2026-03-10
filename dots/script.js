@@ -99,7 +99,7 @@ function disposeModel(root) {
 
 function setupModel(model) {
 
-    model.scale.setScalar(.7);
+    model.scale.setScalar(.6);
     model.rotation.y = .5;
     model.position.y = -1;
 
@@ -149,7 +149,7 @@ function loadModel(url) {
 
 /* Load example model */
 
-loadModel("http://raw.githubusercontent.com/alecjacobson/common-3d-test-models/refs/heads/master/data/xyzrgb_dragon.obj");
+loadModel("https://raw.githubusercontent.com/alecjacobson/common-3d-test-models/refs/heads/master/data/teapot.obj");
 
 /* Shaders */
 

@@ -1,6 +1,8 @@
 import * as THREE from "https://esm.sh/three@0.160.0";
 import { OrbitControls } from "https://esm.sh/three@0.160.0/examples/jsm/controls/OrbitControls.js";
 import { GLTFLoader } from "https://esm.sh/three@0.160.0/examples/jsm/loaders/GLTFLoader.js";
+import { OBJLoader } from "https://esm.sh/three@0.160.0/examples/jsm/loaders/OBJLoader.js";
+
 import {
     EffectComposer,
     RenderPass,
@@ -29,6 +31,7 @@ const frustumSize = 350;
 let camera;
 
 function createCamera(width) {
+
     const aspect = width / window.innerHeight;
 
     camera = new THREE.OrthographicCamera(
@@ -37,7 +40,7 @@ function createCamera(width) {
         frustumSize / 2,
         -frustumSize / 2,
         0.01,
-        500,
+        500
     );
 
     camera.position.set(0, 0, -5);
@@ -51,6 +54,7 @@ createCamera(currentLayoutWidth);
 
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(currentLayoutWidth, window.innerHeight);
+
 canvasContainer.appendChild(renderer.domElement);
 
 /* Composer */
@@ -72,19 +76,55 @@ const dl = new THREE.DirectionalLight(0xffffff, 10);
 dl.position.set(5, 10, 0);
 scene.add(dl);
 
-/* Model */
+/* Model Loaders */
 
-const loader = new GLTFLoader();
+const gltfLoader = new GLTFLoader();
+const objLoader = new OBJLoader();
 
-loader.load(
-    "https://raw.githubusercontent.com/alecjacobson/common-3d-test-models/refs/heads/master/data/xyzrgb_dragon.obj",
-    (g) => {
-        const m = g.scene;
-        m.scale.setScalar(0.02);
-        m.rotation.y = -Math.PI / 2 + 4;
-        m.position.y = -0.8;
-        scene.add(m);
-    },
+function loadModel(url) {
+
+    const ext = url.split(".").pop().toLowerCase();
+
+    if (ext === "gltf" || ext === "glb") {
+
+        gltfLoader.load(url, (gltf) => {
+
+            const model = gltf.scene;
+
+            model.scale.setScalar(0.02);
+            model.rotation.y = -Math.PI / 2 + 4;
+            model.position.y = -0.8;
+
+            scene.add(model);
+
+        });
+
+    } 
+    else if (ext === "obj") {
+
+        objLoader.load(url, (obj) => {
+
+            obj.scale.setScalar(0.02);
+            obj.rotation.y = -Math.PI / 2 + 4;
+            obj.position.y = -0.8;
+
+            scene.add(obj);
+
+        });
+
+    } 
+    else {
+
+        console.error("Unsupported model format:", ext);
+
+    }
+
+}
+
+/* Load example model */
+
+loadModel(
+"https://raw.githubusercontent.com/alecjacobson/common-3d-test-models/refs/heads/master/data/xyzrgb_dragon.obj"
 );
 
 /* Shaders */
@@ -98,51 +138,76 @@ outputColor=texture2D(inputBuffer,uv);
 `;
 
 const dotsShader = `
-        precision highp float;
-        uniform float pixelSize;
-        uniform vec2 resolution;
-        void mainImage(const in vec4 i, const in vec2 uv, out vec4 o) {
-          vec2 s = pixelSize / resolution;
-          vec2 u = s * floor(uv / s);
-          vec4 c = texture2D(inputBuffer, u);
+precision highp float;
+uniform float pixelSize;
+uniform vec2 resolution;
 
-          float l = dot(vec3(0.2126, 0.7152, 0.0722), c.rgb);
-          vec2 f = fract(uv / s);
+void mainImage(const in vec4 i, const in vec2 uv, out vec4 o) {
 
-          float radius = l > 0.5 ? 0.3 : l > 0.001 ? 0.12 : 0.075;
-          vec2 center = l > 0.5 ? vec2(0.5) : vec2(0.25);
-          float d = distance(f, center);
-          float m = smoothstep(radius, radius - 0.05, d);
+vec2 s = pixelSize / resolution;
+vec2 u = s * floor(uv / s);
 
-          o = vec4(vec3(m) * max(l, 0.05), 1.0);
-        }
-      `;
+vec4 c = texture2D(inputBuffer, u);
 
+float l = dot(vec3(0.2126, 0.7152, 0.0722), c.rgb);
+
+vec2 f = fract(uv / s);
+
+float radius = l > 0.5 ? 0.3 : l > 0.001 ? 0.12 : 0.075;
+vec2 center = l > 0.5 ? vec2(0.5) : vec2(0.25);
+
+float d = distance(f, center);
+
+float m = smoothstep(radius, radius - 0.05, d);
+
+o = vec4(vec3(m) * max(l, 0.05), 1.0);
+
+}
+`;
 
 function makeEffect(name, shader, uniforms = {}) {
+
     const map = new Map();
-    for (const k in uniforms) map.set(k, new THREE.Uniform(uniforms[k]));
+
+    for (const k in uniforms)
+        map.set(k, new THREE.Uniform(uniforms[k]));
 
     return new (class extends Effect {
+
         constructor() {
             super(name, shader, { uniforms: map });
         }
+
         update(renderer) {
+
             if (map.has("resolution")) {
+
                 const c = renderer.domElement;
-                map.get("resolution").value.set(c.width, c.height);
+
+                map.get("resolution").value.set(
+                    c.width,
+                    c.height
+                );
+
             }
+
         }
+
     })();
+
 }
 
 const normal = makeEffect("Normal", normalShader, {
-    resolution: new THREE.Vector2(innerWidth, innerHeight),
+
+    resolution: new THREE.Vector2(innerWidth, innerHeight)
+
 });
 
 const dots = makeEffect("Dots", dotsShader, {
+
     pixelSize: 10,
-    resolution: new THREE.Vector2(innerWidth, innerHeight),
+    resolution: new THREE.Vector2(innerWidth, innerHeight)
+
 });
 
 const map = { normal, dots };
@@ -153,6 +218,7 @@ composer.addPass(pass);
 /* Switch effect */
 
 function switchEffect(val) {
+
     composer.removePass(pass);
 
     pass = new EffectPass(camera, map[val]);
@@ -161,10 +227,13 @@ function switchEffect(val) {
 
     document.getElementById("pixelUI").style.display =
         val === "dots" ? "block" : "none";
+
 }
 
 document.querySelectorAll("#effectList li").forEach((item) => {
+
     item.addEventListener("click", () => {
+
         document
             .querySelectorAll("#effectList li")
             .forEach((li) => li.classList.remove("active"));
@@ -172,13 +241,17 @@ document.querySelectorAll("#effectList li").forEach((item) => {
         item.classList.add("active");
 
         switchEffect(item.dataset.value);
+
     });
+
 });
 
 /* Slider */
 
 document.getElementById("pixelSize").oninput = (e) => {
+
     dots.uniforms.get("pixelSize").value = +e.target.value;
+
 };
 
 /* Sidebar toggle */
@@ -188,27 +261,40 @@ const toggleBtn = document.getElementById("toggleBtn");
 const floatingToggle = document.getElementById("floatingToggle");
 
 function togglePanel() {
+
     isPanelOpen = !isPanelOpen;
 
     if (isPanelOpen) {
+
         sidebar.classList.remove("collapsed");
         toggleBtn.textContent = "—";
         floatingToggle.classList.remove("visible");
-        targetLayoutWidth = window.innerWidth - sidebarWidth;
+
+        targetLayoutWidth =
+            window.innerWidth - sidebarWidth;
+
     } else {
+
         sidebar.classList.add("collapsed");
         toggleBtn.textContent = "+";
         floatingToggle.classList.add("visible");
+
         targetLayoutWidth = window.innerWidth;
+
     }
+
 }
 
-document.querySelector("h2").addEventListener("click", togglePanel);
-floatingToggle.addEventListener("click", togglePanel);
+document.querySelector("h2")
+    .addEventListener("click", togglePanel);
+
+floatingToggle
+    .addEventListener("click", togglePanel);
 
 /* Layout update */
 
 function updateLayout(width) {
+
     canvasContainer.style.width = width + "px";
 
     renderer.setSize(width, window.innerHeight);
@@ -218,23 +304,31 @@ function updateLayout(width) {
 
     camera.left = (-frustumSize * aspect) / 2;
     camera.right = (frustumSize * aspect) / 2;
+
     camera.updateProjectionMatrix();
+
 }
 
 /* Resize */
 
 window.addEventListener("resize", () => {
+
     targetLayoutWidth = isPanelOpen
         ? window.innerWidth - sidebarWidth
         : window.innerWidth;
+
 });
 
 /* Compass */
 
-const axisCanvas = document.getElementById("axisCanvas");
-const axisCtx = axisCanvas.getContext("2d");
+const axisCanvas =
+    document.getElementById("axisCanvas");
+
+const axisCtx =
+    axisCanvas.getContext("2d");
 
 function drawAxis(v, color, label, cx, cy, scale) {
+
     const ex = cx + v.x * scale;
     const ey = cy - v.y * scale;
 
@@ -242,14 +336,18 @@ function drawAxis(v, color, label, cx, cy, scale) {
     axisCtx.fillStyle = color;
 
     axisCtx.beginPath();
+
     axisCtx.moveTo(cx, cy);
     axisCtx.lineTo(ex, ey);
+
     axisCtx.stroke();
 
     axisCtx.fillText(label, ex + 4, ey + 4);
+
 }
 
 function updateAxisHUD() {
+
     const w = axisCanvas.width;
     const h = axisCanvas.height;
 
@@ -257,52 +355,67 @@ function updateAxisHUD() {
 
     const cx = w / 2;
     const cy = h / 2;
+
     const scale = w * 0.35;
 
-    const invQ = camera.quaternion.clone().invert();
+    const invQ =
+        camera.quaternion.clone().invert();
 
     drawAxis(
-        new THREE.Vector3(1, 0, 0).applyQuaternion(invQ),
+        new THREE.Vector3(1, 0, 0)
+            .applyQuaternion(invQ),
         "#ff4d4d",
         "X",
         cx,
         cy,
-        scale,
+        scale
     );
+
     drawAxis(
-        new THREE.Vector3(0, 1, 0).applyQuaternion(invQ),
+        new THREE.Vector3(0, 1, 0)
+            .applyQuaternion(invQ),
         "#46ff7a",
         "Y",
         cx,
         cy,
-        scale,
+        scale
     );
+
     drawAxis(
-        new THREE.Vector3(0, 0, 1).applyQuaternion(invQ),
+        new THREE.Vector3(0, 0, 1)
+            .applyQuaternion(invQ),
         "#4da6ff",
         "Z",
         cx,
         cy,
-        scale,
+        scale
     );
+
 }
 
 /* Animation */
 
 function animate() {
+
     requestAnimationFrame(animate);
 
     controls.update();
 
-    if (Math.abs(currentLayoutWidth - targetLayoutWidth) > 0.5) {
-        currentLayoutWidth += (targetLayoutWidth - currentLayoutWidth) * 0.15;
+    if (
+        Math.abs(currentLayoutWidth - targetLayoutWidth) > 0.5
+    ) {
+
+        currentLayoutWidth +=
+            (targetLayoutWidth - currentLayoutWidth) * 0.15;
 
         updateLayout(currentLayoutWidth);
+
     }
 
     updateAxisHUD();
 
     composer.render();
+
 }
 
 animate();

@@ -105,8 +105,8 @@ function loadModel(url) {
         objLoader.load(url, (obj) => {
 
             obj.scale.setScalar(0.02);
-            obj.rotation.y = -Math.PI / 2 + 4;
-            obj.position.y = -0.8;
+            obj.rotation.y = 0.4;
+            obj.position.y = -0.2;
 
             scene.add(obj);
 

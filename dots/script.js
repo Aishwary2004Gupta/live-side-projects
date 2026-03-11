@@ -64,9 +64,22 @@ composer.addPass(new RenderPass(scene, camera));
 
 /* Controls */
 
+/* Controls */
+
 const controls = new OrbitControls(camera, canvasContainer);
+
 controls.enablePan = false;
 controls.enableDamping = true;
+
+/* Restrict rotation */
+
+const horizon = Math.PI / 2; // straight horizontal
+
+controls.minPolarAngle = horizon - 0.15;  // slight upward rotation
+controls.maxPolarAngle = horizon + 0.15;  // slight downward rotation
+
+controls.minAzimuthAngle = -Infinity; // free horizontal rotation
+controls.maxAzimuthAngle = Infinity;
 
 /* Lights */
 

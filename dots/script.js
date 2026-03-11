@@ -1,4 +1,3 @@
-
 import * as THREE from "https://esm.sh/three@0.160.0";
 import { OrbitControls } from "https://esm.sh/three@0.160.0/examples/jsm/controls/OrbitControls.js";
 import { GLTFLoader } from "https://esm.sh/three@0.160.0/examples/jsm/loaders/GLTFLoader.js";
@@ -23,7 +22,7 @@ const canvasContainer = document.getElementById("canvasContainer");
 /* Scene */
 
 const scene = new THREE.Scene();
-scene.background = new THREE.Color("#010101");
+scene.background = new THREE.Color("#000000");
 
 /* Camera */
 
@@ -51,7 +50,8 @@ canvasContainer.appendChild(renderer.domElement);
 /* Composer */
 
 const composer = new EffectComposer(renderer);
-composer.addPass(new RenderPass(scene,camera));
+const renderPass = new RenderPass(scene,camera);
+composer.addPass(renderPass);
 
 /* Controls */
 
@@ -162,16 +162,7 @@ setupModel(currentModel);
 
 loadModel("https://raw.githubusercontent.com/alecjacobson/common-3d-test-models/master/data/teapot.obj");
 
-/* Shaders */
-
-const normalShader = `
-precision highp float;
-uniform vec2 resolution;
-
-void mainImage(const in vec4 inputColor,const in vec2 uv,out vec4 outputColor){
-outputColor = texture2D(inputBuffer,uv);
-}
-`;
+/* Dots Shader */
 
 const dotsShader = `
 precision highp float;
@@ -231,18 +222,12 @@ map.get("resolution").value.set(c.width,c.height);
 
 /* Effects */
 
-const normal = makeEffect("Normal",normalShader,{
-resolution:new THREE.Vector2(innerWidth,innerHeight)
-});
-
 const dots = makeEffect("Dots",dotsShader,{
 pixelSize:10,
 resolution:new THREE.Vector2(innerWidth,innerHeight)
 });
 
-const effects = {normal,dots};
-
-/* Effect pass */
+/* EffectPass */
 
 const effectPass = new EffectPass(camera,dots);
 composer.addPass(effectPass);
@@ -251,13 +236,18 @@ composer.addPass(effectPass);
 
 function switchEffect(name){
 
-const effect = effects[name];
-if(!effect) return;
+if(name === "normal"){
 
-/* force refresh */
+effectPass.enabled = false;
+
+}else if(name === "dots"){
+
+effectPass.enabled = true;
 
 effectPass.effects.length = 0;
-effectPass.effects.push(effect);
+effectPass.effects.push(dots);
+
+}
 
 document.getElementById("pixelUI").style.display =
 name==="dots" ? "block" : "none";
@@ -288,7 +278,11 @@ switchEffect(document.querySelector("#effectList li.active").dataset.value);
 /* Slider */
 
 document.getElementById("pixelSize").oninput = e=>{
+
+if(effectPass.enabled){
 dots.uniforms.get("pixelSize").value = +e.target.value;
+}
+
 };
 
 /* Sidebar */

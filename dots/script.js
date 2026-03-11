@@ -97,28 +97,27 @@ outputColor=texture2D(inputBuffer,uv);
 }
 `;
 
-const legoShader = `
-precision highp float;
-uniform float pixelSize;
-uniform vec2 resolution;
-uniform vec2 lightPosition;
+const dotsShader = `
+        precision highp float;
+        uniform float pixelSize;
+        uniform vec2 resolution;
+        void mainImage(const in vec4 i, const in vec2 uv, out vec4 o) {
+          vec2 s = pixelSize / resolution;
+          vec2 u = s * floor(uv / s);
+          vec4 c = texture2D(inputBuffer, u);
 
-void mainImage(const in vec4 inputColor,const in vec2 uv,out vec4 outputColor){
+          float l = dot(vec3(0.2126, 0.7152, 0.0722), c.rgb);
+          vec2 f = fract(uv / s);
 
-vec2 s=pixelSize/resolution;
-vec2 uvPixel=s*floor(uv/s);
-vec4 color=texture2D(inputBuffer,uvPixel);
+          float radius = l > 0.5 ? 0.3 : l > 0.001 ? 0.12 : 0.075;
+          vec2 center = l > 0.5 ? vec2(0.5) : vec2(0.25);
+          float d = distance(f, center);
+          float m = smoothstep(radius, radius - 0.05, d);
 
-vec2 cellUV=fract(uv/s);
+          o = vec4(vec3(m) * max(l, 0.05), 1.0);
+        }
+      `;
 
-float lighting=dot(normalize(cellUV-vec2(.5)),lightPosition)*.7;
-float dis=abs(distance(cellUV,vec2(.5))*2.-.5);
-
-color.rgb*=smoothstep(.1,0.,dis)*lighting+1.;
-
-outputColor=color;
-}
-`;
 
 function makeEffect(name, shader, uniforms = {}) {
     const map = new Map();
@@ -141,15 +140,14 @@ const normal = makeEffect("Normal", normalShader, {
     resolution: new THREE.Vector2(innerWidth, innerHeight),
 });
 
-const lego = makeEffect("Lego", legoShader, {
+const dots = makeEffect("Dots", dotsShader, {
     pixelSize: 10,
     resolution: new THREE.Vector2(innerWidth, innerHeight),
-    lightPosition: new THREE.Vector2(0.8, 0.8),
 });
 
-const map = { normal, lego };
+const map = { normal, dots };
 
-let pass = new EffectPass(camera, lego);
+let pass = new EffectPass(camera, dots);
 composer.addPass(pass);
 
 /* Switch effect */
@@ -162,7 +160,7 @@ function switchEffect(val) {
     composer.addPass(pass);
 
     document.getElementById("pixelUI").style.display =
-        val === "lego" ? "block" : "none";
+        val === "dots" ? "block" : "none";
 }
 
 document.querySelectorAll("#effectList li").forEach((item) => {
@@ -180,7 +178,7 @@ document.querySelectorAll("#effectList li").forEach((item) => {
 /* Slider */
 
 document.getElementById("pixelSize").oninput = (e) => {
-    lego.uniforms.get("pixelSize").value = +e.target.value;
+    dots.uniforms.get("pixelSize").value = +e.target.value;
 };
 
 /* Sidebar toggle */

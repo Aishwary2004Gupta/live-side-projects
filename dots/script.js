@@ -23,15 +23,15 @@ const canvasContainer = document.getElementById("canvasContainer");
 /* Scene */
 
 const scene = new THREE.Scene();
-scene.background = new THREE.Color("#000000");
+scene.background = new THREE.Color("#010101");
 
 /* Camera */
 
 const frustumSize = 350;
 
 const camera = new THREE.OrthographicCamera(
-(-frustumSize*(currentLayoutWidth/window.innerHeight))/2,
-(frustumSize*(currentLayoutWidth/window.innerHeight))/2,
+(-frustumSize * (currentLayoutWidth/window.innerHeight))/2,
+(frustumSize * (currentLayoutWidth/window.innerHeight))/2,
 frustumSize/2,
 -frustumSize/2,
 0.01,
@@ -51,9 +51,7 @@ canvasContainer.appendChild(renderer.domElement);
 /* Composer */
 
 const composer = new EffectComposer(renderer);
-
-const renderPass = new RenderPass(scene,camera);
-composer.addPass(renderPass);
+composer.addPass(new RenderPass(scene,camera));
 
 /* Controls */
 
@@ -64,7 +62,7 @@ controls.enableDamping = true;
 controls.rotateSpeed = 0.7;
 controls.dampingFactor = 0.08;
 
-/* slight vertical rotation */
+/* limit vertical rotation */
 
 controls.minPolarAngle = Math.PI/2 - 0.35;
 controls.maxPolarAngle = Math.PI/2 + 0.35;
@@ -82,24 +80,24 @@ scene.add(dl);
 const gltfLoader = new GLTFLoader();
 const objLoader = new OBJLoader();
 
-let currentModel=null;
+let currentModel = null;
 
-/* Dispose */
+/* Dispose model */
 
 function disposeModel(root){
 
 if(!root) return;
 
-root.traverse(o=>{
-if(o.isMesh){
+root.traverse(obj=>{
+if(obj.isMesh){
 
-if(o.geometry) o.geometry.dispose();
+if(obj.geometry) obj.geometry.dispose();
 
-if(o.material){
-if(Array.isArray(o.material)){
-o.material.forEach(m=>m.dispose());
+if(obj.material){
+if(Array.isArray(obj.material)){
+obj.material.forEach(m=>m.dispose());
 }else{
-o.material.dispose();
+obj.material.dispose();
 }
 }
 
@@ -108,15 +106,15 @@ o.material.dispose();
 
 }
 
-/* Setup */
+/* Setup model */
 
-function setupModel(m){
+function setupModel(model){
 
-m.scale.setScalar(.6);
-m.rotation.y=.5;
-m.position.y=-1;
+model.scale.setScalar(.6);
+model.rotation.y = .5;
+model.position.y = -1;
 
-scene.add(m);
+scene.add(model);
 
 }
 
@@ -129,26 +127,26 @@ scene.remove(currentModel);
 disposeModel(currentModel);
 }
 
-const ext=url.split(".").pop().toLowerCase();
+const ext = url.split(".").pop().toLowerCase();
 
-if(ext==="glb"||ext==="gltf"){
+if(ext==="glb" || ext==="gltf"){
 
-gltfLoader.load(url,g=>{
-currentModel=g.scene;
+gltfLoader.load(url,(gltf)=>{
+
+currentModel = gltf.scene;
 setupModel(currentModel);
+
 });
 
-}
+}else if(ext==="obj"){
 
-if(ext==="obj"){
+objLoader.load(url,(obj)=>{
 
-objLoader.load(url,obj=>{
-
-currentModel=obj;
+currentModel = obj;
 
 currentModel.traverse(c=>{
-if(c.isMesh&&!c.material){
-c.material=new THREE.MeshStandardMaterial({color:0xcccccc});
+if(c.isMesh && !c.material){
+c.material = new THREE.MeshStandardMaterial({color:0xcccccc});
 }
 });
 
@@ -160,46 +158,54 @@ setupModel(currentModel);
 
 }
 
-/* Load example */
+/* Load sample model */
 
 loadModel("https://raw.githubusercontent.com/alecjacobson/common-3d-test-models/master/data/teapot.obj");
 
 /* Shaders */
 
-const dotsShader=`
+const normalShader = `
+precision highp float;
+uniform vec2 resolution;
+
+void mainImage(const in vec4 inputColor,const in vec2 uv,out vec4 outputColor){
+outputColor = texture2D(inputBuffer,uv);
+}
+`;
+
+const dotsShader = `
 precision highp float;
 uniform float pixelSize;
 uniform vec2 resolution;
 
 void mainImage(const in vec4 i,const in vec2 uv,out vec4 o){
 
-vec2 s=pixelSize/resolution;
-vec2 u=s*floor(uv/s);
+vec2 s = pixelSize / resolution;
+vec2 u = s * floor(uv/s);
 
-vec4 c=texture2D(inputBuffer,u);
+vec4 c = texture2D(inputBuffer,u);
 
-float l=dot(vec3(.2126,.7152,.0722),c.rgb);
+float l = dot(vec3(.2126,.7152,.0722),c.rgb);
 
-vec2 f=fract(uv/s);
+vec2 f = fract(uv/s);
 
-float radius=l>.5?.3:l>.001?.12:.075;
+float radius = l>.5 ? .3 : l>.001 ? .12 : .075;
+vec2 center = l>.5 ? vec2(.5) : vec2(.25);
 
-vec2 center=l>.5?vec2(.5):vec2(.25);
+float d = distance(f,center);
 
-float d=distance(f,center);
+float m = smoothstep(radius,radius-.05,d);
 
-float m=smoothstep(radius,radius-.05,d);
-
-o=vec4(vec3(m)*max(l,.05),1.);
+o = vec4(vec3(m)*max(l,.05),1.);
 
 }
 `;
 
-/* Effect */
+/* Effect factory */
 
 function makeEffect(name,shader,uniforms={}){
 
-const map=new Map();
+const map = new Map();
 
 for(const k in uniforms)
 map.set(k,new THREE.Uniform(uniforms[k]));
@@ -211,44 +217,50 @@ super(name,shader,{uniforms:map});
 }
 
 update(renderer){
+
 if(map.has("resolution")){
-const c=renderer.domElement;
+const c = renderer.domElement;
 map.get("resolution").value.set(c.width,c.height);
 }
+
 }
 
 })();
 
 }
 
-const dots=makeEffect("Dots",dotsShader,{
+/* Effects */
+
+const normal = makeEffect("Normal",normalShader,{
+resolution:new THREE.Vector2(innerWidth,innerHeight)
+});
+
+const dots = makeEffect("Dots",dotsShader,{
 pixelSize:10,
 resolution:new THREE.Vector2(innerWidth,innerHeight)
 });
 
-/* EffectPass */
+const effects = {normal,dots};
 
-const effectPass=new EffectPass(camera,dots);
-effectPass.enabled=true;
+/* Effect pass */
 
+const effectPass = new EffectPass(camera,dots);
 composer.addPass(effectPass);
 
-/* Effect switching */
+/* Switch effect */
 
 function switchEffect(name){
 
-if(name==="normal"){
+const effect = effects[name];
+if(!effect) return;
 
-effectPass.enabled=false;
+/* force refresh */
 
-}
+effectPass.effects.length = 0;
+effectPass.effects.push(effect);
 
-if(name==="dots"){
-
-effectPass.enabled=true;
-effectPass.effects=[dots];
-
-}
+document.getElementById("pixelUI").style.display =
+name==="dots" ? "block" : "none";
 
 }
 
@@ -269,25 +281,25 @@ switchEffect(item.dataset.value);
 
 });
 
-/* Init */
+/* Init effect */
 
 switchEffect(document.querySelector("#effectList li.active").dataset.value);
 
 /* Slider */
 
-document.getElementById("pixelSize").oninput=e=>{
-dots.uniforms.get("pixelSize").value=+e.target.value;
+document.getElementById("pixelSize").oninput = e=>{
+dots.uniforms.get("pixelSize").value = +e.target.value;
 };
 
 /* Sidebar */
 
-const sidebar=document.getElementById("sidebar");
-const toggleBtn=document.getElementById("toggleBtn");
-const floatingToggle=document.getElementById("floatingToggle");
+const sidebar = document.getElementById("sidebar");
+const toggleBtn = document.getElementById("toggleBtn");
+const floatingToggle = document.getElementById("floatingToggle");
 
 function togglePanel(){
 
-isPanelOpen=!isPanelOpen;
+isPanelOpen = !isPanelOpen;
 
 if(isPanelOpen){
 
@@ -295,7 +307,7 @@ sidebar.classList.remove("collapsed");
 toggleBtn.textContent="—";
 floatingToggle.classList.remove("visible");
 
-targetLayoutWidth=window.innerWidth-sidebarWidth;
+targetLayoutWidth = window.innerWidth - sidebarWidth;
 
 }else{
 
@@ -303,7 +315,7 @@ sidebar.classList.add("collapsed");
 toggleBtn.textContent="+";
 floatingToggle.classList.add("visible");
 
-targetLayoutWidth=window.innerWidth;
+targetLayoutWidth = window.innerWidth;
 
 }
 
@@ -316,15 +328,15 @@ floatingToggle.addEventListener("click",togglePanel);
 
 function updateLayout(width){
 
-canvasContainer.style.width=width+"px";
+canvasContainer.style.width = width+"px";
 
 renderer.setSize(width,window.innerHeight);
 composer.setSize(width,window.innerHeight);
 
-const aspect=width/window.innerHeight;
+const aspect = width/window.innerHeight;
 
-camera.left=(-frustumSize*aspect)/2;
-camera.right=(frustumSize*aspect)/2;
+camera.left = (-frustumSize*aspect)/2;
+camera.right = (frustumSize*aspect)/2;
 
 camera.updateProjectionMatrix();
 
@@ -334,11 +346,52 @@ camera.updateProjectionMatrix();
 
 window.addEventListener("resize",()=>{
 
-targetLayoutWidth=isPanelOpen
-?window.innerWidth-sidebarWidth
-:window.innerWidth;
+targetLayoutWidth = isPanelOpen
+? window.innerWidth - sidebarWidth
+: window.innerWidth;
 
 });
+
+/* Compass */
+
+const axisCanvas = document.getElementById("axisCanvas");
+const axisCtx = axisCanvas.getContext("2d");
+
+function drawAxis(v,color,label,cx,cy,scale){
+
+const ex = cx + v.x*scale;
+const ey = cy - v.y*scale;
+
+axisCtx.strokeStyle = color;
+axisCtx.fillStyle = color;
+
+axisCtx.beginPath();
+axisCtx.moveTo(cx,cy);
+axisCtx.lineTo(ex,ey);
+axisCtx.stroke();
+
+axisCtx.fillText(label,ex+4,ey+4);
+
+}
+
+function updateAxisHUD(){
+
+const w = axisCanvas.width;
+const h = axisCanvas.height;
+
+axisCtx.clearRect(0,0,w,h);
+
+const cx = w/2;
+const cy = h/2;
+const scale = w*.35;
+
+const invQ = camera.quaternion.clone().invert();
+
+drawAxis(new THREE.Vector3(1,0,0).applyQuaternion(invQ),"#ff4d4d","X",cx,cy,scale);
+drawAxis(new THREE.Vector3(0,1,0).applyQuaternion(invQ),"#46ff7a","Y",cx,cy,scale);
+drawAxis(new THREE.Vector3(0,0,1).applyQuaternion(invQ),"#4da6ff","Z",cx,cy,scale);
+
+}
 
 /* Animation */
 
@@ -350,10 +403,12 @@ controls.update();
 
 if(Math.abs(currentLayoutWidth-targetLayoutWidth)>.5){
 
-currentLayoutWidth+=(targetLayoutWidth-currentLayoutWidth)*.15;
+currentLayoutWidth += (targetLayoutWidth-currentLayoutWidth)*.15;
 updateLayout(currentLayoutWidth);
 
 }
+
+updateAxisHUD();
 
 composer.render();
 

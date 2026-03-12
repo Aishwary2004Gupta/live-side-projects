@@ -104,9 +104,9 @@ function loadModel(url) {
 
             const model = gltf.scene;
 
-            model.scale.setScalar(0.02);
-            model.rotation.y = -Math.PI / 2 + 4;
-            model.position.y = -0.8;
+            model.scale.setScalar(0.6);
+            model.rotation.y = 0.4;
+            model.position.y = -1;
 
             scene.add(model);
 

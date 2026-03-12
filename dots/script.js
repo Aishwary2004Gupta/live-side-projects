@@ -137,7 +137,7 @@ function loadModel(url) {
 /* Load example model */
 
 loadModel(
-    "https://raw.githubusercontent.com/alecjacobson/common-3d-test-models/refs/heads/master/data/xyzrgb_dragon.obj"
+    "https://raw.githubusercontent.com/alecjacobson/common-3d-test-models/refs/heads/master/data/teapot.obj"
 );
 
 /* Shaders */

@@ -22,8 +22,8 @@
       #canvasContainer {
         position: absolute;
         top: 0;
-        left: 0;
-        width: 100%;
+        left: 280px;
+        width: calc(100% - 560px);
         height: 100%;
         z-index: 1;
         overflow: hidden;
@@ -51,6 +51,28 @@
       #sidebar {
         position: fixed;
         top: 0;
+        left: 0;
+        width: 280px;
+        height: 100%;
+        background: #0a0a0a;
+        border-right: 1px solid #1a1a1a;
+        padding: 40px 30px;
+        box-sizing: border-box;
+        z-index: 10;
+        display: flex;
+        flex-direction: column;
+        color: #555;
+        user-select: none;
+        transition: transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+      }
+
+      #sidebar.collapsed {
+        transform: translateX(-100%);
+      }
+
+      #modelsPanel {
+        position: fixed;
+        top: 0;
         right: 0;
         width: 280px;
         height: 100%;
@@ -66,7 +88,7 @@
         transition: transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
       }
 
-      #sidebar.collapsed {
+      #modelsPanel.collapsed {
         transform: translateX(100%);
       }
 
@@ -276,33 +298,33 @@
         <li data-value="vhs">VHS</li>
       </ul>
 
-      <div id="modelUI">
-        <label>Model</label>
-        <select id="modelSelect">
-          <option value="shoe">Shoe</option>
-          <option value="cow">Cow</option>
-          <option value="teapot">Teapot</option>
-          <option value="dragon2">Dragon2</option>
-          <option value="fox">Fox</option>
-          <option value="horse">Horse (OBJ)</option>
-          <option value="tableLamp">Table Lamp</option>
-          <option value="chair">Chair</option>
-          <option value="lantern">Lantern</option>
-          <option value="olives">Olives</option>
-          <option value="sofa">GlamVelvetSofa</option>
-          <option value="cesiumMan">Cesium Man</option>
-          <option value="milkTruck">Milk Truck</option>
-          <!-- <option value="head">Head</option> -->
-          <option value="dragon">Dragon</option>
-          <option value="hands">Hands (Creation of Adam)</option>
-          <option value="duck">Duck</option>
-          <option value="avocado">Avocado</option>
-          <option value="lamp">Lamp</option>
-          <option value="skull">Scattering Skull</option>
-          <option value="hand">Hand</option>
-          <option value="astronaut">Astronaut (OBJ)</option>
-          <option value="chessBoard">Chess Board</option>
-        </select>
+      <div id="modelsPanel">
+        <h2>Models</h2>
+
+        <ul id="modelList">
+          <li data-model="shoe" class="active">Shoe</li>
+          <li data-model="cow">Cow</li>
+          <li data-model="teapot">Teapot</li>
+          <li data-model="dragon2">Dragon2</li>
+          <li data-model="fox">Fox</li>
+          <li data-model="horse">Horse</li>
+          <li data-model="tableLamp">Table Lamp</li>
+          <li data-model="chair">Chair</li>
+          <li data-model="lantern">Lantern</li>
+          <li data-model="olives">Olives</li>
+          <li data-model="sofa">GlamVelvetSofa</li>
+          <li data-model="cesiumMan">Cesium Man</li>
+          <li data-model="milkTruck">Milk Truck</li>
+          <li data-model="dragon">Dragon</li>
+          <li data-model="hands">Hands</li>
+          <li data-model="duck">Duck</li>
+          <li data-model="avocado">Avocado</li>
+          <li data-model="lamp">Lamp</li>
+          <li data-model="skull">Skull</li>
+          <li data-model="hand">Hand</li>
+          <li data-model="astronaut">Astronaut</li>
+          <li data-model="chessBoard">Chess Board</li>
+        </ul>
       </div>
 
       <div id="pixelUI">
@@ -832,9 +854,10 @@
       let camera;
 
       let isPanelOpen = true;
-      let currentLayoutWidth = window.innerWidth - 280;
-      let targetLayoutWidth = window.innerWidth - 280;
-      const sidebarWidth = 280;
+      const panelWidth = 280;
+
+      let currentLayoutWidth = window.innerWidth - panelWidth * 2;
+      let targetLayoutWidth = window.innerWidth - panelWidth * 2;
 
       function updateCamera() {
         const aspect = currentLayoutWidth / window.innerHeight;
@@ -1434,17 +1457,26 @@
         drawAxis(zV, "#4da6ff", "Z", cx, cy, scale);
       }
 
+      const modelsPanel = document.getElementById("modelsPanel");
+
       function togglePanel() {
         isPanelOpen = !isPanelOpen;
+
         if (isPanelOpen) {
           sidebar.classList.remove("collapsed");
+          modelsPanel.classList.remove("collapsed");
+
           toggleBtn.textContent = "—";
           floatingToggle.classList.remove("visible");
-          targetLayoutWidth = window.innerWidth - sidebarWidth;
+
+          targetLayoutWidth = window.innerWidth - panelWidth * 2;
         } else {
           sidebar.classList.add("collapsed");
+          modelsPanel.classList.add("collapsed");
+
           toggleBtn.textContent = "+";
           floatingToggle.classList.add("visible");
+
           targetLayoutWidth = window.innerWidth;
         }
       }
@@ -1513,6 +1545,18 @@
         );
       };
 
+      document.querySelectorAll("#modelList li").forEach((item) => {
+        item.addEventListener("click", () => {
+          document
+            .querySelectorAll("#modelList li")
+            .forEach((li) => li.classList.remove("active"));
+
+          item.classList.add("active");
+
+          loadModel(item.dataset.model);
+        });
+      });
+
       function updateLayout(width) {
         const height = window.innerHeight;
 
@@ -1546,7 +1590,7 @@
       }
       function handleResize() {
         targetLayoutWidth = isPanelOpen
-          ? window.innerWidth - sidebarWidth
+          ? window.innerWidth - panelWidth * 2
           : window.innerWidth;
 
         currentLayoutWidth = targetLayoutWidth;

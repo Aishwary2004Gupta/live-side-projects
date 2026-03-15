@@ -237,6 +237,95 @@
         opacity: 1;
         pointer-events: auto;
       }
+
+      /* ===== NEW LAYOUT / PANELS ===== */
+
+      /* Convert original #sidebar into LEFT models panel visually */
+      #leftSidebar {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 260px;
+        height: 100%;
+        background: #0a0a0a;
+        border-right: 1px solid #1a1a1a;
+        padding: 40px 24px;
+        box-sizing: border-box;
+        z-index: 10;
+        display: flex;
+        flex-direction: column;
+        color: #555;
+        user-select: none;
+      }
+
+      #leftSidebar h2 {
+        cursor: default;
+      }
+
+      /* Right panel for Effects & pixel controls */
+      #rightSidebar {
+        position: fixed;
+        top: 0;
+        right: 0;
+        width: 280px;
+        height: 100%;
+        background: #0a0a0a;
+        border-left: 1px solid #1a1a1a;
+        padding: 40px 30px;
+        box-sizing: border-box;
+        z-index: 10;
+        display: flex;
+        flex-direction: column;
+        color: #555;
+        user-select: none;
+        transition: transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+      }
+
+      #rightSidebar.collapsed {
+        transform: translateX(100%);
+      }
+
+      #rightSidebar h2 {
+        margin-bottom: 20px;
+        display: flex;
+        align-items: center;
+        cursor: pointer;
+      }
+
+      #rightSidebar ul {
+        flex: 1;
+      }
+
+      /* Hide the original effect list, modelUI, pixelUI inside #sidebar since we mirror them */
+      #sidebar {
+        opacity: 0;
+        pointer-events: none;
+      }
+
+      /* Canvas container constrained between left & right panels */
+      body {
+        position: relative;
+      }
+
+      #canvasContainer {
+        left: 260px;
+        width: calc(100% - 260px - 280px);
+      }
+
+      @media (max-width: 900px) {
+        #leftSidebar {
+          width: 220px;
+          padding: 24px 16px;
+        }
+        #rightSidebar {
+          width: 240px;
+          padding: 24px 16px;
+        }
+        #canvasContainer {
+          left: 220px;
+          width: calc(100% - 220px - 240px);
+        }
+      }
     </style>
   </head>
 
@@ -252,6 +341,70 @@
     <!-- Container for all canvases (handles unified orbit controls) -->
     <div id="canvasContainer"></div>
 
+    <!-- LEFT PANEL: Models -->
+    <div id="leftSidebar">
+      <h2>Models</h2>
+      <div id="modelUI">
+        <label>Model</label>
+        <select id="modelSelect">
+          <option value="shoe">Shoe</option>
+          <option value="cow">Cow</option>
+          <option value="teapot">Teapot</option>
+          <option value="dragon2">Dragon2</option>
+          <option value="fox">Fox</option>
+          <option value="horse">Horse (OBJ)</option>
+          <option value="tableLamp">Table Lamp</option>
+          <option value="chair">Chair</option>
+          <option value="lantern">Lantern</option>
+          <option value="olives">Olives</option>
+          <option value="sofa">GlamVelvetSofa</option>
+          <option value="cesiumMan">Cesium Man</option>
+          <option value="milkTruck">Milk Truck</option>
+          <!-- <option value="head">Head</option> -->
+          <option value="dragon">Dragon</option>
+          <option value="hands">Hands (Creation of Adam)</option>
+          <option value="duck">Duck</option>
+          <option value="avocado">Avocado</option>
+          <option value="lamp">Lamp</option>
+          <option value="skull">Scattering Skull</option>
+          <option value="hand">Hand</option>
+          <option value="astronaut">Astronaut (OBJ)</option>
+          <option value="chessBoard">Chess Board</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- RIGHT PANEL: Effects -->
+    <div id="rightSidebar">
+      <h2><span id="toggleBtn">—</span> Effects</h2>
+      <ul id="effectList">
+        <li data-value="normal" class="active">Normal</li>
+        <li data-value="woven">Woven</li>
+        <li data-value="lego">Lego</li>
+        <li data-value="dots">Dots</li>
+        <li data-value="dither">Dithering</li>
+        <li data-value="matrix">Matrix Rain</li>
+        <li data-value="blockify">Blockify</li>
+        <li data-value="complex">Complex Pixel</li>
+        <li data-value="ascii">ASCII</li>
+        <li data-value="halftone">Halftone</li>
+        <li data-value="contour">Contour</li>
+        <!-- <li data-value="threshold">Threshold</li> -->
+        <li data-value="edge">Edge Detection</li>
+        <li data-value="crosshatch">Crosshatch</li>
+        <li data-value="waveLines">Wave Lines</li>
+        <li data-value="noise">Noise Field</li>
+        <li data-value="voronoi">Voronoi</li>
+        <li data-value="vhs">VHS</li>
+      </ul>
+
+      <div id="pixelUI">
+        <label>Intensity / Size</label>
+        <input type="range" min="6" max="32" value="10" id="pixelSize" />
+      </div>
+    </div>
+
+    <!-- Original Sidebar kept exactly as-is (hidden via CSS, but DOM & comments untouched) -->
     <!-- Sidebar -->
     <div id="sidebar">
       <h2><span id="toggleBtn">—</span> Effects</h2>
@@ -1436,20 +1589,25 @@
 
       function togglePanel() {
         isPanelOpen = !isPanelOpen;
+        const rightSidebar = document.getElementById("rightSidebar");
         if (isPanelOpen) {
           sidebar.classList.remove("collapsed");
+          rightSidebar.classList.remove("collapsed");
           toggleBtn.textContent = "—";
           floatingToggle.classList.remove("visible");
           targetLayoutWidth = window.innerWidth - sidebarWidth;
         } else {
           sidebar.classList.add("collapsed");
+          rightSidebar.classList.add("collapsed");
           toggleBtn.textContent = "+";
           floatingToggle.classList.add("visible");
-          targetLayoutWidth = window.innerWidth;
+          targetLayoutWidth = window.innerWidth - 260; // left panel remains
         }
       }
 
-      document.querySelector("h2").addEventListener("click", togglePanel);
+      document
+        .querySelector("#rightSidebar h2")
+        .addEventListener("click", togglePanel);
       floatingToggle.addEventListener("click", togglePanel);
 
       function switchEffect(val) {
@@ -1545,10 +1703,22 @@
         }
       }
       function handleResize() {
-        targetLayoutWidth = isPanelOpen
-          ? window.innerWidth - sidebarWidth
-          : window.innerWidth;
+        const rightCollapsed =
+          document.getElementById("rightSidebar").classList.contains(
+            "collapsed",
+          );
 
+        const leftWidth =
+          parseInt(
+            getComputedStyle(document.getElementById("leftSidebar")).width,
+          ) || 260;
+        const rightWidth = rightCollapsed
+          ? 0
+          : parseInt(
+              getComputedStyle(document.getElementById("rightSidebar")).width,
+            ) || 280;
+
+        targetLayoutWidth = window.innerWidth - leftWidth - rightWidth;
         currentLayoutWidth = targetLayoutWidth;
 
         updateLayout(currentLayoutWidth);
@@ -1561,7 +1731,7 @@
 
       const activeEffectName = () =>
         document
-          .querySelector("#effectList li.active")
+          .querySelector("#rightSidebar #effectList li.active")
           ?.getAttribute("data-value");
 
       /* ================= ANIMATE ================= */

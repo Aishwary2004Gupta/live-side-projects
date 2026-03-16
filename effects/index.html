@@ -37,7 +37,6 @@
         z-index: 9999;
         display: flex;
         pointer-events: none; /* don't block OrbitControls */
-        transition: left 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
       }
       #axisCanvas {
         width: 100px;
@@ -71,28 +70,6 @@
         transform: translateX(100%);
       }
 
-      #leftSidebar {
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 280px;
-        height: 100%;
-        background: #0a0a0a;
-        border-right: 1px solid #1a1a1a;
-        padding: 40px 30px;
-        box-sizing: border-box;
-        z-index: 10;
-        display: flex;
-        flex-direction: column;
-        color: #555;
-        user-select: none;
-        transition: transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
-      }
-
-      #leftSidebar.collapsed {
-        transform: translateX(-100%);
-      }
-
       h2 {
         font-size: 16px;
         color: #fff;
@@ -104,8 +81,7 @@
         cursor: pointer;
       }
 
-      #toggleBtn,
-      #leftToggleBtn {
+      #toggleBtn {
         color: #555;
         margin-right: 8px;
         font-weight: 400;
@@ -115,8 +91,7 @@
         display: inline-block;
       }
 
-      h2:hover #toggleBtn,
-      h2:hover #leftToggleBtn {
+      h2:hover #toggleBtn {
         color: #fff;
       }
 
@@ -134,7 +109,7 @@
 
       #sidebar.collapsed ul,
       #sidebar.collapsed #pixelUI,
-      #leftSidebar.collapsed #modelUI {
+      #sidebar.collapsed #modelUI {
         opacity: 0;
         pointer-events: none;
       }
@@ -176,7 +151,7 @@
       }
 
       #modelUI {
-        margin-top: 0;
+        margin-top: 24px;
       }
 
       #modelUI label {
@@ -262,32 +237,6 @@
         opacity: 1;
         pointer-events: auto;
       }
-
-      #floatingToggleLeft {
-        position: fixed;
-        top: 20px;
-        left: 20px;
-        width: 40px;
-        height: 40px;
-        background: #0a0a0a;
-        border: 1px solid #333;
-        color: #fff;
-        font-family: "Fira Code", monospace;
-        font-size: 18px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        cursor: pointer;
-        z-index: 9;
-        opacity: 0;
-        pointer-events: none;
-        transition: opacity 0.3s ease;
-      }
-
-      #floatingToggleLeft.visible {
-        opacity: 1;
-        pointer-events: auto;
-      }
     </style>
   </head>
 
@@ -299,14 +248,34 @@
 
     <!-- Floating toggle for when sidebar is hidden -->
     <div id="floatingToggle">+</div>
-    <div id="floatingToggleLeft">+</div>
 
     <!-- Container for all canvases (handles unified orbit controls) -->
     <div id="canvasContainer"></div>
 
-    <!-- Left Sidebar -->
-    <div id="leftSidebar">
-      <h2><span id="leftToggleBtn">—</span> Models</h2>
+    <!-- Sidebar -->
+    <div id="sidebar">
+      <h2><span id="toggleBtn">—</span> Effects</h2>
+      <ul id="effectList">
+        <li data-value="normal" class="active">Normal</li>
+        <li data-value="woven">Woven</li>
+        <li data-value="lego">Lego</li>
+        <li data-value="dots">Dots</li>
+        <li data-value="dither">Dithering</li>
+        <li data-value="matrix">Matrix Rain</li>
+        <li data-value="blockify">Blockify</li>
+        <li data-value="complex">Complex Pixel</li>
+        <li data-value="ascii">ASCII</li>
+        <li data-value="halftone">Halftone</li>
+        <li data-value="contour">Contour</li>
+        <!-- <li data-value="threshold">Threshold</li> -->
+        <li data-value="edge">Edge Detection</li>
+        <li data-value="crosshatch">Crosshatch</li>
+        <li data-value="waveLines">Wave Lines</li>
+        <li data-value="noise">Noise Field</li>
+        <li data-value="voronoi">Voronoi</li>
+        <li data-value="vhs">VHS</li>
+      </ul>
+
       <div id="modelUI">
         <label>Model</label>
         <select id="modelSelect">
@@ -335,31 +304,6 @@
           <option value="chessBoard">Chess Board</option>
         </select>
       </div>
-    </div>
-
-    <!-- Right Sidebar -->
-    <div id="sidebar">
-      <h2><span id="toggleBtn">—</span> Effects</h2>
-      <ul id="effectList">
-        <li data-value="normal" class="active">Normal</li>
-        <li data-value="woven">Woven</li>
-        <li data-value="lego">Lego</li>
-        <li data-value="dots">Dots</li>
-        <li data-value="dither">Dithering</li>
-        <li data-value="matrix">Matrix Rain</li>
-        <li data-value="blockify">Blockify</li>
-        <li data-value="complex">Complex Pixel</li>
-        <li data-value="ascii">ASCII</li>
-        <li data-value="halftone">Halftone</li>
-        <li data-value="contour">Contour</li>
-        <!-- <li data-value="threshold">Threshold</li> -->
-        <li data-value="edge">Edge Detection</li>
-        <li data-value="crosshatch">Crosshatch</li>
-        <li data-value="waveLines">Wave Lines</li>
-        <li data-value="noise">Noise Field</li>
-        <li data-value="voronoi">Voronoi</li>
-        <li data-value="vhs">VHS</li>
-      </ul>
 
       <div id="pixelUI">
         <label>Intensity / Size</label>
@@ -888,9 +832,8 @@
       let camera;
 
       let isPanelOpen = true;
-      let isLeftPanelOpen = true;
-      let currentLayoutWidth = window.innerWidth - 560;
-      let targetLayoutWidth = window.innerWidth - 560;
+      let currentLayoutWidth = window.innerWidth - 280;
+      let targetLayoutWidth = window.innerWidth - 280;
       const sidebarWidth = 280;
 
       function updateCamera() {
@@ -1433,14 +1376,10 @@
       const sidebar = document.getElementById("sidebar");
       const toggleBtn = document.getElementById("toggleBtn");
       const floatingToggle = document.getElementById("floatingToggle");
-      const leftSidebar = document.getElementById("leftSidebar");
-      const leftToggleBtn = document.getElementById("leftToggleBtn");
-      const floatingToggleLeft = document.getElementById("floatingToggleLeft");
       const listItems = document.querySelectorAll("#effectList li");
       const pixelUI = document.getElementById("pixelUI");
       const pixelInput = document.getElementById("pixelSize");
       const modelSelect = document.getElementById("modelSelect");
-      const axisHUD = document.getElementById("axisHUD");
 
       // Axis HUD elements
       const axisCanvas = document.getElementById("axisCanvas");
@@ -1501,42 +1440,17 @@
           sidebar.classList.remove("collapsed");
           toggleBtn.textContent = "—";
           floatingToggle.classList.remove("visible");
+          targetLayoutWidth = window.innerWidth - sidebarWidth;
         } else {
           sidebar.classList.add("collapsed");
           toggleBtn.textContent = "+";
           floatingToggle.classList.add("visible");
+          targetLayoutWidth = window.innerWidth;
         }
-        targetLayoutWidth =
-          window.innerWidth -
-          (isPanelOpen ? sidebarWidth : 0) -
-          (isLeftPanelOpen ? sidebarWidth : 0);
       }
 
-      function toggleLeftPanel() {
-        isLeftPanelOpen = !isLeftPanelOpen;
-        if (isLeftPanelOpen) {
-          leftSidebar.classList.remove("collapsed");
-          leftToggleBtn.textContent = "—";
-          floatingToggleLeft.classList.remove("visible");
-        } else {
-          leftSidebar.classList.add("collapsed");
-          leftToggleBtn.textContent = "+";
-          floatingToggleLeft.classList.add("visible");
-        }
-        targetLayoutWidth =
-          window.innerWidth -
-          (isPanelOpen ? sidebarWidth : 0) -
-          (isLeftPanelOpen ? sidebarWidth : 0);
-      }
-
-      document
-        .querySelector("#sidebar h2")
-        .addEventListener("click", togglePanel);
-      document
-        .querySelector("#leftSidebar h2")
-        .addEventListener("click", toggleLeftPanel);
+      document.querySelector("h2").addEventListener("click", togglePanel);
       floatingToggle.addEventListener("click", togglePanel);
-      floatingToggleLeft.addEventListener("click", toggleLeftPanel);
 
       function switchEffect(val) {
         composer.removePass(pass);
@@ -1601,13 +1515,9 @@
 
       function updateLayout(width) {
         const height = window.innerHeight;
-        const leftOffset = isLeftPanelOpen ? sidebarWidth : 0;
 
-        canvasContainer.style.left = leftOffset + "px";
         canvasContainer.style.width = width + "px";
         canvasContainer.style.height = height + "px";
-
-        axisHUD.style.left = leftOffset + 12 + "px";
 
         renderer.setSize(width, height);
         composer.setSize(width, height);
@@ -1635,10 +1545,9 @@
         }
       }
       function handleResize() {
-        targetLayoutWidth =
-          window.innerWidth -
-          (isPanelOpen ? sidebarWidth : 0) -
-          (isLeftPanelOpen ? sidebarWidth : 0);
+        targetLayoutWidth = isPanelOpen
+          ? window.innerWidth - sidebarWidth
+          : window.innerWidth;
 
         currentLayoutWidth = targetLayoutWidth;
 

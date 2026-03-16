@@ -100,7 +100,8 @@
         cursor: pointer;
       }
 
-      #toggleBtn, #leftToggleBtn {
+      #toggleBtn,
+      #leftToggleBtn {
         color: #555;
         margin-right: 8px;
         font-weight: 400;
@@ -110,7 +111,8 @@
         display: inline-block;
       }
 
-      h2:hover #toggleBtn, h2:hover #leftToggleBtn {
+      h2:hover #toggleBtn,
+      h2:hover #leftToggleBtn {
         color: #fff;
       }
 
@@ -772,7 +774,8 @@
         const screenCenterX = window.innerWidth / 2;
         const pixelOffset = canvasCenterX - screenCenterX;
 
-        const worldUnitsPerPixel = (baseFrustumSize * aspect) / currentLayoutWidth;
+        const worldUnitsPerPixel =
+          (baseFrustumSize * aspect) / currentLayoutWidth;
         const worldOffset = pixelOffset * worldUnitsPerPixel;
 
         camera.left = -halfWidth + worldOffset;
@@ -818,8 +821,14 @@
           this.fontSize = 8;
           this.fontFamily = "monospace";
           this.setSize(currentLayoutWidth, window.innerHeight);
-          this.renderTarget = new THREE.WebGLRenderTarget(currentLayoutWidth, window.innerHeight, { format: THREE.RGBAFormat });
-          this.maskTarget = new THREE.WebGLRenderTarget(1, 1, { format: THREE.RGBAFormat });
+          this.renderTarget = new THREE.WebGLRenderTarget(
+            currentLayoutWidth,
+            window.innerHeight,
+            { format: THREE.RGBAFormat },
+          );
+          this.maskTarget = new THREE.WebGLRenderTarget(1, 1, {
+            format: THREE.RGBAFormat,
+          });
           this.maskTarget.texture.minFilter = THREE.NearestFilter;
           this.maskTarget.texture.magFilter = THREE.NearestFilter;
           this._maskBuffer = null;
@@ -833,9 +842,17 @@
           this.ctx.font = `${this.fontSize}px ${this.fontFamily}`;
           this.cols = Math.floor(width / (this.fontSize * 0.6));
           this.rows = Math.floor(height / this.fontSize);
-          this.drops = Array(this.cols).fill(0).map(() => -(Math.random() * this.rows));
-          this.speeds = Array(this.cols).fill(0).map(() => 0.3 + Math.random() * 0.6);
-          this.cellCharacter = new Array(this.cols * this.rows).fill(0).map(() => this.chars[Math.floor(Math.random() * this.chars.length)]);
+          this.drops = Array(this.cols)
+            .fill(0)
+            .map(() => -(Math.random() * this.rows));
+          this.speeds = Array(this.cols)
+            .fill(0)
+            .map(() => 0.3 + Math.random() * 0.6);
+          this.cellCharacter = new Array(this.cols * this.rows)
+            .fill(0)
+            .map(
+              () => this.chars[Math.floor(Math.random() * this.chars.length)],
+            );
           if (this.renderTarget) this.renderTarget.setSize(width, height);
           if (this.maskTarget && this.cols > 0 && this.rows > 0) {
             this.maskTarget.setSize(this.cols, this.rows);
@@ -852,14 +869,24 @@
           const maskBuf = this._maskBuffer;
           if (this.maskTarget && maskBuf) {
             try {
-              this.renderer.readRenderTargetPixels(this.maskTarget, 0, 0, this.maskTarget.width, this.maskTarget.height, maskBuf);
-            } catch (err) { maskBuf.fill(0); }
+              this.renderer.readRenderTargetPixels(
+                this.maskTarget,
+                0,
+                0,
+                this.maskTarget.width,
+                this.maskTarget.height,
+                maskBuf,
+              );
+            } catch (err) {
+              maskBuf.fill(0);
+            }
           }
           for (let i = 0; i < this.cols; i++) {
             this.drops[i] += this.speeds[i];
             if (Math.random() > 0.8) {
               const y = Math.max(0, Math.floor(this.drops[i])) % this.rows;
-              this.cellCharacter[y * this.cols + i] = this.chars[Math.floor(Math.random() * this.chars.length)];
+              this.cellCharacter[y * this.cols + i] =
+                this.chars[Math.floor(Math.random() * this.chars.length)];
             }
             if (this.drops[i] >= this.rows + 20) {
               this.drops[i] = -(Math.random() * 20);
@@ -870,25 +897,35 @@
             for (let x = 0; x < this.cols; x++) {
               const sampleY = this.maskTarget.height - 1 - y;
               const idx = (sampleY * this.maskTarget.width + x) * 4;
-              const brightness = (maskBuf[idx] + maskBuf[idx + 1] + maskBuf[idx + 2]) / 3;
+              const brightness =
+                (maskBuf[idx] + maskBuf[idx + 1] + maskBuf[idx + 2]) / 3;
               const drawX = x * (this.fontSize * 0.6);
               const drawY = y * this.fontSize;
               if (brightness > 15) {
-                if (brightness > 180) this.ctx.fillStyle = `rgba(200, 255, 200, 0.95)`;
-                else if (brightness > 100) this.ctx.fillStyle = `rgba(40, 200, 60, 0.85)`;
+                if (brightness > 180)
+                  this.ctx.fillStyle = `rgba(200, 255, 200, 0.95)`;
+                else if (brightness > 100)
+                  this.ctx.fillStyle = `rgba(40, 200, 60, 0.85)`;
                 else this.ctx.fillStyle = `rgba(10, 110, 20, 0.7)`;
-                this.ctx.fillText(this.cellCharacter[y * this.cols + x], drawX, drawY);
+                this.ctx.fillText(
+                  this.cellCharacter[y * this.cols + x],
+                  drawX,
+                  drawY,
+                );
               } else {
                 const dropY = this.drops[x];
                 const distance = dropY - y;
                 if (distance >= 0 && distance < 25) {
-                  if (distance < 1) this.ctx.fillStyle = `rgba(100, 200, 100, 0.6)`;
+                  if (distance < 1)
+                    this.ctx.fillStyle = `rgba(100, 200, 100, 0.6)`;
                   else {
                     const alpha = 0.4 * (1.0 - distance / 25);
                     this.ctx.fillStyle = `rgba(0, 120, 20, ${alpha})`;
                   }
                   let char = this.cellCharacter[y * this.cols + x];
-                  if (Math.random() > 0.95) char = this.chars[Math.floor(Math.random() * this.chars.length)];
+                  if (Math.random() > 0.95)
+                    char =
+                      this.chars[Math.floor(Math.random() * this.chars.length)];
                   this.ctx.fillText(char, drawX, drawY);
                 }
               }
@@ -901,23 +938,80 @@
       canvasContainer.appendChild(matrix.domElement);
 
       /* ================= EFFECTS ================= */
-      const normal = makeEffect("Normal", normalShader, { resolution: new THREE.Vector2(innerWidth, innerHeight) });
-      const dots = makeEffect("Dots", dotsShader, { pixelSize: 10.0, resolution: new THREE.Vector2(innerWidth, innerHeight) });
-      const complex = makeEffect("Complex", complexShader, { pixelSize: 10.0, resolution: new THREE.Vector2(innerWidth, innerHeight) });
-      const woven = makeEffect("Woven", wovenShader, { pixelSize: 10.0, resolution: new THREE.Vector2(innerWidth, innerHeight) });
-      const lego = makeEffect("Lego", legoShader, { pixelSize: 10.0, resolution: new THREE.Vector2(innerWidth, innerHeight), lightPosition: new THREE.Vector2(0.8, 0.8) });
-      const dither = makeEffect("Dither", ditherShader, { resolution: new THREE.Vector2(innerWidth, innerHeight) });
-      const halftone = makeEffect("Halftone", halftoneShader, { pixelSize: 10.0, resolution: new THREE.Vector2(innerWidth, innerHeight) });
-      const contour = makeEffect("Contour", contourShader, { resolution: new THREE.Vector2(innerWidth, innerHeight) });
-      const blockify = makeEffect("Blockify", blockifyShader, { pixelSize: 8.0, resolution: new THREE.Vector2(innerWidth, innerHeight) });
-      const edge = makeEffect("Edge", edgeShader, { resolution: new THREE.Vector2(innerWidth, innerHeight) });
-      const crosshatch = makeEffect("Crosshatch", crosshatchShader, { resolution: new THREE.Vector2(innerWidth, innerHeight) });
-      const waveLines = makeEffect("WaveLines", waveLinesShader, { time: 0.0, resolution: new THREE.Vector2(innerWidth, innerHeight) });
-      const noise = makeEffect("Noise", noise_shader, { time: 0.0, resolution: new THREE.Vector2(innerWidth, innerHeight) });
-      const voronoi = makeEffect("Voronoi", voronoiShader, { time: 0.0, resolution: new THREE.Vector2(innerWidth, innerHeight) });
-      const vhs = makeEffect("VHS", vhsShader, { time: 0.0, resolution: new THREE.Vector2(innerWidth, innerHeight) });
+      const normal = makeEffect("Normal", normalShader, {
+        resolution: new THREE.Vector2(innerWidth, innerHeight),
+      });
+      const dots = makeEffect("Dots", dotsShader, {
+        pixelSize: 10.0,
+        resolution: new THREE.Vector2(innerWidth, innerHeight),
+      });
+      const complex = makeEffect("Complex", complexShader, {
+        pixelSize: 10.0,
+        resolution: new THREE.Vector2(innerWidth, innerHeight),
+      });
+      const woven = makeEffect("Woven", wovenShader, {
+        pixelSize: 10.0,
+        resolution: new THREE.Vector2(innerWidth, innerHeight),
+      });
+      const lego = makeEffect("Lego", legoShader, {
+        pixelSize: 10.0,
+        resolution: new THREE.Vector2(innerWidth, innerHeight),
+        lightPosition: new THREE.Vector2(0.8, 0.8),
+      });
+      const dither = makeEffect("Dither", ditherShader, {
+        resolution: new THREE.Vector2(innerWidth, innerHeight),
+      });
+      const halftone = makeEffect("Halftone", halftoneShader, {
+        pixelSize: 10.0,
+        resolution: new THREE.Vector2(innerWidth, innerHeight),
+      });
+      const contour = makeEffect("Contour", contourShader, {
+        resolution: new THREE.Vector2(innerWidth, innerHeight),
+      });
+      const blockify = makeEffect("Blockify", blockifyShader, {
+        pixelSize: 8.0,
+        resolution: new THREE.Vector2(innerWidth, innerHeight),
+      });
+      const edge = makeEffect("Edge", edgeShader, {
+        resolution: new THREE.Vector2(innerWidth, innerHeight),
+      });
+      const crosshatch = makeEffect("Crosshatch", crosshatchShader, {
+        resolution: new THREE.Vector2(innerWidth, innerHeight),
+      });
+      const waveLines = makeEffect("WaveLines", waveLinesShader, {
+        time: 0.0,
+        resolution: new THREE.Vector2(innerWidth, innerHeight),
+      });
+      const noise = makeEffect("Noise", noise_shader, {
+        time: 0.0,
+        resolution: new THREE.Vector2(innerWidth, innerHeight),
+      });
+      const voronoi = makeEffect("Voronoi", voronoiShader, {
+        time: 0.0,
+        resolution: new THREE.Vector2(innerWidth, innerHeight),
+      });
+      const vhs = makeEffect("VHS", vhsShader, {
+        time: 0.0,
+        resolution: new THREE.Vector2(innerWidth, innerHeight),
+      });
 
-      const map = { normal, dots, complex, woven, lego, dither, halftone, contour, blockify, edge, crosshatch, waveLines, noise, voronoi, vhs };
+      const map = {
+        normal,
+        dots,
+        complex,
+        woven,
+        lego,
+        dither,
+        halftone,
+        contour,
+        blockify,
+        edge,
+        crosshatch,
+        waveLines,
+        noise,
+        voronoi,
+        vhs,
+      };
 
       /* ================= LIGHTS & CONTROLS ================= */
       scene.add(new THREE.AmbientLight(0xffffff, 0.6));
@@ -943,28 +1037,138 @@
       let currentModel = null;
 
       const MODELS = {
-        hands: { url: "https://cdn.maximeheckel.com/models/creation-of-adam.glb", scale: 3.2, rotation: { x: -0.1, y: -Math.PI / 2 + 0.08, z: 0 }, position: { x: 1.8, y: -1.4, z: 0 } },
-        fox: { url: "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/main/2.0/Fox/glTF-Binary/Fox.glb", scale: 0.02, rotation: { x: 0, y: -Math.PI / 2 + 4, z: 0 }, position: { x: 0, y: -0.8, z: 0 } },
-        duck: { url: "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/main/2.0/Duck/glTF-Binary/Duck.glb", scale: 1.2, rotation: { x: 0, y: 0.5, z: 0 }, position: { x: 0, y: -1, z: 0 } },
-        avocado: { url: "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/main/2.0/Avocado/glTF-Binary/Avocado.glb", scale: 30.0, rotation: { x: 0, y: Math.PI, z: 0 }, position: { x: 0, y: -1, z: 0 } },
-        lamp: { url: "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/main/Models/LightsPunctualLamp/glTF-Binary/LightsPunctualLamp.glb", scale: 1.0, rotation: { x: 0, y: Math.PI, z: 0 }, position: { x: 0, y: -1, z: 0 } },
-        skull: { url: "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/main/Models/ScatteringSkull/glTF-Binary/ScatteringSkull.glb", scale: 8.0, rotation: { x: -0.2, y: -Math.PI / 2 - 1.9, z: 0 }, position: { x: 0, y: -0.9, z: 0 } },
-        astronaut: { url: "https://raw.githubusercontent.com/Aishwary2004Gupta/ThreeJS_visuals/main/assets/astronaut.obj", scale: 0.5, rotation: { x: 0, y: -Math.PI / 2 - 1.9, z: 0 }, position: { x: 0, y: -1, z: 0 } },
-        hand: { url: "https://raw.githubusercontent.com/Aishwary2004Gupta/ThreeJS_visuals/main/assets/hand.obj", scale: 1, rotation: { x: 0, y: -1.5, z: 0 }, position: { x: 0, y: -1, z: 0 } },
-        horse: { url: "https://raw.githubusercontent.com/pichiliani/ModelsOBJ/master/horse.obj", scale: 10, rotation: { x: Math.PI / 2, y: 3.2, z: 2 }, position: { x: 0, y: 0, z: 0 } },
-        dragon: { url: "https://raw.githubusercontent.com/pichiliani/ModelsOBJ/master/dragon.obj", scale: 10, rotation: { x: 0, y: -3, z: 0 }, position: { x: 0, y: -1.2, z: 0 } },
-        dragon2: { url: "http://raw.githubusercontent.com/alecjacobson/common-3d-test-models/refs/heads/master/data/xyzrgb_dragon.obj", scale: 0.02, rotation: { x: 0, y: 0.5, z: 0 }, position: { x: 0, y: -0.2, z: 0 } },
-        milkTruck: { url: "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/main/2.0/CesiumMilkTruck/glTF-Binary/CesiumMilkTruck.glb", scale: 0.5, rotation: { x: 0, y: Math.PI / 2 + 1, z: 0 }, position: { x: 0, y: -0.8, z: 0 } },
-        cesiumMan: { url: "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/main/2.0/CesiumMan/glTF-Binary/CesiumMan.glb", scale: 1, rotation: { x: 0, y: Math.PI, z: 0 }, position: { x: 0, y: -0.8, z: 0 } },
-        sofa: { url: "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/main/2.0/GlamVelvetSofa/glTF-Binary/GlamVelvetSofa.glb", scale: 1.5, rotation: { x: 0, y: Math.PI, z: 0 }, position: { x: 0, y: -0.7, z: 0 } },
-        olives: { url: "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/main/2.0/IridescentDishWithOlives/glTF/IridescentDishWithOlives.gltf", scale: 5, rotation: { x: -0.65, y: Math.PI, z: 0 }, position: { x: 0, y: -0.3, z: 0 } },
-        lantern: { url: "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/main/2.0/Lantern/glTF/Lantern.gltf", scale: 0.09, rotation: { x: 0, y: Math.PI, z: 0 }, position: { x: 0, y: -1.2, z: 0 } },
-        shoe: { url: "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/main/2.0/MaterialsVariantsShoe/glTF/MaterialsVariantsShoe.gltf", scale: 10, rotation: { x: Math.PI / -6, y: 2.4, z: 0 }, position: { x: 0, y: -0.6, z: 0 } },
-        chair: { url: "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/main/2.0/SheenChair/glTF/SheenChair.gltf", scale: 2.5, rotation: { x: -0.25, y: Math.PI, z: 0 }, position: { x: 0, y: -0.9, z: 0 } },
-        tableLamp: { url: "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/main/2.0/StainedGlassLamp/glTF/StainedGlassLamp.gltf", scale: 3, rotation: { x: -0.25, y: Math.PI, z: 0 }, position: { x: 0, y: -0.9, z: 0 } },
-        chessBoard: { url: "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/main/2.0/ABeautifulGame/glTF/ABeautifulGame.gltf", scale: 3, rotation: { x: -Math.PI / 2 - 6, y: 0, z: 0 }, position: { x: 0, y: 0, z: 0 } },
-        teapot: { url: "https://raw.githubusercontent.com/alecjacobson/common-3d-test-models/refs/heads/master/data/teapot.obj", scale: 0.5, rotation: { x: 0, y: Math.PI, z: 0 }, position: { x: 0, y: -0.8, z: 0 } },
-        cow: { url: "https://raw.githubusercontent.com/alecjacobson/common-3d-test-models/refs/heads/master/data/cow.obj", scale: 0.3, rotation: { x: 0, y: Math.PI, z: 0 }, position: { x: 0, y: -0.06, z: 0 } },
+        hands: {
+          url: "https://cdn.maximeheckel.com/models/creation-of-adam.glb",
+          scale: 3.2,
+          rotation: { x: -0.1, y: -Math.PI / 2 + 0.08, z: 0 },
+          position: { x: 1.8, y: -1.4, z: 0 },
+        },
+        fox: {
+          url: "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/main/2.0/Fox/glTF-Binary/Fox.glb",
+          scale: 0.02,
+          rotation: { x: 0, y: -Math.PI / 2 + 4, z: 0 },
+          position: { x: 0, y: -0.8, z: 0 },
+        },
+        duck: {
+          url: "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/main/2.0/Duck/glTF-Binary/Duck.glb",
+          scale: 1.2,
+          rotation: { x: 0, y: 0.5, z: 0 },
+          position: { x: 0, y: -1, z: 0 },
+        },
+        avocado: {
+          url: "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/main/2.0/Avocado/glTF-Binary/Avocado.glb",
+          scale: 30.0,
+          rotation: { x: 0, y: Math.PI, z: 0 },
+          position: { x: 0, y: -1, z: 0 },
+        },
+        lamp: {
+          url: "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/main/Models/LightsPunctualLamp/glTF-Binary/LightsPunctualLamp.glb",
+          scale: 1.0,
+          rotation: { x: 0, y: Math.PI, z: 0 },
+          position: { x: 0, y: -1, z: 0 },
+        },
+        skull: {
+          url: "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/main/Models/ScatteringSkull/glTF-Binary/ScatteringSkull.glb",
+          scale: 8.0,
+          rotation: { x: -0.2, y: -Math.PI / 2 - 1.9, z: 0 },
+          position: { x: 0, y: -0.9, z: 0 },
+        },
+        astronaut: {
+          url: "https://raw.githubusercontent.com/Aishwary2004Gupta/ThreeJS_visuals/main/assets/astronaut.obj",
+          scale: 0.5,
+          rotation: { x: 0, y: -Math.PI / 2 - 1.9, z: 0 },
+          position: { x: 0, y: -1, z: 0 },
+        },
+        hand: {
+          url: "https://raw.githubusercontent.com/Aishwary2004Gupta/ThreeJS_visuals/main/assets/hand.obj",
+          scale: 1,
+          rotation: { x: 0, y: -1.5, z: 0 },
+          position: { x: 0, y: -1, z: 0 },
+        },
+        horse: {
+          url: "https://raw.githubusercontent.com/pichiliani/ModelsOBJ/master/horse.obj",
+          scale: 10,
+          rotation: { x: Math.PI / 2, y: 3.2, z: 2 },
+          position: { x: 0, y: 0, z: 0 },
+        },
+        dragon: {
+          url: "https://raw.githubusercontent.com/pichiliani/ModelsOBJ/master/dragon.obj",
+          scale: 10,
+          rotation: { x: 0, y: -3, z: 0 },
+          position: { x: 0, y: -1.2, z: 0 },
+        },
+        dragon2: {
+          url: "http://raw.githubusercontent.com/alecjacobson/common-3d-test-models/refs/heads/master/data/xyzrgb_dragon.obj",
+          scale: 0.02,
+          rotation: { x: 0, y: 0.5, z: 0 },
+          position: { x: 0, y: -0.2, z: 0 },
+        },
+        milkTruck: {
+          url: "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/main/2.0/CesiumMilkTruck/glTF-Binary/CesiumMilkTruck.glb",
+          scale: 0.5,
+          rotation: { x: 0, y: Math.PI / 2 + 1, z: 0 },
+          position: { x: 0, y: -0.8, z: 0 },
+        },
+        cesiumMan: {
+          url: "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/main/2.0/CesiumMan/glTF-Binary/CesiumMan.glb",
+          scale: 1,
+          rotation: { x: 0, y: Math.PI, z: 0 },
+          position: { x: 0, y: -0.8, z: 0 },
+        },
+        sofa: {
+          url: "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/main/2.0/GlamVelvetSofa/glTF-Binary/GlamVelvetSofa.glb",
+          scale: 1.5,
+          rotation: { x: 0, y: Math.PI, z: 0 },
+          position: { x: 0, y: -0.7, z: 0 },
+        },
+        olives: {
+          url: "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/main/2.0/IridescentDishWithOlives/glTF/IridescentDishWithOlives.gltf",
+          scale: 5,
+          rotation: { x: -0.65, y: Math.PI, z: 0 },
+          position: { x: 0, y: -0.3, z: 0 },
+        },
+        lantern: {
+          url: "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/main/2.0/Lantern/glTF/Lantern.gltf",
+          scale: 0.09,
+          rotation: { x: 0, y: Math.PI, z: 0 },
+          position: { x: 0, y: -1.2, z: 0 },
+        },
+        shoe: {
+          url: "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/main/2.0/MaterialsVariantsShoe/glTF/MaterialsVariantsShoe.gltf",
+          scale: 10,
+          rotation: { x: Math.PI / -6, y: 2.4, z: 0 },
+          position: { x: 0, y: -0.6, z: 0 },
+        },
+        chair: {
+          url: "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/main/2.0/SheenChair/glTF/SheenChair.gltf",
+          scale: 2.5,
+          rotation: { x: -0.25, y: Math.PI, z: 0 },
+          position: { x: 0, y: -0.9, z: 0 },
+        },
+        tableLamp: {
+          url: "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/main/2.0/StainedGlassLamp/glTF/StainedGlassLamp.gltf",
+          scale: 3,
+          rotation: { x: -0.25, y: Math.PI, z: 0 },
+          position: { x: 0, y: -0.9, z: 0 },
+        },
+        chessBoard: {
+          url: "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/main/2.0/ABeautifulGame/glTF/ABeautifulGame.gltf",
+          scale: 3,
+          rotation: { x: -Math.PI / 2 - 6, y: 0, z: 0 },
+          position: { x: 0, y: 0, z: 0 },
+        },
+        teapot: {
+          url: "https://raw.githubusercontent.com/alecjacobson/common-3d-test-models/refs/heads/master/data/teapot.obj",
+          scale: 0.5,
+          rotation: { x: 0, y: Math.PI, z: 0 },
+          position: { x: 0, y: -0.8, z: 0 },
+        },
+        cow: {
+          url: "https://raw.githubusercontent.com/alecjacobson/common-3d-test-models/refs/heads/master/data/cow.obj",
+          scale: 0.3,
+          rotation: { x: 0, y: Math.PI, z: 0 },
+          position: { x: 0, y: -0.06, z: 0 },
+        },
       };
 
       function disposeModel(root) {
@@ -973,7 +1177,8 @@
           if (obj.isMesh) {
             if (obj.geometry) obj.geometry.dispose();
             if (obj.material) {
-              if (Array.isArray(obj.material)) obj.material.forEach((m) => m.dispose && m.dispose());
+              if (Array.isArray(obj.material))
+                obj.material.forEach((m) => m.dispose && m.dispose());
               else obj.material.dispose && obj.material.dispose();
             }
           }
@@ -993,14 +1198,29 @@
           let m = isObj ? result : result.scene;
           if (isObj) {
             m.traverse((child) => {
-              if (child.isMesh && (!child.material || child.material.type === "MeshBasicMaterial")) {
-                child.material = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.5, metalness: 0.5 });
+              if (
+                child.isMesh &&
+                (!child.material || child.material.type === "MeshBasicMaterial")
+              ) {
+                child.material = new THREE.MeshStandardMaterial({
+                  color: 0xffffff,
+                  roughness: 0.5,
+                  metalness: 0.5,
+                });
               }
             });
           }
           m.scale.setScalar(cfg.scale ?? 1.0);
-          m.rotation.set(cfg.rotation?.x ?? 0, cfg.rotation?.y ?? 0, cfg.rotation?.z ?? 0);
-          m.position.set(cfg.position?.x ?? 0, cfg.position?.y ?? 0, cfg.position?.z ?? 0);
+          m.rotation.set(
+            cfg.rotation?.x ?? 0,
+            cfg.rotation?.y ?? 0,
+            cfg.rotation?.z ?? 0,
+          );
+          m.position.set(
+            cfg.position?.x ?? 0,
+            cfg.position?.y ?? 0,
+            cfg.position?.z ?? 0,
+          );
           scene.add(m);
           currentModel = m;
           controls.target.copy(handsFocusPoint);
@@ -1032,9 +1252,12 @@
       const axisCtx = axisCanvas.getContext("2d");
 
       function updateAxisHUD() {
-        const w = axisCanvas.width, h = axisCanvas.height;
+        const w = axisCanvas.width,
+          h = axisCanvas.height;
         axisCtx.clearRect(0, 0, w, h);
-        const cx = w / 2, cy = h / 2, scale = w * 0.35;
+        const cx = w / 2,
+          cy = h / 2,
+          scale = w * 0.35;
         const invQ = camera.quaternion.clone().invert();
         const xV = new THREE.Vector3(1, 0, 0).applyQuaternion(invQ);
         const yV = new THREE.Vector3(0, 1, 0).applyQuaternion(invQ);
@@ -1076,7 +1299,10 @@
           toggleBtn.textContent = "+";
           floatingToggle.classList.add("visible");
         }
-        targetLayoutWidth = window.innerWidth - (isPanelOpen ? sidebarWidth : 0) - (isLeftPanelOpen ? sidebarWidth : 0);
+        targetLayoutWidth =
+          window.innerWidth -
+          (isPanelOpen ? sidebarWidth : 0) -
+          (isLeftPanelOpen ? sidebarWidth : 0);
         updateCamera();
       }
 
@@ -1091,12 +1317,19 @@
           leftToggleBtn.textContent = "+";
           floatingToggleLeft.classList.add("visible");
         }
-        targetLayoutWidth = window.innerWidth - (isPanelOpen ? sidebarWidth : 0) - (isLeftPanelOpen ? sidebarWidth : 0);
+        targetLayoutWidth =
+          window.innerWidth -
+          (isPanelOpen ? sidebarWidth : 0) -
+          (isLeftPanelOpen ? sidebarWidth : 0);
         updateCamera();
       }
 
-      document.querySelector("#sidebar h2").addEventListener("click", togglePanel);
-      document.querySelector("#leftSidebar h2").addEventListener("click", toggleLeftPanel);
+      document
+        .querySelector("#sidebar h2")
+        .addEventListener("click", togglePanel);
+      document
+        .querySelector("#leftSidebar h2")
+        .addEventListener("click", toggleLeftPanel);
       floatingToggle.addEventListener("click", togglePanel);
       floatingToggleLeft.addEventListener("click", toggleLeftPanel);
 
@@ -1123,20 +1356,29 @@
         pass = new EffectPass(camera, map[val]);
         composer.addPass(pass);
 
-        pixelUI.style.display = ["dots","blockify","halftone","complex","woven","lego"].includes(val) ? "block" : "none";
+        pixelUI.style.display = [
+          "dots",
+          "blockify",
+          "halftone",
+          "complex",
+          "woven",
+          "lego",
+        ].includes(val)
+          ? "block"
+          : "none";
       }
 
-      listItems.forEach(item => {
+      listItems.forEach((item) => {
         item.addEventListener("click", () => {
-          listItems.forEach(li => li.classList.remove("active"));
+          listItems.forEach((li) => li.classList.remove("active"));
           item.classList.add("active");
           switchEffect(item.getAttribute("data-value"));
         });
       });
 
-      modelListItems.forEach(item => {
+      modelListItems.forEach((item) => {
         item.addEventListener("click", () => {
-          modelListItems.forEach(li => li.classList.remove("active"));
+          modelListItems.forEach((li) => li.classList.remove("active"));
           item.classList.add("active");
           loadModel(item.getAttribute("data-value"));
         });
@@ -1145,7 +1387,7 @@
       function updateLayout(width) {
         const height = window.innerHeight;
         const leftOffset = isLeftPanelOpen ? sidebarWidth : 0;
-        canvasContainer.style.left = leftOffset + 'px';
+        canvasContainer.style.left = leftOffset + "px";
         canvasContainer.style.width = width + "px";
         canvasContainer.style.height = height + "px";
 
@@ -1156,8 +1398,9 @@
 
         updateCamera();
 
-        Object.values(map).forEach(e => {
-          if (e?.uniforms?.get?.("resolution")) e.uniforms.get("resolution").value.set(width, height);
+        Object.values(map).forEach((e) => {
+          if (e?.uniforms?.get?.("resolution"))
+            e.uniforms.get("resolution").value.set(width, height);
         });
 
         if (ascii) ascii.setSize(width, height);
@@ -1165,7 +1408,10 @@
       }
 
       function handleResize() {
-        targetLayoutWidth = window.innerWidth - (isPanelOpen ? sidebarWidth : 0) - (isLeftPanelOpen ? sidebarWidth : 0);
+        targetLayoutWidth =
+          window.innerWidth -
+          (isPanelOpen ? sidebarWidth : 0) -
+          (isLeftPanelOpen ? sidebarWidth : 0);
         currentLayoutWidth = targetLayoutWidth;
         updateLayout(currentLayoutWidth);
       }
@@ -1173,14 +1419,20 @@
       window.addEventListener("resize", handleResize);
       handleResize();
 
-      const activeEffectName = () => document.querySelector("#effectList li.active")?.getAttribute("data-value");
+      const activeEffectName = () =>
+        document
+          .querySelector("#effectList li.active")
+          ?.getAttribute("data-value");
 
       switchEffect("normal");
       pixelInput.oninput = (e) => {
         const value = +e.target.value;
-        ["dots", "halftone", "blockify", "complex", "woven", "lego"].forEach(key => {
-          if (map[key]?.uniforms?.get("pixelSize")) map[key].uniforms.get("pixelSize").value = value;
-        });
+        ["dots", "halftone", "blockify", "complex", "woven", "lego"].forEach(
+          (key) => {
+            if (map[key]?.uniforms?.get("pixelSize"))
+              map[key].uniforms.get("pixelSize").value = value;
+          },
+        );
       };
 
       /* ================= ANIMATION LOOP ================= */
@@ -1190,7 +1442,8 @@
 
         if (Math.abs(currentLayoutWidth - targetLayoutWidth) > 0.5) {
           currentLayoutWidth += (targetLayoutWidth - currentLayoutWidth) * 0.22;
-          if (Math.abs(currentLayoutWidth - targetLayoutWidth) < 1) currentLayoutWidth = targetLayoutWidth;
+          if (Math.abs(currentLayoutWidth - targetLayoutWidth) < 1)
+            currentLayoutWidth = targetLayoutWidth;
           updateLayout(currentLayoutWidth);
         }
 

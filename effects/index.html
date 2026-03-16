@@ -29,11 +29,11 @@
         overflow: hidden;
       }
 
-      /* ===== Axis HUD (top-left) - NO TEXT ===== */
+      /* ===== Axis HUD (bottom-left of left panel) - NO TEXT ===== */
       #axisHUD {
-        position: fixed;
-        top: 12px;
-        left: 12px;
+        position: absolute;
+        bottom: 20px;
+        right: 20px;
         z-index: 9999;
         display: flex;
         pointer-events: none; /* don't block OrbitControls */
@@ -70,6 +70,28 @@
         transform: translateX(100%);
       }
 
+      #leftSidebar {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 280px;
+        height: 100%;
+        background: #0a0a0a;
+        border-right: 1px solid #1a1a1a;
+        padding: 40px 30px;
+        box-sizing: border-box;
+        z-index: 10;
+        display: flex;
+        flex-direction: column;
+        color: #555;
+        user-select: none;
+        transition: transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+      }
+
+      #leftSidebar.collapsed {
+        transform: translateX(-100%);
+      }
+
       h2 {
         font-size: 16px;
         color: #fff;
@@ -81,7 +103,7 @@
         cursor: pointer;
       }
 
-      #toggleBtn {
+      #toggleBtn, #leftToggleBtn {
         color: #555;
         margin-right: 8px;
         font-weight: 400;
@@ -91,7 +113,7 @@
         display: inline-block;
       }
 
-      h2:hover #toggleBtn {
+      h2:hover #toggleBtn, h2:hover #leftToggleBtn {
         color: #fff;
       }
 
@@ -109,7 +131,7 @@
 
       #sidebar.collapsed ul,
       #sidebar.collapsed #pixelUI,
-      #sidebar.collapsed #modelUI {
+      #leftSidebar.collapsed #modelList {
         opacity: 0;
         pointer-events: none;
       }
@@ -148,27 +170,6 @@
       li.active::before {
         content: "●";
         color: #fff;
-      }
-
-      #modelUI {
-        margin-top: 24px;
-      }
-
-      #modelUI label {
-        display: block;
-        font-size: 11px;
-        margin-bottom: 6px;
-        color: #555;
-      }
-
-      #modelSelect {
-        width: 100%;
-        background: #0a0a0a;
-        color: #ccc;
-        border: 1px solid #333;
-        padding: 6px 8px;
-        font-family: "Fira Code", monospace;
-        font-size: 12px;
       }
 
       #pixelUI {
@@ -237,6 +238,32 @@
         opacity: 1;
         pointer-events: auto;
       }
+
+      #floatingToggleLeft {
+        position: fixed;
+        top: 20px;
+        left: 20px;
+        width: 40px;
+        height: 40px;
+        background: #0a0a0a;
+        border: 1px solid #333;
+        color: #fff;
+        font-family: "Fira Code", monospace;
+        font-size: 18px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        z-index: 9;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.3s ease;
+      }
+
+      #floatingToggleLeft.visible {
+        opacity: 1;
+        pointer-events: auto;
+      }
     </style>
   </head>
 
@@ -248,11 +275,42 @@
 
     <!-- Floating toggle for when sidebar is hidden -->
     <div id="floatingToggle">+</div>
+    <div id="floatingToggleLeft">+</div>
 
     <!-- Container for all canvases (handles unified orbit controls) -->
     <div id="canvasContainer"></div>
 
-    <!-- Sidebar -->
+    <!-- Left Sidebar -->
+    <div id="leftSidebar">
+      <h2><span id="leftToggleBtn">—</span> Models</h2>
+      <ul id="modelList">
+        <li data-value="shoe" class="active">Shoe</li>
+        <li data-value="cow">Cow</li>
+        <li data-value="teapot">Teapot</li>
+        <li data-value="dragon2">Dragon2</li>
+        <li data-value="fox">Fox</li>
+        <li data-value="horse">Horse (OBJ)</li>
+        <li data-value="tableLamp">Table Lamp</li>
+        <li data-value="chair">Chair</li>
+        <li data-value="lantern">Lantern</li>
+        <li data-value="olives">Olives</li>
+        <li data-value="sofa">GlamVelvetSofa</li>
+        <li data-value="cesiumMan">Cesium Man</li>
+        <li data-value="milkTruck">Milk Truck</li>
+        <!-- <li data-value="head">Head</li> -->
+        <li data-value="dragon">Dragon</li>
+        <li data-value="hands">Hands (Creation of Adam)</li>
+        <li data-value="duck">Duck</li>
+        <li data-value="avocado">Avocado</li>
+        <li data-value="lamp">Lamp</li>
+        <li data-value="skull">Scattering Skull</li>
+        <li data-value="hand">Hand</li>
+        <li data-value="astronaut">Astronaut (OBJ)</li>
+        <li data-value="chessBoard">Chess Board</li>
+      </ul>
+    </div>
+
+    <!-- Right Sidebar -->
     <div id="sidebar">
       <h2><span id="toggleBtn">—</span> Effects</h2>
       <ul id="effectList">
@@ -275,35 +333,6 @@
         <li data-value="voronoi">Voronoi</li>
         <li data-value="vhs">VHS</li>
       </ul>
-
-      <div id="modelUI">
-        <label>Model</label>
-        <select id="modelSelect">
-          <option value="shoe">Shoe</option>
-          <option value="cow">Cow</option>
-          <option value="teapot">Teapot</option>
-          <option value="dragon2">Dragon2</option>
-          <option value="fox">Fox</option>
-          <option value="horse">Horse (OBJ)</option>
-          <option value="tableLamp">Table Lamp</option>
-          <option value="chair">Chair</option>
-          <option value="lantern">Lantern</option>
-          <option value="olives">Olives</option>
-          <option value="sofa">GlamVelvetSofa</option>
-          <option value="cesiumMan">Cesium Man</option>
-          <option value="milkTruck">Milk Truck</option>
-          <!-- <option value="head">Head</option> -->
-          <option value="dragon">Dragon</option>
-          <option value="hands">Hands (Creation of Adam)</option>
-          <option value="duck">Duck</option>
-          <option value="avocado">Avocado</option>
-          <option value="lamp">Lamp</option>
-          <option value="skull">Scattering Skull</option>
-          <option value="hand">Hand</option>
-          <option value="astronaut">Astronaut (OBJ)</option>
-          <option value="chessBoard">Chess Board</option>
-        </select>
-      </div>
 
       <div id="pixelUI">
         <label>Intensity / Size</label>
@@ -832,8 +861,9 @@
       let camera;
 
       let isPanelOpen = true;
-      let currentLayoutWidth = window.innerWidth - 280;
-      let targetLayoutWidth = window.innerWidth - 280;
+      let isLeftPanelOpen = true;
+      let currentLayoutWidth = window.innerWidth - 560;
+      let targetLayoutWidth = window.innerWidth - 560;
       const sidebarWidth = 280;
 
       function updateCamera() {
@@ -1376,10 +1406,14 @@
       const sidebar = document.getElementById("sidebar");
       const toggleBtn = document.getElementById("toggleBtn");
       const floatingToggle = document.getElementById("floatingToggle");
+      const leftSidebar = document.getElementById("leftSidebar");
+      const leftToggleBtn = document.getElementById("leftToggleBtn");
+      const floatingToggleLeft = document.getElementById("floatingToggleLeft");
       const listItems = document.querySelectorAll("#effectList li");
+      const modelListItems = document.querySelectorAll("#modelList li");
       const pixelUI = document.getElementById("pixelUI");
       const pixelInput = document.getElementById("pixelSize");
-      const modelSelect = document.getElementById("modelSelect");
+      const axisHUD = document.getElementById("axisHUD");
 
       // Axis HUD elements
       const axisCanvas = document.getElementById("axisCanvas");
@@ -1440,17 +1474,32 @@
           sidebar.classList.remove("collapsed");
           toggleBtn.textContent = "—";
           floatingToggle.classList.remove("visible");
-          targetLayoutWidth = window.innerWidth - sidebarWidth;
         } else {
           sidebar.classList.add("collapsed");
           toggleBtn.textContent = "+";
           floatingToggle.classList.add("visible");
-          targetLayoutWidth = window.innerWidth;
         }
+        targetLayoutWidth = window.innerWidth - (isPanelOpen ? sidebarWidth : 0) - (isLeftPanelOpen ? sidebarWidth : 0);
       }
 
-      document.querySelector("h2").addEventListener("click", togglePanel);
+      function toggleLeftPanel() {
+        isLeftPanelOpen = !isLeftPanelOpen;
+        if (isLeftPanelOpen) {
+          leftSidebar.classList.remove("collapsed");
+          leftToggleBtn.textContent = "—";
+          floatingToggleLeft.classList.remove("visible");
+        } else {
+          leftSidebar.classList.add("collapsed");
+          leftToggleBtn.textContent = "+";
+          floatingToggleLeft.classList.add("visible");
+        }
+        targetLayoutWidth = window.innerWidth - (isPanelOpen ? sidebarWidth : 0) - (isLeftPanelOpen ? sidebarWidth : 0);
+      }
+
+      document.querySelector("#sidebar h2").addEventListener("click", togglePanel);
+      document.querySelector("#leftSidebar h2").addEventListener("click", toggleLeftPanel);
       floatingToggle.addEventListener("click", togglePanel);
+      floatingToggleLeft.addEventListener("click", toggleLeftPanel);
 
       function switchEffect(val) {
         composer.removePass(pass);
@@ -1498,10 +1547,16 @@
         });
       });
 
+      modelListItems.forEach((item) => {
+        item.addEventListener("click", () => {
+          modelListItems.forEach((li) => li.classList.remove("active"));
+          item.classList.add("active");
+          loadModel(item.getAttribute("data-value"));
+        });
+      });
+
       // Default Initialization to Normal
       switchEffect("normal");
-
-      modelSelect.addEventListener("change", (e) => loadModel(e.target.value));
 
       pixelInput.oninput = (e) => {
         const value = +e.target.value;
@@ -1515,7 +1570,9 @@
 
       function updateLayout(width) {
         const height = window.innerHeight;
+        const leftOffset = isLeftPanelOpen ? sidebarWidth : 0;
 
+        canvasContainer.style.left = leftOffset + 'px';
         canvasContainer.style.width = width + "px";
         canvasContainer.style.height = height + "px";
 
@@ -1545,9 +1602,7 @@
         }
       }
       function handleResize() {
-        targetLayoutWidth = isPanelOpen
-          ? window.innerWidth - sidebarWidth
-          : window.innerWidth;
+        targetLayoutWidth = window.innerWidth - (isPanelOpen ? sidebarWidth : 0) - (isLeftPanelOpen ? sidebarWidth : 0);
 
         currentLayoutWidth = targetLayoutWidth;
 

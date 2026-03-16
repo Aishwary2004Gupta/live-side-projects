@@ -22,21 +22,11 @@
       #canvasContainer {
         position: absolute;
         top: 0;
-        left: 280px;      /* Default: both panels open */
+        left: 0;
+        width: 100%;
         height: 100%;
         z-index: 1;
         overflow: hidden;
-        transition: left 0.3s cubic-bezier(0.25, 0.8, 0.25, 1), width 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
-      }
-      #leftSidebar.collapsed ~ #canvasContainer {
-        left: 0;
-      }
-      #sidebar.collapsed ~ #canvasContainer {
-        width: calc(100% - 280px);
-      }
-      #leftSidebar.collapsed #sidebar.collapsed ~ #canvasContainer {
-        left: 0;
-        width: 100%;
       }
 
       /* ===== Axis HUD (bottom-left of left panel) - NO TEXT ===== */
@@ -113,7 +103,8 @@
         cursor: pointer;
       }
 
-      #toggleBtn, #leftToggleBtn {
+      #toggleBtn,
+      #leftToggleBtn {
         color: #555;
         margin-right: 8px;
         font-weight: 400;
@@ -123,7 +114,8 @@
         display: inline-block;
       }
 
-      h2:hover #toggleBtn, h2:hover #leftToggleBtn {
+      h2:hover #toggleBtn,
+      h2:hover #leftToggleBtn {
         color: #fff;
       }
 
@@ -307,6 +299,7 @@
         <li data-value="sofa">GlamVelvetSofa</li>
         <li data-value="cesiumMan">Cesium Man</li>
         <li data-value="milkTruck">Milk Truck</li>
+        <!-- <li data-value="head">Head</li> -->
         <li data-value="dragon">Dragon</li>
         <li data-value="hands">Hands (Creation of Adam)</li>
         <li data-value="duck">Duck</li>
@@ -334,6 +327,7 @@
         <li data-value="ascii">ASCII</li>
         <li data-value="halftone">Halftone</li>
         <li data-value="contour">Contour</li>
+        <!-- <li data-value="threshold">Threshold</li> -->
         <li data-value="edge">Edge Detection</li>
         <li data-value="crosshatch">Crosshatch</li>
         <li data-value="waveLines">Wave Lines</li>
@@ -868,11 +862,14 @@
       const baseFrustumSize = 350;
       let camera;
 
-      let canvasWidth = window.innerWidth - 560; // both panels open
-      let targetCanvasWidth = canvasWidth;
+      let isPanelOpen = true;
+      let isLeftPanelOpen = true;
+      let currentLayoutWidth = window.innerWidth - 560;
+      let targetLayoutWidth = window.innerWidth - 560;
+      const sidebarWidth = 280;
 
       function updateCamera() {
-        const aspect = canvasWidth / window.innerHeight;
+        const aspect = currentLayoutWidth / window.innerHeight;
         camera.left = (-baseFrustumSize * aspect) / 2;
         camera.right = (baseFrustumSize * aspect) / 2;
         camera.top = baseFrustumSize / 2;
@@ -888,12 +885,9 @@
 
       /* Grab container */
       const canvasContainer = document.getElementById("canvasContainer");
-      canvasContainer.style.position = "absolute";
-      canvasContainer.style.top = "0";
-      canvasContainer.style.height = "100%";
 
       const renderer = new THREE.WebGLRenderer({ antialias: true });
-      renderer.setSize(canvasWidth, window.innerHeight);
+      renderer.setSize(currentLayoutWidth, window.innerHeight);
       renderer.domElement.style.position = "absolute";
       canvasContainer.appendChild(renderer.domElement);
 
@@ -917,7 +911,7 @@
           this.domElement.style.top = "0";
           this.domElement.style.left = "0";
           this.domElement.style.display = "none";
-          this.domElement.style.pointerEvents = "none";
+          this.domElement.style.pointerEvents = "none"; // Let interactions pass through if needed
 
           this.chars = "ｦｧｨｩｪｫｬｭｮｯ012789";
           this.cols = 0;
@@ -926,10 +920,10 @@
           this.speeds = [];
           this.fontSize = 8;
           this.fontFamily = "monospace";
-          this.setSize(canvasWidth, window.innerHeight);
+          this.setSize(currentLayoutWidth, window.innerHeight);
 
           this.renderTarget = new THREE.WebGLRenderTarget(
-            canvasWidth,
+            currentLayoutWidth,
             window.innerHeight,
             { format: THREE.RGBAFormat },
           );
@@ -1150,16 +1144,12 @@
       };
 
       /* ================= CONTROLS ================= */
+      // Controls attached to PARENT CONTAINER so rotation works everywhere!
       let controls = new OrbitControls(camera, canvasContainer);
       controls.enablePan = false;
       controls.enableDamping = true;
       controls.target.copy(handsFocusPoint);
       controls.update();
-
-      /* Limit vertical rotation */
-      const horizon = Math.PI / 2;
-      controls.minPolarAngle = horizon - 0.15;
-      controls.maxPolarAngle = horizon + 0.15;
 
       /* ================= LIGHTS ================= */
 
@@ -1179,111 +1169,139 @@
           url: "https://cdn.maximeheckel.com/models/creation-of-adam.glb",
           scale: 3.2,
           rotation: { x: -0.1, y: -Math.PI / 2 + 0.08, z: 0 },
+          position: { x: 1.8, y: -1.4, z: 0 },
         },
         fox: {
           url: "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/main/2.0/Fox/glTF-Binary/Fox.glb",
           scale: 0.02,
           rotation: { x: 0, y: -Math.PI / 2 + 4, z: 0 },
+          position: { x: 0, y: -0.8, z: 0 },
         },
         duck: {
           url: "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/main/2.0/Duck/glTF-Binary/Duck.glb",
           scale: 1.2,
           rotation: { x: 0, y: 0.5, z: 0 },
+          position: { x: 0, y: -1, z: 0 },
         },
         avocado: {
           url: "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/main/2.0/Avocado/glTF-Binary/Avocado.glb",
           scale: 30.0,
           rotation: { x: 0, y: Math.PI, z: 0 },
+          position: { x: 0, y: -1, z: 0 },
         },
         lamp: {
           url: "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/main/Models/LightsPunctualLamp/glTF-Binary/LightsPunctualLamp.glb",
           scale: 1.0,
           rotation: { x: 0, y: Math.PI, z: 0 },
+          position: { x: 0, y: -1, z: 0 },
         },
         skull: {
           url: "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/main/Models/ScatteringSkull/glTF-Binary/ScatteringSkull.glb",
           scale: 8.0,
           rotation: { x: -0.2, y: -Math.PI / 2 - 1.9, z: 0 },
+          position: { x: 0, y: -0.9, z: 0 },
         },
         astronaut: {
           url: "https://raw.githubusercontent.com/Aishwary2004Gupta/ThreeJS_visuals/main/assets/astronaut.obj",
           scale: 0.5,
           rotation: { x: 0, y: -Math.PI / 2 - 1.9, z: 0 },
+          position: { x: 0, y: -1, z: 0 },
         },
         hand: {
           url: "https://raw.githubusercontent.com/Aishwary2004Gupta/ThreeJS_visuals/main/assets/hand.obj",
           scale: 1,
           rotation: { x: 0, y: -1.5, z: 0 },
+          position: { x: 0, y: -1, z: 0 },
         },
         horse: {
           url: "https://raw.githubusercontent.com/pichiliani/ModelsOBJ/master/horse.obj",
           scale: 10,
           rotation: { x: Math.PI / 2, y: 3.2, z: 2 },
+          position: { x: 0, y: 0, z: 0 },
         },
         dragon: {
           url: "https://raw.githubusercontent.com/pichiliani/ModelsOBJ/master/dragon.obj",
           scale: 10,
           rotation: { x: 0, y: -3, z: 0 },
+          position: { x: 0, y: -1.2, z: 0 },
         },
         dragon2: {
           url: "http://raw.githubusercontent.com/alecjacobson/common-3d-test-models/refs/heads/master/data/xyzrgb_dragon.obj",
           scale: 0.02,
           rotation: { x: 0, y: 0.5, z: 0 },
+          position: { x: 0, y: -0.2, z: 0 },
+        },
+        head: {
+          url: "https://raw.githubusercontent.com/pichiliani/ModelsOBJ/master/head.obj",
+          scale: 0.1,
+          rotation: { x: 0.3, y: Math.PI / 2, z: 0 },
+          position: { x: 0, y: -0.7, z: 0 },
         },
         milkTruck: {
           url: "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/main/2.0/CesiumMilkTruck/glTF-Binary/CesiumMilkTruck.glb",
           scale: 0.5,
           rotation: { x: 0, y: Math.PI / 2 + 1, z: 0 },
+          position: { x: 0, y: -0.8, z: 0 },
         },
         cesiumMan: {
           url: "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/main/2.0/CesiumMan/glTF-Binary/CesiumMan.glb",
           scale: 1,
           rotation: { x: 0, y: Math.PI, z: 0 },
+          position: { x: 0, y: -0.8, z: 0 },
         },
         sofa: {
           url: "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/main/2.0/GlamVelvetSofa/glTF-Binary/GlamVelvetSofa.glb",
           scale: 1.5,
           rotation: { x: 0, y: Math.PI, z: 0 },
+          position: { x: 0, y: -0.7, z: 0 },
         },
         olives: {
           url: "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/main/2.0/IridescentDishWithOlives/glTF/IridescentDishWithOlives.gltf",
           scale: 5,
           rotation: { x: -0.65, y: Math.PI, z: 0 },
+          position: { x: 0, y: -0.3, z: 0 },
         },
         lantern: {
           url: "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/main/2.0/Lantern/glTF/Lantern.gltf",
           scale: 0.09,
           rotation: { x: 0, y: Math.PI, z: 0 },
+          position: { x: 0, y: -1.2, z: 0 },
         },
         shoe: {
           url: "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/main/2.0/MaterialsVariantsShoe/glTF/MaterialsVariantsShoe.gltf",
           scale: 10,
           rotation: { x: Math.PI / -6, y: 2.4, z: 0 },
+          position: { x: 0, y: -0.6, z: 0 },
         },
         chair: {
           url: "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/main/2.0/SheenChair/glTF/SheenChair.gltf",
           scale: 2.5,
           rotation: { x: -0.25, y: Math.PI, z: 0 },
+          position: { x: 0, y: -0.9, z: 0 },
         },
         tableLamp: {
           url: "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/main/2.0/StainedGlassLamp/glTF/StainedGlassLamp.gltf",
           scale: 3,
           rotation: { x: -0.25, y: Math.PI, z: 0 },
+          position: { x: 0, y: -0.9, z: 0 },
         },
         chessBoard: {
           url: "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/main/2.0/ABeautifulGame/glTF/ABeautifulGame.gltf",
           scale: 3,
           rotation: { x: -Math.PI / 2 - 6, y: 0, z: 0 },
+          position: { x: 0, y: 0, z: 0 },
         },
         teapot: {
           url: "https://raw.githubusercontent.com/alecjacobson/common-3d-test-models/refs/heads/master/data/teapot.obj",
           scale: 0.5,
           rotation: { x: 0, y: Math.PI, z: 0 },
+          position: { x: 0, y: -0.8, z: 0 },
         },
         cow: {
           url: "https://raw.githubusercontent.com/alecjacobson/common-3d-test-models/refs/heads/master/data/cow.obj",
           scale: 0.3,
           rotation: { x: 0, y: Math.PI, z: 0 },
+          position: { x: 0, y: -0.06, z: 0 },
         },
       };
 
@@ -1337,28 +1355,25 @@
               m = result.scene;
             }
 
-            // 🔥 CENTER MODEL AT WORLD ORIGIN 🔥
-            const box = new THREE.Box3().setFromObject(m);
-            const center = box.getCenter(new THREE.Vector3());
-            m.position.sub(center); // center model
-
-            // Sit model on ground (y=0)
-            const size = box.getSize(new THREE.Vector3());
-            m.position.y += size.y / 2;
-
             m.scale.setScalar(cfg.scale ?? 1.0);
             m.rotation.set(
               cfg.rotation?.x ?? 0,
               cfg.rotation?.y ?? 0,
               cfg.rotation?.z ?? 0,
             );
+            m.position.set(
+              cfg.position?.x ?? 0,
+              cfg.position?.y ?? 0,
+              cfg.position?.z ?? 0,
+            );
+
             scene.add(m);
             currentModel = m;
 
-            // Point camera to center
-            controls.target.set(0, 0, 0);
+            // Reset camera target internally but do NOT recreate OrbitControls
+            controls.target.copy(handsFocusPoint);
             controls.update();
-            camera.lookAt(0, 0, 0);
+            camera.lookAt(handsFocusPoint);
           },
           undefined,
           (err) => {
@@ -1370,7 +1385,19 @@
 
       loadModel("shoe");
 
-      /* ================= POST PROCESSING ================= */
+      //locking the horizonal rotation only (nopt allowing the model to rotate in vertical direction)
+
+      /*
+      const horizon = Math.PI / 2; // straight horizontal
+
+      controls.minPolarAngle = horizon - 0.15; // slight upward rotation
+      controls.maxPolarAngle = horizon + 0.15; // slight downward rotation
+
+      controls.minAzimuthAngle = -Infinity; // free horizontal rotation
+      controls.maxAzimuthAngle = Infinity;
+      */
+     
+      /* ================= POST ================= */
 
       const composer = new EffectComposer(renderer);
       composer.addPass(new RenderPass(scene, camera));
@@ -1378,7 +1405,7 @@
       let pass = new EffectPass(camera, normal);
       composer.addPass(pass);
 
-      /* ================= UI HANDLERS ================= */
+      /* ================= UI ================= */
 
       const sidebar = document.getElementById("sidebar");
       const toggleBtn = document.getElementById("toggleBtn");
@@ -1391,10 +1418,11 @@
       const pixelUI = document.getElementById("pixelUI");
       const pixelInput = document.getElementById("pixelSize");
       const axisHUD = document.getElementById("axisHUD");
+
+      // Axis HUD elements
       const axisCanvas = document.getElementById("axisCanvas");
       const axisCtx = axisCanvas.getContext("2d");
 
-      // Axis HUD drawing
       function drawAxis(v, color, label, cx, cy, scale) {
         const ex = cx + v.x * scale;
         const ey = cy - v.y * scale;
@@ -1424,12 +1452,13 @@
         const cy = h / 2;
         const scale = w * 0.35;
 
+        // Use inverse camera quaternion so gizmo moves when you orbit (real-time)
         const invQ = camera.quaternion.clone().invert();
         const xV = new THREE.Vector3(1, 0, 0).applyQuaternion(invQ);
         const yV = new THREE.Vector3(0, 1, 0).applyQuaternion(invQ);
         const zV = new THREE.Vector3(0, 0, 1).applyQuaternion(invQ);
 
-        // Draw circle
+        // draw circle center
         axisCtx.globalAlpha = 0.9;
         axisCtx.strokeStyle = "rgba(255,255,255,0.15)";
         axisCtx.lineWidth = 1;
@@ -1437,58 +1466,73 @@
         axisCtx.arc(cx, cy, scale, 0, Math.PI * 2);
         axisCtx.stroke();
 
-        // Draw axes
+        // draw axes
         drawAxis(xV, "#ff4d4d", "X", cx, cy, scale);
         drawAxis(yV, "#46ff7a", "Y", cx, cy, scale);
         drawAxis(zV, "#4da6ff", "Z", cx, cy, scale);
       }
 
-      // Toggle Right Panel
       function togglePanel() {
-        sidebar.classList.toggle("collapsed");
-        const isOpen = !sidebar.classList.contains("collapsed");
-        toggleBtn.textContent = isOpen ? "—" : "+";
-        floatingToggle.classList.toggle("visible", !isOpen);
-        targetCanvasWidth = window.innerWidth 
-                          - (sidebar.classList.contains("collapsed") ? 0 : 280) 
-                          - (leftSidebar.classList.contains("collapsed") ? 0 : 280);
+        isPanelOpen = !isPanelOpen;
+        if (isPanelOpen) {
+          sidebar.classList.remove("collapsed");
+          toggleBtn.textContent = "—";
+          floatingToggle.classList.remove("visible");
+        } else {
+          sidebar.classList.add("collapsed");
+          toggleBtn.textContent = "+";
+          floatingToggle.classList.add("visible");
+        }
+        targetLayoutWidth =
+          window.innerWidth -
+          (isPanelOpen ? sidebarWidth : 0) -
+          (isLeftPanelOpen ? sidebarWidth : 0);
       }
 
-      // Toggle Left Panel
       function toggleLeftPanel() {
-        leftSidebar.classList.toggle("collapsed");
-        const isOpen = !leftSidebar.classList.contains("collapsed");
-        leftToggleBtn.textContent = isOpen ? "—" : "+";
-        floatingToggleLeft.classList.toggle("visible", !isOpen);
-        targetCanvasWidth = window.innerWidth 
-                          - (sidebar.classList.contains("collapsed") ? 0 : 280) 
-                          - (leftSidebar.classList.contains("collapsed") ? 0 : 280);
+        isLeftPanelOpen = !isLeftPanelOpen;
+        if (isLeftPanelOpen) {
+          leftSidebar.classList.remove("collapsed");
+          leftToggleBtn.textContent = "—";
+          floatingToggleLeft.classList.remove("visible");
+        } else {
+          leftSidebar.classList.add("collapsed");
+          leftToggleBtn.textContent = "+";
+          floatingToggleLeft.classList.add("visible");
+        }
+        targetLayoutWidth =
+          window.innerWidth -
+          (isPanelOpen ? sidebarWidth : 0) -
+          (isLeftPanelOpen ? sidebarWidth : 0);
       }
 
-      document.querySelector("#sidebar h2").addEventListener("click", togglePanel);
-      document.querySelector("#leftSidebar h2").addEventListener("click", toggleLeftPanel);
+      document
+        .querySelector("#sidebar h2")
+        .addEventListener("click", togglePanel);
+      document
+        .querySelector("#leftSidebar h2")
+        .addEventListener("click", toggleLeftPanel);
       floatingToggle.addEventListener("click", togglePanel);
       floatingToggleLeft.addEventListener("click", toggleLeftPanel);
 
-      // Switch Effects
       function switchEffect(val) {
         composer.removePass(pass);
 
-        // Hide all renderers
+        // Hide all 3 rendering canvases
         renderer.domElement.style.display = "none";
         ascii.domElement.style.display = "none";
         matrix.domElement.style.display = "none";
 
         if (val === "ascii") {
           ascii.domElement.style.display = "block";
-          ascii.setSize(canvasWidth, window.innerHeight);
+          ascii.setSize(currentLayoutWidth, window.innerHeight);
           pixelUI.style.display = "none";
           return;
         }
 
         if (val === "matrix") {
           matrix.domElement.style.display = "block";
-          matrix.setSize(canvasWidth, window.innerHeight);
+          matrix.setSize(currentLayoutWidth, window.innerHeight);
           pixelUI.style.display = "none";
           return;
         }
@@ -1525,7 +1569,9 @@
         });
       });
 
-      // Pixel Size Slider
+      // Default Initialization to Normal
+      switchEffect("normal");
+
       pixelInput.oninput = (e) => {
         const value = +e.target.value;
         ["dots", "halftone", "blockify", "complex", "woven", "lego"].forEach(
@@ -1536,65 +1582,80 @@
         );
       };
 
-      // Resize Handler
-      function handleResize() {
-        targetCanvasWidth = window.innerWidth 
-                          - (sidebar.classList.contains("collapsed") ? 0 : 280) 
-                          - (leftSidebar.classList.contains("collapsed") ? 0 : 280);
-        targetCanvasWidth = Math.max(200, targetCanvasWidth);
-      }
-
-      function updateLayout() {
+      function updateLayout(width) {
         const height = window.innerHeight;
-        canvasContainer.style.width = canvasWidth + "px";
+        const leftOffset = isLeftPanelOpen ? sidebarWidth : 0;
+
+        canvasContainer.style.left = leftOffset + "px";
+        canvasContainer.style.width = width + "px";
         canvasContainer.style.height = height + "px";
 
-        renderer.setSize(canvasWidth, height);
-        composer.setSize(canvasWidth, height);
-        renderer.domElement.style.width = canvasWidth + "px";
+        renderer.setSize(width, height);
+        composer.setSize(width, height);
+
+        renderer.domElement.style.width = width + "px";
         renderer.domElement.style.height = height + "px";
 
         updateCamera();
 
-        // Update all effect resolutions
         Object.values(map).forEach((e) => {
           if (e?.uniforms?.get?.("resolution"))
-            e.uniforms.get("resolution").value.set(canvasWidth, height);
+            e.uniforms.get("resolution").value.set(width, height);
         });
 
         if (ascii) {
-          ascii.setSize(canvasWidth, height);
-          ascii.domElement.style.width = canvasWidth + "px";
+          ascii.setSize(width, height);
+          ascii.domElement.style.width = width + "px";
           ascii.domElement.style.height = height + "px";
         }
 
         if (matrix) {
-          matrix.setSize(canvasWidth, height);
-          matrix.domElement.style.width = canvasWidth + "px";
+          matrix.setSize(width, height);
+          matrix.domElement.style.width = width + "px";
           matrix.domElement.style.height = height + "px";
         }
+      }
+      function handleResize() {
+        targetLayoutWidth =
+          window.innerWidth -
+          (isPanelOpen ? sidebarWidth : 0) -
+          (isLeftPanelOpen ? sidebarWidth : 0);
+
+        currentLayoutWidth = targetLayoutWidth;
+
+        updateLayout(currentLayoutWidth);
       }
 
       window.addEventListener("resize", handleResize);
       window.addEventListener("fullscreenchange", handleResize);
-      handleResize(); // initial call
 
-      // Animation Loop
+      handleResize();
+
+      const activeEffectName = () =>
+        document
+          .querySelector("#effectList li.active")
+          ?.getAttribute("data-value");
+
+      /* ================= ANIMATE ================= */
+
       function animate() {
         requestAnimationFrame(animate);
 
+        // Updates orbit controls attached to container
         controls.update();
 
-        // Smooth canvas width animation
-        if (Math.abs(canvasWidth - targetCanvasWidth) > 0.5) {
-          canvasWidth += (targetCanvasWidth - canvasWidth) * 0.15;
-          if (Math.abs(canvasWidth - targetCanvasWidth) < 1) canvasWidth = targetCanvasWidth;
-          updateLayout();
+        // smooth width animation when sidebar toggles
+        if (Math.abs(currentLayoutWidth - targetLayoutWidth) > 0.5) {
+          currentLayoutWidth += (targetLayoutWidth - currentLayoutWidth) * 0.15;
+          if (Math.abs(currentLayoutWidth - targetLayoutWidth) < 1)
+            currentLayoutWidth = targetLayoutWidth;
+          updateLayout(currentLayoutWidth);
         }
 
+        // real-time axis compass
         updateAxisHUD();
 
-        const current = document.querySelector("#effectList li.active")?.dataset.value;
+        const current = activeEffectName();
         if (current === "ascii") {
           ascii.render(scene, camera);
         } else if (current === "matrix") {

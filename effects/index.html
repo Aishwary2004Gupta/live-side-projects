@@ -21,16 +21,14 @@
       #canvasContainer {
         position: absolute;
         top: 0;
-        left: 280px; /* Start with left panel open */
-        width: calc(100% - 560px); /* Start with both panels open */
+        left: 0;
+        width: 100%;
         height: 100%;
         z-index: 1;
         overflow: hidden;
-        /* SMOOTH TRANSITION - 60fps hardware accelerated */
         transition:
-          left 0.4s cubic-bezier(0.4, 0, 0.2, 1),
-          width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-        will-change: left, width;
+          left 0.3s cubic-bezier(0.25, 0.8, 0.25, 1),
+          width 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
       }
 
       #axisHUD {
@@ -65,8 +63,7 @@
         flex-direction: column;
         color: #555;
         user-select: none;
-        transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-        will-change: transform;
+        transition: transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
       }
 
       #sidebar.collapsed {
@@ -88,8 +85,7 @@
         flex-direction: column;
         color: #555;
         user-select: none;
-        transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-        will-change: transform;
+        transition: transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
       }
 
       #leftSidebar.collapsed {
@@ -236,18 +232,12 @@
         z-index: 9;
         opacity: 0;
         pointer-events: none;
-        transition:
-          opacity 0.3s ease,
-          transform 0.2s ease;
+        transition: opacity 0.3s ease;
       }
 
       #floatingToggle.visible {
         opacity: 1;
         pointer-events: auto;
-      }
-
-      #floatingToggle:hover {
-        transform: scale(1.1);
       }
 
       #floatingToggleLeft {
@@ -268,18 +258,12 @@
         z-index: 9;
         opacity: 0;
         pointer-events: none;
-        transition:
-          opacity 0.3s ease,
-          transform 0.2s ease;
+        transition: opacity 0.3s ease;
       }
 
       #floatingToggleLeft.visible {
         opacity: 1;
         pointer-events: auto;
-      }
-
-      #floatingToggleLeft:hover {
-        transform: scale(1.1);
       }
     </style>
   </head>
@@ -777,11 +761,12 @@
 
       let isPanelOpen = true;
       let isLeftPanelOpen = true;
+      let currentLayoutWidth = window.innerWidth - 560;
+      let targetLayoutWidth = window.innerWidth - 560;
       const sidebarWidth = 280;
 
       function updateCamera() {
-        const canvasWidth = canvasContainer.clientWidth;
-        const aspect = canvasWidth / window.innerHeight;
+        const aspect = currentLayoutWidth / window.innerHeight;
         camera.left = (-baseFrustumSize * aspect) / 2;
         camera.right = (baseFrustumSize * aspect) / 2;
         camera.top = baseFrustumSize / 2;
@@ -793,11 +778,12 @@
       camera.position.set(0, 0, -5);
       camera.zoom = 140;
       camera.lookAt(handsFocusPoint);
+      updateCamera();
 
       const canvasContainer = document.getElementById("canvasContainer");
 
       const renderer = new THREE.WebGLRenderer({ antialias: true });
-      renderer.setSize(canvasContainer.clientWidth, window.innerHeight);
+      renderer.setSize(currentLayoutWidth, window.innerHeight);
       renderer.domElement.style.position = "absolute";
       canvasContainer.appendChild(renderer.domElement);
 
@@ -828,9 +814,9 @@
           this.speeds = [];
           this.fontSize = 8;
           this.fontFamily = "monospace";
-          this.setSize(canvasContainer.clientWidth, window.innerHeight);
+          this.setSize(currentLayoutWidth, window.innerHeight);
           this.renderTarget = new THREE.WebGLRenderTarget(
-            canvasContainer.clientWidth,
+            currentLayoutWidth,
             window.innerHeight,
             { format: THREE.RGBAFormat },
           );
@@ -1030,11 +1016,13 @@
       controls.target.copy(handsFocusPoint);
       controls.update();
 
-      const horizon = Math.PI / 2;
-      controls.minPolarAngle = horizon - 0.15;
-      controls.maxPolarAngle = horizon + 0.15;
-      controls.minAzimuthAngle = -Infinity;
-      controls.maxAzimuthAngle = Infinity;
+      // To restrict the camera movement to a specific area, you can set limits on the polar and azimuthal angles.
+
+      // const horizon = Math.PI / 2;
+      // controls.minPolarAngle = horizon - 0.15;
+      // controls.maxPolarAngle = horizon + 0.15;
+      // controls.minAzimuthAngle = -Infinity;
+      // controls.maxAzimuthAngle = Infinity;
 
       /* ================= LIGHTS ================= */
       scene.add(new THREE.AmbientLight(0xffffff, 0.6));
@@ -1314,15 +1302,6 @@
         drawAxis(zV, "#4da6ff", "Z", cx, cy, scale);
       }
 
-      function updateCanvasContainer() {
-        const leftOffset = isLeftPanelOpen ? sidebarWidth : 0;
-        const rightOffset = isPanelOpen ? sidebarWidth : 0;
-        const width = window.innerWidth - leftOffset - rightOffset;
-
-        canvasContainer.style.left = leftOffset + "px";
-        canvasContainer.style.width = width + "px";
-      }
-
       function togglePanel() {
         isPanelOpen = !isPanelOpen;
         if (isPanelOpen) {
@@ -1334,7 +1313,10 @@
           toggleBtn.textContent = "+";
           floatingToggle.classList.add("visible");
         }
-        updateCanvasContainer();
+        targetLayoutWidth =
+          window.innerWidth -
+          (isPanelOpen ? sidebarWidth : 0) -
+          (isLeftPanelOpen ? sidebarWidth : 0);
       }
 
       function toggleLeftPanel() {
@@ -1348,7 +1330,10 @@
           leftToggleBtn.textContent = "+";
           floatingToggleLeft.classList.add("visible");
         }
-        updateCanvasContainer();
+        targetLayoutWidth =
+          window.innerWidth -
+          (isPanelOpen ? sidebarWidth : 0) -
+          (isLeftPanelOpen ? sidebarWidth : 0);
       }
 
       document
@@ -1368,13 +1353,13 @@
 
         if (val === "ascii") {
           ascii.domElement.style.display = "block";
-          ascii.setSize(canvasContainer.clientWidth, window.innerHeight);
+          ascii.setSize(currentLayoutWidth, window.innerHeight);
           pixelUI.style.display = "none";
           return;
         }
         if (val === "matrix") {
           matrix.domElement.style.display = "block";
-          matrix.setSize(canvasContainer.clientWidth, window.innerHeight);
+          matrix.setSize(currentLayoutWidth, window.innerHeight);
           pixelUI.style.display = "none";
           return;
         }
@@ -1423,14 +1408,20 @@
         );
       };
 
-      function updateRendererSize() {
-        const width = canvasContainer.clientWidth;
-        const height = canvasContainer.clientHeight;
+      function updateLayout(width) {
+        const height = window.innerHeight;
+        const leftOffset = isLeftPanelOpen ? sidebarWidth : 0;
 
-        if (width === 0 || height === 0) return;
+        canvasContainer.style.left = leftOffset + "px";
+        canvasContainer.style.width = width + "px";
+        canvasContainer.style.height = height + "px";
 
         renderer.setSize(width, height);
         composer.setSize(width, height);
+
+        renderer.domElement.style.width = width + "px";
+        renderer.domElement.style.height = height + "px";
+
         updateCamera();
 
         Object.values(map).forEach((e) => {
@@ -1438,28 +1429,31 @@
             e.uniforms.get("resolution").value.set(width, height);
         });
 
-        if (ascii) ascii.setSize(width, height);
-        if (matrix) matrix.setSize(width, height);
+        if (ascii) {
+          ascii.setSize(width, height);
+          ascii.domElement.style.width = width + "px";
+          ascii.domElement.style.height = height + "px";
+        }
+
+        if (matrix) {
+          matrix.setSize(width, height);
+          matrix.domElement.style.width = width + "px";
+          matrix.domElement.style.height = height + "px";
+        }
       }
 
-      // Use ResizeObserver for silky smooth 60fps transitions
-      const resizeObserver = new ResizeObserver((entries) => {
-        for (let entry of entries) {
-          if (entry.target === canvasContainer) {
-            updateRendererSize();
-          }
-        }
-      });
-
-      resizeObserver.observe(canvasContainer);
-
       function handleResize() {
-        updateCanvasContainer();
-        updateRendererSize();
+        targetLayoutWidth =
+          window.innerWidth -
+          (isPanelOpen ? sidebarWidth : 0) -
+          (isLeftPanelOpen ? sidebarWidth : 0);
+        currentLayoutWidth = targetLayoutWidth;
+        updateLayout(currentLayoutWidth);
       }
 
       window.addEventListener("resize", handleResize);
       window.addEventListener("fullscreenchange", handleResize);
+      handleResize();
 
       const activeEffectName = () =>
         document
@@ -1470,6 +1464,14 @@
       function animate() {
         requestAnimationFrame(animate);
         controls.update();
+
+        if (Math.abs(currentLayoutWidth - targetLayoutWidth) > 0.5) {
+          currentLayoutWidth += (targetLayoutWidth - currentLayoutWidth) * 0.15;
+          if (Math.abs(currentLayoutWidth - targetLayoutWidth) < 1)
+            currentLayoutWidth = targetLayoutWidth;
+          updateLayout(currentLayoutWidth);
+        }
+
         updateAxisHUD();
 
         const current = activeEffectName();

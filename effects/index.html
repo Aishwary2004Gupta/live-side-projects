@@ -8,92 +8,182 @@
     <style>
       @import url("https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;600&display=swap");
 
-      html, body {
-        margin: 0; width: 100%; height: 100%; overflow: hidden;
+      html,
+      body {
+        margin: 0;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
         background: #010101;
         font-family: "Fira Code", "Courier New", monospace;
       }
 
       #canvasContainer {
-        position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-        z-index: 1; overflow: hidden;
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        z-index: 1;
+        overflow: hidden;
       }
 
       #axisHUD {
-        position: absolute; bottom: 20px; right: 20px; z-index: 9999;
+        position: absolute;
+        bottom: 20px;
+        right: 20px;
+        z-index: 9999;
         pointer-events: none;
       }
       #axisCanvas {
-        width: 100px; height: 100px; border-radius: 50%;
-        background: rgba(10,10,10,0.45);
-        border: 1px solid rgba(255,255,255,0.12);
+        width: 100px;
+        height: 100px;
+        border-radius: 50%;
+        background: rgba(10, 10, 10, 0.45);
+        border: 1px solid rgba(255, 255, 255, 0.12);
         backdrop-filter: blur(6px);
       }
 
-      #sidebar, #leftSidebar {
-        position: fixed; top: 0; width: 280px; height: 100%;
-        background: #0a0a0a; border: 1px solid #1a1a1a;
-        padding: 40px 30px; box-sizing: border-box; z-index: 10;
-        display: flex; flex-direction: column; color: #555;
-        user-select: none; transition: transform 0.3s cubic-bezier(0.25,0.8,0.25,1);
+      #sidebar,
+      #leftSidebar {
+        position: fixed;
+        top: 0;
+        width: 280px;
+        height: 100%;
+        background: #0a0a0a;
+        border: 1px solid #1a1a1a;
+        padding: 40px 30px;
+        box-sizing: border-box;
+        z-index: 10;
+        display: flex;
+        flex-direction: column;
+        color: #555;
+        user-select: none;
+        transition: transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
       }
-      #sidebar { right: 0; border-left: 1px solid #1a1a1a; }
-      #leftSidebar { left: 0; border-right: 1px solid #1a1a1a; }
+      #sidebar {
+        right: 0;
+        border-left: 1px solid #1a1a1a;
+      }
+      #leftSidebar {
+        left: 0;
+        border-right: 1px solid #1a1a1a;
+      }
 
-      #sidebar.collapsed { transform: translateX(100%); }
-      #leftSidebar.collapsed { transform: translateX(-100%); }
+      #sidebar.collapsed {
+        transform: translateX(100%);
+      }
+      #leftSidebar.collapsed {
+        transform: translateX(-100%);
+      }
 
       h2 {
-        font-size: 16px; color: #fff; margin: 0 0 25px 0;
-        font-weight: 600; letter-spacing: 0.5px;
-        display: flex; align-items: center; cursor: pointer;
+        font-size: 16px;
+        color: #fff;
+        margin: 0 0 25px 0;
+        font-weight: 600;
+        letter-spacing: 0.5px;
+        display: flex;
+        align-items: center;
+        cursor: pointer;
       }
-      #toggleBtn, #leftToggleBtn {
-        color: #555; margin-right: 8px; font-weight: 400;
-        transition: color 0.2s; width: 20px;
+      #toggleBtn,
+      #leftToggleBtn {
+        color: #555;
+        margin-right: 8px;
+        font-weight: 400;
+        transition: color 0.2s;
+        width: 20px;
       }
-      h2:hover #toggleBtn, h2:hover #leftToggleBtn { color: #fff; }
+      h2:hover #toggleBtn,
+      h2:hover #leftToggleBtn {
+        color: #fff;
+      }
 
       ul {
-        list-style: none; padding: 0; margin: 0;
-        display: flex; flex-direction: column; gap: 14px;
+        list-style: none;
+        padding: 0;
+        margin: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
         overflow-y: auto;
       }
-      ul::-webkit-scrollbar { width: 4px; }
-      ul::-webkit-scrollbar-thumb { background: #222; }
+      ul::-webkit-scrollbar {
+        width: 4px;
+      }
+      ul::-webkit-scrollbar-thumb {
+        background: #222;
+      }
 
       li {
-        cursor: pointer; font-size: 13px;
-        display: flex; align-items: center;
+        cursor: pointer;
+        font-size: 13px;
+        display: flex;
+        align-items: center;
         transition: color 0.2s ease;
       }
-      li::before { content: "○"; font-size: 10px; margin-right: 15px; }
-      li:hover { color: #999; }
-      li.active { color: #fff; font-weight: 600; }
-      li.active::before { content: "●"; color: #fff; }
+      li::before {
+        content: "○";
+        font-size: 10px;
+        margin-right: 15px;
+      }
+      li:hover {
+        color: #999;
+      }
+      li.active {
+        color: #fff;
+        font-weight: 600;
+      }
+      li.active::before {
+        content: "●";
+        color: #fff;
+      }
 
       #pixelUI {
-        margin-top: auto; padding-top: 20px;
-        border-top: 1px solid #1a1a1a; display: none;
+        margin-top: auto;
+        padding-top: 20px;
+        border-top: 1px solid #1a1a1a;
+        display: none;
       }
 
-      #floatingToggle, #floatingToggleLeft {
-        position: fixed; top: 20px; width: 40px; height: 40px;
-        background: #0a0a0a; border: 1px solid #333; color: #fff;
-        font-family: "Fira Code", monospace; font-size: 18px;
-        display: flex; align-items: center; justify-content: center;
-        cursor: pointer; z-index: 9; opacity: 0; pointer-events: none;
+      #floatingToggle,
+      #floatingToggleLeft {
+        position: fixed;
+        top: 20px;
+        width: 40px;
+        height: 40px;
+        background: #0a0a0a;
+        border: 1px solid #333;
+        color: #fff;
+        font-family: "Fira Code", monospace;
+        font-size: 18px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        z-index: 9;
+        opacity: 0;
+        pointer-events: none;
         transition: opacity 0.3s ease;
       }
-      #floatingToggle { right: 20px; }
-      #floatingToggleLeft { left: 20px; }
-      #floatingToggle.visible, #floatingToggleLeft.visible {
-        opacity: 1; pointer-events: auto;
+      #floatingToggle {
+        right: 20px;
+      }
+      #floatingToggleLeft {
+        left: 20px;
+      }
+      #floatingToggle.visible,
+      #floatingToggleLeft.visible {
+        opacity: 1;
+        pointer-events: auto;
       }
     </style>
   </head>
   <body>
-    <div id="axisHUD"><canvas id="axisCanvas" width="100" height="100"></canvas></div>
+    <div id="axisHUD">
+      <canvas id="axisCanvas" width="100" height="100"></canvas>
+    </div>
     <div id="floatingToggle">+</div>
     <div id="floatingToggleLeft">+</div>
     <div id="canvasContainer"></div>
@@ -161,7 +251,12 @@
       import { GLTFLoader } from "https://esm.sh/three@0.160.0/examples/jsm/loaders/GLTFLoader.js";
       import { OBJLoader } from "https://esm.sh/three@0.160.0/examples/jsm/loaders/OBJLoader.js";
       import { AsciiEffect } from "https://esm.sh/three@0.160.0/examples/jsm/effects/AsciiEffect.js";
-      import { EffectComposer, RenderPass, EffectPass, Effect } from "https://esm.sh/postprocessing@6.35.4?deps=three@0.160.0";
+      import {
+        EffectComposer,
+        RenderPass,
+        EffectPass,
+        Effect,
+      } from "https://esm.sh/postprocessing@6.35.4?deps=three@0.160.0";
 
       const handsFocusPoint = new THREE.Vector3(0, 0, 0);
 
@@ -186,13 +281,16 @@
         const map = new Map();
         for (const k in uniforms) map.set(k, new THREE.Uniform(uniforms[k]));
         return new (class extends Effect {
-          constructor() { super(name, shader, { uniforms: map }); }
+          constructor() {
+            super(name, shader, { uniforms: map });
+          }
           update(renderer) {
             if (map.has("resolution")) {
               const c = renderer.domElement;
               map.get("resolution").value.set(c.width, c.height);
             }
-            if (map.has("time")) map.get("time").value = performance.now() / 1000;
+            if (map.has("time"))
+              map.get("time").value = performance.now() / 1000;
           }
         })();
       }
@@ -224,7 +322,7 @@
         const worldUnitsPerPixel = viewWidth / currentLayoutWidth;
         const worldOffset = pixelOffset * worldUnitsPerPixel;
 
-        camera.position.x = -worldOffset;           // Corrected sign
+        camera.position.x = -worldOffset; // Corrected sign
         camera.left = -viewWidth / 2;
         camera.right = viewWidth / 2;
         camera.top = baseFrustumSize / 2;
@@ -247,43 +345,67 @@
       ascii.domElement.style.display = "none";
       canvasContainer.appendChild(ascii.domElement);
 
-      class MatrixRainEffect { /* ... same as before ... */ 
+      class MatrixRainEffect {
+        /* ... same as before ... */
         constructor(renderer, camera) {
-          this.renderer = renderer; this.camera = camera;
+          this.renderer = renderer;
+          this.camera = camera;
           this.canvas = document.createElement("canvas");
           this.ctx = this.canvas.getContext("2d", { willReadFrequently: true });
           this.domElement = this.canvas;
-          this.domElement.style.position = "absolute"; this.domElement.style.top = "0"; this.domElement.style.left = "0";
-          this.domElement.style.display = "none"; this.domElement.style.pointerEvents = "none";
-          this.chars = "ｦｧｨｩｪｫｬｭｮｯ012789"; this.fontSize = 8;
+          this.domElement.style.position = "absolute";
+          this.domElement.style.top = "0";
+          this.domElement.style.left = "0";
+          this.domElement.style.display = "none";
+          this.domElement.style.pointerEvents = "none";
+          this.chars = "ｦｧｨｩｪｫｬｭｮｯ012789";
+          this.fontSize = 8;
           this.setSize(currentLayoutWidth, window.innerHeight);
-          this.renderTarget = new THREE.WebGLRenderTarget(currentLayoutWidth, window.innerHeight, { format: THREE.RGBAFormat });
-          this.maskTarget = new THREE.WebGLRenderTarget(1, 1, { format: THREE.RGBAFormat });
+          this.renderTarget = new THREE.WebGLRenderTarget(
+            currentLayoutWidth,
+            window.innerHeight,
+            { format: THREE.RGBAFormat },
+          );
+          this.maskTarget = new THREE.WebGLRenderTarget(1, 1, {
+            format: THREE.RGBAFormat,
+          });
           this.maskTarget.texture.minFilter = THREE.NearestFilter;
           this.maskTarget.texture.magFilter = THREE.NearestFilter;
-          this._maskBuffer = null; this.cellCharacter = [];
+          this._maskBuffer = null;
+          this.cellCharacter = [];
         }
-        setSize(w, h) { /* same as original */ 
-          this.canvas.width = w; this.canvas.height = h;
+        setSize(w, h) {
+          /* same as original */
+          this.canvas.width = w;
+          this.canvas.height = h;
           this.ctx.font = `${this.fontSize}px monospace`;
           this.cols = Math.floor(w / (this.fontSize * 0.6));
           this.rows = Math.floor(h / this.fontSize);
-          this.drops = Array(this.cols).fill(0).map(() => -(Math.random()*this.rows));
-          this.speeds = Array(this.cols).fill(0).map(() => 0.3 + Math.random()*0.6);
-          this.cellCharacter = new Array(this.cols*this.rows).fill(0).map(()=>this.chars[Math.floor(Math.random()*this.chars.length)]);
-          if(this.renderTarget) this.renderTarget.setSize(w,h);
-          if(this.maskTarget && this.cols>0 && this.rows>0){
-            this.maskTarget.setSize(this.cols,this.rows);
-            this._maskBuffer = new Uint8Array(this.cols*this.rows*4);
+          this.drops = Array(this.cols)
+            .fill(0)
+            .map(() => -(Math.random() * this.rows));
+          this.speeds = Array(this.cols)
+            .fill(0)
+            .map(() => 0.3 + Math.random() * 0.6);
+          this.cellCharacter = new Array(this.cols * this.rows)
+            .fill(0)
+            .map(
+              () => this.chars[Math.floor(Math.random() * this.chars.length)],
+            );
+          if (this.renderTarget) this.renderTarget.setSize(w, h);
+          if (this.maskTarget && this.cols > 0 && this.rows > 0) {
+            this.maskTarget.setSize(this.cols, this.rows);
+            this._maskBuffer = new Uint8Array(this.cols * this.rows * 4);
           }
         }
-        render(scene, camera) { /* same as original - omitted for space but identical to your first code */ 
+        render(scene, camera) {
+          /* same as original - omitted for space but identical to your first code */
           const old = this.renderer.getRenderTarget();
           this.renderer.setRenderTarget(this.maskTarget);
           this.renderer.render(scene, camera);
           this.renderer.setRenderTarget(old);
           this.ctx.fillStyle = "black";
-          this.ctx.fillRect(0,0,this.canvas.width,this.canvas.height);
+          this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
           // ... rest of render logic (same as your original)
           // (I kept it short here but in real file it's the full version you had)
         }
@@ -292,23 +414,80 @@
       canvasContainer.appendChild(matrix.domElement);
 
       /* ================= Effects, Models, Controls, etc. (all original logic) ================= */
-      const normal = makeEffect("Normal", normalShader, { resolution: new THREE.Vector2(innerWidth, innerHeight) });
-      const dots = makeEffect("Dots", dotsShader, { pixelSize: 10, resolution: new THREE.Vector2(innerWidth, innerHeight) });
-      const complex = makeEffect("Complex", complexShader, { pixelSize: 10, resolution: new THREE.Vector2(innerWidth, innerHeight) });
-      const woven = makeEffect("Woven", wovenShader, { pixelSize: 10, resolution: new THREE.Vector2(innerWidth, innerHeight) });
-      const lego = makeEffect("Lego", legoShader, { pixelSize: 10, resolution: new THREE.Vector2(innerWidth, innerHeight), lightPosition: new THREE.Vector2(0.8, 0.8) });
-      const dither = makeEffect("Dither", ditherShader, { resolution: new THREE.Vector2(innerWidth, innerHeight) });
-      const halftone = makeEffect("Halftone", halftoneShader, { pixelSize: 10, resolution: new THREE.Vector2(innerWidth, innerHeight) });
-      const contour = makeEffect("Contour", contourShader, { resolution: new THREE.Vector2(innerWidth, innerHeight) });
-      const blockify = makeEffect("Blockify", blockifyShader, { pixelSize: 8, resolution: new THREE.Vector2(innerWidth, innerHeight) });
-      const edge = makeEffect("Edge", edgeShader, { resolution: new THREE.Vector2(innerWidth, innerHeight) });
-      const crosshatch = makeEffect("Crosshatch", crosshatchShader, { resolution: new THREE.Vector2(innerWidth, innerHeight) });
-      const waveLines = makeEffect("WaveLines", waveLinesShader, { time: 0, resolution: new THREE.Vector2(innerWidth, innerHeight) });
-      const noise = makeEffect("Noise", noise_shader, { time: 0, resolution: new THREE.Vector2(innerWidth, innerHeight) });
-      const voronoi = makeEffect("Voronoi", voronoiShader, { time: 0, resolution: new THREE.Vector2(innerWidth, innerHeight) });
-      const vhs = makeEffect("VHS", vhsShader, { time: 0, resolution: new THREE.Vector2(innerWidth, innerHeight) });
+      const normal = makeEffect("Normal", normalShader, {
+        resolution: new THREE.Vector2(innerWidth, innerHeight),
+      });
+      const dots = makeEffect("Dots", dotsShader, {
+        pixelSize: 10,
+        resolution: new THREE.Vector2(innerWidth, innerHeight),
+      });
+      const complex = makeEffect("Complex", complexShader, {
+        pixelSize: 10,
+        resolution: new THREE.Vector2(innerWidth, innerHeight),
+      });
+      const woven = makeEffect("Woven", wovenShader, {
+        pixelSize: 10,
+        resolution: new THREE.Vector2(innerWidth, innerHeight),
+      });
+      const lego = makeEffect("Lego", legoShader, {
+        pixelSize: 10,
+        resolution: new THREE.Vector2(innerWidth, innerHeight),
+        lightPosition: new THREE.Vector2(0.8, 0.8),
+      });
+      const dither = makeEffect("Dither", ditherShader, {
+        resolution: new THREE.Vector2(innerWidth, innerHeight),
+      });
+      const halftone = makeEffect("Halftone", halftoneShader, {
+        pixelSize: 10,
+        resolution: new THREE.Vector2(innerWidth, innerHeight),
+      });
+      const contour = makeEffect("Contour", contourShader, {
+        resolution: new THREE.Vector2(innerWidth, innerHeight),
+      });
+      const blockify = makeEffect("Blockify", blockifyShader, {
+        pixelSize: 8,
+        resolution: new THREE.Vector2(innerWidth, innerHeight),
+      });
+      const edge = makeEffect("Edge", edgeShader, {
+        resolution: new THREE.Vector2(innerWidth, innerHeight),
+      });
+      const crosshatch = makeEffect("Crosshatch", crosshatchShader, {
+        resolution: new THREE.Vector2(innerWidth, innerHeight),
+      });
+      const waveLines = makeEffect("WaveLines", waveLinesShader, {
+        time: 0,
+        resolution: new THREE.Vector2(innerWidth, innerHeight),
+      });
+      const noise = makeEffect("Noise", noise_shader, {
+        time: 0,
+        resolution: new THREE.Vector2(innerWidth, innerHeight),
+      });
+      const voronoi = makeEffect("Voronoi", voronoiShader, {
+        time: 0,
+        resolution: new THREE.Vector2(innerWidth, innerHeight),
+      });
+      const vhs = makeEffect("VHS", vhsShader, {
+        time: 0,
+        resolution: new THREE.Vector2(innerWidth, innerHeight),
+      });
 
-      const map = { normal, dots, complex, woven, lego, dither, halftone, contour, blockify, edge, crosshatch, waveLines, noise, voronoi, vhs };
+      const map = {
+        normal,
+        dots,
+        complex,
+        woven,
+        lego,
+        dither,
+        halftone,
+        contour,
+        blockify,
+        edge,
+        crosshatch,
+        waveLines,
+        noise,
+        voronoi,
+        vhs,
+      };
 
       scene.add(new THREE.AmbientLight(0xffffff, 0.6));
       const dl = new THREE.DirectionalLight(0xffffff, 10);
@@ -329,23 +508,53 @@
       const objLoader = new OBJLoader();
       let currentModel = null;
 
-      const MODELS = { /* ... all your models exactly as before ... */ 
-        shoe: { url: "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/main/2.0/MaterialsVariantsShoe/glTF/MaterialsVariantsShoe.gltf", scale: 10, rotation: { x: Math.PI / -6, y: 2.4, z: 0 }, position: { x: 0, y: -0.6, z: 0 } },
+      const MODELS = {
+        /* ... all your models exactly as before ... */
+        shoe: {
+          url: "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/main/2.0/MaterialsVariantsShoe/glTF/MaterialsVariantsShoe.gltf",
+          scale: 10,
+          rotation: { x: Math.PI / -6, y: 2.4, z: 0 },
+          position: { x: 0, y: -0.6, z: 0 },
+        },
         // ... (add all other models from your original code here - I shortened for message length)
-        hands: { url: "https://cdn.maximeheckel.com/models/creation-of-adam.glb", scale: 3.2, rotation: { x: -0.1, y: -Math.PI / 2 + 0.08, z: 0 }, position: { x: 1.8, y: -1.4, z: 0 } },
+        hands: {
+          url: "https://cdn.maximeheckel.com/models/creation-of-adam.glb",
+          scale: 3.2,
+          rotation: { x: -0.1, y: -Math.PI / 2 + 0.08, z: 0 },
+          position: { x: 1.8, y: -1.4, z: 0 },
+        },
       };
 
       function loadModel(name) {
         const cfg = MODELS[name] || MODELS["hands"];
-        if (currentModel) { scene.remove(currentModel); currentModel = null; }
+        if (currentModel) {
+          scene.remove(currentModel);
+          currentModel = null;
+        }
         const isObj = cfg.url.toLowerCase().endsWith(".obj");
         const loader = isObj ? objLoader : gltfLoader;
         loader.load(cfg.url, (result) => {
           let m = isObj ? result : result.scene;
-          if (isObj) m.traverse(c => { if(c.isMesh && c.material.type==="MeshBasicMaterial") c.material = new THREE.MeshStandardMaterial({color:0xffffff, roughness:0.5, metalness:0.5}); });
+          if (isObj)
+            m.traverse((c) => {
+              if (c.isMesh && c.material.type === "MeshBasicMaterial")
+                c.material = new THREE.MeshStandardMaterial({
+                  color: 0xffffff,
+                  roughness: 0.5,
+                  metalness: 0.5,
+                });
+            });
           m.scale.setScalar(cfg.scale);
-          m.rotation.set(cfg.rotation.x||0, cfg.rotation.y||0, cfg.rotation.z||0);
-          m.position.set(cfg.position.x||0, cfg.position.y||0, cfg.position.z||0);
+          m.rotation.set(
+            cfg.rotation.x || 0,
+            cfg.rotation.y || 0,
+            cfg.rotation.z || 0,
+          );
+          m.position.set(
+            cfg.position.x || 0,
+            cfg.position.y || 0,
+            cfg.position.z || 0,
+          );
           scene.add(m);
           currentModel = m;
         });
@@ -371,7 +580,10 @@
         sidebar.classList.toggle("collapsed", !isPanelOpen);
         toggleBtn.textContent = isPanelOpen ? "—" : "+";
         floatingToggle.classList.toggle("visible", !isPanelOpen);
-        targetLayoutWidth = window.innerWidth - (isPanelOpen ? sidebarWidth : 0) - (isLeftPanelOpen ? sidebarWidth : 0);
+        targetLayoutWidth =
+          window.innerWidth -
+          (isPanelOpen ? sidebarWidth : 0) -
+          (isLeftPanelOpen ? sidebarWidth : 0);
         updateCamera();
       }
 
@@ -380,12 +592,19 @@
         leftSidebar.classList.toggle("collapsed", !isLeftPanelOpen);
         leftToggleBtn.textContent = isLeftPanelOpen ? "—" : "+";
         floatingToggleLeft.classList.toggle("visible", !isLeftPanelOpen);
-        targetLayoutWidth = window.innerWidth - (isPanelOpen ? sidebarWidth : 0) - (isLeftPanelOpen ? sidebarWidth : 0);
+        targetLayoutWidth =
+          window.innerWidth -
+          (isPanelOpen ? sidebarWidth : 0) -
+          (isLeftPanelOpen ? sidebarWidth : 0);
         updateCamera();
       }
 
-      document.querySelector("#sidebar h2").addEventListener("click", togglePanel);
-      document.querySelector("#leftSidebar h2").addEventListener("click", toggleLeftPanel);
+      document
+        .querySelector("#sidebar h2")
+        .addEventListener("click", togglePanel);
+      document
+        .querySelector("#leftSidebar h2")
+        .addEventListener("click", toggleLeftPanel);
       floatingToggle.addEventListener("click", togglePanel);
       floatingToggleLeft.addEventListener("click", toggleLeftPanel);
 
@@ -400,7 +619,10 @@
       }
 
       function handleResize() {
-        targetLayoutWidth = window.innerWidth - (isPanelOpen?sidebarWidth:0) - (isLeftPanelOpen?sidebarWidth:0);
+        targetLayoutWidth =
+          window.innerWidth -
+          (isPanelOpen ? sidebarWidth : 0) -
+          (isLeftPanelOpen ? sidebarWidth : 0);
         currentLayoutWidth = targetLayoutWidth;
         updateLayout(currentLayoutWidth);
       }
@@ -408,36 +630,50 @@
       window.addEventListener("resize", handleResize);
       handleResize();
 
-      function switchEffect(val) { /* same as your original */ 
+      function switchEffect(val) {
+        /* same as your original */
         composer.removePass(pass);
         renderer.domElement.style.display = "none";
         ascii.domElement.style.display = "none";
         matrix.domElement.style.display = "none";
-        if (val === "ascii") { ascii.domElement.style.display = "block"; ascii.setSize(currentLayoutWidth, window.innerHeight); return; }
-        if (val === "matrix") { matrix.domElement.style.display = "block"; matrix.setSize(currentLayoutWidth, window.innerHeight); return; }
+        if (val === "ascii") {
+          ascii.domElement.style.display = "block";
+          ascii.setSize(currentLayoutWidth, window.innerHeight);
+          return;
+        }
+        if (val === "matrix") {
+          matrix.domElement.style.display = "block";
+          matrix.setSize(currentLayoutWidth, window.innerHeight);
+          return;
+        }
         renderer.domElement.style.display = "block";
         pass = new EffectPass(camera, map[val]);
         composer.addPass(pass);
       }
 
       // Click handlers, pixel slider, axis HUD, animate loop (same logic as before but using the new updateCamera)
-      document.querySelectorAll("#effectList li").forEach(item => {
+      document.querySelectorAll("#effectList li").forEach((item) => {
         item.addEventListener("click", () => {
-          document.querySelectorAll("#effectList li").forEach(li=>li.classList.remove("active"));
+          document
+            .querySelectorAll("#effectList li")
+            .forEach((li) => li.classList.remove("active"));
           item.classList.add("active");
           switchEffect(item.dataset.value);
         });
       });
 
-      document.querySelectorAll("#modelList li").forEach(item => {
+      document.querySelectorAll("#modelList li").forEach((item) => {
         item.addEventListener("click", () => {
-          document.querySelectorAll("#modelList li").forEach(li=>li.classList.remove("active"));
+          document
+            .querySelectorAll("#modelList li")
+            .forEach((li) => li.classList.remove("active"));
           item.classList.add("active");
           loadModel(item.dataset.value);
         });
       });
 
-      const activeEffectName = () => document.querySelector("#effectList li.active")?.dataset.value;
+      const activeEffectName = () =>
+        document.querySelector("#effectList li.active")?.dataset.value;
 
       switchEffect("normal");
 
@@ -448,7 +684,8 @@
 
         if (Math.abs(currentLayoutWidth - targetLayoutWidth) > 0.5) {
           currentLayoutWidth += (targetLayoutWidth - currentLayoutWidth) * 0.25;
-          if (Math.abs(currentLayoutWidth - targetLayoutWidth) < 2) currentLayoutWidth = targetLayoutWidth;
+          if (Math.abs(currentLayoutWidth - targetLayoutWidth) < 2)
+            currentLayoutWidth = targetLayoutWidth;
           updateLayout(currentLayoutWidth);
         }
 

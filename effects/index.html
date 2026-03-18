@@ -26,9 +26,7 @@
         height: 100%;
         z-index: 1;
         overflow: hidden;
-        transition:
-          left 0.3s cubic-bezier(0.25, 0.8, 0.25, 1),
-          width 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+        transition: none; /* Remove CSS transition - we handle it in JS for sync */
       }
 
       #axisHUD {
@@ -761,8 +759,13 @@
 
       let isPanelOpen = true;
       let isLeftPanelOpen = true;
+      
+      // Lerping variables for smooth animation
       let currentLayoutWidth = window.innerWidth - 560;
       let targetLayoutWidth = window.innerWidth - 560;
+      let currentLeftOffset = 280; // Starts with left panel open
+      let targetLeftOffset = 280;
+      
       const sidebarWidth = 280;
 
       function updateCamera() {
@@ -1015,14 +1018,6 @@
       controls.enableDamping = true;
       controls.target.copy(handsFocusPoint);
       controls.update();
-
-      // To restrict the camera movement to a specific area, you can set limits on the polar and azimuthal angles.
-
-      // const horizon = Math.PI / 2;
-      // controls.minPolarAngle = horizon - 0.15;
-      // controls.maxPolarAngle = horizon + 0.15;
-      // controls.minAzimuthAngle = -Infinity;
-      // controls.maxAzimuthAngle = Infinity;
 
       /* ================= LIGHTS ================= */
       scene.add(new THREE.AmbientLight(0xffffff, 0.6));
@@ -1330,6 +1325,8 @@
           leftToggleBtn.textContent = "+";
           floatingToggleLeft.classList.add("visible");
         }
+        // Update target left offset for smooth animation
+        targetLeftOffset = isLeftPanelOpen ? sidebarWidth : 0;
         targetLayoutWidth =
           window.innerWidth -
           (isPanelOpen ? sidebarWidth : 0) -
@@ -1408,36 +1405,36 @@
         );
       };
 
-      function updateLayout(width) {
+      function updateLayout() {
         const height = window.innerHeight;
-        const leftOffset = isLeftPanelOpen ? sidebarWidth : 0;
 
-        canvasContainer.style.left = leftOffset + "px";
-        canvasContainer.style.width = width + "px";
+        // Use the lerped values for both left and width
+        canvasContainer.style.left = currentLeftOffset + "px";
+        canvasContainer.style.width = currentLayoutWidth + "px";
         canvasContainer.style.height = height + "px";
 
-        renderer.setSize(width, height);
-        composer.setSize(width, height);
+        renderer.setSize(currentLayoutWidth, height);
+        composer.setSize(currentLayoutWidth, height);
 
-        renderer.domElement.style.width = width + "px";
+        renderer.domElement.style.width = currentLayoutWidth + "px";
         renderer.domElement.style.height = height + "px";
 
         updateCamera();
 
         Object.values(map).forEach((e) => {
           if (e?.uniforms?.get?.("resolution"))
-            e.uniforms.get("resolution").value.set(width, height);
+            e.uniforms.get("resolution").value.set(currentLayoutWidth, height);
         });
 
         if (ascii) {
-          ascii.setSize(width, height);
-          ascii.domElement.style.width = width + "px";
+          ascii.setSize(currentLayoutWidth, height);
+          ascii.domElement.style.width = currentLayoutWidth + "px";
           ascii.domElement.style.height = height + "px";
         }
 
         if (matrix) {
-          matrix.setSize(width, height);
-          matrix.domElement.style.width = width + "px";
+          matrix.setSize(currentLayoutWidth, height);
+          matrix.domElement.style.width = currentLayoutWidth + "px";
           matrix.domElement.style.height = height + "px";
         }
       }
@@ -1447,8 +1444,13 @@
           window.innerWidth -
           (isPanelOpen ? sidebarWidth : 0) -
           (isLeftPanelOpen ? sidebarWidth : 0);
+        targetLeftOffset = isLeftPanelOpen ? sidebarWidth : 0;
+        
+        // Immediately set current values on resize (no animation)
         currentLayoutWidth = targetLayoutWidth;
-        updateLayout(currentLayoutWidth);
+        currentLeftOffset = targetLeftOffset;
+        
+        updateLayout();
       }
 
       window.addEventListener("resize", handleResize);
@@ -1465,11 +1467,22 @@
         requestAnimationFrame(animate);
         controls.update();
 
-        if (Math.abs(currentLayoutWidth - targetLayoutWidth) > 0.5) {
+        // Smoothly interpolate both left offset and width
+        const needsUpdate = 
+          Math.abs(currentLayoutWidth - targetLayoutWidth) > 0.5 ||
+          Math.abs(currentLeftOffset - targetLeftOffset) > 0.5;
+
+        if (needsUpdate) {
           currentLayoutWidth += (targetLayoutWidth - currentLayoutWidth) * 0.15;
+          currentLeftOffset += (targetLeftOffset - currentLeftOffset) * 0.15;
+          
+          // Snap to target when close enough
           if (Math.abs(currentLayoutWidth - targetLayoutWidth) < 1)
             currentLayoutWidth = targetLayoutWidth;
-          updateLayout(currentLayoutWidth);
+          if (Math.abs(currentLeftOffset - targetLeftOffset) < 1)
+            currentLeftOffset = targetLeftOffset;
+            
+          updateLayout();
         }
 
         updateAxisHUD();

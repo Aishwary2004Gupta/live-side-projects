@@ -26,7 +26,9 @@
         height: 100%;
         z-index: 1;
         overflow: hidden;
-        transition: none; /* Remove CSS transition - we handle it in JS for sync */
+        transition:
+          left 0.3s cubic-bezier(0.25, 0.8, 0.25, 1),
+          width 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
       }
 
       #axisHUD {
@@ -307,11 +309,12 @@
     <div id="sidebar">
       <h2><span id="toggleBtn">—</span> Effects</h2>
       <ul id="effectList">
-        <li data-value="normal">Normal</li>
-        <li data-value="woven" class="active">Woven</li>
+        <li data-value="normal" class="active">Normal</li>
+        <li data-value="woven">Woven</li>
         <li data-value="lego">Lego</li>
         <li data-value="dots">Dots</li>
         <li data-value="dither">Dithering</li>
+        <li data-value="lines">Lines</li>
         <li data-value="matrix">Matrix Rain</li>
         <li data-value="blockify">Blockify</li>
         <li data-value="complex">Complex Pixel</li>
@@ -374,6 +377,57 @@
           o = vec4(vec3(m) * max(l, 0.05), 1.0);
         }
       `;
+
+      const linesShader = `
+  precision highp float;
+  uniform float pixelSize;
+  uniform vec2 resolution;
+  
+  float random(vec2 st) {
+    return fract(sin(dot(st.xy, vec2(12.9898,78.233))) * 43758.5453123);
+  }
+  
+  vec3 sat(vec3 rgb, float adjustment) {
+    const vec3 W = vec3(0.2125, 0.7154, 0.0721);
+    vec3 intensity = vec3(dot(rgb, W));
+    return mix(intensity, rgb, adjustment);
+  }
+  
+  void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor) {
+    vec2 normalizedPixelSize = pixelSize / resolution;
+    vec2 uvPixel = normalizedPixelSize * floor(uv / normalizedPixelSize);
+    
+    vec4 color = texture2D(inputBuffer, uvPixel);
+    float luma = dot(vec3(0.2126, 0.7152, 0.0722), color.rgb);
+    
+    // Check if this is background (scene background is #010101, very dark)
+    // If background, keep it as-is (black/empty)
+    if (luma < 0.02) {
+      outputColor = color;
+      return;
+    }
+    
+    // Only apply line effect to model pixels
+    vec2 cellUV = fract(uv / normalizedPixelSize);
+    float lineWidth = 0.0;
+    
+    if (luma > 0.0) lineWidth = 1.0;
+    if (luma > 0.3) lineWidth = 0.7;
+    if (luma > 0.5) lineWidth = 0.5;
+    if (luma > 0.7) lineWidth = 0.3;
+    if (luma > 0.9) lineWidth = 0.1;
+    if (luma > 0.99) lineWidth = 0.0;
+    
+    float yStart = 0.05;
+    float yEnd = 0.95;
+    
+    if (cellUV.y > yStart && cellUV.y < yEnd && cellUV.x > 0.0 && cellUV.x < lineWidth) {
+      outputColor = vec4(0.0, 0.0, 0.0, 1.0); // Black lines
+    } else {
+      outputColor = vec4(0.70,0.74,0.73, 1.0); // Gray background only on model
+    }
+  }
+`;
 
       const ditherShader = `
         precision highp float;
@@ -759,13 +813,8 @@
 
       let isPanelOpen = true;
       let isLeftPanelOpen = true;
-
-      // Lerping variables for smooth animation
       let currentLayoutWidth = window.innerWidth - 560;
       let targetLayoutWidth = window.innerWidth - 560;
-      let currentLeftOffset = 280; // Starts with left panel open
-      let targetLeftOffset = 280;
-
       const sidebarWidth = 280;
 
       function updateCamera() {
@@ -944,6 +993,10 @@
         pixelSize: 10.0,
         resolution: new THREE.Vector2(innerWidth, innerHeight),
       });
+      const lines = makeEffect("Lines", linesShader, {
+        pixelSize: 10.0,
+        resolution: new THREE.Vector2(innerWidth, innerHeight),
+      });
       const complex = makeEffect("Complex", complexShader, {
         pixelSize: 10.0,
         resolution: new THREE.Vector2(innerWidth, innerHeight),
@@ -997,6 +1050,7 @@
       const map = {
         normal,
         dots,
+        lines,
         complex,
         woven,
         lego,
@@ -1325,8 +1379,6 @@
           leftToggleBtn.textContent = "+";
           floatingToggleLeft.classList.add("visible");
         }
-        // Update target left offset for smooth animation
-        targetLeftOffset = isLeftPanelOpen ? sidebarWidth : 0;
         targetLayoutWidth =
           window.innerWidth -
           (isPanelOpen ? sidebarWidth : 0) -
@@ -1372,6 +1424,7 @@
           "complex",
           "woven",
           "lego",
+          "lines",
         ].includes(val)
           ? "block"
           : "none";
@@ -1393,48 +1446,54 @@
         });
       });
 
-      switchEffect("woven");
+      switchEffect("normal");
 
       pixelInput.oninput = (e) => {
         const value = +e.target.value;
-        ["dots", "halftone", "blockify", "complex", "woven", "lego"].forEach(
-          (key) => {
-            if (map[key]?.uniforms?.get("pixelSize"))
-              map[key].uniforms.get("pixelSize").value = value;
-          },
-        );
+        [
+          "dots",
+          "halftone",
+          "blockify",
+          "complex",
+          "woven",
+          "lego",
+          "lines",
+        ].forEach((key) => {
+          if (map[key]?.uniforms?.get("pixelSize"))
+            map[key].uniforms.get("pixelSize").value = value;
+        });
       };
 
-      function updateLayout() {
+      function updateLayout(width) {
         const height = window.innerHeight;
+        const leftOffset = isLeftPanelOpen ? sidebarWidth : 0;
 
-        // Use the lerped values for both left and width
-        canvasContainer.style.left = currentLeftOffset + "px";
-        canvasContainer.style.width = currentLayoutWidth + "px";
+        canvasContainer.style.left = leftOffset + "px";
+        canvasContainer.style.width = width + "px";
         canvasContainer.style.height = height + "px";
 
-        renderer.setSize(currentLayoutWidth, height);
-        composer.setSize(currentLayoutWidth, height);
+        renderer.setSize(width, height);
+        composer.setSize(width, height);
 
-        renderer.domElement.style.width = currentLayoutWidth + "px";
+        renderer.domElement.style.width = width + "px";
         renderer.domElement.style.height = height + "px";
 
         updateCamera();
 
         Object.values(map).forEach((e) => {
           if (e?.uniforms?.get?.("resolution"))
-            e.uniforms.get("resolution").value.set(currentLayoutWidth, height);
+            e.uniforms.get("resolution").value.set(width, height);
         });
 
         if (ascii) {
-          ascii.setSize(currentLayoutWidth, height);
-          ascii.domElement.style.width = currentLayoutWidth + "px";
+          ascii.setSize(width, height);
+          ascii.domElement.style.width = width + "px";
           ascii.domElement.style.height = height + "px";
         }
 
         if (matrix) {
-          matrix.setSize(currentLayoutWidth, height);
-          matrix.domElement.style.width = currentLayoutWidth + "px";
+          matrix.setSize(width, height);
+          matrix.domElement.style.width = width + "px";
           matrix.domElement.style.height = height + "px";
         }
       }
@@ -1444,13 +1503,8 @@
           window.innerWidth -
           (isPanelOpen ? sidebarWidth : 0) -
           (isLeftPanelOpen ? sidebarWidth : 0);
-        targetLeftOffset = isLeftPanelOpen ? sidebarWidth : 0;
-
-        // Immediately set current values on resize (no animation)
         currentLayoutWidth = targetLayoutWidth;
-        currentLeftOffset = targetLeftOffset;
-
-        updateLayout();
+        updateLayout(currentLayoutWidth);
       }
 
       window.addEventListener("resize", handleResize);
@@ -1467,22 +1521,11 @@
         requestAnimationFrame(animate);
         controls.update();
 
-        // Smoothly interpolate both left offset and width
-        const needsUpdate =
-          Math.abs(currentLayoutWidth - targetLayoutWidth) > 0.5 ||
-          Math.abs(currentLeftOffset - targetLeftOffset) > 0.5;
-
-        if (needsUpdate) {
+        if (Math.abs(currentLayoutWidth - targetLayoutWidth) > 0.5) {
           currentLayoutWidth += (targetLayoutWidth - currentLayoutWidth) * 0.15;
-          currentLeftOffset += (targetLeftOffset - currentLeftOffset) * 0.15;
-
-          // Snap to target when close enough
           if (Math.abs(currentLayoutWidth - targetLayoutWidth) < 1)
             currentLayoutWidth = targetLayoutWidth;
-          if (Math.abs(currentLeftOffset - targetLeftOffset) < 1)
-            currentLeftOffset = targetLeftOffset;
-
-          updateLayout();
+          updateLayout(currentLayoutWidth);
         }
 
         updateAxisHUD();
@@ -1496,14 +1539,6 @@
           composer.render();
         }
       }
-
-       // To restrict the camera movement to a specific area, you can set limits on the polar and azimuthal angles.
-
-      // const horizon = Math.PI / 2;
-      // controls.minPolarAngle = horizon - 0.15;
-      // controls.maxPolarAngle = horizon + 0.15;
-      // controls.minAzimuthAngle = -Infinity;
-      // controls.maxAzimuthAngle = Infinity;
 
       animate();
     </script>

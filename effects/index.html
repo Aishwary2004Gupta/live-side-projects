@@ -273,7 +273,6 @@
     <div id="floatingToggleLeft">+</div>
 
     <div id="canvasContainer">
-      <!-- Axis HUD moved inside canvasContainer so it moves with it -->
       <div id="axisHUD">
         <canvas id="axisCanvas" width="100" height="100"></canvas>
       </div>
@@ -282,8 +281,19 @@
     <div id="leftSidebar">
       <h2><span id="leftToggleBtn">—</span> Models</h2>
       <ul id="modelList">
-        <li data-value="shoe" class="active">Shoe</li>
-        <!-- <li data-value="cow">Cow</li> -->
+        <!-- Procedural Shapes -->
+        <li data-value="cube" class="active">Cube</li>
+        <li data-value="sphere">Sphere</li>
+        <li data-value="torus">Torus</li>
+        <li data-value="cone">Cone</li>
+        <li data-value="cylinder">Cylinder</li>
+        <li data-value="icosahedron">Icosahedron</li>
+        <li data-value="knot">Torus Knot</li>
+        <li data-value="dodecahedron">Dodecahedron</li>
+        <li data-value="octahedron">Octahedron</li>
+        <hr style="border: 0; border-top: 1px solid #222; margin: 10px 0;" />
+        <!-- External Models -->
+        <li data-value="shoe">Shoe</li>
         <li data-value="teapot">Teapot</li>
         <li data-value="dragon2">Dragon2</li>
         <li data-value="fox">Fox</li>
@@ -291,9 +301,7 @@
         <li data-value="tableLamp">Table Lamp</li>
         <li data-value="chair">Chair</li>
         <li data-value="lantern">Lantern</li>
-        <!-- <li data-value="olives">Olives</li> -->
         <li data-value="sofa">GlamVelvetSofa</li>
-        <!-- <li data-value="cesiumMan">Cesium Man</li> -->
         <li data-value="milkTruck">Milk Truck</li>
         <li data-value="dragon">Dragon</li>
         <li data-value="hands">Hands (Creation of Adam)</li>
@@ -303,7 +311,6 @@
         <li data-value="skull">Scattering Skull</li>
         <li data-value="hand">Hand</li>
         <li data-value="astronaut">Astronaut</li>
-        <!-- <li data-value="chessBoard">Chess Board</li> -->
       </ul>
     </div>
 
@@ -321,7 +328,6 @@
         <li data-value="complex">Complex Pixel</li>
         <li data-value="ascii">ASCII</li>
         <li data-value="halftone">Halftone</li>
-        <!-- <li data-value="contour">Contour</li> -->
         <li data-value="edge">Edge Detection</li>
         <li data-value="crosshatch">Crosshatch</li>
         <li data-value="waveLines">Wave Lines</li>
@@ -1097,6 +1103,55 @@
       dl.position.set(5, 10, 0);
       scene.add(dl);
 
+      /* ================= PROCEDURAL SHAPES ================= */
+      function createProceduralShape(type) {
+        let geometry;
+        let material = new THREE.MeshStandardMaterial({
+          color: 0xffffff,
+          roughness: 0.5,
+          metalness: 0.5,
+        });
+        
+        switch(type) {
+          case 'cube':
+            geometry = new THREE.BoxGeometry(1.5, 1.5, 1.5);
+            break;
+          case 'sphere':
+            geometry = new THREE.SphereGeometry(1, 32, 32);
+            break;
+          case 'torus':
+            geometry = new THREE.TorusGeometry(1, 0.4, 16, 100);
+            break;
+          case 'cone':
+            geometry = new THREE.ConeGeometry(1, 2, 32);
+            break;
+          case 'cylinder':
+            geometry = new THREE.CylinderGeometry(0.8, 0.8, 2, 32);
+            break;
+          case 'icosahedron':
+            geometry = new THREE.IcosahedronGeometry(1, 0);
+            break;
+          case 'knot':
+          case 'torusKnot':
+            geometry = new THREE.TorusKnotGeometry(0.8, 0.3, 100, 16);
+            break;
+          case 'dodecahedron':
+            geometry = new THREE.DodecahedronGeometry(1, 0);
+            break;
+          case 'octahedron':
+            geometry = new THREE.OctahedronGeometry(1, 0);
+            break;
+          default:
+            geometry = new THREE.BoxGeometry(1, 1, 1);
+        }
+        
+        const mesh = new THREE.Mesh(geometry, material);
+        mesh.scale.setScalar(1.5);
+        mesh.position.set(0, 0, 0);
+        mesh.rotation.set(0.5, 0.5, 0);
+        return mesh;
+      }
+
       /* ================= MODELS ================= */
       const gltfLoader = new GLTFLoader();
       const objLoader = new OBJLoader();
@@ -1237,6 +1292,9 @@
         },
       };
 
+      // List of procedural shape names
+      const PROCEDURAL_SHAPES = ['cube', 'sphere', 'torus', 'cone', 'cylinder', 'icosahedron', 'knot', 'torusKnot', 'dodecahedron', 'octahedron'];
+
       function disposeModel(root) {
         if (!root) return;
         root.traverse((obj) => {
@@ -1252,7 +1310,24 @@
       }
 
       function loadModel(name) {
-        const cfg = MODELS[name] || MODELS["hands"];
+        // Check if it's a procedural shape
+        if (PROCEDURAL_SHAPES.includes(name)) {
+          if (currentModel) {
+            scene.remove(currentModel);
+            disposeModel(currentModel);
+            currentModel = null;
+          }
+          const mesh = createProceduralShape(name);
+          scene.add(mesh);
+          currentModel = mesh;
+          controls.target.copy(handsFocusPoint);
+          controls.update();
+          camera.lookAt(handsFocusPoint);
+          return;
+        }
+
+        // Otherwise load external model
+        const cfg = MODELS[name] || MODELS["shoe"];
         if (currentModel) {
           scene.remove(currentModel);
           disposeModel(currentModel);
@@ -1302,13 +1377,13 @@
           },
           undefined,
           (err) => {
-            console.warn("Failed to load model, fallback to hands", err);
-            if (name !== "hands") loadModel("hands");
+            console.warn("Failed to load model, fallback to shoe", err);
+            if (name !== "shoe") loadModel("shoe");
           },
         );
       }
 
-      loadModel("shoe");
+      loadModel("cube");
 
       /* ================= POST ================= */
       const composer = new EffectComposer(renderer);

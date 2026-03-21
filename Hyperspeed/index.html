@@ -6,14 +6,15 @@
       name="viewport"
       content="width=device-width, initial-scale=1.0, user-scalable=no"
     />
-    <title>Hyperspeed: Retro-Futuristic Drive</title>
+    <title>Hyperspeed: Retro-Futuristic Drive | Three.js</title>
     <style>
       body {
         margin: 0;
         overflow: hidden;
-        font-family: "Segoe UI", monospace;
+        font-family: "Segoe UI", "Arial", "Monaco", monospace;
         background-color: black;
       }
+
       #hyperspeed-container {
         position: fixed;
         top: 0;
@@ -21,6 +22,7 @@
         width: 100%;
         height: 100%;
         z-index: 1;
+        overflow: hidden;
       }
 
       .ui-panel {
@@ -42,6 +44,7 @@
         pointer-events: auto;
         font-family: monospace;
       }
+
       .preset-btn {
         background: rgba(20, 20, 40, 0.8);
         border: 1px solid rgba(100, 150, 255, 0.6);
@@ -56,12 +59,19 @@
         backdrop-filter: blur(4px);
         font-family: monospace;
       }
+
       .preset-btn:hover {
         background: #2a3f6e;
         border-color: #7ab3ff;
         color: white;
         transform: scale(1.02);
+        box-shadow: 0 0 12px rgba(100, 150, 255, 0.4);
       }
+
+      .preset-btn:active {
+        transform: scale(0.98);
+      }
+
       .info-text {
         position: fixed;
         top: 20px;
@@ -73,10 +83,13 @@
         border-radius: 32px;
         color: #aaf0ff;
         font-size: 13px;
+        font-weight: 500;
         pointer-events: none;
         font-family: monospace;
+        letter-spacing: 1px;
         border-left: 3px solid #3c8eff;
       }
+
       .speed-tip {
         position: fixed;
         bottom: 100px;
@@ -91,6 +104,27 @@
         backdrop-filter: blur(4px);
         z-index: 10;
       }
+
+      @media (max-width: 700px) {
+        .preset-btn {
+          padding: 5px 12px;
+          font-size: 11px;
+        }
+        .ui-panel {
+          gap: 8px;
+          padding: 8px 16px;
+          bottom: 12px;
+        }
+        .info-text {
+          font-size: 10px;
+          top: 12px;
+        }
+      }
+
+      canvas {
+        display: block;
+        vertical-align: bottom;
+      }
     </style>
   </head>
   <body>
@@ -98,7 +132,6 @@
     <div class="info-text">
       ⚡ HYPERSPEED DRIVE ⚡ &nbsp;&nbsp;|&nbsp; HOLD CLICK / TOUCH → BOOST
     </div>
-
     <div class="ui-panel">
       <button class="preset-btn" data-preset="one">🌀 NEON DREAM</button>
       <button class="preset-btn" data-preset="two">🌊 AQUA PULSE</button>
@@ -109,13 +142,12 @@
     </div>
     <div class="speed-tip">🚀 HOLD to boost FOV & speed</div>
 
-    <!-- FIXED IMPORT MAP -->
-    <!-- Using unpkg to avoid 404s and ensure single instance of Three.js -->
+    <!-- Import Map: Aligned versions to prevent "Multiple instances" warning -->
     <script type="importmap">
       {
         "imports": {
-          "three": "https://unpkg.com/three@0.165.0/build/three.module.js",
-          "postprocessing": "https://unpkg.com/postprocessing@6.29.0/dist/index.mjs"
+          "three": "https://cdn.jsdelivr.net/npm/three@0.152.2/build/three.module.js",
+          "postprocessing": "https://cdn.jsdelivr.net/npm/postprocessing@6.35.0/build/postprocessing.module.min.js"
         }
       }
     </script>
@@ -356,28 +388,57 @@
             uFreq: { value: new THREE.Vector3(3, 6, 10) },
             uAmp: { value: new THREE.Vector3(30, 30, 20) },
           },
-          getDistortion: `uniform vec3 uFreq; uniform vec3 uAmp; float nsin(float val){ return sin(val) * 0.5 + 0.5; } vec3 getDistortion(float progress){ float movementProgressFix = 0.02; return vec3( cos(progress * 3.14159 * uFreq.x + uTime) * uAmp.x - cos(movementProgressFix * 3.14159 * uFreq.x + uTime) * uAmp.x, nsin(progress * 3.14159 * uFreq.y + uTime) * uAmp.y - nsin(movementProgressFix * 3.14159 * uFreq.y + uTime) * uAmp.y, nsin(progress * 3.14159 * uFreq.z + uTime) * uAmp.z - nsin(movementProgressFix * 3.14159 * uFreq.z + uTime) * uAmp.z ); }`,
+          getDistortion: `
+                    uniform vec3 uFreq; uniform vec3 uAmp;
+                    float nsin(float val){ return sin(val) * 0.5 + 0.5; }
+                    vec3 getDistortion(float progress){
+                        float movementProgressFix = 0.02;
+                        return vec3( cos(progress * 3.14159 * uFreq.x + uTime) * uAmp.x - cos(movementProgressFix * 3.14159 * uFreq.x + uTime) * uAmp.x,
+                                     nsin(progress * 3.14159 * uFreq.y + uTime) * uAmp.y - nsin(movementProgressFix * 3.14159 * uFreq.y + uTime) * uAmp.y,
+                                     nsin(progress * 3.14159 * uFreq.z + uTime) * uAmp.z - nsin(movementProgressFix * 3.14159 * uFreq.z + uTime) * uAmp.z );
+                    }
+                `,
         },
         xyDistortion: {
           uniforms: {
             uFreq: { value: new THREE.Vector2(5, 2) },
             uAmp: { value: new THREE.Vector2(25, 15) },
           },
-          getDistortion: `uniform vec2 uFreq; uniform vec2 uAmp; vec3 getDistortion(float progress){ float movementProgressFix = 0.02; return vec3( cos(progress * 3.14159 * uFreq.x + uTime) * uAmp.x - cos(movementProgressFix * 3.14159 * uFreq.x + uTime) * uAmp.x, sin(progress * 3.14159 * uFreq.y + 1.5708 + uTime) * uAmp.y - sin(movementProgressFix * 3.14159 * uFreq.y + 1.5708 + uTime) * uAmp.y, 0.); }`,
+          getDistortion: `
+                    uniform vec2 uFreq; uniform vec2 uAmp;
+                    vec3 getDistortion(float progress){
+                        float movementProgressFix = 0.02;
+                        return vec3( cos(progress * 3.14159 * uFreq.x + uTime) * uAmp.x - cos(movementProgressFix * 3.14159 * uFreq.x + uTime) * uAmp.x,
+                                     sin(progress * 3.14159 * uFreq.y + 1.5708 + uTime) * uAmp.y - sin(movementProgressFix * 3.14159 * uFreq.y + 1.5708 + uTime) * uAmp.y, 0.);
+                    }
+                `,
         },
         LongRaceDistortion: {
           uniforms: {
             uFreq: { value: new THREE.Vector2(2, 3) },
             uAmp: { value: new THREE.Vector2(35, 10) },
           },
-          getDistortion: `uniform vec2 uFreq; uniform vec2 uAmp; vec3 getDistortion(float progress){ float camProgress = 0.0125; return vec3( sin(progress * 3.14159 * uFreq.x + uTime) * uAmp.x - sin(camProgress * 3.14159 * uFreq.x + uTime) * uAmp.x, sin(progress * 3.14159 * uFreq.y + uTime) * uAmp.y - sin(camProgress * 3.14159 * uFreq.y + uTime) * uAmp.y, 0.); }`,
+          getDistortion: `
+                    uniform vec2 uFreq; uniform vec2 uAmp;
+                    vec3 getDistortion(float progress){
+                        float camProgress = 0.0125;
+                        return vec3( sin(progress * 3.14159 * uFreq.x + uTime) * uAmp.x - sin(camProgress * 3.14159 * uFreq.x + uTime) * uAmp.x,
+                                     sin(progress * 3.14159 * uFreq.y + uTime) * uAmp.y - sin(camProgress * 3.14159 * uFreq.y + uTime) * uAmp.y, 0.);
+                    }
+                `,
         },
         turbulentDistortion: {
           uniforms: {
             uFreq: { value: new THREE.Vector4(4, 8, 8, 1) },
             uAmp: { value: new THREE.Vector4(25, 5, 10, 10) },
           },
-          getDistortion: `uniform vec4 uFreq; uniform vec4 uAmp; float nsin(float val){ return sin(val) * 0.5 + 0.5; } float getDistortionX(float p){ return cos(3.14159 * p * uFreq.x + uTime) * uAmp.x + pow(cos(3.14159 * p * uFreq.y + uTime * (uFreq.y/uFreq.x)), 2.) * uAmp.y; } float getDistortionY(float p){ return -nsin(3.14159 * p * uFreq.z + uTime) * uAmp.z - pow(nsin(3.14159 * p * uFreq.w + uTime/(uFreq.z/uFreq.w)), 5.) * uAmp.w; } vec3 getDistortion(float progress){ return vec3(getDistortionX(progress)-getDistortionX(0.0125), getDistortionY(progress)-getDistortionY(0.0125), 0.); }`,
+          getDistortion: `
+                    uniform vec4 uFreq; uniform vec4 uAmp;
+                    float nsin(float val){ return sin(val) * 0.5 + 0.5; }
+                    float getDistortionX(float p){ return cos(3.14159 * p * uFreq.x + uTime) * uAmp.x + pow(cos(3.14159 * p * uFreq.y + uTime * (uFreq.y/uFreq.x)), 2.) * uAmp.y; }
+                    float getDistortionY(float p){ return -nsin(3.14159 * p * uFreq.z + uTime) * uAmp.z - pow(nsin(3.14159 * p * uFreq.w + uTime/(uFreq.z/uFreq.w)), 5.) * uAmp.w; }
+                    vec3 getDistortion(float progress){ return vec3(getDistortionX(progress)-getDistortionX(0.0125), getDistortionY(progress)-getDistortionY(0.0125), 0.); }
+                `,
         },
         deepDistortion: {
           uniforms: {
@@ -385,7 +446,12 @@
             uAmp: { value: new THREE.Vector2(10, 20) },
             uPowY: { value: new THREE.Vector2(20, 2) },
           },
-          getDistortion: `uniform vec2 uFreq; uniform vec2 uAmp; uniform vec2 uPowY; float getDistortionX(float p){ return sin(p * 3.14159 * uFreq.x + uTime) * uAmp.x; } float getDistortionY(float p){ return pow(abs(p * uPowY.x), uPowY.y) + sin(p * 3.14159 * uFreq.y + uTime) * uAmp.y; } vec3 getDistortion(float progress){ return vec3(getDistortionX(progress)-getDistortionX(0.02), getDistortionY(progress)-getDistortionY(0.02), 0.); }`,
+          getDistortion: `
+                    uniform vec2 uFreq; uniform vec2 uAmp; uniform vec2 uPowY;
+                    float getDistortionX(float p){ return sin(p * 3.14159 * uFreq.x + uTime) * uAmp.x; }
+                    float getDistortionY(float p){ return pow(abs(p * uPowY.x), uPowY.y) + sin(p * 3.14159 * uFreq.y + uTime) * uAmp.y; }
+                    vec3 getDistortion(float progress){ return vec3(getDistortionX(progress)-getDistortionX(0.02), getDistortionY(progress)-getDistortionY(0.02), 0.); }
+                `,
         },
       };
 
@@ -417,21 +483,25 @@
             alpha: false,
           });
           this.renderer.setSize(width, height);
-          this.renderer.setPixelRatio(window.devicePixelRatio);
+          this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
           container.appendChild(this.renderer.domElement);
 
-          // Setup post-processing
+          // Post-processing setup
           this.composer = new EffectComposer(this.renderer);
           const renderPass = new RenderPass(this.scene, this.camera);
+          
+          // BloomEffect options compatible with v6.30+
           const bloomEffect = new BloomEffect({
             luminanceThreshold: 0.2,
             luminanceSmoothing: 0.1,
             intensity: 0.8,
             radius: 0.5,
           });
+          
           const bloomPass = new EffectPass(this.camera, bloomEffect);
           renderPass.renderToScreen = false;
           bloomPass.renderToScreen = true;
+          
           this.composer.addPass(renderPass);
           this.composer.addPass(bloomPass);
 
@@ -456,6 +526,7 @@
 
         initObjects() {
           const opts = this.options;
+
           const makePlane = (xOffset, width, isRoad, colorHex) => {
             const geo = new THREE.PlaneGeometry(width, opts.length, 40, 200);
             const uniforms = {
@@ -464,6 +535,7 @@
               uColor: { value: new THREE.Color(colorHex) },
               ...this.distortionDef.uniforms,
             };
+
             if (isRoad) {
               uniforms.uLanes = { value: opts.lanesPerRoad };
               uniforms.uBrokenLinesColor = {
@@ -478,7 +550,7 @@
             }
 
             const mat = new THREE.ShaderMaterial({
-              uniforms,
+              uniforms: uniforms,
               vertexShader: this.getRoadVertexShader(),
               fragmentShader: isRoad
                 ? this.getRoadFragmentShader()
@@ -499,6 +571,7 @@
             mesh.rotation.x = -Math.PI / 2;
             mesh.position.set(xOffset, 0, -opts.length / 2);
             this.scene.add(mesh);
+            return mesh;
           };
 
           makePlane(
@@ -680,6 +753,7 @@
           this.container.addEventListener("contextmenu", (e) =>
             e.preventDefault(),
           );
+
           window.addEventListener("resize", () => this.resize());
           this.resize();
         }
@@ -695,7 +769,8 @@
 
         update(delta) {
           const lerpSpeed = Math.min(1, delta * 8);
-          this.speedUp += (this.speedUpTarget - this.speedUp) * lerpSpeed;
+          this.speedUp =
+            this.speedUp + (this.speedUpTarget - this.speedUp) * lerpSpeed;
           this.timeOffset += this.speedUp * delta;
           const time = this.clock.elapsedTime + this.timeOffset;
 
@@ -714,45 +789,48 @@
           this.camera.updateProjectionMatrix();
         }
 
-        render(delta) {
-          this.composer.render(delta);
+        render() {
+          // postprocessing v6+ composer.render() takes no arguments
+          if (this.composer) this.composer.render();
         }
 
         animate() {
           const delta = Math.min(0.033, this.clock.getDelta());
           this.update(delta);
-          this.render(delta);
+          this.render();
           requestAnimationFrame(() => this.animate());
         }
 
         getRoadVertexShader() {
           return `
-            uniform float uTime; uniform float uTravelLength; varying vec2 vUv;
-            #include <getDistortion_vertex>
-            void main() {
-                vec3 transformed = position.xyz;
-                float progress = (transformed.y + uTravelLength/2.)/uTravelLength;
-                vec3 dist = getDistortion(progress);
-                transformed.x += dist.x; transformed.z += dist.y; transformed.y -= dist.z;
-                vec4 mv = modelViewMatrix * vec4(transformed,1.);
-                gl_Position = projectionMatrix * mv; vUv = uv;
-            }`;
+                uniform float uTime; uniform float uTravelLength; varying vec2 vUv;
+                #include <getDistortion_vertex>
+                void main() {
+                    vec3 transformed = position.xyz;
+                    float progress = (transformed.y + uTravelLength/2.)/uTravelLength;
+                    vec3 dist = getDistortion(progress);
+                    transformed.x += dist.x; transformed.z += dist.y; transformed.y -= dist.z;
+                    vec4 mv = modelViewMatrix * vec4(transformed,1.);
+                    gl_Position = projectionMatrix * mv; vUv = uv;
+                }
+            `;
         }
 
         getRoadFragmentShader() {
           return `
-            uniform vec3 uColor; uniform float uLanes; uniform vec3 uBrokenLinesColor;
-            uniform float uBrokenLinesWidthPercentage; uniform float uBrokenLinesLengthPercentage;
-            uniform float uTime; varying vec2 vUv;
-            void main() {
-                vec2 uv = vUv; uv.y = mod(uv.y + uTime * 0.05, 1.);
-                float laneWidth = 1./uLanes; float brokenW = laneWidth * uBrokenLinesWidthPercentage;
-                float lines = step(1.-brokenW, fract(uv.x*2.)) * step(uBrokenLinesLengthPercentage, fract(uv.y*10.));
-                float side = step(1.-brokenW, fract((uv.x - laneWidth*(uLanes-1.))*2.)) + step(brokenW, uv.x);
-                lines = mix(lines, side, uv.x);
-                vec3 col = mix(uColor, uBrokenLinesColor, lines);
-                gl_FragColor = vec4(col, 1.0);
-            }`;
+                uniform vec3 uColor; uniform float uLanes; uniform vec3 uBrokenLinesColor;
+                uniform float uBrokenLinesWidthPercentage; uniform float uBrokenLinesLengthPercentage;
+                uniform float uTime; varying vec2 vUv;
+                void main() {
+                    vec2 uv = vUv; uv.y = mod(uv.y + uTime * 0.05, 1.);
+                    float laneWidth = 1./uLanes; float brokenW = laneWidth * uBrokenLinesWidthPercentage;
+                    float lines = step(1.-brokenW, fract(uv.x*2.)) * step(uBrokenLinesLengthPercentage, fract(uv.y*10.));
+                    float side = step(1.-brokenW, fract((uv.x - laneWidth*(uLanes-1.))*2.)) + step(brokenW, uv.x);
+                    lines = mix(lines, side, uv.x);
+                    vec3 col = mix(uColor, uBrokenLinesColor, lines);
+                    gl_FragColor = vec4(col, 1.0);
+                }
+            `;
         }
 
         getIslandFragmentShader() {
@@ -761,36 +839,39 @@
 
         getCarVertexShader() {
           return `
-            attribute vec3 aOffset; attribute vec3 aMetrics; attribute vec3 aColor;
-            uniform float uTravelLength; uniform float uTime; varying vec3 vColor; varying vec2 vUv;
-            #include <getDistortion_vertex>
-            void main() {
-                vec3 pos = position.xyz; float r = aMetrics.x; float len = aMetrics.y; float sp = aMetrics.z;
-                pos.xy *= r; pos.z *= len; pos.z += len - mod(uTime * sp + aOffset.z, uTravelLength);
-                pos.xy += aOffset.xy; float prog = abs(pos.z / uTravelLength);
-                pos.xyz += getDistortion(prog);
-                gl_Position = projectionMatrix * modelViewMatrix * vec4(pos,1.);
-                vColor = aColor; vUv = uv;
-            }`;
+                attribute vec3 aOffset; attribute vec3 aMetrics; attribute vec3 aColor;
+                uniform float uTravelLength; uniform float uTime; varying vec3 vColor; varying vec2 vUv;
+                #include <getDistortion_vertex>
+                void main() {
+                    vec3 pos = position.xyz; float r = aMetrics.x; float len = aMetrics.y; float sp = aMetrics.z;
+                    pos.xy *= r; pos.z *= len; pos.z += len - mod(uTime * sp + aOffset.z, uTravelLength);
+                    pos.xy += aOffset.xy; float prog = abs(pos.z / uTravelLength);
+                    pos.xyz += getDistortion(prog);
+                    gl_Position = projectionMatrix * modelViewMatrix * vec4(pos,1.);
+                    vColor = aColor; vUv = uv;
+                }
+            `;
         }
 
         getCarFragmentShader() {
           return `
-            uniform vec2 uFade; varying vec3 vColor; varying vec2 vUv;
-            void main() { float alpha = smoothstep(uFade.x, uFade.y, vUv.x); if(alpha<0.01) discard; gl_FragColor = vec4(vColor, alpha); }`;
+                uniform vec2 uFade; varying vec3 vColor; varying vec2 vUv;
+                void main() { float alpha = smoothstep(uFade.x, uFade.y, vUv.x); if(alpha<0.01) discard; gl_FragColor = vec4(vColor, alpha); }
+            `;
         }
 
         getStickVertexShader() {
           return `
-            attribute float aOffset; attribute vec3 aColor; attribute vec2 aMetrics;
-            uniform float uTravelLength; uniform float uTime; varying vec3 vColor;
-            #include <getDistortion_vertex>
-            void main() {
-                vec3 pos = position.xyz; pos.xy *= aMetrics; float timeShift = mod(uTime*120. + aOffset, uTravelLength);
-                pos.z = -uTravelLength + timeShift; float prog = abs(pos.z / uTravelLength);
-                pos.xyz += getDistortion(prog); pos.y += aMetrics.y/2.; pos.x -= aMetrics.x/2.;
-                gl_Position = projectionMatrix * modelViewMatrix * vec4(pos,1.); vColor = aColor;
-            }`;
+                attribute float aOffset; attribute vec3 aColor; attribute vec2 aMetrics;
+                uniform float uTravelLength; uniform float uTime; varying vec3 vColor;
+                #include <getDistortion_vertex>
+                void main() {
+                    vec3 pos = position.xyz; pos.xy *= aMetrics; float timeShift = mod(uTime*120. + aOffset, uTravelLength);
+                    pos.z = -uTravelLength + timeShift; float prog = abs(pos.z / uTravelLength);
+                    pos.xyz += getDistortion(prog); pos.y += aMetrics.y/2.; pos.x -= aMetrics.x/2.;
+                    gl_Position = projectionMatrix * modelViewMatrix * vec4(pos,1.); vColor = aColor;
+                }
+            `;
         }
 
         getStickFragmentShader() {

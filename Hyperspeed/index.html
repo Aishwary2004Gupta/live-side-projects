@@ -144,16 +144,12 @@
     </div>
     <div class="speed-tip">🚀 HOLD to boost FOV & speed</div>
 
-    <!-- 
-      FIXED IMPORT MAP 
-      Using esm.sh instead of jsdelivr to ensure proper ES Module compatibility 
-      for Three.js and Postprocessing 6.x in the browser.
-    -->
+    <!-- Import Three.js and postprocessing from jsdelivr CDN -->
     <script type="importmap">
       {
         "imports": {
-          "three": "https://esm.sh/three@0.165.0",
-          "postprocessing": "https://esm.sh/postprocessing@6.26.0"
+          "three": "https://cdn.jsdelivr.net/npm/three@0.150.0/build/three.module.js",
+          "postprocessing": "https://cdn.jsdelivr.net/npm/postprocessing@6.30.0/build/postprocessing.module.js"
         }
       }
     </script>
@@ -495,15 +491,15 @@
             alpha: false,
           });
           this.renderer.setSize(width, height);
-          this.renderer.setPixelRatio(window.devicePixelRatio);
+          this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
           container.appendChild(this.renderer.domElement);
 
           // Setup post-processing
           this.composer = new EffectComposer(this.renderer);
           const renderPass = new RenderPass(this.scene, this.camera);
           const bloomEffect = new BloomEffect({
-            luminanceThreshold: 0.2,
-            luminanceSmoothing: 0.1,
+            threshold: 0.2,
+            smoothing: 0.1,
             intensity: 0.8,
             radius: 0.5,
           });
@@ -797,14 +793,15 @@
           this.camera.updateProjectionMatrix();
         }
 
-        render(delta) {
-          this.composer.render(delta);
+        render() {
+          // postprocessing's EffectComposer.render() does not accept delta
+          this.composer.render();
         }
 
         animate() {
           const delta = Math.min(0.033, this.clock.getDelta());
           this.update(delta);
-          this.render(delta);
+          this.render();
           requestAnimationFrame(() => this.animate());
         }
 

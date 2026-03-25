@@ -265,10 +265,45 @@
         opacity: 1;
         pointer-events: auto;
       }
+
+      #rotationUI {
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 1px solid #1a1a1a;
+  color: #777;
+}
+
+#rotationUI h3 {
+  margin: 0 0 12px 0;
+  color: #fff;
+  font-size: 13px;
+}
+
+#rotationUI label {
+  display: block;
+  margin-top: 10px;
+  margin-bottom: 6px;
+  font-size: 11px;
+  color: #888;
+}
     </style>
   </head>
 
   <body>
+
+    <div id="rotationUI">
+  <h3>Live Rotation</h3>
+
+  <label>X: <span id="rotXVal"></span></label>
+  <input type="range" id="rotX" min="-3.1416" max="3.1416" step="0.001" value="0" />
+
+  <label>Y: <span id="rotYVal"></span></label>
+  <input type="range" id="rotY" min="-3.1416" max="3.1416" step="0.001" value="1.7708" />
+
+  <label>Z: <span id="rotZVal"></span></label>
+  <input type="range" id="rotZ" min="-3.1416" max="3.1416" step="0.001" value="0" />
+</div>
+
     <div id="floatingToggle">+</div>
     <div id="floatingToggleLeft">+</div>
 
@@ -352,6 +387,38 @@
       } from "https://esm.sh/postprocessing@6.35.4?deps=three@0.160.0";
 
       const handsFocusPoint = new THREE.Vector3(0, 0, 0);
+
+      const rotX = document.getElementById("rotX");
+const rotY = document.getElementById("rotY");
+const rotZ = document.getElementById("rotZ");
+
+const rotXVal = document.getElementById("rotXVal");
+const rotYVal = document.getElementById("rotYVal");
+const rotZVal = document.getElementById("rotZVal");
+
+function radToDeg(v) {
+  return THREE.MathUtils.radToDeg(v).toFixed(1) + "°";
+}
+
+function updateRotationLabels() {
+  rotXVal.textContent = radToDeg(+rotX.value);
+  rotYVal.textContent = radToDeg(+rotY.value);
+  rotZVal.textContent = radToDeg(+rotZ.value);
+}
+
+function applyRotationToModel() {
+  if (!currentModel) return;
+  currentModel.rotation.set(+rotX.value, +rotY.value, +rotZ.value);
+}
+
+[rotX, rotY, rotZ].forEach((el) => {
+  el.addEventListener("input", () => {
+    updateRotationLabels();
+    applyRotationToModel();
+  });
+});
+
+updateRotationLabels();
 
       /* ================= SHADERS ================= */
       const normalShader = `
@@ -1259,6 +1326,7 @@
       }
 
       function loadModel(name) {
+        
         const cfg = MODELS[name] || MODELS["hands"];
         if (currentModel) {
           scene.remove(currentModel);
@@ -1301,6 +1369,10 @@
               cfg.position?.y ?? 0,
               cfg.position?.z ?? 0,
             );
+            rotX.value = cfg.rotation?.x ?? 0;
+rotY.value = cfg.rotation?.y ?? 0;
+rotZ.value = cfg.rotation?.z ?? 0;
+updateRotationLabels();
             scene.add(m);
             currentModel = m;
             controls.target.copy(handsFocusPoint);

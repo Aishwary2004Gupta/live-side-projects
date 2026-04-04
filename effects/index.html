@@ -151,6 +151,7 @@
         display: flex;
         align-items: center;
         transition: color 0.2s ease;
+        position: relative;
       }
 
       li::before {
@@ -172,6 +173,22 @@
       li.active::before {
         content: "●";
         color: #fff;
+      }
+
+      li.loading::after {
+        content: "";
+        display: inline-block;
+        width: 8px;
+        height: 8px;
+        margin-left: 8px;
+        border: 2px solid rgba(255, 255, 255, 0.3);
+        border-top-color: #fff;
+        border-radius: 50%;
+        animation: spin 0.6s linear infinite;
+      }
+
+      @keyframes spin {
+        to { transform: rotate(360deg); }
       }
 
       #pixelUI {
@@ -265,6 +282,18 @@
         opacity: 1;
         pointer-events: auto;
       }
+
+      /* Loading indicator for list items */
+      .loading-spinner {
+        display: inline-block;
+        width: 8px;
+        height: 8px;
+        margin-left: 8px;
+        border: 2px solid rgba(255, 255, 255, 0.3);
+        border-top-color: #fff;
+        border-radius: 50%;
+        animation: spin 0.6s linear infinite;
+      }
     </style>
   </head>
 
@@ -284,10 +313,10 @@
       <ul id="modelList">
         <li data-value="try" class="active">Trying</li>
         <li data-value="harleyBike">Harley Bike</li>
+        <li data-value="hoverBike">Hover Bike</li>
         <li data-value="lambo">Lamborghini</li>
         <li data-value="piano">Piano</li>
         <li data-value="sword">Sword</li>
-        <li data-value="hoverBike">Hover Bike</li>
         <li data-value="truck">Truck</li>
         <li data-value="car">Car</li>
         <li data-value="rifle">Rifle</li>
@@ -295,7 +324,6 @@
         <li data-value="visionPro">Vision Pro</li>
         <li data-value="tv">TV</li>
         <li data-value="shoe">Shoe</li>
-        <!-- <li data-value="cow">Cow</li> -->
         <li data-value="teapot">Teapot</li>
         <li data-value="dragon2">Dragon2</li>
         <li data-value="fox">Fox</li>
@@ -303,9 +331,7 @@
         <li data-value="tableLamp">Table Lamp</li>
         <li data-value="chair">Chair</li>
         <li data-value="lantern">Lantern</li>
-        <!-- <li data-value="olives">Olives</li> -->
         <li data-value="sofa">GlamVelvetSofa</li>
-        <!-- <li data-value="cesiumMan">Cesium Man</li> -->
         <li data-value="milkTruck">Milk Truck</li>
         <li data-value="dragon">Dragon</li>
         <li data-value="hands">Hands (Creation of Adam)</li>
@@ -315,7 +341,6 @@
         <li data-value="skull">Scattering Skull</li>
         <li data-value="hand">Hand</li>
         <li data-value="astronaut">Astronaut</li>
-        <!-- <li data-value="chessBoard">Chess Board</li> -->
       </ul>
     </div>
 
@@ -333,7 +358,6 @@
         <li data-value="complex">Complex Pixel</li>
         <li data-value="ascii">ASCII</li>
         <li data-value="halftone">Halftone</li>
-        <!-- <li data-value="contour">Contour</li> -->
         <li data-value="edge">Edge Detection</li>
         <li data-value="crosshatch">Crosshatch</li>
         <li data-value="waveLines">Wave Lines</li>
@@ -867,6 +891,7 @@
       const renderer = new THREE.WebGLRenderer({ antialias: true });
       renderer.setSize(currentLayoutWidth, window.innerHeight);
       renderer.domElement.style.position = "absolute";
+      renderer.domElement.style.backgroundColor = "#010101";
       canvasContainer.appendChild(renderer.domElement);
 
       const ascii = new AsciiEffect(renderer, " .:-=+*#%@", { invert: true });
@@ -1113,6 +1138,7 @@
       const gltfLoader = new GLTFLoader();
       const objLoader = new OBJLoader();
       let currentModel = null;
+      let isLoadingModel = false;
 
       const MODELS = {
         hands: {
@@ -1320,7 +1346,7 @@
           position: { x: 0.2, y: -0.4, z: 0 },
         },
         try: {
-          url: "https://raw.githubusercontent.com/Aishwary2004Gupta/models/cloud/cyberpunk_bike.glb",
+          url: "https://cdn.jsdelivr.net/gh/Aishwary2004Gupta/models@cloud/cyberpunk_bike.glb",
           scale: 0.1,
           rotation: { x: 0, y: 0, z: 0 },
           position: { x: 0, y: 0, z: 0 },
@@ -1343,13 +1369,23 @@
 
       function loadModel(name) {
         const cfg = MODELS[name] || MODELS["hands"];
+        
+        // Add loading state
+        isLoadingModel = true;
+        const clickedItem = document.querySelector(`#modelList li[data-value="${name}"]`);
+        if (clickedItem) {
+          clickedItem.classList.add("loading");
+        }
+
         if (currentModel) {
           scene.remove(currentModel);
           disposeModel(currentModel);
           currentModel = null;
         }
+        
         const isObj = cfg.url.toLowerCase().endsWith(".obj");
         const loader = isObj ? objLoader : gltfLoader;
+        
         loader.load(
           cfg.url,
           (result) => {
@@ -1389,10 +1425,20 @@
             controls.target.copy(handsFocusPoint);
             controls.update();
             camera.lookAt(handsFocusPoint);
+            
+            // Remove loading state
+            isLoadingModel = false;
+            if (clickedItem) {
+              clickedItem.classList.remove("loading");
+            }
           },
           undefined,
           (err) => {
             console.warn("Failed to load model, fallback to hands", err);
+            isLoadingModel = false;
+            if (clickedItem) {
+              clickedItem.classList.remove("loading");
+            }
             if (name !== "hands") loadModel("hands");
           },
         );
@@ -1548,6 +1594,7 @@
 
       modelListItems.forEach((item) => {
         item.addEventListener("click", () => {
+          if (isLoadingModel) return; // Prevent multiple clicks while loading
           modelListItems.forEach((li) => li.classList.remove("active"));
           item.classList.add("active");
           loadModel(item.getAttribute("data-value"));
@@ -1629,9 +1676,11 @@
         requestAnimationFrame(animate);
         controls.update();
 
-        if (Math.abs(currentLayoutWidth - targetLayoutWidth) > 0.5) {
-          currentLayoutWidth += (targetLayoutWidth - currentLayoutWidth) * 0.15;
-          if (Math.abs(currentLayoutWidth - targetLayoutWidth) < 1)
+        // Smooth layout transitions without black screen
+        const layoutDifference = Math.abs(currentLayoutWidth - targetLayoutWidth);
+        if (layoutDifference > 0.5) {
+          currentLayoutWidth += (targetLayoutWidth - currentLayoutWidth) * 0.2;
+          if (layoutDifference < 1)
             currentLayoutWidth = targetLayoutWidth;
           updateLayout(currentLayoutWidth);
         }

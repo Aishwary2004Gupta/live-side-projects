@@ -3,115 +3,166 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>HTML/CSS/JS Demo</title>
+    <title>My Task Manager</title>
+    
+    <!-- CSS: This handles the visual style -->
     <style>
-        /* --- CSS (The Styling) --- */
-        
-        :root {
-            /* Default Light Mode Variables */
-            --bg-color: #f4f4f9;
-            --card-bg: #ffffff;
-            --text-color: #333333;
-            --btn-bg: #3b82f6;
-            --btn-text: #ffffff;
-        }
-
-        body.dark-mode {
-            /* Dark Mode Variables */
-            --bg-color: #1a1a2e;
-            --card-bg: #16213e;
-            --text-color: #e0e0e0;
-            --btn-bg: #e94560;
-            --btn-text: #ffffff;
-        }
-
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background-color: var(--bg-color);
-            color: var(--text-color);
+            background-color: #f4f4f9;
             display: flex;
             justify-content: center;
             align-items: center;
             height: 100vh;
             margin: 0;
-            transition: background-color 0.3s ease, color 0.3s ease;
         }
 
-        .card {
-            background-color: var(--card-bg);
+        .container {
+            background: white;
             padding: 2rem;
-            border-radius: 12px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            width: 350px;
+        }
+
+        h2 {
             text-align: center;
-            width: 300px;
-            transition: background-color 0.3s ease;
+            color: #333;
         }
 
-        h1 {
-            margin-top: 0;
+        .input-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
         }
 
-        p {
-            line-height: 1.6;
+        input {
+            flex-grow: 1;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            outline: none;
         }
 
-        button {
-            background-color: var(--btn-bg);
-            color: var(--btn-text);
-            border: none;
+        button#add-btn {
             padding: 10px 20px;
+            background-color: #28a745;
+            color: white;
+            border: none;
             border-radius: 5px;
             cursor: pointer;
-            font-size: 1rem;
-            margin-top: 15px;
-            transition: transform 0.1s ease;
+            font-weight: bold;
         }
 
-        button:hover {
-            opacity: 0.9;
+        button#add-btn:hover {
+            background-color: #218838;
         }
 
-        button:active {
-            transform: scale(0.95);
+        ul {
+            list-style-type: none;
+            padding: 0;
+        }
+
+        li {
+            background: #fff;
+            border-bottom: 1px solid #eee;
+            padding: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: all 0.2s;
+        }
+
+        li:hover {
+            background-color: #fafafa;
+        }
+
+        li.completed span {
+            text-decoration: line-through;
+            color: #888;
+        }
+
+        .delete-btn {
+            background-color: #dc3545;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 12px;
         }
     </style>
 </head>
 <body>
 
-    <!-- --- HTML (The Structure) --- -->
-    <div class="card">
-        <h1>Hello World!</h1>
-        <p>This is a demo of HTML, CSS, and JavaScript working together.</p>
-        <p>Click the button below to toggle Dark Mode.</p>
-        <button id="theme-toggle">Switch Theme 🌗</button>
+    <!-- HTML: This handles the structure -->
+    <div class="container">
+        <h2>My Tasks</h2>
+        
+        <div class="input-group">
+            <input type="text" id="task-input" placeholder="Add a new task...">
+            <button id="add-btn">Add</button>
+        </div>
+
+        <ul id="task-list">
+            <!-- Tasks will appear here -->
+        </ul>
     </div>
 
-    <!-- --- JavaScript (The Logic) --- -->
+    <!-- JavaScript: This handles the logic/interactivity -->
     <script>
-        // Select the button and the body element
-        const toggleButton = document.getElementById('theme-toggle');
-        const bodyElement = document.body;
+        // 1. Select elements from the HTML
+        const input = document.getElementById('task-input');
+        const addBtn = document.getElementById('add-btn');
+        const taskList = document.getElementById('task-list');
 
-        // Check if the user already has a saved theme preference
-        const currentTheme = localStorage.getItem('theme');
-        if (currentTheme === 'dark') {
-            bodyElement.classList.add('dark-mode');
-            toggleButton.textContent = "Switch to Light Mode ☀️";
+        // 2. Function to add a new task
+        function addTask() {
+            const taskText = input.value;
+
+            if (taskText === '') {
+                alert("Please write a task!");
+                return;
+            }
+
+            // Create the list item (li)
+            const li = document.createElement('li');
+
+            // Create the text span
+            const span = document.createElement('span');
+            span.textContent = taskText;
+            
+            // Add click event to mark as done
+            span.addEventListener('click', function() {
+                li.classList.toggle('completed');
+            });
+
+            // Create the delete button
+            const deleteBtn = document.createElement('button');
+            deleteBtn.textContent = 'Delete';
+            deleteBtn.classList.add('delete-btn');
+            
+            // Add click event to delete the task
+            deleteBtn.addEventListener('click', function() {
+                taskList.removeChild(li);
+            });
+
+            // Put everything together
+            li.appendChild(span);
+            li.appendChild(deleteBtn);
+            taskList.appendChild(li);
+
+            // Clear the input field
+            input.value = '';
         }
 
-        // Add event listener to the button
-        toggleButton.addEventListener('click', function() {
-            // Toggle the 'dark-mode' class on the body
-            bodyElement.classList.toggle('dark-mode');
+        // 3. Event Listeners
+        addBtn.addEventListener('click', addTask);
 
-            // Change button text based on mode
-            if (bodyElement.classList.contains('dark-mode')) {
-                toggleButton.textContent = "Switch to Light Mode ☀️";
-                // Save preference to LocalStorage so it remembers next time
-                localStorage.setItem('theme', 'dark');
-            } else {
-                toggleButton.textContent = "Switch Theme 🌗";
-                localStorage.setItem('theme', 'light');
+        // Allow pressing "Enter" key to add task
+        input.addEventListener('keypress', function (e) {
+            if (e.key === 'Enter') {
+                addTask();
             }
         });
     </script>

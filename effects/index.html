@@ -26,9 +26,7 @@
         height: 100%;
         z-index: 1;
         overflow: hidden;
-        transition:
-          left 0.3s cubic-bezier(0.25, 0.8, 0.25, 1),
-          width 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+        background: #010101;
       }
 
       #axisHUD {
@@ -273,7 +271,6 @@
     <div id="floatingToggleLeft">+</div>
 
     <div id="canvasContainer">
-      <!-- Axis HUD moved inside canvasContainer so it moves with it -->
       <div id="axisHUD">
         <canvas id="axisCanvas" width="100" height="100"></canvas>
       </div>
@@ -303,7 +300,6 @@
         <li data-value="visionPro">Vision Pro</li>
         <li data-value="tv">TV</li>
         <li data-value="shoe">Shoe</li>
-        <!-- <li data-value="cow">Cow</li> -->
         <li data-value="teapot">Teapot</li>
         <li data-value="dragon2">Dragon2</li>
         <li data-value="fox">Fox</li>
@@ -311,9 +307,7 @@
         <li data-value="tableLamp">Table Lamp</li>
         <li data-value="chair">Chair</li>
         <li data-value="lantern">Lantern</li>
-        <!-- <li data-value="olives">Olives</li> -->
         <li data-value="sofa">GlamVelvetSofa</li>
-        <!-- <li data-value="cesiumMan">Cesium Man</li> -->
         <li data-value="milkTruck">Milk Truck</li>
         <li data-value="dragon">Dragon</li>
         <li data-value="hands">Hands (Creation of Adam)</li>
@@ -321,9 +315,7 @@
         <li data-value="avocado">Avocado</li>
         <li data-value="lamp">Lamp</li>
         <li data-value="skull">Scattering Skull</li>
-        <!-- <li data-value="hand">Hand</li> -->
         <li data-value="astronaut">Astronaut</li>
-        <!-- <li data-value="chessBoard">Chess Board</li> -->
       </ul>
     </div>
 
@@ -341,7 +333,6 @@
         <li data-value="complex">Complex Pixel</li>
         <li data-value="ascii">ASCII</li>
         <li data-value="halftone">Halftone</li>
-        <!-- <li data-value="contour">Contour</li> -->
         <li data-value="edge">Edge Detection</li>
         <li data-value="crosshatch">Crosshatch</li>
         <li data-value="waveLines">Wave Lines</li>
@@ -423,7 +414,6 @@
           
           float luma = dot(vec3(0.2126, 0.7152, 0.0722), color.rgb);
           
-          // Skip background
           if (luma < 0.02) {
             outputColor = color;
             return;
@@ -432,29 +422,12 @@
           vec2 cellUV = fract(uv / normalizedPixelSize);
           float lineWidth = 0.0;
           
-          if (luma > 0.0) {
-            lineWidth = 1.0;
-          }
-          
-          if (luma > 0.3) {
-            lineWidth = 0.7;
-          }
-          
-          if (luma > 0.5) {
-            lineWidth = 0.5;
-          }
-          
-          if (luma > 0.7) {
-            lineWidth = 0.3;
-          }
-          
-          if (luma > 0.9) {
-            lineWidth = 0.1;
-          }
-          
-          if (luma > 0.99) {
-            lineWidth = 0.0;
-          }
+          if (luma > 0.0) lineWidth = 1.0;
+          if (luma > 0.3) lineWidth = 0.7;
+          if (luma > 0.5) lineWidth = 0.5;
+          if (luma > 0.7) lineWidth = 0.3;
+          if (luma > 0.9) lineWidth = 0.1;
+          if (luma > 0.99) lineWidth = 0.0;
           
           float yStart = 0.05;
           float yEnd = 0.95;
@@ -851,9 +824,13 @@
 
       let isPanelOpen = true;
       let isLeftPanelOpen = true;
-      let currentLayoutWidth = window.innerWidth - 560;
-      let targetLayoutWidth = window.innerWidth - 560;
       const sidebarWidth = 280;
+
+      /* Animated layout values — lerped each frame */
+      let currentLayoutWidth = window.innerWidth - sidebarWidth * 2;
+      let targetLayoutWidth = currentLayoutWidth;
+      let currentLeftOffset = sidebarWidth;
+      let targetLeftOffset = sidebarWidth;
 
       function updateCamera() {
         const aspect = currentLayoutWidth / window.innerHeight;
@@ -1515,6 +1492,13 @@
         drawAxis(zV, "#4da6ff", "Z", cx, cy, scale);
       }
 
+      function recalcTargetWidth() {
+        targetLayoutWidth =
+          window.innerWidth -
+          targetLeftOffset -
+          (isPanelOpen ? sidebarWidth : 0);
+      }
+
       function togglePanel() {
         isPanelOpen = !isPanelOpen;
         if (isPanelOpen) {
@@ -1526,10 +1510,7 @@
           toggleBtn.textContent = "+";
           floatingToggle.classList.add("visible");
         }
-        targetLayoutWidth =
-          window.innerWidth -
-          (isPanelOpen ? sidebarWidth : 0) -
-          (isLeftPanelOpen ? sidebarWidth : 0);
+        recalcTargetWidth();
       }
 
       function toggleLeftPanel() {
@@ -1543,10 +1524,8 @@
           leftToggleBtn.textContent = "+";
           floatingToggleLeft.classList.add("visible");
         }
-        targetLayoutWidth =
-          window.innerWidth -
-          (isPanelOpen ? sidebarWidth : 0) -
-          (isLeftPanelOpen ? sidebarWidth : 0);
+        targetLeftOffset = isLeftPanelOpen ? sidebarWidth : 0;
+        recalcTargetWidth();
       }
 
       document
@@ -1628,9 +1607,8 @@
         });
       };
 
-      function updateLayout(width) {
+      function updateLayout(width, leftOffset) {
         const height = window.innerHeight;
-        const leftOffset = isLeftPanelOpen ? sidebarWidth : 0;
 
         canvasContainer.style.left = leftOffset + "px";
         canvasContainer.style.width = width + "px";
@@ -1663,12 +1641,11 @@
       }
 
       function handleResize() {
-        targetLayoutWidth =
-          window.innerWidth -
-          (isPanelOpen ? sidebarWidth : 0) -
-          (isLeftPanelOpen ? sidebarWidth : 0);
+        targetLeftOffset = isLeftPanelOpen ? sidebarWidth : 0;
+        recalcTargetWidth();
         currentLayoutWidth = targetLayoutWidth;
-        updateLayout(currentLayoutWidth);
+        currentLeftOffset = targetLeftOffset;
+        updateLayout(currentLayoutWidth, currentLeftOffset);
       }
 
       window.addEventListener("resize", handleResize);
@@ -1685,11 +1662,24 @@
         requestAnimationFrame(animate);
         controls.update();
 
+        let needsLayoutUpdate = false;
+
         if (Math.abs(currentLayoutWidth - targetLayoutWidth) > 0.5) {
           currentLayoutWidth += (targetLayoutWidth - currentLayoutWidth) * 0.15;
           if (Math.abs(currentLayoutWidth - targetLayoutWidth) < 1)
             currentLayoutWidth = targetLayoutWidth;
-          updateLayout(currentLayoutWidth);
+          needsLayoutUpdate = true;
+        }
+
+        if (Math.abs(currentLeftOffset - targetLeftOffset) > 0.5) {
+          currentLeftOffset += (targetLeftOffset - currentLeftOffset) * 0.15;
+          if (Math.abs(currentLeftOffset - targetLeftOffset) < 1)
+            currentLeftOffset = targetLeftOffset;
+          needsLayoutUpdate = true;
+        }
+
+        if (needsLayoutUpdate) {
+          updateLayout(currentLayoutWidth, currentLeftOffset);
         }
 
         updateAxisHUD();

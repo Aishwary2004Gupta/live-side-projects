@@ -5,6 +5,9 @@ import { GLTFLoader } from "https://esm.sh/three@0.160.0/examples/jsm/loaders/GL
 import { OBJLoader } from "https://esm.sh/three@0.160.0/examples/jsm/loaders/OBJLoader.js";
 // import { USDZLoader } from "https://esm.sh/three@0.160.0/examples/jsm/loaders/USDZLoader.js";
 import { AsciiEffect } from "https://esm.sh/three@0.160.0/examples/jsm/effects/AsciiEffect.js";
+/*
+use this for coverting the extentions and compressing the modes
+*/ 
 
 import {
     EffectComposer,

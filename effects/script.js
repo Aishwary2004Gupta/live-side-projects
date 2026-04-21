@@ -7,6 +7,7 @@ import { OBJLoader } from "https://esm.sh/three@0.160.0/examples/jsm/loaders/OBJ
 import { AsciiEffect } from "https://esm.sh/three@0.160.0/examples/jsm/effects/AsciiEffect.js";
 /*
 use this for coverting the extentions and compressing the modes
+https://convert3d.org/app/compress
 */ 
 
 import {

@@ -10,7 +10,7 @@ use this for coverting the extentions and compressing the modes
 https://convert3d.org/app/compress
 */
 
-import { 
+import {
     EffectComposer,
     RenderPass,
     EffectPass,

@@ -132,57 +132,21 @@ const ditherShader = `
 `;
 
 const halftoneShader = `
-  precision highp float;
-  uniform float pixelSize;
-  uniform vec2 resolution;
-  
-  void mainImage(const in vec4 i, const in vec2 uv, out vec4 o) {
-    // Calculate grid coordinates
-    vec2 s = pixelSize / resolution;
-    vec2 u = s * floor(uv / s) + 0.5 * s;
-    vec2 f = fract(uv / s);
-    
-    // Sample the original texture
-    vec4 c = texture2D(inputBuffer, u);
-    
-    // Mask out empty space (background of the 3D scene)
-    float alphaCheck = dot(c.rgb, vec3(1.0));
-    if (alphaCheck < 0.05) {
-      o = vec4(0.0, 0.0, 0.0, 1.0); // Pure black outside the model
-      return;
-    }
-    
-    // --- ENHANCED LOGIC ---
-    
-    // 1. Boost contrast slightly for better dot definition
-    float luma = dot(c.rgb, vec3(0.2126, 0.7152, 0.0722));
-    luma = clamp(luma * 1.1 - 0.05, 0.0, 1.0);
-    
-    // 2. Calculate Dot Radius based on darkness (Classic Halftone: Dark = Big Dots)
-    // Multiplier 0.55 makes dots slightly larger for better visibility
-    float r = (1.0 - luma) * 0.55; 
-    
-    // 3. Distance from center of the cell
-    float d = distance(f, vec2(0.5));
-    
-    // 4. Create the dot shape with soft edges (simulating ink bleed on paper)
-    // We add a tiny bit of glow to the edge
-    float dotShape = smoothstep(r + 0.05, r - 0.05, d);
-    
-    // 5. COLOR MIXING (The "Pop Art" Look)
-    // Background: Warm off-white "Paper" color
-    vec3 paperColor = vec3(0.92, 0.90, 0.88); 
-    
-    // Foreground: The original model color, darkened slightly to act as "Ink"
-    // We multiply by 0.85 so the dots aren't blindingly bright
-    vec3 inkColor = c.rgb * 0.85; 
-    
-    // Mix Paper and Ink based on the dot shape
-    vec3 finalColor = mix(paperColor, inkColor, dotShape);
-    
-    o = vec4(finalColor, 1.0);
-  }
-`;
+        precision highp float;
+        uniform float pixelSize;
+        uniform vec2 resolution;
+        void mainImage(const in vec4 i, const in vec2 uv, out vec4 o) {
+          vec2 s = pixelSize / resolution;
+          vec2 u = s * floor(uv / s) + 0.5*s;
+          vec4 c = texture2D(inputBuffer, u);
+          float l = dot(c.rgb, vec3(.2126,.7152,.0722));
+          vec2 f = fract(uv / s);
+          float r = (1.0 - l) * 0.5;
+          float d = distance(f, vec2(.5));
+          float m = smoothstep(r+0.02, r, d);
+          o = vec4(vec3(m),1.0);
+        }
+      `;
 
 const wovenShader = `
   precision highp float;

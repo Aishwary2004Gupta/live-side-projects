@@ -132,28 +132,21 @@ const ditherShader = `
 `;
 
 const halftoneShader = `
-  precision highp float;
-  uniform float pixelSize;
-  uniform vec2 resolution;
-  void mainImage(const in vec4 i, const in vec2 uv, out vec4 o) {
-    vec2 s = pixelSize / resolution;
-    vec2 u = s * floor(uv / s) + 0.5*s;
-    vec4 c = texture2D(inputBuffer, u);
-    float l = dot(c.rgb, vec3(.2126,.7152,.0722));
-    vec2 f = fract(uv / s);
-    
-    // Enhanced dot size for better model definition
-    float r = (1.0 - l) * 0.6;
-    float d = distance(f, vec2(.5));
-    
-    // Slight glow effect for better contrast
-    float glow = smoothstep(r + 0.1, r - 0.1, d) * (l * 0.3);
-    float m = smoothstep(r+0.02, r, d) + glow;
-    
-    // Preserve original color instead of grayscale
-    o = vec4(c.rgb * m * 1.2, 1.0);
-  }
-`;
+        precision highp float;
+        uniform float pixelSize;
+        uniform vec2 resolution;
+        void mainImage(const in vec4 i, const in vec2 uv, out vec4 o) {
+          vec2 s = pixelSize / resolution;
+          vec2 u = s * floor(uv / s) + 0.5*s;
+          vec4 c = texture2D(inputBuffer, u);
+          float l = dot(c.rgb, vec3(.2126,.7152,.0722));
+          vec2 f = fract(uv / s);
+          float r = (1.0 - l) * 0.5;
+          float d = distance(f, vec2(.5));
+          float m = smoothstep(r+0.02, r, d);
+          o = vec4(vec3(m),1.0);
+        }
+      `;
 
 const wovenShader = `
   precision highp float;

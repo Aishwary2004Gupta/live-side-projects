@@ -132,21 +132,36 @@ const ditherShader = `
 `;
 
 const halftoneShader = `
-        precision highp float;
-        uniform float pixelSize;
-        uniform vec2 resolution;
-        void mainImage(const in vec4 i, const in vec2 uv, out vec4 o) {
-          vec2 s = pixelSize / resolution;
-          vec2 u = s * floor(uv / s) + 0.5*s;
-          vec4 c = texture2D(inputBuffer, u);
-          float l = dot(c.rgb, vec3(.2126,.7152,.0722));
-          vec2 f = fract(uv / s);
-          float r = (1.0 - l) * 0.5;
-          float d = distance(f, vec2(.5));
-          float m = smoothstep(r+0.02, r, d);
-          o = vec4(vec3(m),1.0);
-        }
-      `;
+  precision highp float;
+  uniform float pixelSize;
+  uniform vec2 resolution;
+  void mainImage(const in vec4 i, const in vec2 uv, out vec4 o) {
+    vec2 s = pixelSize / resolution;
+    vec2 u = s * floor(uv / s) + 0.5*s;
+    vec4 c = texture2D(inputBuffer, u);
+    float l = dot(c.rgb, vec3(.2126,.7152,.0722));
+    vec2 f = fract(uv / s);
+
+    // Classic halftone - large dots in dark, small dots in bright
+    float r = (1.0 - l) * 0.5;
+    float d = distance(f, vec2(.5));
+
+    // Softer edge for smoother dots
+    float m = smoothstep(r + 0.04, r - 0.01, d);
+
+    // Slight color tint from original - keeps it feel like halftone print
+    vec3 dotColor = mix(vec3(0.85), c.rgb * 1.5, 0.25);
+    vec3 bg = vec3(0.02, 0.02, 0.03);
+
+    // Tiny background dots in dark areas so it doesn't go fully black
+    float bgR = 0.04;
+    float bgDot = smoothstep(bgR + 0.02, bgR - 0.01, d);
+    vec3 bgPattern = bg + vec3(bgDot) * 0.04;
+
+    vec3 finalColor = mix(bgPattern, dotColor, m);
+    o = vec4(finalColor, 1.0);
+  }
+`;
 
 const wovenShader = `
   precision highp float;

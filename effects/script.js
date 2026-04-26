@@ -1194,7 +1194,7 @@ const MODELS = {
         rotation: { x: -0.1, y: -Math.PI / 2 + 0.08, z: 0 },
         position: { x: 1.8, y: -1.4, z: 0 },
     },
-    gun: {
+    pistol: {
         url: "https://raw.githubusercontent.com/Aishwary2004Gupta/models/cloud/t-72a_obr._1980.glb",
         scale: 0.5,
         rotation: { x: 0, y: Math.PI - 1, z: 0 },

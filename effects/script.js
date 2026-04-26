@@ -1202,9 +1202,9 @@ const MODELS = {
     },
     try: {
         url: "https://raw.githubusercontent.com/Aishwary2004Gupta/models/cloud/walther_p88_gun.glb",
-        scale: 1,
+        scale: 0.1,
         rotation: { x: 0, y: 0, z: 0 },
-        position: { x: 0, y: 0, z: 0 },
+        position: { x: 0, y: -0.5, z: 0 },
     },
 };
 

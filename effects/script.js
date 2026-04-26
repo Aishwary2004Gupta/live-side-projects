@@ -1202,9 +1202,9 @@ const MODELS = {
     },
     try: {
         url: "https://raw.githubusercontent.com/Aishwary2004Gupta/models/cloud/pistol.glb",
-        scale: 0.8,
+        scale: 0.75,
         rotation: { x: 0, y: Math.PI + 1.2, z: 0 },
-        position: { x: 0.7, y: -0.2, z: 0 },
+        position: { x: 0.5, y: -0.2, z: 0 },
     },
 };
 

@@ -1195,7 +1195,7 @@ const MODELS = {
         position: { x: 1.8, y: -1.4, z: 0 },
     },
     pistol: {
-        url: "https://raw.githubusercontent.com/Aishwary2004Gupta/models/cloud/t-walther_p88_gun._1980.glb",
+        url: "https://raw.githubusercontent.com/Aishwary2004Gupta/models/cloud/walther_p88_gun.glb",
         scale: 0.5,
         rotation: { x: 0, y: Math.PI - 1, z: 0 },
         position: { x: 0, y: -0.7, z: 0 },

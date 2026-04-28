@@ -1207,8 +1207,8 @@ const MODELS = {
         position: { x: 0, y: -0.5, z: 0 },
     },
     try: {
-        url: "https://raw.githubusercontent.com/Aishwary2004Gupta/models/cloud/gun.glb",
-        scale: 0.023,
+        url: "https://raw.githubusercontent.com/Aishwary2004Gupta/models/cloud/blue_monarch_butterfly.glb",
+        scale: 0.23,
         rotation: { x: -0.4, y: Math.PI, z: 0 },
         position: { x: 0, y: -0.5, z: 0 },
     },

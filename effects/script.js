@@ -1221,8 +1221,8 @@ const MODELS = {
     try: {
         url: "https://raw.githubusercontent.com/Aishwary2004Gupta/models/cloud/cococola_soda_can.glb",
         scale: 0.1,
-        rotation: { x: -1.2, y: Math.PI, z: 0 },
-        position: { x: 0, y: -0.2, z: 0 },
+        rotation: { x: 0, y: Math.PI, z: 0 },
+        position: { x: 0, y: -0.5, z: 0 },
     },
 };
 

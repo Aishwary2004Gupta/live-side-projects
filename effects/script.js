@@ -1297,7 +1297,7 @@ function loadModel(name) {
     );
 }
 
-loadModel("try");
+loadModel("t_rex");
 
 /* ================= POST ================= */
 const composer = new EffectComposer(renderer);

@@ -1219,8 +1219,8 @@ const MODELS = {
         position: { x: -0.7, y: 0, z: 0 },
     },
     try: {
-        url: "https://raw.githubusercontent.com/Aishwary2004Gupta/models/cloud/soda_can.glb",
-        scale: 10,
+        url: "https://raw.githubusercontent.com/Aishwary2004Gupta/models/cloud/coca_cola_soda_can.glb",
+        scale: 1,
         rotation: { x: 0, y: Math.PI, z: 0 },
         position: { x: 0, y: -1.2, z: 0 },
     },

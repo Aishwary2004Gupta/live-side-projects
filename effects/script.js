@@ -1227,7 +1227,7 @@ const MODELS = {
     try: {
         url: "https://raw.githubusercontent.com/Aishwary2004Gupta/models/cloud/simple_cola_can.glb",
         scale: 0.6,
-        rotation: { x: 0, y: -0.6, z: 0 },
+        rotation: { x: 0, y: -0.3, z: 0 },
         position: { x: 0, y: 0, z: 0 },
     },
 };

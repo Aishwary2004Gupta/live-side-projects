@@ -1225,7 +1225,7 @@ const MODELS = {
         position: { x: 0, y: 0, z: 0 },
     },
     try: {
-        url: "https://raw.githubusercontent.com/Aishwary2004Gupta/models/cloud/soda_can.glb",
+        url: "https://raw.githubusercontent.com/Aishwary2004Gupta/models/cloud/simple_cola_can.glb",
         scale: 0.24,
         rotation: { x: 0, y: -0.9, z: 0 },
         position: { x: 0, y: 0, z: 0 },

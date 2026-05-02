@@ -240,35 +240,35 @@ const wovenShader = `
 //     color.g = floor(color.g * (colorNum - 1.0) + 0.5) / (colorNum - 1.0);
 //     color.b = floor(color.b * (colorNum - 1.0) + 0.5) / (colorNum - 1.0);
 //     color.rgb = clamp(color.rgb, 0.05, 0.95);
-    
+
 //     vec2 cellPosition = floor(uv / s);
 //     vec2 cellUV = fract(uv / s);
-    
+
 //     float lighting = dot(normalize(cellUV - vec2(0.5)), lightPosition) * 0.8;
 //     float dis = abs(distance(cellUV, vec2(0.5)) * 2.0 - 0.5);
 //     color.rgb *= smoothstep(0.1,0.0,dis) * lighting + 1.1;
-    
+
 //     vec2 centeredCellUV = cellUV * 2.0 - 1.0;
 //     float mask = 1.0;
 //     vec2 border = 1.05 - pow(centeredCellUV, vec2(8.0)) * MASK_BORDER;
 //     mask *= border.x * border.y;
 //     float maskStrength = smoothstep(0.0, 0.8, mask);
-    
+
 //     // --- CHANGE STARTS HERE ---
 //     // Define a very dark background color (almost black) for the gaps
 //     vec3 darkBackground = vec3(0.02, 0.02, 0.02); 
-    
+
 //     // Instead of just dimming the color, we MIX it with the dark background
 //     // When maskStrength is 0 (gap), we see darkBackground. When 1 (brick), we see color.
 //     color.rgb = mix(darkBackground, color.rgb * (0.8 + (maskStrength * 0.15)), maskStrength);
 //     // --- CHANGE ENDS HERE ---
-    
+
 //     float hueShift = random(cellPosition) * 0.02;
 //     vec3 hsv = rgbToHsv(color.rgb);
 //     hsv.x += hueShift;
 //     hsv.y *= 1.1;
 //     color.rgb = hsvToRgb(hsv);
-    
+
 //     outputColor = color;
 //   }
 // `;

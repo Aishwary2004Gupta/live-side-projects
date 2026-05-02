@@ -1309,7 +1309,7 @@ function loadModel(name) {
     );
 }
 
-loadModel("butterfly");
+loadModel("try");
 
 /* ================= POST ================= */
 const composer = new EffectComposer(renderer);

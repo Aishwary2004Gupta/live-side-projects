@@ -1232,8 +1232,8 @@ const MODELS = {
     },
     try: {
         url: "https://raw.githubusercontent.com/Aishwary2004Gupta/models/cloud/guitar_inUse.glb",
-        scale: 3,
-        rotation: { x: -1, y: Math.PI, z: 1.3 },
+        scale: 2,
+        rotation: { x: -1.3, y: Math.PI, z: 1.5 },
         position: { x: 0, y: 0, z: 0 },
     },
 };

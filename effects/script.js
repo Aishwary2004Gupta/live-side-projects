@@ -1421,6 +1421,40 @@ document
 floatingToggle.addEventListener("click", togglePanel);
 floatingToggleLeft.addEventListener("click", toggleLeftPanel);
 
+// Mode Toggle Functionality
+const modeToggle = document.getElementById("modeToggle");
+let isDarkMode = localStorage.getItem("theme") !== "light";
+
+function initializeTheme() {
+    if (!isDarkMode) {
+        document.body.classList.add("light-mode");
+        modeToggle.textContent = "☀";
+    } else {
+        document.body.classList.remove("light-mode");
+        modeToggle.textContent = "☽";
+    }
+}
+
+function toggleMode() {
+    isDarkMode = !isDarkMode;
+    localStorage.setItem("theme", isDarkMode ? "dark" : "light");
+    
+    if (isDarkMode) {
+        document.body.classList.remove("light-mode");
+        modeToggle.textContent = "☽";
+    } else {
+        document.body.classList.add("light-mode");
+        modeToggle.textContent = "☀";
+    }
+}
+
+modeToggle.addEventListener("click", (e) => {
+    e.stopPropagation();
+    toggleMode();
+});
+
+initializeTheme();
+
 function switchEffect(val) {
     composer.removePass(pass);
     renderer.domElement.style.display = "none";

@@ -1232,7 +1232,7 @@ const MODELS = {
     },
     try: {
         url: "https://raw.githubusercontent.com/Aishwary2004Gupta/models/cloud/guitar_red.glb",
-        scale: 2,
+        scale: 1.7,
         rotation: { x: -1.5, y: 0, z: 0 },
         position: { x: 0, y: 0, z: 0 },
     },

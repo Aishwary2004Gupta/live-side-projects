@@ -1429,9 +1429,11 @@ function initializeTheme() {
     if (!isDarkMode) {
         document.body.classList.add("light-mode");
         modeToggle.textContent = "☀";
+        scene.background = new THREE.Color("#ffffff");
     } else {
         document.body.classList.remove("light-mode");
         modeToggle.textContent = "☽";
+        scene.background = new THREE.Color("#010101");
     }
 }
 
@@ -1442,9 +1444,11 @@ function toggleMode() {
     if (isDarkMode) {
         document.body.classList.remove("light-mode");
         modeToggle.textContent = "☽";
+        scene.background = new THREE.Color("#010101");
     } else {
         document.body.classList.add("light-mode");
         modeToggle.textContent = "☀";
+        scene.background = new THREE.Color("#ffffff");
     }
 }
 

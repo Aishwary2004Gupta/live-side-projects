@@ -1238,9 +1238,9 @@ const MODELS = {
     },
     try: {
         url: "https://raw.githubusercontent.com/Aishwary2004Gupta/models/cloud/electric_guitar_lowpoly_model.glb",
-        scale: 1,
-        rotation: { x: 0, y: 0, z: 0 },
-        position: { x: 0, y: 0, z: 0 },
+        scale: 0.5,
+        rotation: { x: 0, y: Math.PI, z: 0 },
+        position: { x: 0, y: -2, z: 0 },
     },
 };
 

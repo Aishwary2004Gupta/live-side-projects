@@ -1440,7 +1440,7 @@ function initializeTheme() {
 function toggleMode() {
     isDarkMode = !isDarkMode;
     localStorage.setItem("theme", isDarkMode ? "dark" : "light");
-    
+
     if (isDarkMode) {
         document.body.classList.remove("light-mode");
         modeToggle.textContent = "☽";

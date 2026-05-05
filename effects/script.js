@@ -290,7 +290,7 @@ const waveLines = makeEffect("WaveLines", waveLinesShader, {
     time: 0.0,
     resolution: new THREE.Vector2(innerWidth, innerHeight),
 });
-const noise = makeEffect("Noise", noise_shader, {
+const noise = makeEffect("Noise", noiseShader, {
     time: 0.0,
     resolution: new THREE.Vector2(innerWidth, innerHeight),
 });

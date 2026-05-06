@@ -870,7 +870,8 @@ floatingToggleLeft.addEventListener("click", toggleLeftPanel);
 
 // Mode Toggle Functionality
 const modeToggle = document.getElementById("modeToggle");
-let isDarkMode = localStorage.getItem("theme") !== "light";
+const savedTheme = localStorage.getItem("theme");
+let isDarkMode = savedTheme === "dark" || savedTheme === null;
 
 function initializeTheme() {
     if (!isDarkMode) {

@@ -8,7 +8,7 @@ import { AsciiEffect } from "https://esm.sh/three@0.160.0/examples/jsm/effects/A
 /*
 use this for coverting the extentions and compressing the modes
 https://convert3d.org/app/compress
-*/ 
+*/
 
 import {
     EffectComposer,

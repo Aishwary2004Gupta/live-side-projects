@@ -693,7 +693,7 @@ const MODELS = {
         url: "https://raw.githubusercontent.com/Aishwary2004Gupta/models/cloud/binoculars.glb",
         scale: 0.38,
         rotation: { x: 0, y: Math.PI, z: 0 },
-        position: { x: 0.25, y: -1.7, z: 0 },
+        position: { x: 0, y: 0, z: 0 },
     },
 };
 

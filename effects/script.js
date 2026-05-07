@@ -683,7 +683,7 @@ const MODELS = {
         rotation: { x: -1.8, y: -0.5, z: -0.3 },
         position: { x: 0.2, y: 0, z: 0 },
     },
-    try: {
+    guitar2: {
         url: "https://raw.githubusercontent.com/Aishwary2004Gupta/models/cloud/electric_guitar_lowpoly_model.glb",
         scale: 0.38,
         rotation: { x: 0, y: Math.PI, z: 0 },

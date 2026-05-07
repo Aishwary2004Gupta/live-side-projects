@@ -127,7 +127,7 @@ export const halftoneShader = `
       `;
 
 export const wovenShader = `
-  precision highp float;
+        precision highp float;
         uniform float pixelSize;
         uniform vec2 resolution;
 

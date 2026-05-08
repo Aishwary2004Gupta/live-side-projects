@@ -695,6 +695,12 @@ const MODELS = {
         rotation: { x: -0.2, y: 2.3, z: 0 },
         position: { x: 0.3, y: -1.7, z: 0 },
     },
+    goggles: {
+        url: "https://raw.githubusercontent.com/Aishwary2004Gupta/models/cloud/glasses_.glb",
+        scale: 0.005,
+        rotation: { x: 0, y: Math.PI, z: 0 },
+        position: { x: 0, y: -1.5, z: 0 },
+    },
     try: {
         url: "https://raw.githubusercontent.com/Aishwary2004Gupta/models/cloud/glasses_.glb",
         scale: 0.005,

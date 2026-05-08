@@ -698,8 +698,8 @@ const MODELS = {
     try: {
         url: "https://raw.githubusercontent.com/Aishwary2004Gupta/models/cloud/glasses.glb",
         scale: 2,
-        rotation: { x: 0, y: 2.3, z: 0 },
-        position: { x: 0.3, y: -1.7, z: 0 },
+        rotation: { x: 0, y: 0, z: 0 },
+        position: { x: 0, y: -1.7, z: 0 },
     },
 };
 

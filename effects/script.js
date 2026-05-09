@@ -711,7 +711,7 @@ const MODELS = {
         url: "https://raw.githubusercontent.com/Aishwary2004Gupta/models/cloud/blue_whale.glb",
         scale: 0.0025,
         rotation: { x: 0, y: Math.PI, z: 0 },
-        position: { x: 0, y: -0.1, z: 0 },
+        position: { x: -0.5, y: -0.1, z: 0 },
     },
 };
 

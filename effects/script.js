@@ -703,9 +703,9 @@ const MODELS = {
     },
     try: {
         url: "https://raw.githubusercontent.com/Aishwary2004Gupta/models/cloud/phoenix_bird.glb",
-        scale: 0.004,
-        rotation: { x: 0, y: Math.PI + 1.5, z: 0.5 },
-        position: { x: 0, y: -1, z: 0 },
+        scale: 0.0037,
+        rotation: { x: 0, y: Math.PI, z: 0.5 },
+        position: { x: 0, y: -0.2, z: 0 },
     },
 };
 

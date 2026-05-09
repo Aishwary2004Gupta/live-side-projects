@@ -705,7 +705,7 @@ const MODELS = {
         url: "https://raw.githubusercontent.com/Aishwary2004Gupta/models/cloud/glasses_coloured.glb",
         scale: 0.5,
         rotation: { x: 0, y: Math.PI + 1.5, z: 0 },
-        position: { x: 0, y: -1.5, z: 0 },
+        position: { x: 0, y: -1, z: 0 },
     },
 };
 

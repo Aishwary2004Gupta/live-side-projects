@@ -697,9 +697,9 @@ const MODELS = {
     },
     goggles: {
         url: "https://raw.githubusercontent.com/Aishwary2004Gupta/models/cloud/deal_with_it_sunglasses.glb",
-        scale: 0.5,
+        scale: 0.01,
         rotation: { x: 0, y: Math.PI, z: 0 },
-        position: { x: 0, y: -1.5, z: 0 },
+        position: { x: 0, y: 0, z: 0 },
     },
     try: {
         url: "https://raw.githubusercontent.com/Aishwary2004Gupta/models/cloud/phoenix_bird.glb",
@@ -780,7 +780,7 @@ function loadModel(name) {
     );
 }
 
-loadModel("goggles");
+loadModel("try");
 
 /* ================= POST ================= */
 const composer = new EffectComposer(renderer);

@@ -696,7 +696,7 @@ const MODELS = {
         position: { x: 0.3, y: -1.7, z: 0 },
     },
     goggles: {
-        url: "https://raw.githubusercontent.com/Aishwary2004Gupta/models/cloud/glasses_.glb",
+        url: "https://raw.githubusercontent.com/Aishwary2004Gupta/models/cloud/deal_with_it_sunglasses.glb",
         scale: 0.005,
         rotation: { x: 0, y: Math.PI, z: 0 },
         position: { x: 0, y: -1.5, z: 0 },
@@ -780,7 +780,7 @@ function loadModel(name) {
     );
 }
 
-loadModel("try");
+loadModel("goggles");
 
 /* ================= POST ================= */
 const composer = new EffectComposer(renderer);

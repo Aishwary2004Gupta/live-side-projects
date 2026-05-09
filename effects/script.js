@@ -58,7 +58,7 @@ function makeEffect(name, shader, uniforms = {}) {
 
 /* ================= SCENE SETUP ================= */
 const scene = new THREE.Scene();
-scene.background = new THREE.Color("#222222");
+scene.background = new THREE.Color("#010101");
 
 const baseFrustumSize = 350;
 let camera;

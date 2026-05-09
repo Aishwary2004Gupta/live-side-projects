@@ -697,7 +697,7 @@ const MODELS = {
     },
     goggles: {
         url: "https://raw.githubusercontent.com/Aishwary2004Gupta/models/cloud/deal_with_it_sunglasses.glb",
-        scale: 0.005,
+        scale: 0.5,
         rotation: { x: 0, y: Math.PI, z: 0 },
         position: { x: 0, y: -1.5, z: 0 },
     },

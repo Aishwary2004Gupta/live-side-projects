@@ -512,7 +512,6 @@ export const vhsShader = `
 
     color -= sin(u.y * resolution.y * 0.8) * 0.1;
     color += (rand(u + time) - 0.5) * 0.15;
-
     // Slight contrast boost for better model visibility
     color = clamp(color * 1.1 - 0.05, 0.0, 1.0);
     o = vec4(color, 1.0);

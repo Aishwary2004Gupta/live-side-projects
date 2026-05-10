@@ -201,7 +201,7 @@ export const wovenShader = `
 
           outputColor = color;
         }
-      `; 
+      `;
 
 export const legoShader = `
         precision highp float;

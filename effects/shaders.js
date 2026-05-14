@@ -9,7 +9,7 @@ export const normalShader = `
   }
 `;
 
-export const dotsShader = `
+export const dotsShader = `  
   precision highp float;
   uniform float pixelSize;
   uniform vec2 resolution;

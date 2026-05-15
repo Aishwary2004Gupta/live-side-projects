@@ -731,6 +731,12 @@ const MODELS = {
         rotation: { x: 0, y: Math.PI + 0.7, z: 0 },
         position: { x: -0.2, y: -0.1, z: 0 },
     },
+    banana: {
+        url: "https://raw.githubusercontent.com/Aishwary2004Gupta/models/cloud/banana_-_photorealistic_fruit_asset.glb",
+        scale: 0.0025,
+        rotation: { x: 0, y: Math.PI + 0.7, z: 0 },
+        position: { x: -0.2, y: -0.1, z: 0 },
+    },
 };
 
 function disposeModel(root) {

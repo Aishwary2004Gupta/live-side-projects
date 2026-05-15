@@ -714,7 +714,7 @@ const MODELS = {
         position: { x: -0.2, y: -0.1, z: 0 },
     },
     try: {
-        url: "https://raw.githubusercontent.com/Aishwary2004Gupta/models/cloud/blue_whale.glb",
+        url: "https://raw.githubusercontent.com/Aishwary2004Gupta/models/cloud/starbucks_disposable_cup.glb",
         scale: 0.0025,
         rotation: { x: 0, y: Math.PI + 0.7, z: 0 },
         position: { x: -0.2, y: -0.1, z: 0 },

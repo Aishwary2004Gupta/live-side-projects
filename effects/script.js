@@ -720,7 +720,7 @@ const MODELS = {
         position: { x: -0.2, y: -0.1, z: 0 },
     },
     try: {
-        url: "https://raw.githubusercontent.com/Aishwary2004Gupta/models/cloud/aed_apple_-_realistic_fruit_asset.glb",
+        url: "https://raw.githubusercontent.com/Aishwary2004Gupta/models/cloud/red_apple_-_realistic_fruit_asset.glb",
         scale: 0.0025,
         rotation: { x: 0, y: Math.PI + 0.7, z: 0 },
         position: { x: -0.2, y: -0.1, z: 0 },

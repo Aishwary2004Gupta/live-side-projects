@@ -804,7 +804,7 @@ function loadModel(name) {
     );
 }
 
-loadModel("apple");
+loadModel("banana");
 
 /* ================= POST ================= */
 const composer = new EffectComposer(renderer);

@@ -716,7 +716,7 @@ const MODELS = {
     starbucks_disposable_cup: {
         url: "https://raw.githubusercontent.com/Aishwary2004Gupta/models/cloud/starbucks_disposable_cup.glb",
         scale: 3,
-        rotation: { x: 0, y: Math.PI + 0.7, z: 0 },
+        rotation: { x: 0, y: 0, z: 0 },
         position: { x: 0, y: 0, z: 0 },
     },
     apple: {

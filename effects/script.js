@@ -713,12 +713,6 @@ const MODELS = {
         rotation: { x: 0, y: Math.PI + 0.7, z: 0 },
         position: { x: -0.2, y: -0.1, z: 0 },
     },
-    starbucks_disposable_cup: {
-        url: "https://raw.githubusercontent.com/Aishwary2004Gupta/models/cloud/starbucks_disposable_cup.glb",
-        scale: 9,
-        rotation: { x: 0, y: 0, z: 0 },
-        position: { x: 0, y: 0, z: 0 },
-    },
     apple: {
         url: "https://raw.githubusercontent.com/Aishwary2004Gupta/models/cloud/red_apple_-_realistic_fruit_asset.glb",
         scale: 0.0025,

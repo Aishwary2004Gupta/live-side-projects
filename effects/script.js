@@ -804,7 +804,7 @@ function loadModel(name) {
     );
 }
 
-loadModel("starbucks_disposable_cup");
+loadModel("apple");
 
 /* ================= POST ================= */
 const composer = new EffectComposer(renderer);

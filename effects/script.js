@@ -715,7 +715,7 @@ const MODELS = {
     },
     apple: {
         url: "https://raw.githubusercontent.com/Aishwary2004Gupta/models/cloud/red_apple_-_realistic_fruit_asset.glb",
-        scale: 1,
+        scale: 10,
         rotation: { x: 0, y: 0, z: 0 },
         position: { x: 0, y: 0, z: 0 },
     },

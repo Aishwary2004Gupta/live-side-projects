@@ -798,7 +798,7 @@ function loadModel(name) {
     );
 }
 
-loadModel("banana");
+loadModel("try");
 
 /* ================= POST ================= */
 const composer = new EffectComposer(renderer);

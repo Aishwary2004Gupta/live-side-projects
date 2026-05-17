@@ -722,7 +722,7 @@ const MODELS = {
     try: {
         url: "https://raw.githubusercontent.com/Aishwary2004Gupta/models/cloud/goku.glb",
         scale: 1,
-        rotation: { x: 0, y: Math.PI + 0.7, z: 0 },
+        rotation: { x: 0, y: Math.PI, z: 0 },
         position: { x: -0.2, y: -0.1, z: 0 },
     },
 };

@@ -723,7 +723,7 @@ const MODELS = {
         url: "https://raw.githubusercontent.com/Aishwary2004Gupta/models/cloud/son_goku.glb",
         scale: 0.7,
         rotation: { x: 0, y: Math.PI, z: 0 },
-        position: { x: 0, y: -1.2, z: 0 },
+        position: { x: 0, y: -1.1, z: 0 },
     },
 };
 

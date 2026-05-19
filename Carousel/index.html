@@ -2,9 +2,10 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <title>3D Jellyfish Carousel</title>
+    <title>3D Jellyfish Carousel — Scroll & Drag</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <style>
+      /* ====== 3D Carousel Styles ====== */
       .scene,
       .a3d {
         display: grid;
@@ -17,7 +18,7 @@
         cursor: grab;
         width: 100%;
         max-width: 100vw;
-        padding: 4rem 0;
+        padding: 2rem 0;
       }
 
       .scene:active {
@@ -35,9 +36,6 @@
       .card {
         --w: 17.5em;
         --ba: 1turn / var(--n);
-        --pop: 0em;
-        --tiltX: 0deg;
-        --tiltY: 0deg;
 
         grid-area: 1 / 1;
         width: var(--w);
@@ -46,25 +44,12 @@
         border-radius: 1.5em;
         box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.5);
         backface-visibility: hidden;
-        transition:
-          --pop 0.45s cubic-bezier(0.34, 1.56, 0.64, 1),
-          --tiltX 0.12s ease,
-          --tiltY 0.12s ease,
-          box-shadow 0.45s ease;
 
         transform: rotateY(calc(var(--i) * var(--ba)))
-          translateZ(
-            calc(
-              -1 * (0.5 * var(--w) + 0.5em) / tan(0.5 * var(--ba)) + var(--pop)
-            )
-          )
-          rotateX(var(--tiltX)) rotateY(var(--tiltY));
+          translateZ(calc(-1 * (0.5 * var(--w) + 0.5em) / tan(0.5 * var(--ba))));
       }
 
-      .card:hover {
-        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.6);
-      }
-
+      /* ====== Page Styles ====== */
       body {
         margin: 0;
         min-height: 100vh;
@@ -88,6 +73,12 @@
         color: #666;
         margin-top: 1.5rem;
         font-size: 0.95rem;
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        .a3d {
+          animation-play-state: paused;
+        }
       }
     </style>
   </head>
@@ -171,54 +162,29 @@
       </div>
     </div>
 
-    <div class="info">
-      ← Drag or scroll horizontally • Hover cards for 3D pop & tilt →
-    </div>
+    <div class="info">← Drag horizontally • Use mouse wheel or trackpad →</div>
 
     <script>
       const scene = document.querySelector(".scene");
       const a3d = document.querySelector(".a3d");
-      const cards = Array.from(document.querySelectorAll(".card"));
-
-      const CONFIG = {
-        FRICTION: 0.89,
-        AUTO_SPEED: 0.00025,
-        HOVER_POP: "8.2em",
-        MAX_TILT: 3.8,
-        HOVER_ARC: 0.17, // max angle from front where card can be hovered
-        RESUME_DELAY: 600, // ms after hover leave to resume rotation
-      };
 
       let ry = 0;
       let velocity = 0;
       let isDragging = false;
-      let isPaused = false;
       let lastX = 0;
-      let resumeTimeout;
+      let raf;
+
+      const FRICTION = 0.89;
+      const AUTO_SPEED = 0.00025; // gentle idle rotation
 
       function loop() {
-        velocity *= CONFIG.FRICTION;
-
-        if (!isPaused && !isDragging) {
-          ry += velocity + CONFIG.AUTO_SPEED;
-        } else {
-          ry += velocity;
-        }
-
+        velocity *= FRICTION;
+        ry += velocity + AUTO_SPEED;
         a3d.style.setProperty("--ry", ry + "turn");
-
-        // Magic: Enable hover only on cards that are actually facing the user
-        cards.forEach((card, i) => {
-          const absoluteAngle = ry + i / 12;
-          const relativeAngle = Math.abs(((absoluteAngle + 0.5) % 1) - 0.5);
-          card.style.pointerEvents =
-            relativeAngle < CONFIG.HOVER_ARC && !isDragging ? "auto" : "none";
-        });
-
-        requestAnimationFrame(loop);
+        raf = requestAnimationFrame(loop);
       }
 
-      // Wheel scrolling
+      // Wheel scrolling (mouse wheel + trackpad)
       scene.addEventListener(
         "wheel",
         (e) => {
@@ -229,7 +195,7 @@
         { passive: false },
       );
 
-      // Drag support
+      // Drag support (mouse + touch)
       const startDrag = (x) => {
         isDragging = true;
         lastX = x;
@@ -242,6 +208,7 @@
         velocity = delta * -0.0045;
         ry += velocity;
         lastX = x;
+        a3d.style.setProperty("--ry", ry + "turn");
       };
 
       scene.addEventListener("pointerdown", (e) => startDrag(e.clientX));
@@ -251,45 +218,23 @@
       // Touch support
       scene.addEventListener(
         "touchstart",
-        (e) => startDrag(e.touches[0].clientX),
+        (e) => {
+          startDrag(e.touches[0].clientX);
+        },
         { passive: true },
       );
+
       scene.addEventListener(
         "touchmove",
-        (e) => moveDrag(e.touches[0].clientX),
+        (e) => {
+          moveDrag(e.touches[0].clientX);
+        },
         { passive: true },
       );
+
       scene.addEventListener("touchend", () => (isDragging = false));
 
-      // Hover Pop + Tilt Effect
-      cards.forEach((card) => {
-        card.addEventListener("mouseenter", () => {
-          clearTimeout(resumeTimeout);
-          isPaused = true;
-          card.style.setProperty("--pop", CONFIG.HOVER_POP);
-        });
-
-        card.addEventListener("mousemove", (e) => {
-          const rect = card.getBoundingClientRect();
-          const x = (e.clientX - rect.left) / rect.width - 0.5;
-          const y = (e.clientY - rect.top) / rect.height - 0.5;
-
-          card.style.setProperty("--tiltX", y * -CONFIG.MAX_TILT + "deg");
-          card.style.setProperty("--tiltY", x * CONFIG.MAX_TILT + "deg");
-        });
-
-        card.addEventListener("mouseleave", () => {
-          card.style.setProperty("--tiltX", "0deg");
-          card.style.setProperty("--tiltY", "0deg");
-          card.style.setProperty("--pop", "0em");
-
-          resumeTimeout = setTimeout(() => {
-            isPaused = false;
-          }, CONFIG.RESUME_DELAY);
-        });
-      });
-
-      // Start animation
+      // Start the animation loop
       loop();
     </script>
   </body>

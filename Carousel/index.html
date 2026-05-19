@@ -1,280 +1,350 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <title>3D Jellyfish Carousel — All Cards Hoverable</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <style>
-      /* ====== 3D Carousel Styles ====== */
-      .scene,
-      .a3d {
-        display: grid;
-      }
+<head>
+<meta charset="UTF-8">
+<title>3D Jellyfish Carousel</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
 
-      .scene {
-        overflow: hidden;
-        perspective: 45em; /* Slightly increased for better tilt view */
-        mask: linear-gradient(90deg, #0000, #000 15% 85%, #0000);
-        cursor: grab;
-        width: 100%;
-        max-width: 100vw;
-        padding: 5rem 0;
-        touch-action: pan-y;
-      }
-
-      .scene:active {
-        cursor: grabbing;
-      }
-
-      .a3d {
-        place-self: center;
-        transform-style: preserve-3d;
-        --ry: 0turn;
-        transform: rotateY(var(--ry));
-        will-change: transform;
-      }
-
-      .card {
-        --w: 17.5em;
-        --ba: 1turn / var(--n);
-        --pop: 0em;
-        --tiltX: 0deg;
-        --tiltY: 0deg;
-
-        grid-area: 1 / 1;
-        width: var(--w);
-        aspect-ratio: 7 / 10;
-        object-fit: cover;
-        border-radius: 1.5em;
-        box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.4);
-
-        /* backface-visibility: hidden is crucial so we don't click cards from behind */
-        backface-visibility: hidden;
-
-        /* Smooth transitions for popping and returning */
-        transition:
-          transform 0.5s cubic-bezier(0.23, 1, 0.32, 1),
-          box-shadow 0.5s ease;
-
-        /* Note: We use standard transform here to ensure tilt and pop work together */
-        transform: rotateY(calc(var(--i) * var(--ba)))
-          translateZ(
-            calc(
-              -1 * (0.5 * var(--w) + 0.5em) / tan(0.5 * var(--ba)) + var(--pop)
-            )
-          )
-          rotateX(var(--tiltX)) rotateY(var(--tiltY));
-      }
-
-      .card:hover {
-        box-shadow: 0 30px 60px -12px rgba(0, 0, 0, 0.5);
-        z-index: 100; /* Try to bring to front */
-      }
-
-      /* ====== Page Styles ====== */
-      body {
-        margin: 0;
+    body {
         min-height: 100vh;
         background: #fff3ed;
         display: grid;
         place-items: center;
         font-family: system-ui, sans-serif;
         overflow-x: hidden;
-      }
+    }
 
-      h1 {
+    .wrapper {
+        width: 100%;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 1rem;
+        padding: 2rem 0;
+    }
+
+    h1 {
         color: #c55;
-        margin-bottom: 0.5rem;
+        font-size: clamp(1.6rem, 4vw, 2.4rem);
         text-align: center;
-      }
-      .info {
-        color: #888;
+    }
+
+    .scene, .a3d { display: grid; }
+
+    .scene {
+        width: 100%;
+        overflow: hidden;
+        perspective: 50em;
+        padding: 5rem 0;
+        cursor: grab;
+        user-select: none;
+        touch-action: pan-y;
+        mask: linear-gradient(90deg, #0000, #000 12% 88%, #0000);
+        -webkit-mask: linear-gradient(90deg, #0000, #000 12% 88%, #0000);
+    }
+
+    .scene.dragging { cursor: grabbing; }
+
+    .a3d {
+        place-self: center;
+        transform-style: preserve-3d;
+        --ry: 0turn;
+        transform: rotateY(var(--ry));
+        will-change: transform;
+    }
+
+    .card {
+        --w: clamp(13rem, 30vw, 17.5rem);
+        --ba: calc(1turn / var(--n));
+        --pop: 0;
+        --tiltX: 0;
+        --tiltY: 0;
+        --glow: 0;
+
+        grid-area: 1 / 1;
+        width: var(--w);
+        aspect-ratio: 7 / 10;
+        object-fit: cover;
+        border-radius: 1.5em;
+        backface-visibility: hidden;
+        pointer-events: none;
+        user-select: none;
+        -webkit-user-drag: none;
+
+        box-shadow:
+            0 10px 30px -10px rgba(0,0,0,0.4),
+            0 0 calc(var(--glow) * 25px) calc(var(--glow) * 8px) rgba(255,120,80, calc(var(--glow) * 0.3));
+
+        transition:
+            box-shadow 0.4s ease,
+            filter 0.4s ease;
+
+        transform:
+            rotateY(calc(var(--i) * var(--ba)))
+            translateZ(calc(
+                -1 * (.5 * var(--w) + 0.5em) / tan(.5 * var(--ba))
+                + var(--pop) * 1em
+            ))
+            rotateX(calc(var(--tiltX) * 1deg))
+            rotateY(calc(var(--tiltY) * 1deg));
+    }
+
+    .card.front {
+        pointer-events: auto;
+        cursor: pointer;
+    }
+
+    .card.active-hover {
+        pointer-events: auto !important;
+        box-shadow:
+            0 35px 70px -15px rgba(0,0,0,0.55),
+            0 0 30px 10px rgba(255,120,80,0.25);
+        filter: saturate(1.15) contrast(1.05);
+    }
+
+    .info {
+        color: #999;
         font-size: 0.9rem;
-        margin-top: 1rem;
-      }
-    </style>
-  </head>
-  <body>
+        text-align: center;
+        padding: 0 1rem;
+    }
+
+    @media (max-width: 600px) {
+        .scene { perspective: 35em; padding: 3.5rem 0; }
+    }
+</style>
+</head>
+<body>
+
+<div class="wrapper">
     <h1>Jellyfish 3D Carousel</h1>
 
-    <div class="scene">
-      <div class="a3d" style="--n: 12">
-        <!-- Data rendered directly -->
-        <img
-          class="card"
-          src="https://images.unsplash.com/photo-1540968221243-29f5d70540bf?w=400"
-          style="--i: 0"
-          alt="jelly"
-        />
-        <img
-          class="card"
-          src="https://images.unsplash.com/photo-1596135187959-562c650d98bc?w=400"
-          style="--i: 1"
-          alt="jelly"
-        />
-        <img
-          class="card"
-          src="https://images.unsplash.com/photo-1628944682084-831f35256163?w=400"
-          style="--i: 2"
-          alt="jelly"
-        />
-        <img
-          class="card"
-          src="https://images.unsplash.com/photo-1590013330451-3946e83e0392?w=400"
-          style="--i: 3"
-          alt="jelly"
-        />
-        <img
-          class="card"
-          src="https://images.unsplash.com/photo-1590421959604-741d0eec0a2e?w=400"
-          style="--i: 4"
-          alt="jelly"
-        />
-        <img
-          class="card"
-          src="https://images.unsplash.com/photo-1572613000712-eadc57acbecd?w=400"
-          style="--i: 5"
-          alt="jelly"
-        />
-        <img
-          class="card"
-          src="https://images.unsplash.com/photo-1570097192570-4b49a6736f9f?w=400"
-          style="--i: 6"
-          alt="jelly"
-        />
-        <img
-          class="card"
-          src="https://images.unsplash.com/photo-1620789550663-2b10e0080354?w=400"
-          style="--i: 7"
-          alt="jelly"
-        />
-        <img
-          class="card"
-          src="https://images.unsplash.com/photo-1617775623669-20bff4ffaa5c?w=400"
-          style="--i: 8"
-          alt="jelly"
-        />
-        <img
-          class="card"
-          src="https://images.unsplash.com/photo-1548600916-dc8492f8e845?w=400"
-          style="--i: 9"
-          alt="jelly"
-        />
-        <img
-          class="card"
-          src="https://images.unsplash.com/photo-1573824969595-a76d4365a2e6?w=400"
-          style="--i: 10"
-          alt="jelly"
-        />
-        <img
-          class="card"
-          src="https://images.unsplash.com/photo-1633936929709-59991b5fdd72?w=400"
-          style="--i: 11"
-          alt="jelly"
-        />
-      </div>
+    <div class="scene" id="scene">
+        <div class="a3d" id="a3d" style="--n: 12">
+            <img class="card" src="https://images.unsplash.com/photo-1540968221243-29f5d70540bf?w=400"  style="--i: 0"  alt="jellyfish" draggable="false">
+            <img class="card" src="https://images.unsplash.com/photo-1596135187959-562c650d98bc?w=400"  style="--i: 1"  alt="jellyfish" draggable="false">
+            <img class="card" src="https://images.unsplash.com/photo-1628944682084-831f35256163?w=400"  style="--i: 2"  alt="jellyfish" draggable="false">
+            <img class="card" src="https://images.unsplash.com/photo-1590013330451-3946e83e0392?w=400"  style="--i: 3"  alt="jellyfish" draggable="false">
+            <img class="card" src="https://images.unsplash.com/photo-1590421959604-741d0eec0a2e?w=400"  style="--i: 4"  alt="jellyfish" draggable="false">
+            <img class="card" src="https://images.unsplash.com/photo-1572613000712-eadc57acbecd?w=400"  style="--i: 5"  alt="jellyfish" draggable="false">
+            <img class="card" src="https://images.unsplash.com/photo-1570097192570-4b49a6736f9f?w=400"  style="--i: 6"  alt="jellyfish" draggable="false">
+            <img class="card" src="https://images.unsplash.com/photo-1620789550663-2b10e0080354?w=400"  style="--i: 7"  alt="jellyfish" draggable="false">
+            <img class="card" src="https://images.unsplash.com/photo-1617775623669-20bff4ffaa5c?w=400"  style="--i: 8"  alt="jellyfish" draggable="false">
+            <img class="card" src="https://images.unsplash.com/photo-1548600916-dc8492f8e845?w=400"  style="--i: 9"  alt="jellyfish" draggable="false">
+            <img class="card" src="https://images.unsplash.com/photo-1573824969595-a76d4365a2e6?w=400"  style="--i: 10" alt="jellyfish" draggable="false">
+            <img class="card" src="https://images.unsplash.com/photo-1633936929709-59991b5fdd72?w=400"  style="--i: 11" alt="jellyfish" draggable="false">
+        </div>
     </div>
 
-    <p class="info">
-      Drag/Scroll to rotate • Hover cards in front to Pop & Tilt
-    </p>
+    <p class="info">Drag or scroll to spin • Hover any front-facing card to pop &amp; tilt</p>
+</div>
 
-    <script>
-      const scene = document.querySelector(".scene");
-      const a3d = document.querySelector(".a3d");
-      const cards = Array.from(document.querySelectorAll(".card"));
-      const N = cards.length;
+<script>
+(() => {
+    const scene = document.getElementById('scene');
+    const a3d   = document.getElementById('a3d');
+    const cards = Array.from(document.querySelectorAll('.card'));
+    const N     = cards.length;
 
-      let ry = 0;
-      let velocity = 0;
-      let isDragging = false;
-      let isPaused = false;
-      let lastX = 0;
+    /* ── State ── */
+    let ry          = 0;
+    let velocity    = 0;
+    let isDragging  = false;
+    let isPaused    = false;
+    let lastX       = 0;
+    let hoveredCard = null;
 
-      const FRICTION = 0.92;
-      const AUTO_SPEED = 0.0003;
+    /* ── Tweakable Constants ── */
+    const FRICTION         = 0.93;
+    const AUTO_SPEED       = 0.00028;
+    const DRAG_SENSITIVITY = 0.001;
+    const WHEEL_SENSITIVITY= 0.00007;
+    const FRONT_ARC        = 0.28;   // fraction of the circle that counts as "front"
+    const MAX_TILT         = 25;     // max tilt in degrees
+    const POP_AMOUNT       = 7;      // em to pop forward
 
-      function loop() {
-        if (!isDragging) {
-          velocity *= FRICTION;
-          if (!isPaused) ry += velocity + AUTO_SPEED;
-          else ry += velocity;
+    /* ── Utility ── */
+    const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+
+    /* Normalize angle to -0.5 … +0.5 range */
+    function normAngle(a) {
+        a = a % 1;
+        if (a > 0.5)  a -= 1;
+        if (a < -0.5) a += 1;
+        return a;
+    }
+
+    /* Get the visual angle (in turns) for card index i */
+    function cardVisualAngle(i) {
+        return normAngle(ry + i / N);
+    }
+
+    /* ─────────────────────────────
+       Front-card detection
+       Only cards in the front arc get pointer-events.
+       The currently hovered card is NEVER disabled
+       so the hover state can't flicker/drop.
+    ───────────────────────────── */
+    function updateFrontCards() {
+        cards.forEach((card, i) => {
+            const angle = Math.abs(cardVisualAngle(i));
+            const isFront = angle < FRONT_ARC;
+
+            if (card === hoveredCard) {
+                /* Never take pointer-events away from
+                   the card the user is actively hovering */
+                card.classList.add('front');
+            } else if (isFront) {
+                card.classList.add('front');
+            } else {
+                card.classList.remove('front');
+            }
+        });
+    }
+
+    /* ─────────────────────────────
+       Hover / Tilt Logic
+    ───────────────────────────── */
+    function applyTilt(card, e) {
+        const rect = card.getBoundingClientRect();
+
+        /* x, y from 0 to 1 across the full card surface */
+        const x = clamp((e.clientX - rect.left) / rect.width,  0, 1);
+        const y = clamp((e.clientY - rect.top)  / rect.height, 0, 1);
+
+        /* Map 0…1 → -MAX_TILT … +MAX_TILT */
+        const tiltX = (0.5 - y) * MAX_TILT * 2;   // top-down
+        const tiltY = (x - 0.5) * MAX_TILT * 2;   // left-right
+
+        card.style.setProperty('--tiltX', tiltX);
+        card.style.setProperty('--tiltY', tiltY);
+        card.style.setProperty('--pop',   POP_AMOUNT);
+        card.style.setProperty('--glow',  1);
+    }
+
+    function resetTilt(card) {
+        card.style.setProperty('--tiltX', 0);
+        card.style.setProperty('--tiltY', 0);
+        card.style.setProperty('--pop',   0);
+        card.style.setProperty('--glow',  0);
+        card.classList.remove('active-hover');
+    }
+
+    /* Attach hover listeners to every card */
+    cards.forEach(card => {
+
+        card.addEventListener('mouseenter', () => {
+            hoveredCard = card;
+            isPaused    = true;
+            velocity    = 0;              // kill momentum immediately
+            card.classList.add('active-hover');
+        });
+
+        card.addEventListener('mousemove', (e) => {
+            if (card !== hoveredCard) return;
+            applyTilt(card, e);
+        });
+
+        card.addEventListener('mouseleave', () => {
+            if (card !== hoveredCard) return;
+            resetTilt(card);
+            hoveredCard = null;
+            isPaused    = false;          // resume only after cursor leaves
+        });
+    });
+
+    /* ─────────────────────────────
+       Drag
+    ───────────────────────────── */
+    scene.addEventListener('pointerdown', e => {
+        if (e.button && e.button !== 0) return;
+
+        /* If user starts dragging, cancel any hover */
+        if (hoveredCard) {
+            resetTilt(hoveredCard);
+            hoveredCard = null;
+            isPaused = false;
         }
 
-        a3d.style.setProperty("--ry", ry + "turn");
+        isDragging = true;
+        lastX      = e.clientX;
+        velocity   = 0;
+        scene.classList.add('dragging');
+        scene.setPointerCapture(e.pointerId);
+    });
 
-        // Logic to only allow hovering on cards facing the front (approx 120 degree arc)
-        cards.forEach((card, i) => {
-          // Calculate the current rotation of this specific card relative to the viewer
-          const cardAngle = (ry + i / N) % 1;
-          const normalizedAngle = ((cardAngle + 1.5) % 1) - 0.5; // range -0.5 to 0.5
+    window.addEventListener('pointermove', e => {
+        if (!isDragging) return;
+        const dx = e.clientX - lastX;
+        velocity  = dx * -DRAG_SENSITIVITY;
+        ry       += velocity;
+        lastX     = e.clientX;
+        a3d.style.setProperty('--ry', ry + 'turn');
+        updateFrontCards();
+    });
 
-          // If card is within the front 25% of the circle, enable hover
-          if (Math.abs(normalizedAngle) < 0.18) {
-            card.style.pointerEvents = "auto";
-            card.style.opacity = "1";
-          } else {
-            card.style.pointerEvents = "none";
-            card.style.opacity = "0.9"; // Dim back cards slightly
-          }
-        });
+    const endDrag = () => {
+        if (!isDragging) return;
+        isDragging = false;
+        scene.classList.remove('dragging');
+    };
+    window.addEventListener('pointerup',     endDrag);
+    window.addEventListener('pointercancel', endDrag);
+
+    /* ─────────────────────────────
+       Wheel / Trackpad
+    ───────────────────────────── */
+    scene.addEventListener('wheel', e => {
+        e.preventDefault();
+
+        /* If hovering, don't let wheel spin the carousel */
+        if (isPaused) return;
+
+        const delta = e.deltaX * 1.5 + e.deltaY * 0.8;
+        velocity -= delta * WHEEL_SENSITIVITY;
+    }, { passive: false });
+
+    /* ─────────────────────────────
+       Main Animation Loop
+    ───────────────────────────── */
+    function loop() {
+        if (!isDragging) {
+            if (isPaused) {
+                /* Carousel is completely frozen while hovering.
+                   No auto-speed, no momentum, nothing moves. */
+                velocity = 0;
+            } else {
+                velocity *= FRICTION;
+                if (Math.abs(velocity) < 1e-7) velocity = 0;
+                ry += velocity + AUTO_SPEED;
+            }
+
+            a3d.style.setProperty('--ry', ry + 'turn');
+            updateFrontCards();
+        }
 
         requestAnimationFrame(loop);
-      }
+    }
 
-      // Interactivity - Drag & Wheel
-      const handleMove = (x) => {
-        if (!isDragging) return;
-        const delta = x - lastX;
-        velocity = delta * -0.0008;
-        ry += velocity;
-        lastX = x;
-      };
+    /* ─────────────────────────────
+       Edge-case: user tabs away
+    ───────────────────────────── */
+    window.addEventListener('blur', () => {
+        endDrag();
+        if (hoveredCard) {
+            resetTilt(hoveredCard);
+            hoveredCard = null;
+            isPaused = false;
+        }
+    });
 
-      scene.addEventListener("pointerdown", (e) => {
-        isDragging = true;
-        lastX = e.clientX;
-        velocity = 0;
-      });
-      window.addEventListener("pointermove", (e) => handleMove(e.clientX));
-      window.addEventListener("pointerup", () => (isDragging = false));
+    /* Kick off */
+    updateFrontCards();
+    loop();
+})();
+</script>
 
-      scene.addEventListener(
-        "wheel",
-        (e) => {
-          e.preventDefault();
-          velocity -= (e.deltaX + e.deltaY) * 0.00005;
-        },
-        { passive: false },
-      );
-
-      // Card Hover Effects
-      cards.forEach((card) => {
-        card.addEventListener("mouseenter", () => {
-          isPaused = true;
-          card.style.setProperty("--pop", "8em");
-        });
-
-        card.addEventListener("mousemove", (e) => {
-          const rect = card.getBoundingClientRect();
-          // Calculate mouse position relative to card center (-0.5 to 0.5)
-          const x = (e.clientX - rect.left) / rect.width - 0.5;
-          const y = (e.clientY - rect.top) / rect.height - 0.5;
-
-          // Tilt intensity
-          card.style.setProperty("--tiltX", y * -35 + "deg");
-          card.style.setProperty("--tiltY", x * 35 + "deg");
-        });
-
-        card.addEventListener("mouseleave", () => {
-          isPaused = false;
-          card.style.setProperty("--pop", "0em");
-          card.style.setProperty("--tiltX", "0deg");
-          card.style.setProperty("--tiltY", "0deg");
-        });
-      });
-
-      loop();
-    </script>
-  </body>
+</body>
 </html>

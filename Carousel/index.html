@@ -1,241 +1,473 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <title>3D Jellyfish Carousel — Scroll & Drag</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <style>
-      /* ====== 3D Carousel Styles ====== */
-      .scene,
-      .a3d {
-        display: grid;
-      }
+<head>
+<meta charset="UTF-8" />
+<title>3D Jellyfish Carousel</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-      .scene {
-        overflow: hidden;
-        perspective: 35em;
-        mask: linear-gradient(90deg, #0000, #000 18% 82%, #0000);
-        cursor: grab;
-        width: 100%;
-        max-width: 100vw;
-        padding: 2rem 0;
-      }
+<style>
+  @property --pop {
+    syntax: "<length>";
+    inherits: false;
+    initial-value: 0em;
+  }
 
-      .scene:active {
-        cursor: grabbing;
-      }
+  @property --tiltX {
+    syntax: "<angle>";
+    inherits: false;
+    initial-value: 0deg;
+  }
 
-      .a3d {
-        place-self: center;
-        transform-style: preserve-3d;
-        --ry: 0turn;
-        transform: rotateY(var(--ry));
-        will-change: transform;
-      }
+  @property --tiltY {
+    syntax: "<angle>";
+    inherits: false;
+    initial-value: 0deg;
+  }
 
-      .card {
-        --w: 17.5em;
-        --ba: 1turn / var(--n);
+  * {
+    box-sizing: border-box;
+  }
 
-        grid-area: 1 / 1;
-        width: var(--w);
-        aspect-ratio: 7 / 10;
-        object-fit: cover;
-        border-radius: 1.5em;
-        box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.5);
-        backface-visibility: hidden;
+  html {
+    min-height: 100%;
+  }
 
-        transform: rotateY(calc(var(--i) * var(--ba)))
-          translateZ(calc(-1 * (0.5 * var(--w) + 0.5em) / tan(0.5 * var(--ba))));
-      }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    display: grid;
+    place-items: center;
+    background: #fff3ed;
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    overflow-x: hidden;
+  }
 
-      /* ====== Page Styles ====== */
-      body {
-        margin: 0;
-        min-height: 100vh;
-        background: #fff3ed;
-        display: grid;
-        place-items: center;
-        font-family: system-ui, sans-serif;
-        padding: 2rem 1rem;
-        box-sizing: border-box;
-      }
+  .wrap {
+    width: min(1120px, 100%);
+    padding: 2rem 1rem;
+    display: grid;
+    justify-items: center;
+    gap: 1rem;
+  }
 
-      h1 {
-        color: #c55;
-        margin: 0 0 1rem 0;
-        font-size: 2.2rem;
-        text-align: center;
-      }
+  h1 {
+    margin: 0;
+    color: #c55;
+    font-size: clamp(1.7rem, 4vw, 2.4rem);
+    text-align: center;
+  }
 
-      .info {
-        text-align: center;
-        color: #666;
-        margin-top: 1.5rem;
-        font-size: 0.95rem;
-      }
+  .scene,
+  .a3d {
+    display: grid;
+  }
 
-      @media (prefers-reduced-motion: reduce) {
-        .a3d {
-          animation-play-state: paused;
-        }
-      }
-    </style>
-  </head>
-  <body>
-    <h1>Jellyfish 3D Carousel</h1>
+  .scene {
+    width: 100%;
+    overflow: hidden;
+    perspective: 35em;
+    padding: 4rem 0;
+    cursor: grab;
+    user-select: none;
+    touch-action: pan-y;
 
-    <div class="scene">
-      <div class="a3d" style="--n: 12">
-        <img
-          class="card"
-          src="https://images.unsplash.com/photo-1540968221243-29f5d70540bf?w=280"
-          style="--i: 0"
-          alt="jellyfish"
-        />
-        <img
-          class="card"
-          src="https://images.unsplash.com/photo-1596135187959-562c650d98bc?w=280"
-          style="--i: 1"
-          alt="jellyfish"
-        />
-        <img
-          class="card"
-          src="https://images.unsplash.com/photo-1628944682084-831f35256163?w=280"
-          style="--i: 2"
-          alt="jellyfish"
-        />
-        <img
-          class="card"
-          src="https://images.unsplash.com/photo-1590013330451-3946e83e0392?w=280"
-          style="--i: 3"
-          alt="jellyfish"
-        />
-        <img
-          class="card"
-          src="https://images.unsplash.com/photo-1590421959604-741d0eec0a2e?w=280"
-          style="--i: 4"
-          alt="jellyfish"
-        />
-        <img
-          class="card"
-          src="https://images.unsplash.com/photo-1572613000712-eadc57acbecd?w=280"
-          style="--i: 5"
-          alt="jellyfish"
-        />
-        <img
-          class="card"
-          src="https://images.unsplash.com/photo-1570097192570-4b49a6736f9f?w=280"
-          style="--i: 6"
-          alt="jellyfish"
-        />
-        <img
-          class="card"
-          src="https://images.unsplash.com/photo-1620789550663-2b10e0080354?w=280"
-          style="--i: 7"
-          alt="jellyfish"
-        />
-        <img
-          class="card"
-          src="https://images.unsplash.com/photo-1617775623669-20bff4ffaa5c?w=280"
-          style="--i: 8"
-          alt="jellyfish"
-        />
-        <img
-          class="card"
-          src="https://images.unsplash.com/photo-1548600916-dc8492f8e845?w=280"
-          style="--i: 9"
-          alt="jellyfish"
-        />
-        <img
-          class="card"
-          src="https://images.unsplash.com/photo-1573824969595-a76d4365a2e6?w=280"
-          style="--i: 10"
-          alt="jellyfish"
-        />
-        <img
-          class="card"
-          src="https://images.unsplash.com/photo-1633936929709-59991b5fdd72?w=280"
-          style="--i: 11"
-          alt="jellyfish"
-        />
-      </div>
-    </div>
+    -webkit-mask: linear-gradient(
+      90deg,
+      #0000,
+      #000 18% 82%,
+      #0000
+    );
 
-    <div class="info">← Drag horizontally • Use mouse wheel or trackpad →</div>
+    mask: linear-gradient(
+      90deg,
+      #0000,
+      #000 18% 82%,
+      #0000
+    );
+  }
 
-    <script>
-      const scene = document.querySelector(".scene");
-      const a3d = document.querySelector(".a3d");
+  .scene.is-dragging {
+    cursor: grabbing;
+  }
 
-      let ry = 0;
-      let velocity = 0;
-      let isDragging = false;
-      let lastX = 0;
-      let raf;
+  .a3d {
+    --ry: 0turn;
 
-      const FRICTION = 0.89;
-      const AUTO_SPEED = 0.00025; // gentle idle rotation
+    place-self: center;
+    transform-style: preserve-3d;
+    transform: rotateY(var(--ry));
+    will-change: transform;
+  }
 
-      function loop() {
-        velocity *= FRICTION;
-        ry += velocity + AUTO_SPEED;
-        a3d.style.setProperty("--ry", ry + "turn");
-        raf = requestAnimationFrame(loop);
-      }
+  .card {
+    --w: clamp(12rem, 42vw, 17.5rem);
+    --ba: calc(1turn / var(--n));
+    --pop: 0em;
+    --tiltX: 0deg;
+    --tiltY: 0deg;
 
-      // Wheel scrolling (mouse wheel + trackpad)
-      scene.addEventListener(
-        "wheel",
-        (e) => {
-          e.preventDefault();
-          const delta = e.deltaX * 1.8 + e.deltaY * 0.9;
-          velocity -= delta * 0.00095;
-        },
-        { passive: false },
-      );
+    grid-area: 1 / 1;
+    width: var(--w);
+    aspect-ratio: 7 / 10;
+    object-fit: cover;
+    border-radius: 1.5em;
+    background: #ffd9cf;
 
-      // Drag support (mouse + touch)
-      const startDrag = (x) => {
-        isDragging = true;
-        lastX = x;
-        velocity = 0;
-      };
+    box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.48);
+    backface-visibility: hidden;
+    transform-origin: center center;
 
-      const moveDrag = (x) => {
-        if (!isDragging) return;
-        const delta = x - lastX;
-        velocity = delta * -0.0045;
-        ry += velocity;
-        lastX = x;
-        a3d.style.setProperty("--ry", ry + "turn");
-      };
+    /*
+      Important:
+      All cards are disabled by default.
+      JS enables pointer-events only for the centered card.
+    */
+    pointer-events: none;
 
-      scene.addEventListener("pointerdown", (e) => startDrag(e.clientX));
-      window.addEventListener("pointermove", (e) => moveDrag(e.clientX));
-      window.addEventListener("pointerup", () => (isDragging = false));
+    user-select: none;
+    -webkit-user-drag: none;
 
-      // Touch support
-      scene.addEventListener(
-        "touchstart",
-        (e) => {
-          startDrag(e.touches[0].clientX);
-        },
-        { passive: true },
-      );
+    will-change: transform, filter;
 
-      scene.addEventListener(
-        "touchmove",
-        (e) => {
-          moveDrag(e.touches[0].clientX);
-        },
-        { passive: true },
-      );
+    transition:
+      transform 170ms cubic-bezier(.2, .7, .2, 1),
+      box-shadow 250ms ease,
+      filter 250ms ease;
 
-      scene.addEventListener("touchend", () => (isDragging = false));
+    transform:
+      rotateY(calc(var(--i) * var(--ba)))
+      translateZ(calc(-1 * (.5 * var(--w) + .5em) / tan(.5 * var(--ba)) + var(--pop)))
+      rotateX(var(--tiltX))
+      rotateY(var(--tiltY));
+  }
 
-      // Start the animation loop
-      loop();
-    </script>
-  </body>
+  .card.is-hoverable {
+    pointer-events: auto;
+    cursor: pointer;
+  }
+
+  .card.is-tilting {
+    box-shadow: 0 28px 55px -16px rgba(0, 0, 0, 0.65);
+    filter: saturate(1.1) contrast(1.04);
+  }
+
+  .info {
+    margin: 0;
+    text-align: center;
+    color: #666;
+    font-size: 0.95rem;
+  }
+
+  @media (max-width: 600px) {
+    .scene {
+      perspective: 30em;
+      padding: 3rem 0;
+    }
+  }
+</style>
+</head>
+
+<body>
+
+<main class="wrap">
+  <h1>Jellyfish 3D Carousel</h1>
+
+  <div class="scene">
+    <div class="a3d"></div>
+  </div>
+
+  <p class="info">
+    Drag or scroll horizontally. Hover the centered image to pause, pop, and tilt.
+  </p>
+</main>
+
+<script>
+const DATA = [
+  '1540968221243-29f5d70540bf',
+  '1596135187959-562c650d98bc',
+  '1628944682084-831f35256163',
+  '1590013330451-3946e83e0392',
+  '1590421959604-741d0eec0a2e',
+  '1572613000712-eadc57acbecd',
+  '1570097192570-4b49a6736f9f',
+  '1620789550663-2b10e0080354',
+  '1617775623669-20bff4ffaa5c',
+  '1548600916-dc8492f8e845',
+  '1573824969595-a76d4365a2e6',
+  '1633936929709-59991b5fdd72'
+];
+
+const scene = document.querySelector('.scene');
+const a3d = document.querySelector('.a3d');
+
+a3d.style.setProperty('--n', DATA.length);
+
+a3d.innerHTML = DATA.map((id, i) => `
+  <img
+    class="card"
+    src="https://images.unsplash.com/photo-${id}?w=420&auto=format&fit=crop&q=80"
+    style="--i: ${i}"
+    alt="jellyfish ${i + 1}"
+    draggable="false"
+  >
+`).join('');
+
+const cards = [...document.querySelectorAll('.card')];
+
+let ry = 0;
+let velocity = 0;
+let isDragging = false;
+let isPaused = false;
+let lastX = 0;
+let activeHoverCard = null;
+
+const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+const FRICTION = 0.89;
+const AUTO_SPEED = reducedMotion ? 0 : 0.00025;
+const WHEEL_SENSITIVITY = 0.00095;
+const DRAG_SENSITIVITY = 0.0045;
+
+const MAX_TILT = 18;
+const POP_OUT = 8.5;
+
+/*
+  Only allow hover in the middle zone of the carousel.
+  Smaller value = stricter center hover.
+  Use 1 if you want the entire centered card hoverable.
+*/
+const CENTER_HOVER_ZONE = 0.78;
+
+const clamp = (value, min, max) => {
+  return Math.min(max, Math.max(min, value));
+};
+
+cards.forEach(card => {
+  card.addEventListener('dragstart', e => e.preventDefault());
+});
+
+function wrapTurn(value) {
+  return ((((value + 0.5) % 1) + 1) % 1) - 0.5;
+}
+
+function setCarouselRotation() {
+  a3d.style.setProperty('--ry', `${ry}turn`);
+}
+
+/*
+  This finds the image that is currently closest to the center/front.
+  Only this card receives pointer-events.
+  This prevents corner/side images from being hovered.
+*/
+function updateMiddleHoverableCard() {
+  if (activeHoverCard) return;
+
+  let middleIndex = 0;
+  let bestDistance = Infinity;
+
+  for (let i = 0; i < cards.length; i++) {
+    const distance = Math.abs(wrapTurn(ry + i / cards.length));
+
+    if (distance < bestDistance) {
+      bestDistance = distance;
+      middleIndex = i;
+    }
+  }
+
+  cards.forEach((card, i) => {
+    card.classList.toggle('is-hoverable', i === middleIndex);
+  });
+}
+
+function pointerIsInCenterZone(clientX) {
+  const rect = scene.getBoundingClientRect();
+  const sideSpace = rect.width * (1 - CENTER_HOVER_ZONE) / 2;
+
+  return (
+    clientX >= rect.left + sideSpace &&
+    clientX <= rect.right - sideSpace
+  );
+}
+
+function getHoverableCardAtPoint(x, y) {
+  if (!pointerIsInCenterZone(x)) return null;
+
+  const el = document.elementFromPoint(x, y);
+  const card = el?.closest?.('.card.is-hoverable');
+
+  return card && scene.contains(card) ? card : null;
+}
+
+function resetCard(card) {
+  card.style.setProperty('--tiltX', '0deg');
+  card.style.setProperty('--tiltY', '0deg');
+  card.style.setProperty('--pop', '0em');
+  card.classList.remove('is-tilting');
+}
+
+function applyCardHover(card, e) {
+  if (!card || isDragging) return;
+
+  if (activeHoverCard && activeHoverCard !== card) {
+    resetCard(activeHoverCard);
+  }
+
+  activeHoverCard = card;
+
+  /*
+    Pause carousel movement while the centered image is hovered.
+  */
+  isPaused = true;
+  velocity = 0;
+
+  const rect = card.getBoundingClientRect();
+
+  const x = clamp((e.clientX - rect.left) / rect.width, 0, 1);
+  const y = clamp((e.clientY - rect.top) / rect.height, 0, 1);
+
+  const tiltX = (0.5 - y) * MAX_TILT * 2;
+  const tiltY = (x - 0.5) * MAX_TILT * 2;
+
+  card.style.setProperty('--tiltX', `${tiltX}deg`);
+  card.style.setProperty('--tiltY', `${tiltY}deg`);
+  card.style.setProperty('--pop', `${POP_OUT}em`);
+  card.classList.add('is-tilting');
+}
+
+function clearHover() {
+  if (activeHoverCard) {
+    resetCard(activeHoverCard);
+  }
+
+  activeHoverCard = null;
+  isPaused = false;
+
+  updateMiddleHoverableCard();
+}
+
+/* ==============================
+   Drag scrolling
+============================== */
+
+scene.addEventListener('pointerdown', e => {
+  if (e.pointerType === 'mouse' && e.button !== 0) return;
+
+  e.preventDefault();
+
+  clearHover();
+
+  isDragging = true;
+  lastX = e.clientX;
+  velocity = 0;
+
+  scene.classList.add('is-dragging');
+
+  try {
+    scene.setPointerCapture(e.pointerId);
+  } catch {}
+});
+
+scene.addEventListener('pointermove', e => {
+  if (isDragging) {
+    const delta = e.clientX - lastX;
+    const amount = delta * -DRAG_SENSITIVITY;
+
+    velocity = amount;
+    ry += amount;
+    lastX = e.clientX;
+
+    setCarouselRotation();
+    updateMiddleHoverableCard();
+
+    return;
+  }
+
+  const card = getHoverableCardAtPoint(e.clientX, e.clientY);
+
+  if (card) {
+    applyCardHover(card, e);
+  } else if (activeHoverCard) {
+    clearHover();
+  }
+});
+
+function endDrag(e) {
+  if (!isDragging) return;
+
+  isDragging = false;
+  scene.classList.remove('is-dragging');
+
+  try {
+    scene.releasePointerCapture(e.pointerId);
+  } catch {}
+
+  updateMiddleHoverableCard();
+}
+
+scene.addEventListener('pointerup', endDrag);
+scene.addEventListener('pointercancel', endDrag);
+
+scene.addEventListener('pointerleave', () => {
+  if (!isDragging) {
+    clearHover();
+  }
+});
+
+/* ==============================
+   Mouse wheel / trackpad scrolling
+============================== */
+
+scene.addEventListener('wheel', e => {
+  e.preventDefault();
+
+  clearHover();
+
+  const mode = e.deltaMode === 1
+    ? 16
+    : e.deltaMode === 2
+      ? window.innerHeight
+      : 1;
+
+  const delta = (e.deltaX * 1.6 + e.deltaY * 0.85) * mode;
+
+  velocity -= delta * WHEEL_SENSITIVITY;
+}, { passive: false });
+
+/* ==============================
+   Animation loop
+============================== */
+
+function loop() {
+  if (!isPaused && !isDragging) {
+    velocity *= FRICTION;
+
+    if (Math.abs(velocity) < 0.000001) {
+      velocity = 0;
+    }
+
+    ry += velocity + AUTO_SPEED;
+
+    if (Math.abs(ry) > 1000) {
+      ry %= 1;
+    }
+
+    setCarouselRotation();
+    updateMiddleHoverableCard();
+  }
+
+  requestAnimationFrame(loop);
+}
+
+window.addEventListener('blur', () => {
+  isDragging = false;
+  scene.classList.remove('is-dragging');
+  clearHover();
+});
+
+setCarouselRotation();
+updateMiddleHoverableCard();
+loop();
+</script>
+
+</body>
 </html>

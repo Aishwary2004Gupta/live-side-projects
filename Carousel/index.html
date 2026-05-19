@@ -1,206 +1,196 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <title>3D Jellyfish Carousel</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<head>
+<meta charset="UTF-8" />
+<title>3D Jellyfish Carousel</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-    <style>
-      @property --pop {
-        syntax: "<length>";
-        inherits: false;
-        initial-value: 0em;
-      }
+<style>
+  @property --pop {
+    syntax: "<length>";
+    inherits: false;
+    initial-value: 0em;
+  }
 
-      @property --tiltX {
-        syntax: "<angle>";
-        inherits: false;
-        initial-value: 0deg;
-      }
+  @property --tiltX {
+    syntax: "<angle>";
+    inherits: false;
+    initial-value: 0deg;
+  }
 
-      @property --tiltY {
-        syntax: "<angle>";
-        inherits: false;
-        initial-value: 0deg;
-      }
+  @property --tiltY {
+    syntax: "<angle>";
+    inherits: false;
+    initial-value: 0deg;
+  }
 
-      * {
-        box-sizing: border-box;
-      }
+  * {
+    box-sizing: border-box;
+  }
 
-      html {
-        min-height: 100%;
-      }
+  html {
+    min-height: 100%;
+  }
 
-      body {
-        margin: 0;
-        min-height: 100vh;
-        display: grid;
-        place-items: center;
-        background: #fff3ed;
-        font-family:
-          system-ui,
-          -apple-system,
-          BlinkMacSystemFont,
-          "Segoe UI",
-          sans-serif;
-        overflow-x: hidden;
-      }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    display: grid;
+    place-items: center;
+    background: #fff3ed;
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    overflow-x: hidden;
+  }
 
-      .wrap {
-        width: min(1120px, 100%);
-        padding: 2rem 1rem;
-        display: grid;
-        justify-items: center;
-        gap: 1rem;
-      }
+  .wrap {
+    width: min(1120px, 100%);
+    padding: 2rem 1rem;
+    display: grid;
+    justify-items: center;
+    gap: 1rem;
+  }
 
-      h1 {
-        margin: 0;
-        color: #c55;
-        font-size: clamp(1.7rem, 4vw, 2.4rem);
-        text-align: center;
-      }
+  h1 {
+    margin: 0;
+    color: #c55;
+    font-size: clamp(1.7rem, 4vw, 2.4rem);
+    text-align: center;
+  }
 
-      .scene,
-      .a3d {
-        display: grid;
-      }
+  .scene,
+  .a3d {
+    display: grid;
+  }
 
-      .scene {
-        width: 100%;
-        overflow: hidden;
-        perspective: 35em;
-        padding: 4rem 0;
-        cursor: grab;
-        user-select: none;
-        touch-action: pan-y;
+  .scene {
+    width: 100%;
+    overflow: hidden;
+    perspective: 35em;
+    padding: 4rem 0;
+    cursor: grab;
+    user-select: none;
+    touch-action: pan-y;
 
-        -webkit-mask: linear-gradient(90deg, #0000, #000 18% 82%, #0000);
+    -webkit-mask: linear-gradient(
+      90deg,
+      #0000,
+      #000 18% 82%,
+      #0000
+    );
 
-        mask: linear-gradient(90deg, #0000, #000 18% 82%, #0000);
-      }
+    mask: linear-gradient(
+      90deg,
+      #0000,
+      #000 18% 82%,
+      #0000
+    );
+  }
 
-      .scene.is-dragging {
-        cursor: grabbing;
-      }
+  .scene.is-dragging {
+    cursor: grabbing;
+  }
 
-      .a3d {
-        --ry: 0turn;
+  .a3d {
+    --ry: 0turn;
 
-        place-self: center;
-        transform-style: preserve-3d;
-        transform: rotateY(var(--ry));
-        will-change: transform;
-      }
+    place-self: center;
+    transform-style: preserve-3d;
+    transform: rotateY(var(--ry));
+    will-change: transform;
+  }
 
-      .card {
-        --w: clamp(12rem, 42vw, 17.5rem);
-        --ba: calc(1turn / var(--n));
-        --pop: 0em;
-        --tiltX: 0deg;
-        --tiltY: 0deg;
+  .card {
+    --w: clamp(12rem, 42vw, 17.5rem);
+    --ba: calc(1turn / var(--n));
+    --pop: 0em;
+    --tiltX: 0deg;
+    --tiltY: 0deg;
 
-        grid-area: 1 / 1;
-        width: var(--w);
-        aspect-ratio: 7 / 10;
-        object-fit: cover;
-        border-radius: 1.5em;
-        background: #ffd9cf;
+    grid-area: 1 / 1;
+    width: var(--w);
+    aspect-ratio: 7 / 10;
+    object-fit: cover;
+    border-radius: 1.5em;
+    background: #ffd9cf;
 
-        box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.48);
-        backface-visibility: hidden;
-        transform-origin: center center;
+    box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.48);
+    backface-visibility: hidden;
+    transform-origin: center center;
 
-        /*
-      Important:
-      All cards are disabled by default.
-      JS enables pointer-events only for the centered card.
-    */
-        pointer-events: none;
+    cursor: pointer;
+    user-select: none;
+    -webkit-user-drag: none;
+    will-change: transform, filter;
 
-        user-select: none;
-        -webkit-user-drag: none;
+    transition:
+      transform 170ms cubic-bezier(.2, .7, .2, 1),
+      box-shadow 250ms ease,
+      filter 250ms ease;
 
-        will-change: transform, filter;
+    transform:
+      rotateY(calc(var(--i) * var(--ba)))
+      translateZ(calc(-1 * (.5 * var(--w) + .5em) / tan(.5 * var(--ba)) + var(--pop)))
+      rotateX(var(--tiltX))
+      rotateY(var(--tiltY));
+  }
 
-        transition:
-          transform 170ms cubic-bezier(0.2, 0.7, 0.2, 1),
-          box-shadow 250ms ease,
-          filter 250ms ease;
+  .card.is-tilting {
+    box-shadow: 0 28px 55px -16px rgba(0, 0, 0, 0.65);
+    filter: saturate(1.1) contrast(1.04);
+  }
 
-        transform: rotateY(calc(var(--i) * var(--ba)))
-          translateZ(
-            calc(
-              -1 * (0.5 * var(--w) + 0.5em) / tan(0.5 * var(--ba)) + var(--pop)
-            )
-          )
-          rotateX(var(--tiltX)) rotateY(var(--tiltY));
-      }
+  .info {
+    margin: 0;
+    text-align: center;
+    color: #666;
+    font-size: 0.95rem;
+  }
 
-      .card.is-hoverable {
-        pointer-events: auto;
-        cursor: pointer;
-      }
+  @media (max-width: 600px) {
+    .scene {
+      perspective: 30em;
+      padding: 3rem 0;
+    }
+  }
+</style>
+</head>
 
-      .card.is-tilting {
-        box-shadow: 0 28px 55px -16px rgba(0, 0, 0, 0.65);
-        filter: saturate(1.1) contrast(1.04);
-      }
+<body>
 
-      .info {
-        margin: 0;
-        text-align: center;
-        color: #666;
-        font-size: 0.95rem;
-      }
+<main class="wrap">
+  <h1>Jellyfish 3D Carousel</h1>
 
-      @media (max-width: 600px) {
-        .scene {
-          perspective: 30em;
-          padding: 3rem 0;
-        }
-      }
-    </style>
-  </head>
+  <div class="scene">
+    <div class="a3d"></div>
+  </div>
 
-  <body>
-    <main class="wrap">
-      <h1>Jellyfish 3D Carousel</h1>
+  <p class="info">
+    Drag or scroll horizontally. Hover any visible image to pause, pop, and tilt.
+  </p>
+</main>
 
-      <div class="scene">
-        <div class="a3d"></div>
-      </div>
+<script>
+const DATA = [
+  '1540968221243-29f5d70540bf',
+  '1596135187959-562c650d98bc',
+  '1628944682084-831f35256163',
+  '1590013330451-3946e83e0392',
+  '1590421959604-741d0eec0a2e',
+  '1572613000712-eadc57acbecd',
+  '1570097192570-4b49a6736f9f',
+  '1620789550663-2b10e0080354',
+  '1617775623669-20bff4ffaa5c',
+  '1548600916-dc8492f8e845',
+  '1573824969595-a76d4365a2e6',
+  '1633936929709-59991b5fdd72'
+];
 
-      <p class="info">
-        Drag or scroll horizontally. Hover the centered image to pause, pop, and
-        tilt.
-      </p>
-    </main>
+const scene = document.querySelector('.scene');
+const a3d = document.querySelector('.a3d');
 
-    <script>
-      const DATA = [
-        "1540968221243-29f5d70540bf",
-        "1596135187959-562c650d98bc",
-        "1628944682084-831f35256163",
-        "1590013330451-3946e83e0392",
-        "1590421959604-741d0eec0a2e",
-        "1572613000712-eadc57acbecd",
-        "1570097192570-4b49a6736f9f",
-        "1620789550663-2b10e0080354",
-        "1617775623669-20bff4ffaa5c",
-        "1548600916-dc8492f8e845",
-        "1573824969595-a76d4365a2e6",
-        "1633936929709-59991b5fdd72",
-      ];
+a3d.style.setProperty('--n', DATA.length);
 
-      const scene = document.querySelector(".scene");
-      const a3d = document.querySelector(".a3d");
-
-      a3d.style.setProperty("--n", DATA.length);
-
-      a3d.innerHTML = DATA.map(
-        (id, i) => `
+a3d.innerHTML = DATA.map((id, i) => `
   <img
     class="card"
     src="https://images.unsplash.com/photo-${id}?w=420&auto=format&fit=crop&q=80"
@@ -208,266 +198,203 @@
     alt="jellyfish ${i + 1}"
     draggable="false"
   >
-`,
-      ).join("");
+`).join('');
 
-      const cards = [...document.querySelectorAll(".card")];
+const cards = [...document.querySelectorAll('.card')];
 
-      let ry = 0;
-      let velocity = 0;
-      let isDragging = false;
-      let isPaused = false;
-      let lastX = 0;
-      let activeHoverCard = null;
+let ry = 0;
+let velocity = 0;
+let isDragging = false;
+let isPaused = false;
+let lastX = 0;
+let activeHoverCard = null;
 
-      const reducedMotion = window.matchMedia(
-        "(prefers-reduced-motion: reduce)",
-      ).matches;
+const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-      const FRICTION = 0.89;
-      const AUTO_SPEED = reducedMotion ? 0 : 0.00025;
-      const WHEEL_SENSITIVITY = 0.00095;
-      const DRAG_SENSITIVITY = 0.0045;
+const FRICTION = 0.89;
+const AUTO_SPEED = reducedMotion ? 0 : 0.00025;
+const WHEEL_SENSITIVITY = 0.00095;
+const DRAG_SENSITIVITY = 0.0045;
 
-      const MAX_TILT = 18;
-      const POP_OUT = 8.5;
+const MAX_TILT = 18;
+const POP_OUT = 8.5;
 
-      /*
-  Only allow hover in the middle zone of the carousel.
-  Smaller value = stricter center hover.
-  Use 1 if you want the entire centered card hoverable.
+const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
+
+cards.forEach(card => {
+  card.addEventListener('dragstart', e => e.preventDefault());
+});
+
+function setCarouselRotation() {
+  a3d.style.setProperty('--ry', `${ry}turn`);
+}
+
+/*
+  elementFromPoint will naturally pick the topmost visible card.
+  backface-visibility: hidden ensures back-facing cards aren't pickable.
 */
-      const CENTER_HOVER_ZONE = 0.78;
+function getCardAtPoint(x, y) {
+  const el = document.elementFromPoint(x, y);
+  const card = el?.closest?.('.card');
 
-      const clamp = (value, min, max) => {
-        return Math.min(max, Math.max(min, value));
-      };
+  return card && scene.contains(card) ? card : null;
+}
 
-      cards.forEach((card) => {
-        card.addEventListener("dragstart", (e) => e.preventDefault());
-      });
+function resetCard(card) {
+  card.style.setProperty('--tiltX', '0deg');
+  card.style.setProperty('--tiltY', '0deg');
+  card.style.setProperty('--pop', '0em');
+  card.classList.remove('is-tilting');
+}
 
-      function wrapTurn(value) {
-        return ((((value + 0.5) % 1) + 1) % 1) - 0.5;
-      }
+function applyCardHover(card, e) {
+  if (!card || isDragging) return;
 
-      function setCarouselRotation() {
-        a3d.style.setProperty("--ry", `${ry}turn`);
-      }
+  if (activeHoverCard && activeHoverCard !== card) {
+    resetCard(activeHoverCard);
+  }
 
-      /*
-  This finds the image that is currently closest to the center/front.
-  Only this card receives pointer-events.
-  This prevents corner/side images from being hovered.
-*/
-      function updateMiddleHoverableCard() {
-        if (activeHoverCard) return;
+  activeHoverCard = card;
 
-        let middleIndex = 0;
-        let bestDistance = Infinity;
+  isPaused = true;
+  velocity = 0;
 
-        for (let i = 0; i < cards.length; i++) {
-          const distance = Math.abs(wrapTurn(ry + i / cards.length));
+  const rect = card.getBoundingClientRect();
 
-          if (distance < bestDistance) {
-            bestDistance = distance;
-            middleIndex = i;
-          }
-        }
+  const x = clamp((e.clientX - rect.left) / rect.width, 0, 1);
+  const y = clamp((e.clientY - rect.top) / rect.height, 0, 1);
 
-        cards.forEach((card, i) => {
-          card.classList.toggle("is-hoverable", i === middleIndex);
-        });
-      }
+  const tiltX = (0.5 - y) * MAX_TILT * 2;
+  const tiltY = (x - 0.5) * MAX_TILT * 2;
 
-      function pointerIsInCenterZone(clientX) {
-        const rect = scene.getBoundingClientRect();
-        const sideSpace = (rect.width * (1 - CENTER_HOVER_ZONE)) / 2;
+  card.style.setProperty('--tiltX', `${tiltX}deg`);
+  card.style.setProperty('--tiltY', `${tiltY}deg`);
+  card.style.setProperty('--pop', `${POP_OUT}em`);
+  card.classList.add('is-tilting');
+}
 
-        return (
-          clientX >= rect.left + sideSpace && clientX <= rect.right - sideSpace
-        );
-      }
+function clearHover() {
+  if (activeHoverCard) {
+    resetCard(activeHoverCard);
+  }
 
-      function getHoverableCardAtPoint(x, y) {
-        if (!pointerIsInCenterZone(x)) return null;
+  activeHoverCard = null;
+  isPaused = false;
+}
 
-        const el = document.elementFromPoint(x, y);
-        const card = el?.closest?.(".card.is-hoverable");
-
-        return card && scene.contains(card) ? card : null;
-      }
-
-      function resetCard(card) {
-        card.style.setProperty("--tiltX", "0deg");
-        card.style.setProperty("--tiltY", "0deg");
-        card.style.setProperty("--pop", "0em");
-        card.classList.remove("is-tilting");
-      }
-
-      function applyCardHover(card, e) {
-        if (!card || isDragging) return;
-
-        if (activeHoverCard && activeHoverCard !== card) {
-          resetCard(activeHoverCard);
-        }
-
-        activeHoverCard = card;
-
-        /*
-    Pause carousel movement while the centered image is hovered.
-  */
-        isPaused = true;
-        velocity = 0;
-
-        const rect = card.getBoundingClientRect();
-
-        const x = clamp((e.clientX - rect.left) / rect.width, 0, 1);
-        const y = clamp((e.clientY - rect.top) / rect.height, 0, 1);
-
-        const tiltX = (0.5 - y) * MAX_TILT * 2;
-        const tiltY = (x - 0.5) * MAX_TILT * 2;
-
-        card.style.setProperty("--tiltX", `${tiltX}deg`);
-        card.style.setProperty("--tiltY", `${tiltY}deg`);
-        card.style.setProperty("--pop", `${POP_OUT}em`);
-        card.classList.add("is-tilting");
-      }
-
-      function clearHover() {
-        if (activeHoverCard) {
-          resetCard(activeHoverCard);
-        }
-
-        activeHoverCard = null;
-        isPaused = false;
-
-        updateMiddleHoverableCard();
-      }
-
-      /* ==============================
+/* ==============================
    Drag scrolling
 ============================== */
 
-      scene.addEventListener("pointerdown", (e) => {
-        if (e.pointerType === "mouse" && e.button !== 0) return;
+scene.addEventListener('pointerdown', e => {
+  if (e.pointerType === 'mouse' && e.button !== 0) return;
 
-        e.preventDefault();
+  e.preventDefault();
+  clearHover();
 
-        clearHover();
+  isDragging = true;
+  lastX = e.clientX;
+  velocity = 0;
 
-        isDragging = true;
-        lastX = e.clientX;
-        velocity = 0;
+  scene.classList.add('is-dragging');
 
-        scene.classList.add("is-dragging");
+  try {
+    scene.setPointerCapture(e.pointerId);
+  } catch {}
+});
 
-        try {
-          scene.setPointerCapture(e.pointerId);
-        } catch {}
-      });
+scene.addEventListener('pointermove', e => {
+  if (isDragging) {
+    const delta = e.clientX - lastX;
+    const amount = delta * -DRAG_SENSITIVITY;
 
-      scene.addEventListener("pointermove", (e) => {
-        if (isDragging) {
-          const delta = e.clientX - lastX;
-          const amount = delta * -DRAG_SENSITIVITY;
+    velocity = amount;
+    ry += amount;
+    lastX = e.clientX;
 
-          velocity = amount;
-          ry += amount;
-          lastX = e.clientX;
+    setCarouselRotation();
+    return;
+  }
 
-          setCarouselRotation();
-          updateMiddleHoverableCard();
+  const card = getCardAtPoint(e.clientX, e.clientY);
 
-          return;
-        }
+  if (card) {
+    applyCardHover(card, e);
+  } else if (activeHoverCard) {
+    clearHover();
+  }
+});
 
-        const card = getHoverableCardAtPoint(e.clientX, e.clientY);
+function endDrag(e) {
+  if (!isDragging) return;
 
-        if (card) {
-          applyCardHover(card, e);
-        } else if (activeHoverCard) {
-          clearHover();
-        }
-      });
+  isDragging = false;
+  scene.classList.remove('is-dragging');
 
-      function endDrag(e) {
-        if (!isDragging) return;
+  try {
+    scene.releasePointerCapture(e.pointerId);
+  } catch {}
+}
 
-        isDragging = false;
-        scene.classList.remove("is-dragging");
+scene.addEventListener('pointerup', endDrag);
+scene.addEventListener('pointercancel', endDrag);
 
-        try {
-          scene.releasePointerCapture(e.pointerId);
-        } catch {}
+scene.addEventListener('pointerleave', () => {
+  if (!isDragging) clearHover();
+});
 
-        updateMiddleHoverableCard();
-      }
-
-      scene.addEventListener("pointerup", endDrag);
-      scene.addEventListener("pointercancel", endDrag);
-
-      scene.addEventListener("pointerleave", () => {
-        if (!isDragging) {
-          clearHover();
-        }
-      });
-
-      /* ==============================
+/* ==============================
    Mouse wheel / trackpad scrolling
 ============================== */
 
-      scene.addEventListener(
-        "wheel",
-        (e) => {
-          e.preventDefault();
+scene.addEventListener('wheel', e => {
+  e.preventDefault();
+  clearHover();
 
-          clearHover();
+  const mode = e.deltaMode === 1
+    ? 16
+    : e.deltaMode === 2
+      ? window.innerHeight
+      : 1;
 
-          const mode =
-            e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? window.innerHeight : 1;
+  const delta = (e.deltaX * 1.6 + e.deltaY * 0.85) * mode;
 
-          const delta = (e.deltaX * 1.6 + e.deltaY * 0.85) * mode;
+  velocity -= delta * WHEEL_SENSITIVITY;
+}, { passive: false });
 
-          velocity -= delta * WHEEL_SENSITIVITY;
-        },
-        { passive: false },
-      );
-
-      /* ==============================
+/* ==============================
    Animation loop
 ============================== */
 
-      function loop() {
-        if (!isPaused && !isDragging) {
-          velocity *= FRICTION;
+function loop() {
+  if (!isPaused && !isDragging) {
+    velocity *= FRICTION;
 
-          if (Math.abs(velocity) < 0.000001) {
-            velocity = 0;
-          }
+    if (Math.abs(velocity) < 0.000001) {
+      velocity = 0;
+    }
 
-          ry += velocity + AUTO_SPEED;
+    ry += velocity + AUTO_SPEED;
 
-          if (Math.abs(ry) > 1000) {
-            ry %= 1;
-          }
+    if (Math.abs(ry) > 1000) {
+      ry %= 1;
+    }
 
-          setCarouselRotation();
-          updateMiddleHoverableCard();
-        }
+    setCarouselRotation();
+  }
 
-        requestAnimationFrame(loop);
-      }
+  requestAnimationFrame(loop);
+}
 
-      window.addEventListener("blur", () => {
-        isDragging = false;
-        scene.classList.remove("is-dragging");
-        clearHover();
-      });
+window.addEventListener('blur', () => {
+  isDragging = false;
+  scene.classList.remove('is-dragging');
+  clearHover();
+});
 
-      setCarouselRotation();
-      updateMiddleHoverableCard();
-      loop();
-    </script>
-  </body>
+setCarouselRotation();
+loop();
+</script>
+
+</body>
 </html>

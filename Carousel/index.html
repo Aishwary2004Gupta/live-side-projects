@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <title>3D Carousel — Toggle Full Circle</title>
+    <title>Carousel</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <style>
       /* ====== 3D Carousel Styles ====== */
@@ -36,7 +36,7 @@
 
       .card {
         --w: 17.5em;
-        --ba: calc(var(--arc) / var(--n));
+        --ba: 1turn / var(--n);
         --pop: 0em;
         --tiltX: 0deg;
         --tiltY: 0deg;
@@ -94,38 +94,13 @@
         font-size: 0.9rem;
         margin-top: 1rem;
       }
-
-      /* ====== Button ====== */
-      .toggle-btn {
-        position: fixed;
-        top: 2rem;
-        right: 2rem;
-        padding: 0.75rem 1.5rem;
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        color: white;
-        border: none;
-        border-radius: 2em;
-        font-size: 0.95rem;
-        cursor: pointer;
-        z-index: 1000;
-        transition: transform 0.2s ease, box-shadow 0.2s ease;
-      }
-
-      .toggle-btn:hover {
-        transform: scale(1.05);
-        box-shadow: 0 8px 25px rgba(102, 126, 234, 0.4);
-      }
-
-      .toggle-btn.active {
-        background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-      }
     </style>
   </head>
   <body>
-    <h1>3D Carousel — Toggle Full Circle</h1>
+    <!-- <h1>3D Carousel</h1> -->
 
     <div class="scene">
-      <div class="a3d" style="--n: 17; --arc: 0.6turn">
+      <div class="a3d" style="--n: 17">
         <img
           class="card"
           src="https://images.unsplash.com/photo-1730652201845-095193ddb555?q=80&w=722&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D?w=400"
@@ -235,21 +210,17 @@
       Drag/Scroll to rotate • Hover any front-facing card to Pop &amp; Tilt
     </p>
 
-    <button class="toggle-btn" id="toggleBtn">Toggle Full Circle</button>
-
     <script>
       const scene = document.querySelector(".scene");
       const a3d = document.querySelector(".a3d");
       const cards = Array.from(document.querySelectorAll(".card"));
       const N = cards.length;
-      const toggleBtn = document.getElementById("toggleBtn");
 
       let ry = 0;
       let velocity = 0;
       let isDragging = false;
       let isPaused = false;
       let lastX = 0;
-      let isFullCircle = false;
 
       /* ── hover state ── */
       let hoveredCard = null;
@@ -260,8 +231,8 @@
       const FRICTION = 0.92;
       const AUTO_SPEED = 0.0003;
       const MAX_TILT = 35;
-      const POP_AMOUNT = 8;
-      const FRONT_ARC = 0.24;
+      const POP_AMOUNT = 8; // em
+      const FRONT_ARC = 0.24; // ±0.24 turns ≈ ±86°
 
       /* ══════════════════════════════
          HOVER LOGIC — scene-level
@@ -271,9 +242,17 @@
          on the scene's mousemove.
       ══════════════════════════════ */
 
+      // Kill native pointer events on every card
+      // so DOM stacking order can never block us
       cards.forEach((c) => {
         c.style.pointerEvents = "none";
       });
+
+      // Robust angle normalisation → always returns -0.5 … +0.5
+      function cardAngle(i) {
+        const raw = ry + i / N;
+        return raw - Math.round(raw);
+      }
 
       function resetCard(card) {
         card.style.setProperty("--pop", "0em");
@@ -284,6 +263,7 @@
 
       function applyTilt(card, cx, cy) {
         const r = card.getBoundingClientRect();
+        // 0 → 1 across the full card surface
         const x = Math.max(0, Math.min(1, (cx - r.left) / r.width));
         const y = Math.max(0, Math.min(1, (cy - r.top) / r.height));
 
@@ -293,22 +273,22 @@
         card.classList.add("is-hovered");
       }
 
-      function cardAngle(i) {
-        const raw = ry + i / N;
-        return raw - Math.round(raw);
-      }
-
+      // Given a screen point, find the best front-facing card under it
       function findCardAt(cx, cy) {
         let best = null;
         let bestDist = Infinity;
 
         for (let i = 0; i < N; i++) {
           const angle = cardAngle(i);
+
+          // skip cards not facing the viewer
           if (Math.abs(angle) > FRONT_ARC) continue;
 
           const r = cards[i].getBoundingClientRect();
-          if (cx >= r.left && cx <= r.right &&
-              cy >= r.top  && cy <= r.bottom) {
+
+          // is the cursor inside this card's on-screen rectangle?
+          if (cx >= r.left && cx <= r.right && cy >= r.top && cy <= r.bottom) {
+            // among overlapping rects pick the most centred card
             if (Math.abs(angle) < bestDist) {
               bestDist = Math.abs(angle);
               best = cards[i];
@@ -323,11 +303,13 @@
 
         const target = findCardAt(mouseX, mouseY);
 
+        // nothing changed
         if (target === hoveredCard) {
           if (hoveredCard) applyTilt(hoveredCard, mouseX, mouseY);
           return;
         }
 
+        // clear old
         if (hoveredCard) resetCard(hoveredCard);
 
         hoveredCard = target;
@@ -358,7 +340,9 @@
         isPaused = false;
       });
 
-      /* ── drag & wheel ── */
+      /* ══════════════════════════════
+         DRAG & WHEEL (unchanged logic)
+      ══════════════════════════════ */
       const handleMove = (x) => {
         if (!isDragging) return;
         const delta = x - lastX;
@@ -368,6 +352,7 @@
       };
 
       scene.addEventListener("pointerdown", (e) => {
+        // cancel hover on drag start
         if (hoveredCard) {
           resetCard(hoveredCard);
           hoveredCard = null;
@@ -386,13 +371,15 @@
         "wheel",
         (e) => {
           e.preventDefault();
-          if (isPaused) return;
+          if (isPaused) return; // freeze while hovering
           velocity -= (e.deltaX + e.deltaY) * 0.00005;
         },
         { passive: false },
       );
 
-      /* ── animation loop ── */
+      /* ══════════════════════════════
+         ANIMATION LOOP
+      ══════════════════════════════ */
       function loop() {
         if (!isDragging) {
           velocity *= FRICTION;
@@ -401,32 +388,14 @@
           if (!isPaused) {
             ry += velocity + AUTO_SPEED;
           }
+          // while paused: nothing added → carousel is frozen
         }
 
         a3d.style.setProperty("--ry", ry + "turn");
         requestAnimationFrame(loop);
       }
 
-      /* ── toggle full circle ── */
-      function toggleFullCircle() {
-        isFullCircle = !isFullCircle;
-        toggleBtn.classList.toggle("active", isFullCircle);
-
-        // smooth transition: animate the arc variable
-        const startArc = isFullCircle ? 0.6 : 1; // 0.6turn = 216° semi-circle, 1turn = full circle
-        const endArc = isFullCircle ? 1 : 0.6;
-
-        a3d.style.setProperty("--arc", startArc + "turn");
-
-        // animate with CSS transition
-        setTimeout(() => {
-          a3d.style.setProperty("--arc", endArc + "turn");
-        }, 10);
-      }
-
-      toggleBtn.addEventListener("click", toggleFullCircle);
-
-      /* ── handle tab-away ── */
+      // handle tab-away
       window.addEventListener("blur", () => {
         isDragging = false;
         if (hoveredCard) {

@@ -20,6 +20,7 @@
         max-width: 100vw;
         padding: 5rem 0;
         touch-action: pan-y;
+        transition: perspective 0.8s ease, mask 0.8s ease;
       }
 
       .scene:active {
@@ -32,6 +33,7 @@
         --ry: 0turn;
         transform: rotateY(var(--ry));
         will-change: transform;
+        transition: transform 0.8s cubic-bezier(0.22, 1, 0.36, 1);
       }
 
       .card {
@@ -40,6 +42,8 @@
         --pop: 0em;
         --tiltX: 0deg;
         --tiltY: 0deg;
+        --radius-scale: 1;
+        --base-radius: calc((0.5 * var(--w) + 0.5em) / tan(0.5 * var(--ba)));
 
         grid-area: 1 / 1;
         width: var(--w);
@@ -50,21 +54,62 @@
         backface-visibility: hidden;
 
         transition:
+          width 0.8s cubic-bezier(0.22, 1, 0.36, 1),
           transform 0.5s cubic-bezier(0.23, 1, 0.32, 1),
           box-shadow 0.5s ease;
 
         transform: rotateY(calc(var(--i) * var(--ba)))
-          translateZ(
-            calc(
-              -1 * (0.5 * var(--w) + 0.5em) / tan(0.5 * var(--ba)) + var(--pop)
-            )
-          )
+          translateZ(calc(-1 * var(--radius-scale) * var(--base-radius) + var(--pop)))
           rotateX(var(--tiltX)) rotateY(var(--tiltY));
       }
 
       .card.is-hovered {
         box-shadow: 0 30px 60px -12px rgba(0, 0, 0, 0.55);
         filter: saturate(1.12) contrast(1.05);
+      }
+
+      /* ====== Full Circle Mode (Inkwell Style) ====== */
+      body.full-circle .scene {
+        perspective: 100em;
+        mask: none; /* show full ring */
+      }
+
+      body.full-circle .a3d {
+        /* View from above at 60deg angle */
+        transform: rotateX(-60deg) rotateY(var(--ry));
+      }
+
+      body.full-circle .card {
+        --w: 7em;            /* smaller cards */
+        --radius-scale: 3.5; /* larger ring radius */
+        border-radius: 0.8em;
+      }
+
+      /* ====== Toggle Button ====== */
+      .toggle-btn {
+        position: fixed;
+        top: 1.5rem;
+        right: 1.5rem;
+        padding: 0.75rem 1.5rem;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border: none;
+        border-radius: 2rem;
+        font-size: 0.9rem;
+        font-weight: 600;
+        cursor: pointer;
+        z-index: 1000;
+        box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+        transition: all 0.3s ease;
+      }
+
+      .toggle-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+      }
+
+      .toggle-btn.active {
+        background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
       }
 
       /* ====== Page Styles ====== */
@@ -84,120 +129,121 @@
         height: 100%;
       }
 
-      h1 {
-        color: rgb(0, 0, 0);
-        margin-bottom: 0.5rem;
-        text-align: center;
-      }
       .info {
         color: #888;
         font-size: 0.9rem;
         margin-top: 1rem;
-      }
-
-      /* ============================================================
-         FULL CIRCLE (RING) MODE — ONLY ACTIVE WHEN .scene.full exists
-         Semi-circle layout is not changed.
-         ============================================================ */
-      .scene.full {
-        /* remove side fade so the full ring is visible */
-        mask: none;
-        -webkit-mask: none;
-
-        /* remove the big vertical padding so ring centers nicely */
-        padding: 0;
-
-        /* give more space for hover tilt to look nice */
-        perspective: 80em;
-
-        /* ring geometry */
-        --R: min(38vmin, 340px);
-      }
-
-      /* Make the whole ring spin around Z (like inkwell ring rotation) */
-      .scene.full .a3d {
-        transform: rotateZ(var(--ry));
-      }
-
-      /* Ring layout: cards placed around a 2D circle */
-      .scene.full .card {
-        /* smaller cards like the reference */
-        --w: clamp(3rem, 6vmin, 4.4rem);
-        border-radius: 0.7rem;
-        box-shadow: 0 10px 24px -12px rgba(0, 0, 0, 0.35);
-
-        /* IMPORTANT: override transform only in full-circle mode */
-        transform:
-          rotateZ(calc(var(--i) * (1turn / var(--n))))
-          translateY(calc(-1 * var(--R)))
-          translateZ(var(--pop))
-          rotateX(var(--tiltX))
-          rotateY(var(--tiltY));
-      }
-
-      /* subtle ring guide like the inspiration (only in full mode) */
-      .scene.full::after {
-        content: "";
-        position: absolute;
-        width: min(78vmin, 740px);
-        aspect-ratio: 1;
-        border-radius: 50%;
-        border: 1px solid rgba(0, 0, 0, 0.08);
         pointer-events: none;
-      }
-
-      /* Smooth morph ONLY during toggle */
-      .scene.is-layouting .a3d {
-        transition: transform 900ms cubic-bezier(0.22, 0.61, 0.36, 1);
-      }
-      .scene.is-layouting .card {
-        transition:
-          transform 900ms cubic-bezier(0.22, 0.61, 0.36, 1),
-          box-shadow 0.5s ease;
-      }
-
-      /* Button */
-      .layout-btn {
-        position: fixed;
-        top: 1rem;
-        right: 1rem;
-        z-index: 10;
-        border: 1px solid rgba(0, 0, 0, 0.12);
-        background: rgba(255, 255, 255, 0.8);
-        backdrop-filter: blur(8px);
-        padding: 0.65rem 0.95rem;
-        border-radius: 999px;
-        font: inherit;
-        cursor: pointer;
-      }
-      .layout-btn:active {
-        transform: translateY(1px);
       }
     </style>
   </head>
-
   <body>
-    <button class="layout-btn" id="layoutBtn">Show full circle</button>
+    <button class="toggle-btn" id="toggleBtn">Full Circle View</button>
 
-    <div class="scene" id="scene">
+    <div class="scene">
       <div class="a3d" style="--n: 17">
-        <img class="card" src="https://images.unsplash.com/photo-1730652201845-095193ddb555?q=80&w=722&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D?w=400" style="--i: 0" alt="img" />
-        <img class="card" src="https://images.unsplash.com/flagged/photo-1572392640988-ba48d1a74457?q=80&w=764&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D?w=400" style="--i: 1" alt="img" />
-        <img class="card" src="https://images.unsplash.com/photo-1579783928621-7a13d66a62d1?q=80&w=690&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D?w=400" style="--i: 2" alt="img" />
-        <img class="card" src="https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?q=80&w=708&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D?w=400" style="--i: 3" alt="img" />
-        <img class="card" src="https://plus.unsplash.com/premium_photo-1661963273643-3530570bff6b?q=80&w=687&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D?w=400" style="--i: 4" alt="img" />
-        <img class="card" src="https://images.unsplash.com/photo-1762970444229-63fa47ddad16?q=80&w=739&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D?w=400" style="--i: 5" alt="img" />
-        <img class="card" src="https://images.unsplash.com/photo-1597424482786-0b1b7065dbac?q=80&w=687&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D?w=400" style="--i: 6" alt="img" />
-        <img class="card" src="https://images.unsplash.com/photo-1762970443978-e3f63489dd5d?q=80&w=775&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D?w=400" style="--i: 7" alt="img" />
-        <img class="card" src="https://images.unsplash.com/photo-1772843062016-4258198fbbce?q=80&w=736&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D?w=400" style="--i: 8" alt="img" />
-        <img class="card" src="https://plus.unsplash.com/premium_photo-1742457608525-050e57ec5086?q=80&w=687&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D?w=400" style="--i: 9" alt="img" />
-        <img class="card" src="https://images.unsplash.com/photo-1682157693947-c67c6420b016?q=80&w=735&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D?w=400" style="--i: 10" alt="img" />
-        <img class="card" src="https://images.unsplash.com/photo-1630121008266-3e6fbe505e7f?q=80&w=735&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D?w=400" style="--i: 11" alt="img" />
-        <img class="card" src="https://images.unsplash.com/photo-1601980740525-fc689655157f?q=80&w=750&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D?w=400" style="--i: 12" alt="img" />
-        <img class="card" src="https://images.unsplash.com/photo-1678966432189-d58296e45ad2?q=80&w=627&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D?w=400" style="--i: 13" alt="img" />
-        <img class="card" src="https://images.unsplash.com/photo-1545126178-862cdb469409?q=80&w=687&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D?w=400" style="--i: 14" alt="img" />
-        <img class="card" src="https://images.unsplash.com/photo-1597512945089-17f1e583b274?q=80&w=687&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D?w=400" style="--i: 15" alt="img" />
-        <img class="card" src="https://images.unsplash.com/photo-1585135497273-1a86b09fe70e?q=80&w=735&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D?w=400" style="--i: 16" alt="img" />
+        <img
+          class="card"
+          src="https://images.unsplash.com/photo-1730652201845-095193ddb555?q=80&w=722&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D?w=400"
+          style="--i: 0"
+          alt="img"
+        />
+        <img
+          class="card"
+          src="https://images.unsplash.com/flagged/photo-1572392640988-ba48d1a74457?q=80&w=764&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D?w=400"
+          style="--i: 1"
+          alt="img"
+        />
+        <img
+          class="card"
+          src="https://images.unsplash.com/photo-1579783928621-7a13d66a62d1?q=80&w=690&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D?w=400"
+          style="--i: 2"
+          alt="img"
+        />
+        <img
+          class="card"
+          src="https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?q=80&w=708&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D?w=400"
+          style="--i: 3"
+          alt="img"
+        />
+        <img
+          class="card"
+          src="https://plus.unsplash.com/premium_photo-1661963273643-3530570bff6b?q=80&w=687&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D?w=400"
+          style="--i: 4"
+          alt="img"
+        />
+        <img
+          class="card"
+          src="https://images.unsplash.com/photo-1762970444229-63fa47ddad16?q=80&w=739&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D?w=400"
+          style="--i: 5"
+          alt="img"
+        />
+        <img
+          class="card"
+          src="https://images.unsplash.com/photo-1597424482786-0b1b7065dbac?q=80&w=687&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D?w=400"
+          style="--i: 6"
+          alt="img"
+        />
+        <img
+          class="card"
+          src="https://images.unsplash.com/photo-1762970443978-e3f63489dd5d?q=80&w=775&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D?w=400"
+          style="--i: 7"
+          alt="img"
+        />
+        <img
+          class="card"
+          src="https://images.unsplash.com/photo-1772843062016-4258198fbbce?q=80&w=736&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D?w=400"
+          style="--i: 8"
+          alt="img"
+        />
+        <img
+          class="card"
+          src="https://plus.unsplash.com/premium_photo-1742457608525-050e57ec5086?q=80&w=687&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D?w=400"
+          style="--i: 9"
+          alt="img"
+        />
+        <img
+          class="card"
+          src="https://images.unsplash.com/photo-1682157693947-c67c6420b016?q=80&w=735&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D?w=400"
+          style="--i: 10"
+          alt="img"
+        />
+        <img
+          class="card"
+          src="https://images.unsplash.com/photo-1630121008266-3e6fbe505e7f?q=80&w=735&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D?w=400"
+          style="--i: 11"
+          alt="img"
+        />
+        <img
+          class="card"
+          src="https://images.unsplash.com/photo-1601980740525-fc689655157f?q=80&w=750&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D?w=400"
+          style="--i: 12"
+          alt="img"
+        />
+        <img
+          class="card"
+          src="https://images.unsplash.com/photo-1678966432189-d58296e45ad2?q=80&w=627&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D?w=400"
+          style="--i: 13"
+          alt="img"
+        />
+        <img
+          class="card"
+          src="https://images.unsplash.com/photo-1545126178-862cdb469409?q=80&w=687&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D?w=400"
+          style="--i: 14"
+          alt="img"
+        />
+        <img
+          class="card"
+          src="https://images.unsplash.com/photo-1597512945089-17f1e583b274?q=80&w=687&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D?w=400"
+          style="--i: 15"
+          alt="img"
+        />
+        <img
+          class="card"
+          src="https://images.unsplash.com/photo-1585135497273-1a86b09fe70e?q=80&w=735&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D?w=400"
+          style="--i: 16"
+          alt="img"
+        />
       </div>
     </div>
 
@@ -209,17 +255,16 @@
       const scene = document.querySelector(".scene");
       const a3d = document.querySelector(".a3d");
       const cards = Array.from(document.querySelectorAll(".card"));
-      const btn = document.getElementById("layoutBtn");
       const N = cards.length;
+      const toggleBtn = document.getElementById("toggleBtn");
+      const body = document.body;
 
       let ry = 0;
       let velocity = 0;
       let isDragging = false;
       let isPaused = false;
       let lastX = 0;
-
-      let isFull = false;
-      let isLayouting = false;
+      let isFullCircle = false;
 
       /* ── hover state ── */
       let hoveredCard = null;
@@ -230,16 +275,20 @@
       const FRICTION = 0.92;
       const AUTO_SPEED = 0.0003;
       const MAX_TILT = 35;
-      const POP_SEMI = 8;     // em (keep your current look)
-      const POP_FULL = 2.25;  // em (smaller for ring)
-      const FRONT_ARC = 0.24; // keep your current behavior
+      const POP_AMOUNT = 8; // em
+      const FRONT_ARC = 0.24; // ±0.24 turns ≈ ±86°
 
-      /* Hover logic: scene-level hit test (unchanged approach) */
-      cards.forEach((c) => (c.style.pointerEvents = "none"));
+      /* ══════════════════════════════
+         HOVER LOGIC — scene-level
+      ══════════════════════════════ */
+
+      cards.forEach((c) => {
+        c.style.pointerEvents = "none";
+      });
 
       function cardAngle(i) {
         const raw = ry + i / N;
-        return raw - Math.round(raw); // -0.5..0.5
+        return raw - Math.round(raw);
       }
 
       function resetCard(card) {
@@ -254,11 +303,9 @@
         const x = Math.max(0, Math.min(1, (cx - r.left) / r.width));
         const y = Math.max(0, Math.min(1, (cy - r.top) / r.height));
 
-        const pop = (isFull ? POP_FULL : POP_SEMI);
-
         card.style.setProperty("--tiltX", (0.5 - y) * MAX_TILT * 2 + "deg");
         card.style.setProperty("--tiltY", (x - 0.5) * MAX_TILT * 2 + "deg");
-        card.style.setProperty("--pop", pop + "em");
+        card.style.setProperty("--pop", POP_AMOUNT + "em");
         card.classList.add("is-hovered");
       }
 
@@ -266,20 +313,20 @@
         let best = null;
         let bestDist = Infinity;
 
-        // In full circle mode we allow the whole ring (no "front arc" filter)
-        const ARC = isFull ? 0.5 : FRONT_ARC;
-
         for (let i = 0; i < N; i++) {
           const angle = cardAngle(i);
-          if (Math.abs(angle) > ARC) continue;
+          
+          // In full circle mode, allow hover on all cards (top-down view)
+          // In semi-circle, only front arc
+          const visible = isFullCircle ? Math.abs(angle) < 0.5 : Math.abs(angle) < FRONT_ARC;
+          
+          if (!visible) continue;
 
           const r = cards[i].getBoundingClientRect();
+
           if (cx >= r.left && cx <= r.right && cy >= r.top && cy <= r.bottom) {
-            // semi mode: prefer the most centered card in front
-            // full mode: still fine (cards rarely overlap)
-            const score = Math.abs(angle);
-            if (score < bestDist) {
-              bestDist = score;
+            if (Math.abs(angle) < bestDist) {
+              bestDist = Math.abs(angle);
               best = cards[i];
             }
           }
@@ -310,6 +357,7 @@
         }
       }
 
+      /* ── scene-level listeners ── */
       scene.addEventListener("mousemove", (e) => {
         mouseX = e.clientX;
         mouseY = e.clientY;
@@ -326,7 +374,9 @@
         isPaused = false;
       });
 
-      /* Drag & wheel (unchanged) */
+      /* ══════════════════════════════
+         DRAG & WHEEL
+      ══════════════════════════════ */
       const handleMove = (x) => {
         if (!isDragging) return;
         const delta = x - lastX;
@@ -345,9 +395,10 @@
         lastX = e.clientX;
         velocity = 0;
       });
-
       window.addEventListener("pointermove", (e) => handleMove(e.clientX));
-      window.addEventListener("pointerup", () => (isDragging = false));
+      window.addEventListener("pointerup", () => {
+        isDragging = false;
+      });
 
       scene.addEventListener(
         "wheel",
@@ -359,39 +410,32 @@
         { passive: false },
       );
 
-      /* Toggle layout */
-      btn.addEventListener("click", () => {
-        // cancel hover so transforms switch cleanly
+      /* ══════════════════════════════
+         TOGGLE BUTTON
+      ══════════════════════════════ */
+      toggleBtn.addEventListener("click", () => {
+        isFullCircle = !isFullCircle;
+        body.classList.toggle("full-circle", isFullCircle);
+        toggleBtn.classList.toggle("active", isFullCircle);
+        toggleBtn.textContent = isFullCircle ? "Semi-Circle View" : "Full Circle View";
+        
+        // Reset hover state on toggle
         if (hoveredCard) {
           resetCard(hoveredCard);
           hoveredCard = null;
+          isPaused = false;
         }
-        isPaused = false;
-        velocity = 0;
-
-        isFull = !isFull;
-        btn.textContent = isFull ? "Show semi circle" : "Show full circle";
-
-        isLayouting = true;
-        scene.classList.add("is-layouting");
-        scene.classList.toggle("full", isFull);
-
-        // stop motion briefly during the morph (keeps it clean)
-        const D = 900;
-        setTimeout(() => {
-          isLayouting = false;
-          scene.classList.remove("is-layouting");
-        }, D);
       });
 
-      /* Animation loop */
+      /* ══════════════════════════════
+         ANIMATION LOOP
+      ══════════════════════════════ */
       function loop() {
         if (!isDragging) {
           velocity *= FRICTION;
           if (Math.abs(velocity) < 1e-7) velocity = 0;
 
-          // freeze updates during hover OR during layout morph
-          if (!isPaused && !isLayouting) {
+          if (!isPaused) {
             ry += velocity + AUTO_SPEED;
           }
         }
@@ -412,4 +456,4 @@
       loop();
     </script>
   </body>
-</html>     
+</html>

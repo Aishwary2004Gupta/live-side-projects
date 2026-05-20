@@ -20,7 +20,6 @@
         max-width: 100vw;
         padding: 5rem 0;
         touch-action: pan-y;
-        transition: perspective 0.8s ease, mask 0.8s ease;
       }
 
       .scene:active {
@@ -33,7 +32,6 @@
         --ry: 0turn;
         transform: rotateY(var(--ry));
         will-change: transform;
-        transition: transform 0.8s cubic-bezier(0.22, 1, 0.36, 1);
       }
 
       .card {
@@ -42,8 +40,6 @@
         --pop: 0em;
         --tiltX: 0deg;
         --tiltY: 0deg;
-        --radius-scale: 1;
-        --base-radius: calc((0.5 * var(--w) + 0.5em) / tan(0.5 * var(--ba)));
 
         grid-area: 1 / 1;
         width: var(--w);
@@ -54,62 +50,21 @@
         backface-visibility: hidden;
 
         transition:
-          width 0.8s cubic-bezier(0.22, 1, 0.36, 1),
           transform 0.5s cubic-bezier(0.23, 1, 0.32, 1),
           box-shadow 0.5s ease;
 
         transform: rotateY(calc(var(--i) * var(--ba)))
-          translateZ(calc(-1 * var(--radius-scale) * var(--base-radius) + var(--pop)))
+          translateZ(
+            calc(
+              -1 * (0.5 * var(--w) + 0.5em) / tan(0.5 * var(--ba)) + var(--pop)
+            )
+          )
           rotateX(var(--tiltX)) rotateY(var(--tiltY));
       }
 
       .card.is-hovered {
         box-shadow: 0 30px 60px -12px rgba(0, 0, 0, 0.55);
         filter: saturate(1.12) contrast(1.05);
-      }
-
-      /* ====== Full Circle Mode (Inkwell Style) ====== */
-      body.full-circle .scene {
-        perspective: 100em;
-        mask: none; /* show full ring */
-      }
-
-      body.full-circle .a3d {
-        /* View from above at 60deg angle */
-        transform: rotateX(-60deg) rotateY(var(--ry));
-      }
-
-      body.full-circle .card {
-        --w: 7em;            /* smaller cards */
-        --radius-scale: 3.5; /* larger ring radius */
-        border-radius: 0.8em;
-      }
-
-      /* ====== Toggle Button ====== */
-      .toggle-btn {
-        position: fixed;
-        top: 1.5rem;
-        right: 1.5rem;
-        padding: 0.75rem 1.5rem;
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        color: white;
-        border: none;
-        border-radius: 2rem;
-        font-size: 0.9rem;
-        font-weight: 600;
-        cursor: pointer;
-        z-index: 1000;
-        box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
-        transition: all 0.3s ease;
-      }
-
-      .toggle-btn:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
-      }
-
-      .toggle-btn.active {
-        background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
       }
 
       /* ====== Page Styles ====== */
@@ -129,16 +84,20 @@
         height: 100%;
       }
 
+      h1 {
+        color: rgb(0, 0, 0);
+        margin-bottom: 0.5rem;
+        text-align: center;
+      }
       .info {
         color: #888;
         font-size: 0.9rem;
         margin-top: 1rem;
-        pointer-events: none;
       }
     </style>
   </head>
   <body>
-    <button class="toggle-btn" id="toggleBtn">Full Circle View</button>
+    <!-- <h1>3D Carousel</h1> -->
 
     <div class="scene">
       <div class="a3d" style="--n: 17">
@@ -256,15 +215,12 @@
       const a3d = document.querySelector(".a3d");
       const cards = Array.from(document.querySelectorAll(".card"));
       const N = cards.length;
-      const toggleBtn = document.getElementById("toggleBtn");
-      const body = document.body;
 
       let ry = 0;
       let velocity = 0;
       let isDragging = false;
       let isPaused = false;
       let lastX = 0;
-      let isFullCircle = false;
 
       /* ── hover state ── */
       let hoveredCard = null;
@@ -280,12 +236,19 @@
 
       /* ══════════════════════════════
          HOVER LOGIC — scene-level
+         All cards have pointer-events: none.
+         We detect hover manually via
+         getBoundingClientRect hit-testing
+         on the scene's mousemove.
       ══════════════════════════════ */
 
+      // Kill native pointer events on every card
+      // so DOM stacking order can never block us
       cards.forEach((c) => {
         c.style.pointerEvents = "none";
       });
 
+      // Robust angle normalisation → always returns -0.5 … +0.5
       function cardAngle(i) {
         const raw = ry + i / N;
         return raw - Math.round(raw);
@@ -300,6 +263,7 @@
 
       function applyTilt(card, cx, cy) {
         const r = card.getBoundingClientRect();
+        // 0 → 1 across the full card surface
         const x = Math.max(0, Math.min(1, (cx - r.left) / r.width));
         const y = Math.max(0, Math.min(1, (cy - r.top) / r.height));
 
@@ -309,22 +273,22 @@
         card.classList.add("is-hovered");
       }
 
+      // Given a screen point, find the best front-facing card under it
       function findCardAt(cx, cy) {
         let best = null;
         let bestDist = Infinity;
 
         for (let i = 0; i < N; i++) {
           const angle = cardAngle(i);
-          
-          // In full circle mode, allow hover on all cards (top-down view)
-          // In semi-circle, only front arc
-          const visible = isFullCircle ? Math.abs(angle) < 0.5 : Math.abs(angle) < FRONT_ARC;
-          
-          if (!visible) continue;
+
+          // skip cards not facing the viewer
+          if (Math.abs(angle) > FRONT_ARC) continue;
 
           const r = cards[i].getBoundingClientRect();
 
+          // is the cursor inside this card's on-screen rectangle?
           if (cx >= r.left && cx <= r.right && cy >= r.top && cy <= r.bottom) {
+            // among overlapping rects pick the most centred card
             if (Math.abs(angle) < bestDist) {
               bestDist = Math.abs(angle);
               best = cards[i];
@@ -339,11 +303,13 @@
 
         const target = findCardAt(mouseX, mouseY);
 
+        // nothing changed
         if (target === hoveredCard) {
           if (hoveredCard) applyTilt(hoveredCard, mouseX, mouseY);
           return;
         }
 
+        // clear old
         if (hoveredCard) resetCard(hoveredCard);
 
         hoveredCard = target;
@@ -375,7 +341,7 @@
       });
 
       /* ══════════════════════════════
-         DRAG & WHEEL
+         DRAG & WHEEL (unchanged logic)
       ══════════════════════════════ */
       const handleMove = (x) => {
         if (!isDragging) return;
@@ -386,6 +352,7 @@
       };
 
       scene.addEventListener("pointerdown", (e) => {
+        // cancel hover on drag start
         if (hoveredCard) {
           resetCard(hoveredCard);
           hoveredCard = null;
@@ -404,28 +371,11 @@
         "wheel",
         (e) => {
           e.preventDefault();
-          if (isPaused) return;
+          if (isPaused) return; // freeze while hovering
           velocity -= (e.deltaX + e.deltaY) * 0.00005;
         },
         { passive: false },
       );
-
-      /* ══════════════════════════════
-         TOGGLE BUTTON
-      ══════════════════════════════ */
-      toggleBtn.addEventListener("click", () => {
-        isFullCircle = !isFullCircle;
-        body.classList.toggle("full-circle", isFullCircle);
-        toggleBtn.classList.toggle("active", isFullCircle);
-        toggleBtn.textContent = isFullCircle ? "Semi-Circle View" : "Full Circle View";
-        
-        // Reset hover state on toggle
-        if (hoveredCard) {
-          resetCard(hoveredCard);
-          hoveredCard = null;
-          isPaused = false;
-        }
-      });
 
       /* ══════════════════════════════
          ANIMATION LOOP
@@ -438,12 +388,14 @@
           if (!isPaused) {
             ry += velocity + AUTO_SPEED;
           }
+          // while paused: nothing added → carousel is frozen
         }
 
         a3d.style.setProperty("--ry", ry + "turn");
         requestAnimationFrame(loop);
       }
 
+      // handle tab-away
       window.addEventListener("blur", () => {
         isDragging = false;
         if (hoveredCard) {

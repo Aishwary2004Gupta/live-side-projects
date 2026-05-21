@@ -751,9 +751,9 @@ const MODELS = {
     },
     try: {
         url: "https://raw.githubusercontent.com/Aishwary2004Gupta/models/cloud/porygon.glb",
-        scale: 0.1,
-        rotation: { x: -0.2, y: Math.PI, z: 0 },
-        position: { x: 0, y: -1.1, z: 0 },
+        scale: 0.001,
+        rotation: { x: 0, y: 0, z: 0 },
+        position: { x: 0, y: 0, z: 0 },
     },
 };
 

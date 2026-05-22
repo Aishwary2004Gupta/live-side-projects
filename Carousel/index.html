@@ -15,7 +15,7 @@
         overflow: hidden;
         perspective: 45em;
         mask: linear-gradient(90deg, #0000, #000 15% 85%, #0000);
-        cursor: grab;
+        cursor: grab; /* Cursor hint for main area */
         width: 100%;
         max-width: 100vw;
         padding: 5rem 0;
@@ -91,7 +91,6 @@
         pointer-events: none;
         text-align: center;
         position: fixed;
-        /* bottom: 2rem; */
         left: 50%;
         transform: translateX(-50%);
       }
@@ -182,6 +181,7 @@
 
     <div class="scene" id="scene">
       <div class="a3d" style="--n: 18">
+        <!-- All 18 images -->
         <img class="card" src="https://images.unsplash.com/photo-1730652201845-095193ddb555?q=80&w=722&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D?w=400" style="--i: 0" alt="img" />
         <img class="card" src="https://images.unsplash.com/flagged/photo-1572392640988-ba48d1a74457?q=80&w=764&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D?w=400" style="--i: 1" alt="img" />
         <img class="card" src="https://images.unsplash.com/photo-1579783928621-7a13d66a62d1?q=80&w=690&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D?w=400" style="--i: 2" alt="img" />
@@ -227,7 +227,7 @@
       let hoveredCard = null;
       let mouseX = -9999;
       let mouseY = -9999;
-      let mouseInScene = false;
+      let mouseInScene = false; // Still used for hover effects only
 
       const FRICTION = 0.92;
       const AUTO_SPEED = 0.0003;
@@ -284,6 +284,7 @@
       }
 
       function updateHover() {
+        // Only show hover effects if physically over the images
         if (isDragging || !mouseInScene) return;
         const target = findCardAt(mouseX, mouseY);
 
@@ -304,14 +305,25 @@
         }
       }
 
+      /* ---------------------------------------------------------
+         SCROLL/Drag LOGIC CHANGED HERE:
+         Listeners are on WINDOW instead of Scene div.
+         This means dragging works even if mouse leaves the image area.
+      ----------------------------------------------------------*/
+
+      // Mousemove handles both global rotation tracking AND local hover tracking
       window.addEventListener("mousemove", (e) => {
         mouseX = e.clientX;
         mouseY = e.clientY;
 
+        // Check if we are hovering the scene specifically for UI effects
         mouseInScene = document.elementFromPoint(e.clientX, e.clientY)?.closest('.scene') !== null;
+        
+        // Even if we aren't over the scene, track mouse for potential global dragging
         updateHover();
       });
 
+      // Global Pointer Down (Left Click anywhere starts drag)
       window.addEventListener("pointerdown", (e) => {
         if (hoveredCard) {
           resetCard(hoveredCard);
@@ -323,6 +335,7 @@
         velocity = 0;
       });
 
+      // Global Pointer Move (Drag anywhere on screen)
       window.addEventListener("pointermove", (e) => {
         if (!isDragging) return;
         const delta = e.clientX - lastX;
@@ -331,14 +344,18 @@
         lastX = e.clientX;
       });
 
+      // Global Pointer Up (Release anywhere stops drag)
       window.addEventListener("pointerup", () => (isDragging = false));
 
+      // Global Wheel (Scroll anywhere rotates carousel)
       window.addEventListener(
         "wheel",
         (e) => {
-          e.preventDefault();
+          // Prevent default scrolling ONLY when not paused (to keep control)
+          e.preventDefault(); 
           if (isPaused) return;
           
+          // Calculate rotation based on scroll amount
           velocity -= (e.deltaX + e.deltaY) * 0.00005;
         },
         { passive: false },

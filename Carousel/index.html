@@ -5,77 +5,6 @@
     <title>Carousel</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <style>
-      /* ====== Admin Panel Styles ====== */
-      .admin-panel {
-        position: fixed;
-        top: 1rem;
-        left: 50%;
-        transform: translateX(-50%);
-        background: rgba(255, 255, 255, 0.9);
-        padding: 1rem 1.5rem;
-        border-radius: 1rem;
-        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
-        z-index: 1000;
-        display: flex;
-        gap: 10px;
-        align-items: center;
-        backdrop-filter: blur(5px);
-        width: 80%;
-        max-width: 600px;
-      }
-
-      .input-group {
-        flex-grow: 1;
-        display: flex;
-        gap: 5px;
-      }
-
-      .admin-input {
-        flex-grow: 1;
-        padding: 0.5rem;
-        border: 1px solid #ddd;
-        border-radius: 0.5rem;
-        outline: none;
-      }
-
-      .btn-add {
-        padding: 0.5rem 1rem;
-        background: #ff7f7f;
-        color: white;
-        border: none;
-        border-radius: 0.5rem;
-        cursor: pointer;
-        font-weight: bold;
-      }
-      
-      .btn-add:hover {
-        background: #e66a6a;
-      }
-
-      .file-controls {
-        display: flex;
-        gap: 5px;
-      }
-
-      /* Hide default file input for styling, use label instead */
-      .custom-file-upload {
-        padding: 0.5rem 1rem;
-        background: #fff3ed;
-        color: #d65a31;
-        border-radius: 0.5rem;
-        cursor: pointer;
-        border: 1px dashed #ffb19b;
-        font-size: 0.9rem;
-      }
-
-      .custom-file-upload:hover {
-        background: #ffeadd;
-      }
-
-      #fileInput {
-        display: none;
-      }
-
       /* ====== 3D Carousel Styles ====== */
       .scene,
       .a3d {
@@ -119,52 +48,23 @@
         border-radius: 1.5em;
         box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.4);
         backface-visibility: hidden;
-        
-        /* Modern standalone scale property to avoid breaking transforms */
-        scale: 1;
 
         transition:
           transform 0.5s cubic-bezier(0.23, 1, 0.32, 1),
-          box-shadow 0.5s ease,
-          scale 0.5s cubic-bezier(0.23, 1, 0.32, 1),
-          opacity 0.5s ease;
+          box-shadow 0.5s ease;
 
-          transform: rotateY(calc(var(--i) * var(--ba)))
-            translateZ(
-              calc(
-                -1 * (0.5 * var(--w) + 0.5em) / tan(0.5 * var(--ba)) + var(--pop)
-              )
+        transform: rotateY(calc(var(--i) * var(--ba)))
+          translateZ(
+            calc(
+              -1 * (0.5 * var(--w) + 0.5em) / tan(0.5 * var(--ba)) + var(--pop)
             )
-            rotateX(var(--tiltX)) rotateY(var(--tiltY));
+          )
+          rotateX(var(--tiltX)) rotateY(var(--tiltY));
       }
 
       .card.is-hovered {
         box-shadow: 0 30px 60px -12px rgba(0, 0, 0, 0.55);
         filter: saturate(1.12) contrast(1.05);
-      }
-
-      /* POPPING DELETE ANIMATION */
-      .card.is-deleting {
-        pointer-events: none;
-        animation: popDelete 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
-      }
-
-      @keyframes popDelete {
-        0% {
-          scale: 1;
-          opacity: 1;
-          filter: brightness(1) saturate(1);
-        }
-        25% {
-          scale: 1.25; /* Quick elastic pop-out */
-          opacity: 1;
-          filter: brightness(1.4) saturate(1.3) contrast(1.1);
-        }
-        100% {
-          scale: 0; /* Shrink to nothing */
-          opacity: 0;
-          filter: brightness(1.8) saturate(1.8) blur(8px);
-        }
       }
 
       /* ====== Page Styles ====== */
@@ -220,7 +120,7 @@
           rotateX(var(--tiltX)) rotateY(var(--tiltY));
       }
 
-      /* Center info text inside circle in full mode ONLY */
+      /* Center the info text inside the circle in full mode ONLY */
       .scene.full .info {
         position: absolute;
         top: 50%;
@@ -233,7 +133,7 @@
         white-space: nowrap;
       }
 
-      /* Positioning for Semi-Circle Mode (Not Full) */
+      /* NEW STYLE: Positioning for Semi-Circle Mode (Not Full) */
       .scene:not(.full) .info {
         position: absolute;
         bottom: 20px;
@@ -282,82 +182,137 @@
   </head>
 
   <body>
-    <!-- ADMIN PANEL FOR ADDING IMAGES -->
-    <div class="admin-panel">
-      <div class="input-group">
-        <input type="text" id="urlInput" class="admin-input" placeholder="Paste image URL here..." />
-        <button id="addLinkBtn" class="btn-add">Add Link</button>
-      </div>
-      
-      <span style="color:#ccc">|</span>
-
-      <div class="file-controls">
-        <label for="fileInput" class="custom-file-upload">📁 Upload Image</label>
-        <input type="file" id="fileInput" accept="image/*" />
-      </div>
-    </div>
-
     <button class="layout-btn" id="layoutBtn">Show full circle</button>
 
     <div class="scene" id="scene">
       <div class="a3d">
-        <!-- Default gallery images -->
-        <img class="card" src="https://images.unsplash.com/photo-1730652201845-095193ddb555?q=80&w=722&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D?w=400" alt="img" />
-        <img class="card" src="https://images.unsplash.com/flagged/photo-1572392640988-ba48d1a74457?q=80&w=764&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D?w=400" alt="img" />
-        <img class="card" src="https://images.unsplash.com/photo-1579783928621-7a13d66a62d1?q=80&w=690&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D?w=400" alt="img" />
-        <img class="card" src="https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?q=80&w=708&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D?w=400" alt="img" />
-        <img class="card" src="https://plus.unsplash.com/premium_photo-1661963273643-3530570bff6b?q=80&w=687&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D?w=400" alt="img" />
-        <img class="card" src="https://images.unsplash.com/photo-1762970444229-63fa47ddad16?q=80&w=739&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D?w=400" alt="img" />
-        <img class="card" src="https://images.unsplash.com/photo-1597424482786-0b1b7065dbac?q=80&w=687&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D?w=400" alt="img" />
-        <img class="card" src="https://images.unsplash.com/photo-1762970443978-e3f63489dd5d?q=80&w=775&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D?w=400" alt="img" />
-        <img class="card" src="https://images.unsplash.com/photo-1772843062016-4258198fbbce?q=80&w=736&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D?w=400" alt="img" />
-        <img class="card" src="https://plus.unsplash.com/premium_photo-1742457608525-050e57ec5086?q=80&w=687&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D?w=400" alt="img" />
-        <img class="card" src="https://images.unsplash.com/photo-1682157693947-c67c6420b016?q=80&w=735&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D?w=400" alt="img" />
-        <img class="card" src="https://images.unsplash.com/photo-1630121008266-3e6fbe505e7f?q=80&w=735&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D?w=400" alt="img" />
-        <img class="card" src="https://images.unsplash.com/photo-1601980740525-fc689655157f?q=80&w=750&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D?w=400" alt="img" />
-        <img class="card" src="https://images.unsplash.com/photo-1678966432189-d58296e45ad2?q=80&w=627&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D?w=400" alt="img" />
-        <img class="card" src="https://images.unsplash.com/photo-1545126178-862cdb469409?q=80&w=687&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D?w=400" alt="img" />
-        <img class="card" src="https://images.unsplash.com/photo-1597512945089-17f1e583b274?q=80&w=687&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D?w=400" alt="img" />
-        <img class="card" src="https://images.unsplash.com/photo-1585135497273-1a86b09fe70e?q=80&w=735&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D?w=400" alt="img" />
-        <img class="card" src="https://images.unsplash.com/photo-1546533658-8f1f550b9a4e?q=80&w=687&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D?w=400" alt="img" />
-        <img class="card" src="https://images.unsplash.com/photo-1603378995290-8d4ce0495ddd?q=80&w=687&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D?w=400" alt="img" />
-        <img class="card" src="https://images.unsplash.com/photo-1669873939341-9d34c6434c56?q=80&w=764&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D?w=400" alt="img" />
-        <img class="card" src="https://plus.unsplash.com/premium_photo-1702598754680-e49cb0e6eff8?q=80&w=688&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D?w=400" alt="img" />
+        <img
+          class="card"
+          src="https://images.unsplash.com/photo-1730652201845-095193ddb555?q=80&w=722&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D?w=400"
+          alt="img"
+        />
+        <img
+          class="card"
+          src="https://images.unsplash.com/flagged/photo-1572392640988-ba48d1a74457?q=80&w=764&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D?w=400"
+          alt="img"
+        />
+        <img
+          class="card"
+          src="https://images.unsplash.com/photo-1579783928621-7a13d66a62d1?q=80&w=690&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D?w=400"
+          alt="img"
+        />
+        <img
+          class="card"
+          src="https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?q=80&w=708&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D?w=400"
+          alt="img"
+        />
+        <img
+          class="card"
+          src="https://plus.unsplash.com/premium_photo-1661963273643-3530570bff6b?q=80&w=687&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D?w=400"
+          alt="img"
+        />
+        <img
+          class="card"
+          src="https://images.unsplash.com/photo-1762970444229-63fa47ddad16?q=80&w=739&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D?w=400"
+          alt="img"
+        />
+        <img
+          class="card"
+          src="https://images.unsplash.com/photo-1597424482786-0b1b7065dbac?q=80&w=687&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D?w=400"
+          alt="img"
+        />
+        <img
+          class="card"
+          src="https://images.unsplash.com/photo-1762970443978-e3f63489dd5d?q=80&w=775&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D?w=400"
+          alt="img"
+        />
+        <img
+          class="card"
+          src="https://images.unsplash.com/photo-1772843062016-4258198fbbce?q=80&w=736&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D?w=400"
+          alt="img"
+        />
+        <img
+          class="card"
+          src="https://plus.unsplash.com/premium_photo-1742457608525-050e57ec5086?q=80&w=687&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D?w=400"
+          alt="img"
+        />
+        <img
+          class="card"
+          src="https://images.unsplash.com/photo-1682157693947-c67c6420b016?q=80&w=735&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D?w=400"
+          alt="img"
+        />
+        <img
+          class="card"
+          src="https://images.unsplash.com/photo-1630121008266-3e6fbe505e7f?q=80&w=735&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D?w=400"
+          alt="img"
+        />
+        <img
+          class="card"
+          src="https://images.unsplash.com/photo-1601980740525-fc689655157f?q=80&w=750&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D?w=400"
+          alt="img"
+        />
+        <img
+          class="card"
+          src="https://images.unsplash.com/photo-1678966432189-d58296e45ad2?q=80&w=627&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D?w=400"
+          alt="img"
+        />
+        <img
+          class="card"
+          src="https://images.unsplash.com/photo-1545126178-862cdb469409?q=80&w=687&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D?w=400"
+          alt="img"
+        />
+        <img
+          class="card"
+          src="https://images.unsplash.com/photo-1597512945089-17f1e583b274?q=80&w=687&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D?w=400"
+          alt="img"
+        />
+        <img
+          class="card"
+          src="https://images.unsplash.com/photo-1585135497273-1a86b09fe70e?q=80&w=735&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D?w=400"
+          alt="img"
+        />
+        <img
+          class="card"
+          src="https://images.unsplash.com/photo-1546533658-8f1f550b9a4e?q=80&w=687&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D?w=400"
+          alt="img"
+        />
+        <img
+          class="card"
+          src="https://images.unsplash.com/photo-1603378995290-8d4ce0495ddd?q=80&w=687&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D?w=400"
+          alt="img"
+        />
+        <img
+          class="card"
+          src="https://images.unsplash.com/photo-1669873939341-9d34c6434c56?q=80&w=764&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D?w=400"
+          alt="img"
+        />
+        <img
+          class="card"
+          src="https://plus.unsplash.com/premium_photo-1702598754680-e49cb0e6eff8?q=80&w=688&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D?w=400"
+          alt="img"
+        />
       </div>
 
-      <!-- Instruction text placed dynamically via CSS below the carousel in semi-circle mode -->
       <p class="info">
-        Drag/Scroll to rotate • Double-Click any card to Delete • Hover front card to Pop &amp; Tilt
+        Drag/Scroll to rotate • Hover any front-facing card to Pop &amp; Tilt
       </p>
     </div>
 
     <script>
       const scene = document.querySelector(".scene");
       const a3d = document.querySelector(".a3d");
-      let cards = [];
-      let N = 0;
+      // Get all cards immediately
+      let cards = Array.from(document.querySelectorAll(".card"));
 
-      // === FUNCTION TO RECALCULATE GEOMETRY ===
-      function updateCarouselGeometry() {
-        // Exclude cards currently in delete animation so they don't reposition
-        cards = Array.from(document.querySelectorAll(".card:not(.is-deleting)"));
-        N = cards.length;
-        
-        cards.forEach((card, index) => {
-          card.style.setProperty("--i", index);
-          card.style.pointerEvents = "none"; // Make sure interactive math logic takes over
-        });
+      cards.forEach((card, index) => {
+        card.style.setProperty("--i", index);
+      });
 
-        a3d.style.setProperty("--n", N);
-      }
-
-      // Initialize geometry on load
-      updateCarouselGeometry();
+      // 2. Set total count N and pass it to the container via CSS variable
+      const N = cards.length;
+      a3d.style.setProperty("--n", N);
 
       const btn = document.getElementById("layoutBtn");
-      const addLinkBtn = document.getElementById("addLinkBtn");
-      const urlInput = document.getElementById("urlInput");
-      const fileInput = document.getElementById("fileInput");
 
       let ry = 0;
       let velocity = 0;
@@ -380,71 +335,7 @@
       const POP_FULL = 2.25;
       const FRONT_ARC = 0.24;
 
-      // ==========================================
-      // LOGIC FOR ADDING/DELETING IMAGES
-      // ==========================================
-
-      function addImageToCarousel(src) {
-        const img = document.createElement("img");
-        img.classList.add("card");
-        img.src = src;
-        img.alt = "img";
-        
-        a3d.appendChild(img);
-        updateCarouselGeometry();
-      }
-
-      // Add via URL input
-      addLinkBtn.addEventListener("click", () => {
-        const val = urlInput.value.trim();
-        if (val) {
-          addImageToCarousel(val);
-          urlInput.value = "";
-        }
-      });
-
-      // Upload local file
-      fileInput.addEventListener("change", (event) => {
-        const file = event.target.files[0];
-        if (file) {
-          const reader = new FileReader();
-          reader.onload = function(e) {
-            addImageToCarousel(e.target.result);
-          };
-          reader.readAsDataURL(file);
-        }
-        fileInput.value = ""; 
-      });
-
-      // Double-click to delete using 3D coordinate-based target detection
-      window.addEventListener("dblclick", (e) => {
-        const target = findCardAt(e.clientX, e.clientY);
-        
-        if (target && !target.classList.contains("is-deleting")) {
-          // Instantly clear hover tracking for safety
-          if (hoveredCard === target) {
-            resetCard(hoveredCard);
-            hoveredCard = null;
-            isPaused = false;
-          }
-
-          // Trigger popping exit CSS animation
-          target.classList.add("is-deleting");
-          
-          // Instantly shift other cards into position while the target pops out
-          updateCarouselGeometry();
-
-          // After spring transition, physically drop DOM node
-          setTimeout(() => {
-            target.remove();
-            updateCarouselGeometry();
-          }, 600); // matches the duration of CSS keyframes
-        }
-      });
-
-      // ==========================================
-      // GEOMETRICAL INTERACTION ENGINE
-      // ==========================================
+      cards.forEach((c) => (c.style.pointerEvents = "none"));
 
       function cardAngle(i) {
         const raw = ry + i / N;
@@ -476,7 +367,7 @@
         let bestDist = Infinity;
         const ARC = isFull ? 0.5 : FRONT_ARC;
 
-        for (let i = 0; i < cards.length; i++) {
+        for (let i = 0; i < N; i++) {
           const angle = cardAngle(i);
           if (Math.abs(angle) > ARC) continue;
 
@@ -515,14 +406,13 @@
       window.addEventListener("mousemove", (e) => {
         mouseX = e.clientX;
         mouseY = e.clientY;
-        mouseInScene = document.elementFromPoint(e.clientX, e.clientY)?.closest(".scene") !== null;
+        mouseInScene =
+          document.elementFromPoint(e.clientX, e.clientY)?.closest(".scene") !==
+          null;
         updateHover();
       });
 
       window.addEventListener("pointerdown", (e) => {
-        // Prevent rotation triggers when clicking inside admin control panel
-        if (e.target.closest('.admin-panel')) return;
-
         if (hoveredCard) {
           resetCard(hoveredCard);
           hoveredCard = null;

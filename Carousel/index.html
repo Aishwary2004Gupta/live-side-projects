@@ -5,77 +5,6 @@
     <title>Carousel</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <style>
-      /* ====== Admin Panel Styles (New) ====== */
-      .admin-panel {
-        position: fixed;
-        top: 1rem;
-        left: 50%;
-        transform: translateX(-50%);
-        background: rgba(255, 255, 255, 0.9);
-        padding: 1rem 1.5rem;
-        border-radius: 1rem;
-        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
-        z-index: 1000;
-        display: flex;
-        gap: 10px;
-        align-items: center;
-        backdrop-filter: blur(5px);
-        width: 80%;
-        max-width: 600px;
-      }
-
-      .input-group {
-        flex-grow: 1;
-        display: flex;
-        gap: 5px;
-      }
-
-      .admin-input {
-        flex-grow: 1;
-        padding: 0.5rem;
-        border: 1px solid #ddd;
-        border-radius: 0.5rem;
-        outline: none;
-      }
-
-      .btn-add {
-        padding: 0.5rem 1rem;
-        background: #ff7f7f;
-        color: white;
-        border: none;
-        border-radius: 0.5rem;
-        cursor: pointer;
-        font-weight: bold;
-      }
-      
-      .btn-add:hover {
-        background: #e66a6a;
-      }
-
-      .file-controls {
-        display: flex;
-        gap: 5px;
-      }
-
-      /* Hide default file input for styling, use label instead */
-      .custom-file-upload {
-        padding: 0.5rem 1rem;
-        background: #fff3ed;
-        color: #d65a31;
-        border-radius: 0.5rem;
-        cursor: pointer;
-        border: 1px dashed #ffb19b;
-        font-size: 0.9rem;
-      }
-
-      .custom-file-upload:hover {
-        background: #ffeadd;
-      }
-
-      #fileInput {
-        display: none;
-      }
-
       /* ====== 3D Carousel Styles ====== */
       .scene,
       .a3d {
@@ -253,27 +182,11 @@
   </head>
 
   <body>
-    <!-- ADMIN PANEL FOR ADDING IMAGES -->
-    <div class="admin-panel">
-      <div class="input-group">
-        <input type="text" id="urlInput" class="admin-input" placeholder="Paste image URL here..." />
-        <button id="addLinkBtn" class="btn-add">Add Link</button>
-      </div>
-      
-      <span style="color:#ccc">|</span>
-
-      <div class="file-controls">
-        <label for="fileInput" class="custom-file-upload">📁 Upload Image</label>
-        <input type="file" id="fileInput" accept="image/*" />
-      </div>
-    </div>
-
     <button class="layout-btn" id="layoutBtn">Show full circle</button>
 
     <div class="scene" id="scene">
       <div class="a3d">
-        <!-- Images can be added dynamically here -->
-        <!-- <img
+        <img
           class="card"
           src="https://images.unsplash.com/photo-1730652201845-095193ddb555?q=80&w=722&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D?w=400"
           alt="img"
@@ -317,7 +230,7 @@
           class="card"
           src="https://images.unsplash.com/photo-1772843062016-4258198fbbce?q=80&w=736&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D?w=400"
           alt="img"
-        /> -->
+        />
         <img
           class="card"
           src="https://plus.unsplash.com/premium_photo-1742457608525-050e57ec5086?q=80&w=687&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D?w=400"
@@ -388,30 +301,18 @@
     <script>
       const scene = document.querySelector(".scene");
       const a3d = document.querySelector(".a3d");
+      // Get all cards immediately
       let cards = Array.from(document.querySelectorAll(".card"));
-      
-      // === FUNCTION TO RECALCULATE GEOMETRY ===
-      function updateCarouselGeometry() {
-        // 1. Get all current cards
-        cards = Array.from(document.querySelectorAll(".card"));
-        
-        // 2. Loop through and assign their index numbers (0, 1, 2...)
-        cards.forEach((card, index) => {
-          card.style.setProperty("--i", index);
-        });
 
-        // 3. Update the total count variable 'N' on the container
-        const N = cards.length;
-        a3d.style.setProperty("--n", N);
-      }
+      cards.forEach((card, index) => {
+        card.style.setProperty("--i", index);
+      });
 
-      // Initialize geometry on load
-      updateCarouselGeometry();
+      // 2. Set total count N and pass it to the container via CSS variable
+      const N = cards.length;
+      a3d.style.setProperty("--n", N);
 
       const btn = document.getElementById("layoutBtn");
-      const addLinkBtn = document.getElementById("addLinkBtn");
-      const urlInput = document.getElementById("urlInput");
-      const fileInput = document.getElementById("fileInput");
 
       let ry = 0;
       let velocity = 0;
@@ -435,53 +336,6 @@
       const FRONT_ARC = 0.24;
 
       cards.forEach((c) => (c.style.pointerEvents = "none"));
-
-      // ==========================================
-      // LOGIC FOR ADDING IMAGES DYNAMICALLY
-      // ==========================================
-
-      function addImageToCarousel(src) {
-        const img = document.createElement("img");
-        img.classList.add("card");
-        img.src = src;
-        img.alt = "img";
-        img.style.pointerEvents = "none"; // Maintain consistent behavior
-        
-        // Add it to the DOM
-        a3d.appendChild(img);
-        
-        // Trigger Recalculation
-        updateCarouselGeometry();
-      }
-
-      // Button: Add via URL
-      addLinkBtn.addEventListener("click", () => {
-        const val = urlInput.value.trim();
-        if (val) {
-          addImageToCarousel(val);
-          urlInput.value = ""; // Clear input
-        }
-      });
-
-      // Input: Upload from Computer
-      fileInput.addEventListener("change", (event) => {
-        const file = event.target.files[0];
-        if (file) {
-          const reader = new FileReader();
-          reader.onload = function(e) {
-            // e.target.result contains the base64 data string of the image
-            addImageToCarousel(e.target.result);
-          };
-          reader.readAsDataURL(file);
-        }
-        // Reset value so same file can be selected again if needed
-        fileInput.value = ""; 
-      });
-
-
-      // ==========================================
-      // CAROUSEL ANIMATION LOOP & EVENTS
-      // ==========================================
 
       function cardAngle(i) {
         const raw = ry + i / N;
@@ -513,7 +367,7 @@
         let bestDist = Infinity;
         const ARC = isFull ? 0.5 : FRONT_ARC;
 
-        for (let i = 0; i < cards.length; i++) {
+        for (let i = 0; i < N; i++) {
           const angle = cardAngle(i);
           if (Math.abs(angle) > ARC) continue;
 
@@ -552,7 +406,9 @@
       window.addEventListener("mousemove", (e) => {
         mouseX = e.clientX;
         mouseY = e.clientY;
-        mouseInScene = document.elementFromPoint(e.clientX, e.clientY)?.closest(".scene") !== null;
+        mouseInScene =
+          document.elementFromPoint(e.clientX, e.clientY)?.closest(".scene") !==
+          null;
         updateHover();
       });
 
@@ -582,6 +438,7 @@
         (e) => {
           e.preventDefault();
           if (isPaused) return;
+
           velocity -= (e.deltaX + e.deltaY) * 0.00005;
         },
         { passive: false },

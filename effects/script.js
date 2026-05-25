@@ -757,7 +757,7 @@ const MODELS = {
     },
     try: {
         url: "https://raw.githubusercontent.com/Aishwary2004Gupta/models/cloud/magikarp.glb",
-        scale: 1,
+        scale: 0.4,
         rotation: { x: 0, y: Math.PI, z: 0 },
         position: { x: 0, y: 0.7, z: 0 },
     },

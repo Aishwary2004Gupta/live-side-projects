@@ -749,7 +749,7 @@ const MODELS = {
         rotation: { x: -0.2, y: Math.PI, z: 0 },
         position: { x: 0, y: -1.1, z: 0 },
     },
-    try: {
+    porygon: {
         url: "https://raw.githubusercontent.com/Aishwary2004Gupta/models/cloud/porygon.glb",
         scale: 0.0045,
         rotation: { x: 0, y: Math.PI + 0.5, z: 0 },

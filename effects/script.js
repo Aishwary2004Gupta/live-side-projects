@@ -764,8 +764,8 @@ const MODELS = {
     try: {
         url: "https://raw.githubusercontent.com/Aishwary2004Gupta/models/cloud/lapras.glb",
         scale: 0.23,
-        rotation: { x: 0, y: Math.PI + 1.5, z: 0 },
-        position: { x: 0, y: -0.02, z: 0 },
+        rotation: { x: 0, y: Math.PI + 0.5, z: 0 },
+        position: { x: 0, y: -0.9, z: 0 },
     },
 };
 

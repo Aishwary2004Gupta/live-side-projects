@@ -127,82 +127,128 @@ export const halftoneShader = `
       `;
 
 export const wovenShader = `
-        precision highp float;
-        uniform float pixelSize;
-        uniform vec2 resolution;
+  precision highp float;
+  uniform float pixelSize;
+  uniform vec2 resolution;
 
-        float random(vec2 st) { return fract(sin(dot(st.xy, vec2(12.9898,78.233))) * 43758.5453123); }
+  float random(vec2 st) { return fract(sin(dot(st.xy, vec2(12.9898,78.233))) * 43758.5453123); }
 
-        vec3 rgbToHsv(vec3 c) {
-          vec4 K = vec4(0.0, -1.0/3.0, 2.0/3.0, -1.0);
-          vec4 p = mix(vec4(c.bg, K.wz), vec4(c.gb, K.xy), step(c.b, c.g));
-          vec4 q = mix(vec4(p.xyw, c.r), vec4(c.r, p.yzx), step(p.x, c.r));
-          float d = q.x - min(q.w, q.y);
-          float e = 1.0e-10;
-          return vec3(abs(q.z + (q.w - q.y) / (6.0*d + e)), d/(q.x+e), q.x);
-        }
+  vec3 rgbToHsv(vec3 c) {
+    vec4 K = vec4(0.0, -1.0/3.0, 2.0/3.0, -1.0);
+    vec4 p = mix(vec4(c.bg, K.wz), vec4(c.gb, K.xy), step(c.b, c.g));
+    vec4 q = mix(vec4(p.xyw, c.r), vec4(c.r, p.yzx), step(p.x, c.r));
+    float d = q.x - min(q.w, q.y);
+    float e = 1.0e-10;
+    return vec3(abs(q.z + (q.w - q.y) / (6.0*d + e)), d/(q.x+e), q.x);
+  }
 
-        vec3 hsvToRgb(vec3 c) {
-          vec4 K = vec4(1.0, 2.0/3.0, 1.0/3.0, 3.0);
-          vec3 p = abs(fract(c.xxx + K.xyz)*6.0 - K.www);
-          return c.z * mix(K.xxx, clamp(p - K.xxx, 0.0, 1.0), c.y);
-        }
+  vec3 hsvToRgb(vec3 c) {
+    vec4 K = vec4(1.0, 2.0/3.0, 1.0/3.0, 3.0);
+    vec3 p = abs(fract(c.xxx + K.xyz)*6.0 - K.www);
+    return c.z * mix(K.xxx, clamp(p - K.xxx, 0.0, 1.0), c.y);
+  }
 
-        float noise(vec2 st){
-          vec2 i=floor(st), f=fract(st);
-          float a=random(i), b=random(i+vec2(1,0)), c=random(i+vec2(0,1)), d=random(i+vec2(1,1));
-          vec2 u=f*f*(3.0-2.0*f);
-          return mix(a,b,u.x) + (c-a)*u.y*(1.0-u.x) + (d-b)*u.x*u.y;
-        }
+  float noise(vec2 st){
+    vec2 i=floor(st), f=fract(st);
+    float a=random(i), b=random(i+vec2(1,0)), c=random(i+vec2(0,1)), d=random(i+vec2(1,1));
+    vec2 u=f*f*(3.0-2.0*f);
+    return mix(a,b,u.x) + (c-a)*u.y*(1.0-u.x) + (d-b)*u.x*u.y;
+  }
 
-        void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor) {
-          vec2 s = pixelSize / resolution;
-          vec2 uvPixel = s * floor(uv / s);
-          vec4 color = texture2D(inputBuffer, uvPixel);
+  void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor) {
+    vec2 s = pixelSize / resolution;
+    vec2 cellPos = floor(uv / s);
+    vec2 cellUV = fract(uv / s);
+    vec2 centered = cellUV - 0.5; // -0.5 to 0.5
+    
+    // Get base color from center of the cell
+    vec4 color = texture2D(inputBuffer, s * cellPos + 0.5 * s);
+    float luma = dot(color.rgb, vec3(0.2126, 0.7152, 0.0722));
 
-          float luma = dot(vec3(0.2126,0.7152,0.0722), color.rgb);
-          vec2 cellPos = floor(uv / s);
-          vec2 cellUV = fract(uv / s);
+    // 1. TRUE CHECKERBOARD WEAVE (Warp and Weft)
+    // Alternates based on both X and Y to create over-under interlacing
+    bool isHorizontal = mod(cellPos.x + cellPos.y, 2.0) < 1.0;
+    
+    float threadWidth = 0.42; // Thickness of thread (leaves a small gap)
+    float threadMask = 0.0;
+    float threadDepth = 0.0;  // 1.0 = over, 0.0 = under
 
-          if(luma < 0.001){
-            vec2 centered = cellUV - 0.5;
-            float alt = mod(cellPos.x,2.0);
-            float a = alt==0.0 ? radians(-65.0) : radians(65.0);
-            vec2 r = vec2(centered.x*cos(a)-centered.y*sin(a), centered.x*sin(a)+centered.y*cos(a));
-            float ellipse = length(vec2(r.x, r.y*1.55 - 0.075));
-            float pat = smoothstep(0.2, 1.0, 1.0-ellipse) * 0.06;
-            outputColor = vec4(vec3(pat),1.0);
-            return;
-          }
+    if (isHorizontal) {
+      float dist = abs(centered.y);
+      threadMask = 1.0 - smoothstep(threadWidth - 0.04, threadWidth + 0.01, dist);
+      threadDepth = 1.0; // Horizontal threads sit on top in this cell
+    } else {
+      float dist = abs(centered.x);
+      threadMask = 1.0 - smoothstep(threadWidth - 0.04, threadWidth + 0.01, dist);
+      threadDepth = 0.0; // Vertical threads sit underneath in this cell
+    }
 
-          float rowOffset = sin((random(vec2(0.0, uvPixel.y)) - 0.5) * 0.25);
-          cellUV.x += rowOffset;
-          vec2 centered = cellUV - 0.5;
+    // 2. BACKGROUND (Dark areas of the model)
+    // Faint background weave so the black areas still look like fabric
+    float bgWeave = 0.0;
+    if (isHorizontal) bgWeave = 1.0 - smoothstep(0.2, 0.4, abs(centered.y));
+    else bgWeave = 1.0 - smoothstep(0.2, 0.4, abs(centered.x));
+    vec3 bgColor = vec3(0.01, 0.01, 0.015) + vec3(bgWeave * 0.025);
 
-          float noiseAmount = 0.18;
-          vec2 noisyCenter = centered + (vec2(
-            random(cellPos + centered),
-            random(cellPos + centered)
-          ) - 0.5) * noiseAmount;
+    if (luma < 0.01) {
+      outputColor = vec4(bgColor, 1.0);
+      return;
+    }
 
-          float alt = mod(cellPos.x,2.0);
-          float a = alt==0.0 ? radians(-65.0) : radians(65.0);
-          vec2 r = vec2(noisyCenter.x*cos(a)-noisyCenter.y*sin(a), noisyCenter.x*sin(a)+noisyCenter.y*cos(a));
-          float ellipse = length(vec2(r.x, r.y*1.55 - 0.075));
-          color.rgb *= smoothstep(0.2, 1.0, 1.0-ellipse);
+    // 3. 3D CYLINDRICAL SHADING
+    // Threads are darker at the edges and catch light in the center
+    float edgeDarken = 1.0;
+    float centerHighlight = 0.0;
+    
+    if (isHorizontal) {
+      edgeDarken = smoothstep(0.0, 0.18, threadWidth - abs(centered.y));
+      centerHighlight = smoothstep(0.15, 0.0, abs(centered.y)) * 0.25;
+    } else {
+      edgeDarken = smoothstep(0.0, 0.18, threadWidth - abs(centered.x));
+      centerHighlight = smoothstep(0.15, 0.0, abs(centered.x)) * 0.25;
+    }
 
-          float stripeNoise = noise(vec2(centered.x, centered.y * 100.0));
-          color.rgb *= stripeNoise + 0.4;
+    // 4. DIRECTIONAL FIBER NOISE
+    // Noise stretches along the direction of the thread to look like fabric fibers
+    float fiberNoise = 1.0;
+    if (isHorizontal) {
+      fiberNoise = noise(vec2(centered.x * 2.0, centered.y * 60.0 + cellPos.y * 15.0));
+    } else {
+      fiberNoise = noise(vec2(centered.x * 60.0 + cellPos.x * 15.0, centered.y * 2.0));
+    }
+    fiberNoise = fiberNoise * 0.25 + 0.75; // Keep it subtle
 
-          float hueShift = (random(cellPos)-0.5)*0.08;
-          vec3 hsv = rgbToHsv(color.rgb);
-          hsv.x += hueShift;
-          color.rgb = hsvToRgb(hsv);
+    // 5. COLOR PROCESSING
+    // Apply original hue shift and saturation boost
+    float hueShift = (random(cellPos) - 0.5) * 0.06;
+    vec3 hsv = rgbToHsv(color.rgb);
+    hsv.x += hueShift;
+    hsv.y = min(hsv.y * 1.15, 1.0); // Slight saturation boost for fabric dye look
+    vec3 threadColor = hsvToRgb(hsv);
 
-          outputColor = color;
-        }
-      `;
+    // 6. COMPOSITING THE THREAD
+    // Apply depth shadow (threads going "under" are darker)
+    float depthShadow = mix(0.6, 1.0, threadDepth);
+    threadColor *= depthShadow;
+    
+    // Apply 3D shading and fibers
+    threadColor *= edgeDarken;
+    threadColor *= fiberNoise;
+    threadColor += centerHighlight * threadColor; // Tinted highlight
 
+    // Add ambient occlusion where threads cross (corners of the cell)
+    float ao = smoothstep(0.0, 0.3, length(centered));
+    threadColor *= mix(0.7, 1.0, ao);
+
+    // 7. FINAL MIX
+    vec3 finalColor = mix(bgColor, threadColor, threadMask);
+    
+    // Slight overall contrast boost
+    finalColor = clamp(finalColor * 1.05, 0.0, 1.0);
+
+    outputColor = vec4(finalColor, 1.0);
+  }
+`;
 export const legoShader = `
         precision highp float;
         uniform float pixelSize;

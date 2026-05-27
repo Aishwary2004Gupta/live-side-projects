@@ -127,96 +127,82 @@ export const halftoneShader = `
       `;
 
 export const wovenShader = `
-  precision highp float;
-  uniform float pixelSize;
-  uniform vec2 resolution;
+        precision highp float;
+        uniform float pixelSize;
+        uniform vec2 resolution;
 
-  float random(vec2 st) { return fract(sin(dot(st.xy, vec2(12.9898,78.233))) * 43758.5453123); }
+        float random(vec2 st) { return fract(sin(dot(st.xy, vec2(12.9898,78.233))) * 43758.5453123); }
 
-  vec3 rgbToHsv(vec3 c) {
-    vec4 K = vec4(0.0, -1.0/3.0, 2.0/3.0, -1.0);
-    vec4 p = mix(vec4(c.bg, K.wz), vec4(c.gb, K.xy), step(c.b, c.g));
-    vec4 q = mix(vec4(p.xyw, c.r), vec4(c.r, p.yzx), step(p.x, c.r));
-    float d = q.x - min(q.w, q.y);
-    float e = 1.0e-10;
-    return vec3(abs(q.z + (q.w - q.y) / (6.0*d + e)), d/(q.x+e), q.x);
-  }
+        vec3 rgbToHsv(vec3 c) {
+          vec4 K = vec4(0.0, -1.0/3.0, 2.0/3.0, -1.0);
+          vec4 p = mix(vec4(c.bg, K.wz), vec4(c.gb, K.xy), step(c.b, c.g));
+          vec4 q = mix(vec4(p.xyw, c.r), vec4(c.r, p.yzx), step(p.x, c.r));
+          float d = q.x - min(q.w, q.y);
+          float e = 1.0e-10;
+          return vec3(abs(q.z + (q.w - q.y) / (6.0*d + e)), d/(q.x+e), q.x);
+        }
 
-  vec3 hsvToRgb(vec3 c) {
-    vec4 K = vec4(1.0, 2.0/3.0, 1.0/3.0, 3.0);
-    vec3 p = abs(fract(c.xxx + K.xyz)*6.0 - K.www);
-    return c.z * mix(K.xxx, clamp(p - K.xxx, 0.0, 1.0), c.y);
-  }
+        vec3 hsvToRgb(vec3 c) {
+          vec4 K = vec4(1.0, 2.0/3.0, 1.0/3.0, 3.0);
+          vec3 p = abs(fract(c.xxx + K.xyz)*6.0 - K.www);
+          return c.z * mix(K.xxx, clamp(p - K.xxx, 0.0, 1.0), c.y);
+        }
 
-  float noise(vec2 st){
-    vec2 i=floor(st), f=fract(st);
-    float a=random(i), b=random(i+vec2(1,0)), c=random(i+vec2(0,1)), d=random(i+vec2(1,1));
-    vec2 u=f*f*(3.0-2.0*f);
-    return mix(a,b,u.x) + (c-a)*u.y*(1.0-u.x) + (d-b)*u.x*u.y;
-  }
+        float noise(vec2 st){
+          vec2 i=floor(st), f=fract(st);
+          float a=random(i), b=random(i+vec2(1,0)), c=random(i+vec2(0,1)), d=random(i+vec2(1,1));
+          vec2 u=f*f*(3.0-2.0*f);
+          return mix(a,b,u.x) + (c-a)*u.y*(1.0-u.x) + (d-b)*u.x*u.y;
+        }
 
-  void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor) {
-    vec2 s = pixelSize / resolution;
-    vec2 uvPixel = s * floor(uv / s);
-    vec4 color = texture2D(inputBuffer, uvPixel);
+        void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor) {
+          vec2 s = pixelSize / resolution;
+          vec2 uvPixel = s * floor(uv / s);
+          vec4 color = texture2D(inputBuffer, uvPixel);
 
-    float luma = dot(vec3(0.2126,0.7152,0.0722), color.rgb);
-    vec2 cellPos = floor(uv / s);
-    vec2 cellUV = fract(uv / s);
+          float luma = dot(vec3(0.2126,0.7152,0.0722), color.rgb);
+          vec2 cellPos = floor(uv / s);
+          vec2 cellUV = fract(uv / s);
 
-    // 1. DARK FABRIC BACKGROUND (The base cloth between threads)
-    vec3 fabricBg = vec3(0.04, 0.045, 0.05);
-    
-    if(luma < 0.02){
-      outputColor = vec4(fabricBg, 1.0);
-      return;
-    }
+          if(luma < 0.001){
+            vec2 centered = cellUV - 0.5;
+            float alt = mod(cellPos.x,2.0);
+            float a = alt==0.0 ? radians(-65.0) : radians(65.0);
+            vec2 r = vec2(centered.x*cos(a)-centered.y*sin(a), centered.x*sin(a)+centered.y*cos(a));
+            float ellipse = length(vec2(r.x, r.y*1.55 - 0.075));
+            float pat = smoothstep(0.2, 1.0, 1.0-ellipse) * 0.06;
+            outputColor = vec4(vec3(pat),1.0);
+            return;
+          }
 
-    // 2. ROW OFFSET (Keep original organic irregularity)
-    float rowOffset = sin((random(vec2(0.0, uvPixel.y)) - 0.5) * 0.25);
-    cellUV.x += rowOffset;
-    vec2 centered = cellUV - 0.5;
+          float rowOffset = sin((random(vec2(0.0, uvPixel.y)) - 0.5) * 0.25);
+          cellUV.x += rowOffset;
+          vec2 centered = cellUV - 0.5;
 
-    // 3. DIAGONAL THREAD ROTATION (Herringbone pattern)
-    float alt = mod(cellPos.x, 2.0);
-    float a = alt == 0.0 ? radians(-65.0) : radians(65.0);
-    vec2 r = vec2(
-      centered.x * cos(a) - centered.y * sin(a),
-      centered.x * sin(a) + centered.y * cos(a)
-    );
-    
-    // 4. THREAD SHAPE (Softer edges for fabric look)
-    float ellipse = length(vec2(r.x, r.y * 1.55 - 0.075));
-    float threadMask = smoothstep(0.42, 0.30, ellipse);
+          float noiseAmount = 0.18;
+          vec2 noisyCenter = centered + (vec2(
+            random(cellPos + centered),
+            random(cellPos + centered)
+          ) - 0.5) * noiseAmount;
 
-    // 5. REALISTIC WEAVE DEPTH (Over/Under logic)
-    // In real weaving, every other thread passes under and is in shadow.
-    // We use a checkerboard based on cell position to determine this.
-    float isUnder = mod(cellPos.y + cellPos.x, 2.0);
-    float weaveShadow = isUnder > 0.5 ? 0.5 : 1.0;
-    
-    // 6. CONTACT SHADOW (Ambient occlusion where thread meets fabric)
-    float contactShadow = smoothstep(0.42, 0.15, ellipse) * 0.35 + 0.65;
+          float alt = mod(cellPos.x,2.0);
+          float a = alt==0.0 ? radians(-65.0) : radians(65.0);
+          vec2 r = vec2(noisyCenter.x*cos(a)-noisyCenter.y*sin(a), noisyCenter.x*sin(a)+noisyCenter.y*cos(a));
+          float ellipse = length(vec2(r.x, r.y*1.55 - 0.075));
+          color.rgb *= smoothstep(0.2, 1.0, 1.0-ellipse);
 
-    // 7. FIBER TEXTURE (Noise stretched along the thread direction)
-    float fiberNoise = noise(vec2(r.x * 8.0 + cellPos.x * 2.0, cellPos.y * 3.0)) * 0.25 + 0.75;
+          float stripeNoise = noise(vec2(centered.x, centered.y * 100.0));
+          color.rgb *= stripeNoise + 0.4;
 
-    // 8. APPLY TO COLOR
-    vec3 threadColor = color.rgb * weaveShadow * contactShadow * fiberNoise;
+          float hueShift = (random(cellPos)-0.5)*0.08;
+          vec3 hsv = rgbToHsv(color.rgb);
+          hsv.x += hueShift;
+          color.rgb = hsvToRgb(hsv);
 
-    // 9. HUE SHIFT (Keep original per-thread color variation)
-    float hueShift = (random(cellPos) - 0.5) * 0.06;
-    vec3 hsv = rgbToHsv(threadColor);
-    hsv.x += hueShift;
-    hsv.y *= 1.05;
-    threadColor = hsvToRgb(hsv);
+          outputColor = color;
+        }
+      `;
 
-    // 10. COMPOSITE: Blend thread onto dark fabric background
-    vec3 finalColor = mix(fabricBg, threadColor, threadMask);
-    
-    outputColor = vec4(finalColor, 1.0);
-  }
-`;
 export const legoShader = `
         precision highp float;
         uniform float pixelSize;

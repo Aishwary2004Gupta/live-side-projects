@@ -127,81 +127,112 @@ export const halftoneShader = `
       `;
 
 export const wovenShader = `
-        precision highp float;
-        uniform float pixelSize;
-        uniform vec2 resolution;
+  precision highp float;
+  uniform float pixelSize;
+  uniform vec2 resolution;
 
-        float random(vec2 st) { return fract(sin(dot(st.xy, vec2(12.9898,78.233))) * 43758.5453123); }
+  float random(vec2 st) { 
+    return fract(sin(dot(st.xy, vec2(12.9898,78.233))) * 43758.5453123); 
+  }
 
-        vec3 rgbToHsv(vec3 c) {
-          vec4 K = vec4(0.0, -1.0/3.0, 2.0/3.0, -1.0);
-          vec4 p = mix(vec4(c.bg, K.wz), vec4(c.gb, K.xy), step(c.b, c.g));
-          vec4 q = mix(vec4(p.xyw, c.r), vec4(c.r, p.yzx), step(p.x, c.r));
-          float d = q.x - min(q.w, q.y);
-          float e = 1.0e-10;
-          return vec3(abs(q.z + (q.w - q.y) / (6.0*d + e)), d/(q.x+e), q.x);
-        }
+  // Simple noise for fiber texture
+  float noise(vec2 st) {
+    vec2 i = floor(st);
+    vec2 f = fract(st);
+    float a = random(i);
+    float b = random(i + vec2(1.0, 0.0));
+    float c = random(i + vec2(0.0, 1.0));
+    float d = random(i + vec2(1.0, 1.0));
+    vec2 u = f * f * (3.0 - 2.0 * f);
+    return mix(a, b, u.x) + (c - a) * u.y * (1.0 - u.x) + (d - b) * u.x * u.y;
+  }
 
-        vec3 hsvToRgb(vec3 c) {
-          vec4 K = vec4(1.0, 2.0/3.0, 1.0/3.0, 3.0);
-          vec3 p = abs(fract(c.xxx + K.xyz)*6.0 - K.www);
-          return c.z * mix(K.xxx, clamp(p - K.xxx, 0.0, 1.0), c.y);
-        }
+  void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor) {
+    vec2 s = pixelSize / resolution;
+    vec2 uvPixel = s * floor(uv / s);
+    vec4 color = texture2D(inputBuffer, uvPixel);
+    
+    float luma = dot(vec3(0.2126, 0.7152, 0.0722), color.rgb);
+    
+    // Mask out background
+    if(luma < 0.02) {
+      outputColor = vec4(0.0, 0.0, 0.0, 1.0);
+      return;
+    }
 
-        float noise(vec2 st){
-          vec2 i=floor(st), f=fract(st);
-          float a=random(i), b=random(i+vec2(1,0)), c=random(i+vec2(0,1)), d=random(i+vec2(1,1));
-          vec2 u=f*f*(3.0-2.0*f);
-          return mix(a,b,u.x) + (c-a)*u.y*(1.0-u.x) + (d-b)*u.x*u.y;
-        }
+    vec2 cellPos = floor(uv / s);
+    vec2 cellUV = fract(uv / s);
+    
+    // --- REALISTIC WEAVE LOGIC ---
+    
+    // 1. Determine if this cell is Horizontal or Vertical thread
+    // Alternating based on row + col sum
+    bool isHorizontal = mod(cellPos.x + cellPos.y, 2.0) == 0.0;
+    
+    // 2. Create the thread shape (rounded rectangle)
+    // Threads are slightly wider than the gap
+    float threadWidth = 0.85; 
+    vec2 centered = cellUV - 0.5;
+    
+    float maskH = step(abs(centered.y), threadWidth * 0.5); // Horizontal bar
+    float maskV = step(abs(centered.x), threadWidth * 0.5); // Vertical bar
+    
+    float threadMask = isHorizontal ? maskH : maskV;
+    
+    // 3. Simulate Over/Under Depth
+    // We check the neighbor to see if we are passing under another thread
+    // If (row + col) is even, horizontal is OVER. If odd, horizontal is UNDER.
+    float depth = 1.0; // 1.0 = Over (Bright), 0.0 = Under (Dark)
+    
+    if (isHorizontal) {
+        // Horizontal thread: Over on even sums, Under on odd sums? 
+        // Actually, let's make it alternate per row for the "basket" look
+        if (mod(cellPos.y, 2.0) == 0.0) depth = 1.0; // Over
+        else depth = 0.6; // Under
+    } else {
+        // Vertical thread: Opposite of horizontal to interlock
+        if (mod(cellPos.y, 2.0) == 0.0) depth = 0.6; // Under
+        else depth = 1.0; // Over
+    }
+    
+    // 4. Add Fiber Texture (Noise)
+    // Stretch noise along the thread direction
+    vec2 noiseCoord = isHorizontal ? vec2(cellUV.x * 4.0, cellPos.y) : vec2(cellPos.x, cellUV.y * 4.0);
+    float fiberNoise = noise(noiseCoord * 3.0) * 0.15 + 0.85; // Subtle variation
+    
+    // 5. Apply Lighting and Depth
+    vec3 threadColor = color.rgb;
+    
+    // Darken the "Under" threads significantly to create shadow
+    threadColor *= depth; 
+    
+    // Apply fiber texture
+    threadColor *= fiberNoise;
+    
+    // Add a slight highlight to "Over" threads
+    if (depth > 0.9) {
+        // Simple specular highlight in the center of the thread
+        float distToCenter = isHorizontal ? abs(centered.y) : abs(centered.x);
+        float highlight = smoothstep(threadWidth * 0.5, threadWidth * 0.3, distToCenter);
+        threadColor += vec3(0.15) * highlight;
+    }
 
-        void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor) {
-          vec2 s = pixelSize / resolution;
-          vec2 uvPixel = s * floor(uv / s);
-          vec4 color = texture2D(inputBuffer, uvPixel);
+    // 6. Composite with Background
+    // Create a dark fabric background color (slightly blue-ish grey)
+    vec3 fabricBg = vec3(0.05, 0.06, 0.08);
+    
+    // Add some noise to the background so it looks like felt/cloth between threads
+    fabricBg += noise(cellPos * 5.0) * 0.02;
+    
+    // Mix background and thread
+    vec3 finalColor = mix(fabricBg, threadColor, threadMask);
+    
+    // Final contrast boost for the whole weave
+    finalColor = clamp(finalColor * 1.1, 0.0, 1.0);
 
-          float luma = dot(vec3(0.2126,0.7152,0.0722), color.rgb);
-          vec2 cellPos = floor(uv / s);
-          vec2 cellUV = fract(uv / s);
-
-          if(luma < 0.001){
-            vec2 centered = cellUV - 0.5;
-            float alt = mod(cellPos.x,2.0);
-            float a = alt==0.0 ? radians(-65.0) : radians(65.0);
-            vec2 r = vec2(centered.x*cos(a)-centered.y*sin(a), centered.x*sin(a)+centered.y*cos(a));
-            float ellipse = length(vec2(r.x, r.y*1.55 - 0.075));
-            float pat = smoothstep(0.2, 1.0, 1.0-ellipse) * 0.06;
-            outputColor = vec4(vec3(pat),1.0);
-            return;
-          }
-
-          float rowOffset = sin((random(vec2(0.0, uvPixel.y)) - 0.5) * 0.25);
-          cellUV.x += rowOffset;
-          vec2 centered = cellUV - 0.5;
-
-          float noiseAmount = 0.18;
-          vec2 noisyCenter = centered + (vec2(
-            random(cellPos + centered),
-            random(cellPos + centered)
-          ) - 0.5) * noiseAmount;
-
-          float alt = mod(cellPos.x,2.0);
-          float a = alt==0.0 ? radians(-65.0) : radians(65.0);
-          vec2 r = vec2(noisyCenter.x*cos(a)-noisyCenter.y*sin(a), noisyCenter.x*sin(a)+noisyCenter.y*cos(a));
-          float ellipse = length(vec2(r.x, r.y*1.55 - 0.075));
-          color.rgb *= smoothstep(0.2, 1.0, 1.0-ellipse);
-
-          float stripeNoise = noise(vec2(centered.x, centered.y * 100.0));
-          color.rgb *= stripeNoise + 0.4;
-
-          float hueShift = (random(cellPos)-0.5)*0.08;
-          vec3 hsv = rgbToHsv(color.rgb);
-          hsv.x += hueShift;
-          color.rgb = hsvToRgb(hsv);
-
-          outputColor = color;
-        }
-      `;
+    outputColor = vec4(finalColor, 1.0);
+  }
+`;
 
 export const legoShader = `
         precision highp float;

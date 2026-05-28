@@ -131,98 +131,119 @@ export const wovenShader = `
   uniform float pixelSize;
   uniform vec2 resolution;
 
-  // Simple hash function for texture variation
-  float random(vec2 st) { 
-    return fract(sin(dot(st.xy, vec2(12.9898,78.233))) * 43758.5453123); 
+  float random(vec2 st) {
+      return fract(sin(dot(st.xy, vec2(12.9898,78.233))) * 43758.5453123);
   }
 
-  // Convert RGB to HSV for color manipulation
   vec3 rgbToHsv(vec3 c) {
-    vec4 K = vec4(0.0, -1.0/3.0, 2.0/3.0, -1.0);
-    vec4 p = mix(vec4(c.bg, K.wz), vec4(c.gb, K.xy), step(c.b, c.g));
-    vec4 q = mix(vec4(p.xyw, c.r), vec4(c.r, p.yzx), step(p.x, c.r));
-    float d = q.x - min(q.w, q.y);
-    float e = 1.0e-10;
-    return vec3(abs(q.z + (q.w - q.y) / (6.0*d + e)), d/(q.x+e), q.x);
+      vec4 K = vec4(0.0, -1.0 / 3.0, 2.0 / 3.0, -1.0);
+      vec4 p = mix(vec4(c.bg, K.wz), vec4(c.gb, K.xy), step(c.b, c.g));
+      vec4 q = mix(vec4(p.xyw, c.r), vec4(c.r, p.yzx), step(p.x, c.r));
+      float d = q.x - min(q.w, q.y);
+      float e = 1.0e-10;
+      return vec3(abs(q.z + (q.w - q.y) / (6.0 * d + e)), d / (q.x + e), q.x);
   }
 
-  // Convert HSV back to RGB
   vec3 hsvToRgb(vec3 c) {
-    vec4 K = vec4(1.0, 2.0/3.0, 1.0/3.0, 3.0);
-    vec3 p = abs(fract(c.xxx + K.xyz)*6.0 - K.www);
-    return c.z * mix(K.xxx, clamp(p - K.xxx, 0.0, 1.0), c.y);
+      vec4 K = vec4(1.0, 2.0 / 3.0, 1.0 / 3.0, 3.0);
+      vec3 p = abs(fract(c.xxx + K.xyz) * 6.0 - K.www);
+      return c.z * mix(K.xxx, clamp(p - K.xxx, 0.0, 1.0), c.y);
+  }
+
+  float noise(vec2 st) {
+      vec2 i = floor(st);
+      vec2 f = fract(st);
+      float a = random(i);
+      float b = random(i + vec2(1.0, 0.0));
+      float c = random(i + vec2(0.0, 1.0));
+      float d = random(i + vec2(1.0, 1.0));
+      vec2 u = f * f * (3.0 - 2.0 * f);
+      return mix(a, b, u.x) + (c - a) * u.y * (1.0 - u.x) + (d - b) * u.x * u.y;
   }
 
   void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor) {
-      // 1. SAMPLE THE BASE IMAGE
-      // We use the original pixel size for sampling to keep it sharp before applying texture
-      vec2 cellSize = pixelSize / resolution;
-      vec2 uvPixel = cellSize * floor(uv / cellSize);
-      vec4 baseColor = texture2D(inputBuffer, uvPixel);
-      
-      float luma = dot(baseColor.rgb, vec3(0.2126, 0.7152, 0.0722));
-      vec2 cellPos = floor(uv / cellSize);
-      vec2 cellUV = fract(uv / cellSize);
-      
-      // 2. BACKGROUND TEXTURE (Dark Areas)
-      // A very fine, dark canvas grid fills the black space
+      vec2 s = pixelSize / resolution;
+      vec2 uvPixel = s * floor(uv / s);
+      vec4 color = texture2D(inputBuffer, uvPixel); // Changed texture to texture2D for WebGL compatibility
+      float luma = dot(color.rgb, vec3(0.2126, 0.7152, 0.0722));
+
+      vec2 cellPosition = floor(uv / s);
+      vec2 cellUV = fract(uv / s);
+
+      // 1. BACKGROUND LOGIC (Dark areas of the model)
+      // Uses your exact diagonal math to create a faint fabric texture in the shadows
       if (luma < 0.01) {
-          // Tiny checkerboard pattern for background
-          float bgCheck = mod(floor(cellUV.x * 2.0) + floor(cellUV.y * 2.0), 2.0);
-          vec3 bgColor = vec3(0.02) + vec3(bgCheck * 0.01); // Very subtle grey variation
-          outputColor = vec4(bgColor, 1.0);
+          vec2 centeredBg = cellUV - 0.5;
+          float isAlternateBg = mod(cellPosition.x, 2.0);
+          float angleBg = isAlternateBg == 0.0 ? radians(-65.0) : radians(65.0);
+          
+          vec2 rotatedBg = vec2(
+              centeredBg.x * cos(angleBg) - centeredBg.y * sin(angleBg),
+              centeredBg.x * sin(angleBg) + centeredBg.y * cos(angleBg)
+          );
+          
+          float ellipseBg = length(vec2(rotatedBg.x, rotatedBg.y * 1.55 - 0.075));
+          float patBg = smoothstep(0.2, 1.0, 1.0 - ellipseBg) * 0.08;
+          
+          outputColor = vec4(vec3(0.015, 0.015, 0.02) + vec3(patBg), 1.0);
           return;
       }
 
-      // 3. CLOTH WEAVE LOGIC
-      // We simulate horizontal and vertical threads weaving together
-      
-      // Calculate center of the current pixel cell
+      // 2. FOREGROUND WEAVE (Lit areas of the model)
+      float rowOffset = sin((random(vec2(0.0, uvPixel.y)) - 0.5) * 0.25);
+      cellUV.x += rowOffset; 
       vec2 centered = cellUV - 0.5;
+
+      float noiseAmount = 0.18;
+      vec2 noisyCenter = centered + (vec2(
+          random(cellPosition + centered),
+          random(cellPosition + centered)
+      ) - 0.5) * noiseAmount;
+
+      float isAlternate = mod(cellPosition.x, 2.0);
+      float angle = isAlternate == 0.0 ? radians(-65.0) : radians(65.0);
       
-      // Thread width ratio (how much of the cell is covered by thread vs gap)
-      float threadWidth = 0.85; // High value means thin gaps (like fine canvas)
+      vec2 rotated = vec2(
+          noisyCenter.x * cos(angle) - noisyCenter.y * sin(angle),
+          noisyCenter.x * sin(angle) + noisyCenter.y * cos(angle)
+      );
       
-      // Horizontal thread mask (Warp)
-      float hDist = abs(centered.y);
-      float hMask = 1.0 - smoothstep(threadWidth * 0.5, threadWidth * 0.55, hDist);
+      float aspectRatio = 1.55;
+      float ellipse = length(vec2(rotated.x, rotated.y * aspectRatio - 0.075));
       
-      // Vertical thread mask (Weft)
-      float vDist = abs(centered.x);
-      float vMask = 1.0 - smoothstep(threadWidth * 0.5, threadWidth * 0.55, vDist);
+      // FIX: Calculate mask ONCE (your original code applied it twice, making it too dark)
+      float threadMask = smoothstep(0.2, 1.0, 1.0 - ellipse);
       
-      // Combine masks to create an "X" shape where they cross
-      // We make the intersection slightly lighter to simulate raised yarn
-      float threadPattern = hMask + vMask;
-      float crossPoint = hMask * vMask * 0.2; // Boost at the intersection
+      // 3. 3D CYLINDRICAL SHADING
+      // Make the center of the thread bright and the edges dark to simulate volume
+      float threadHighlight = smoothstep(0.0, 0.5, 1.0 - ellipse) * 0.4;
+      float threadShadow = smoothstep(0.5, 1.0, ellipse) * 0.6;
       
-      // Add tiny fiber noise to break up perfection
-      float fiberNoise = sin(cellUV.x * 50.0) * sin(cellUV.y * 50.0) * 0.05;
-      threadPattern += crossPoint + fiberNoise;
-      
-      // Clamp so it doesn't get too bright
-      threadPattern = clamp(threadPattern, 0.0, 1.0);
-      
-      // 4. APPLY COLOR AND SHADING
-      vec3 finalColor = baseColor.rgb;
-      
-      // Apply subtle color shift based on position to mimic dye unevenness
-      float hueShift = (random(cellPos) - 0.5) * 0.02; 
-      vec3 hsv = rgbToHsv(finalColor);
+      // Directional fiber noise
+      float stripeNoise = noise(vec2(centered.x, centered.y * 100.0)); 
+      float fiberTexture = (stripeNoise * 0.5) + 0.5;
+
+      // Apply 3D shading and fibers to the base color
+      vec3 shadedColor = color.rgb * fiberTexture;
+      shadedColor += threadHighlight * color.rgb; // Add highlight
+      shadedColor -= threadShadow * color.rgb;    // Add shadow
+      shadedColor = max(shadedColor, 0.0);        // Prevent negative colors
+
+      // 4. COLOR PROCESSING
+      float hueShift = (random(cellPosition) - 0.5) * 0.08;
+      vec3 hsv = rgbToHsv(shadedColor);
       hsv.x += hueShift;
-      hsv.y *= 1.1; // Slight saturation boost
-      finalColor = hsvToRgb(hsv);
-      
-      // Multiply by the thread pattern
-      // This creates the "grid" effect where dark lines appear between colored areas
-      finalColor *= threadPattern;
-      
-      // Darken the corners significantly to simulate the gaps between threads
-      float gapDarkening = 1.0 - (hMask * vMask); // Strongest darkening where threads don't exist
-      finalColor *= (0.05 + gapDarkening * 0.95); // Keeps corners very dark
-      
-      // Add a global contrast boost to pop against black
-      finalColor = clamp(finalColor * 1.15, 0.0, 1.0);
+      hsv.y *= 1.15; // Boost saturation for dyed fabric look
+      hsv.z *= 1.2;  // Boost brightness to counteract the dark gaps
+      shadedColor = hsvToRgb(hsv);
+
+      // 5. FINAL COMPOSITION
+      // Mix the shaded thread with a very dark gap color
+      vec3 gapColor = vec3(0.01, 0.01, 0.015);
+      vec3 finalColor = mix(gapColor, shadedColor, threadMask);
+
+      // Slight overall contrast boost
+      finalColor = clamp(finalColor * 1.1, 0.0, 1.0);
 
       outputColor = vec4(finalColor, 1.0);
   }

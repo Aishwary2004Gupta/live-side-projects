@@ -782,7 +782,7 @@ const MODELS = {
     try: {
         url: "https://raw.githubusercontent.com/Aishwary2004Gupta/models/cloud/piggy_bank.glb",
         scale: 0.5,
-        rotation: { x: 0, y: 0, z: 0 },
+        rotation: { x: -0.3, y: 0.7, z: 0 },
         position: { x: 0, y: -0.2, z: 0 },
     },
 };

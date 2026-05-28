@@ -767,6 +767,12 @@ const MODELS = {
         rotation: { x: 0, y: Math.PI + 0.8, z: 0 },
         position: { x: 0, y: -1, z: 0 },
     },
+    mew: {
+        url: "https://raw.githubusercontent.com/Aishwary2004Gupta/models/cloud/mew_pokemon.glb",
+        scale: 0.03,
+        rotation: { x: 0, y: Math.PI, z: 0 },
+        position: { x: 0, y: 0, z: 0 },
+    },
     try: {
         url: "https://raw.githubusercontent.com/Aishwary2004Gupta/models/cloud/mew_pokemon.glb",
         scale: 0.03,

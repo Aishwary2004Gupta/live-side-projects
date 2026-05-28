@@ -775,8 +775,8 @@ const MODELS = {
     },
     try: {
         url: "https://raw.githubusercontent.com/Aishwary2004Gupta/models/cloud/girl_with_a_pearl_earring.glb",
-        scale: 1,
-        rotation: { x: 0, y: Math.PI, z: 0 },
+        scale: 0.21,
+        rotation: { x: 0, y: 0, z: 0 },
         position: { x: 0, y: 0, z: 0 },
     },
 };

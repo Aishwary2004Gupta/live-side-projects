@@ -1049,7 +1049,7 @@ modelListItems.forEach((item) => {
     });
 });
 
-switchEffect("woven"); //change default effect here
+switchEffect("normal"); //change default effect here
 
 pixelInput.oninput = (e) => {
     const value = +e.target.value;

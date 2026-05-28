@@ -774,8 +774,8 @@ const MODELS = {
         position: { x: 0, y: 0, z: 0 },
     },
     try: {
-        url: "https://raw.githubusercontent.com/Aishwary2004Gupta/models/cloud/mew_pokemon.glb",
-        scale: 0.03,
+        url: "https://raw.githubusercontent.com/Aishwary2004Gupta/models/cloud/girl_with_a_pearl_earring.glb",
+        scale: 1,
         rotation: { x: 0, y: Math.PI, z: 0 },
         position: { x: 0, y: 0, z: 0 },
     },

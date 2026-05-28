@@ -786,10 +786,10 @@ const MODELS = {
         position: { x: 0, y: -0.2, z: 0 },
     },
     try: {
-        url: "https://raw.githubusercontent.com/Aishwary2004Gupta/models/cloud/try.glb",
-        scale: 0.5,
-        rotation: { x: -0.3, y: 0.7, z: 0 },
-        position: { x: 0, y: -0.2, z: 0 },
+        url: "https://raw.githubusercontent.com/Aishwary2004Gupta/models/cloud/the_starry_night.glb",
+        scale: 0.28,
+        rotation: { x: 0, y: 0, z: 0 },
+        position: { x: 0, y: 0, z: 0 },
     },
 };
 

@@ -779,8 +779,14 @@ const MODELS = {
         rotation: { x: 0, y: Math.PI, z: 0 },
         position: { x: 0, y: -0.2, z: 0 },
     },
-    try: {
+    piggy_bank: {
         url: "https://raw.githubusercontent.com/Aishwary2004Gupta/models/cloud/piggy_bank.glb",
+        scale: 0.5,
+        rotation: { x: -0.3, y: 0.7, z: 0 },
+        position: { x: 0, y: -0.2, z: 0 },
+    },
+    try: {
+        url: "https://raw.githubusercontent.com/Aishwary2004Gupta/models/cloud/try.glb",
         scale: 0.5,
         rotation: { x: -0.3, y: 0.7, z: 0 },
         position: { x: 0, y: -0.2, z: 0 },

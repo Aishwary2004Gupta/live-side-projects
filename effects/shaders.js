@@ -9,42 +9,72 @@ export const normalShader = `
   }
 `;
 
-export const dotsShader = `
+// export const dotsShader = `
+//   precision highp float;
+//   uniform float pixelSize;
+//   uniform vec2 resolution;
+
+//   void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor) {
+//     // Setup normalized coordinates based on pixel size
+//     vec2 normalizedPixelSize = pixelSize / resolution;
+    
+//     // Get integer position of the cell
+//     float rowIndex = floor(uv.x / normalizedPixelSize.x);
+//     vec2 uvPixel = normalizedPixelSize * floor(uv / normalizedPixelSize);
+    
+//     // Sample the color from the center of that cell
+//     vec4 color = texture2D(inputBuffer, uvPixel);
+
+//     // Calculate brightness to determine dot size and position
+//     float luma = dot(vec3(0.2126, 0.7152, 0.0722), color.rgb);
+
+//     // Calculate coordinates inside the current cell (0.0 to 1.0)
+//     vec2 cellUV = fract(uv / normalizedPixelSize);
+
+//     // Logic: Bright pixels get big centered dots, dim pixels get small off-center dots
+//     float radius = luma > 0.5 ? 0.3 : luma > 0.001 ? 0.12 : 0.075;
+    
+//     // Shift the center of the dot based on brightness
+//     vec2 circleCenter = luma > 0.5 ? vec2(0.5, 0.5) : vec2(0.25, 0.25);
+
+//     // Distance from the calculated center point
+//     float distanceFromCenter = distance(cellUV, circleCenter);
+
+//     // Create the dot shape with soft edges
+//     float circleMask = smoothstep(radius, radius - 0.05, distanceFromCenter);
+    
+//     // Apply the mask to grayscale the result (or keep original if you prefer color)
+//     // Your logic converts it to grayscale based on the mask
+//     color.rgb = vec3(circleMask, circleMask, circleMask) * max(luma, 0.05);
+
+//     outputColor = color;
+//   }
+// `;
+
+const dotsShader = `
   precision highp float;
   uniform float pixelSize;
   uniform vec2 resolution;
 
   void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor) {
-    // Setup normalized coordinates based on pixel size
     vec2 normalizedPixelSize = pixelSize / resolution;
-    
-    // Get integer position of the cell
+
     float rowIndex = floor(uv.x / normalizedPixelSize.x);
+
     vec2 uvPixel = normalizedPixelSize * floor(uv / normalizedPixelSize);
-    
-    // Sample the color from the center of that cell
     vec4 color = texture2D(inputBuffer, uvPixel);
 
-    // Calculate brightness to determine dot size and position
     float luma = dot(vec3(0.2126, 0.7152, 0.0722), color.rgb);
 
-    // Calculate coordinates inside the current cell (0.0 to 1.0)
     vec2 cellUV = fract(uv / normalizedPixelSize);
 
-    // Logic: Bright pixels get big centered dots, dim pixels get small off-center dots
     float radius = luma > 0.5 ? 0.3 : luma > 0.001 ? 0.12 : 0.075;
-    
-    // Shift the center of the dot based on brightness
     vec2 circleCenter = luma > 0.5 ? vec2(0.5, 0.5) : vec2(0.25, 0.25);
 
-    // Distance from the calculated center point
     float distanceFromCenter = distance(cellUV, circleCenter);
 
-    // Create the dot shape with soft edges
     float circleMask = smoothstep(radius, radius - 0.05, distanceFromCenter);
-    
-    // Apply the mask to grayscale the result (or keep original if you prefer color)
-    // Your logic converts it to grayscale based on the mask
+
     color.rgb = vec3(circleMask, circleMask, circleMask) * max(luma, 0.05);
 
     outputColor = color;

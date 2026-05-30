@@ -314,31 +314,69 @@ export const complexShader = `
   precision highp float;
   uniform float pixelSize;
   uniform vec2 resolution;
-  float circle(vec2 uv, float r) { return 1.0 - smoothstep(r - 0.05, r + 0.05, length(uv - 0.5)); }
-  float square(vec2 uv, float size) { vec2 d = abs(uv - 0.5); return step(max(d.x, d.y), size); }
-  float cross(vec2 uv, float thickness) { float h = step(abs(uv.x - 0.5), thickness); float v = step(abs(uv.y - 0.5), thickness); return max(h, v); }
+
+  float crossSDF(vec2 p) {
+      p = abs(p - 0.5);
+      return min(p.x, p.y);
+  }
+
+  float circleSDF(vec2 p) {
+      return length(p - 0.5);
+  }
+
+  float triangleSDF(vec2 p) {
+      const float r = 1.0;
+      const float k = sqrt(3.0);
+      p.x = abs(p.x) - r;
+      p.y = p.y + r/k;
+      if( p.x+k*p.y>0.0 ) p = vec2(p.x-k*p.y,-k*p.x-p.y)/2.0;
+      p.x -= clamp( p.x, -2.0*r, 0.0 );
+      return -length(p)*sign(p.y);
+  }
+
   void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor) {
-    vec2 cellSize = pixelSize / resolution;
-    vec2 uvPixel = cellSize * floor(uv / cellSize);
-    vec4 src = texture2D(inputBuffer, uvPixel);
-    float luma = dot(src.rgb, vec3(0.2126, 0.7152, 0.0722));
-    vec2 cellUV = fract(uv / cellSize);
+      vec2 normalizedPixelSize = pixelSize / resolution;
+      vec2 uvPixel = normalizedPixelSize * floor(uv / normalizedPixelSize);
+      vec4 color = texture2D(inputBuffer, uvPixel);
 
-    // Enhanced pattern sizes for better model visibility
-    float pattern = 0.0;
-    if (luma < 0.15) pattern = 1.0;
-    else if (luma < 0.35) pattern = cross(cellUV, 0.15);
-    else if (luma < 0.55) pattern = square(cellUV, 0.35);
-    else if (luma < 0.75) pattern = circle(cellUV, 0.32);
-    else pattern = circle(cellUV, 0.15);
+      float luma = dot(vec3(0.2126, 0.7152, 0.0722), color.rgb);
+      vec2 cellUV = fract(uv / normalizedPixelSize);
+      
+      // Default background color
+      vec4 outColor = vec4(1.0, 1.0, 1.0, 1.0);
 
-    float edgeBoost = smoothstep(0.0, 0.2, 1.0 - luma);
+      // Map different SDFs to different brightness levels to create a complex pattern
+      float d = 0.0;
+      if (luma <= 0.3) {
+          d = circleSDF(cellUV);
+      } else if (luma <= 0.6) {
+          d = crossSDF(cellUV);
+      } else {
+          d = triangleSDF(cellUV);
+      }
 
-    // Use original model color instead of fixed blue
-    vec3 modelColor = src.rgb;
-    vec3 finalColor = mix(vec3(0.0), modelColor, pattern * (0.7 + edgeBoost * 0.5));
+      // Apply your exact color logic based on luminance thresholds
+      if (luma > 0.2) {
+          if (d < 0.3) {
+              outColor = vec4(0.0, 0.31, 0.933, 1.0);
+          } else {
+              outColor = vec4(1.0, 1.0, 1.0, 1.0);
+          }
+      }
 
-    outputColor = vec4(finalColor * 1.1, 1.0);
+      if (luma > 0.75) {
+          if (d < 0.3) {
+              outColor = vec4(1.0, 1.0, 1.0, 1.0);
+          } else {
+              outColor = vec4(0.0, 0.31, 0.933, 1.0);
+          }
+      }
+
+      if (luma > 0.99) {
+          outColor = vec4(0.0, 0.31, 0.933, 1.0);
+      }
+
+      outputColor = outColor;
   }
 `;
 

@@ -314,21 +314,9 @@ export const complexShader = `
   precision highp float;
   uniform float pixelSize;
   uniform vec2 resolution;
-  
-  // Shape functions (kept from your original)
-  float circle(vec2 uv, float r) { 
-    return 1.0 - smoothstep(r - 0.05, r + 0.05, length(uv - 0.5)); 
-  }
-  float square(vec2 uv, float size) { 
-    vec2 d = abs(uv - 0.5); 
-    return step(max(d.x, d.y), size); 
-  }
-  float cross(vec2 uv, float thickness) { 
-    float h = step(abs(uv.x - 0.5), thickness); 
-    float v = step(abs(uv.y - 0.5), thickness); 
-    return max(h, v); 
-  }
-  
+  float circle(vec2 uv, float r) { return 1.0 - smoothstep(r - 0.05, r + 0.05, length(uv - 0.5)); }
+  float square(vec2 uv, float size) { vec2 d = abs(uv - 0.5); return step(max(d.x, d.y), size); }
+  float cross(vec2 uv, float thickness) { float h = step(abs(uv.x - 0.5), thickness); float v = step(abs(uv.y - 0.5), thickness); return max(h, v); }
   void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor) {
     vec2 cellSize = pixelSize / resolution;
     vec2 uvPixel = cellSize * floor(uv / cellSize);
@@ -336,46 +324,21 @@ export const complexShader = `
     float luma = dot(src.rgb, vec3(0.2126, 0.7152, 0.0722));
     vec2 cellUV = fract(uv / cellSize);
 
-    // Define the Blue/White color palette
-    vec3 blue  = vec3(0.0, 0.31, 0.933);
-    vec3 white = vec3(1.0, 1.0, 1.0);
-    vec3 black = vec3(0.0, 0.0, 0.0);
-    
-    // Default to black background (for empty space around model)
-    vec3 finalColor = black;
-    
-    // Calculate pattern shape based on brightness level
+    // Enhanced pattern sizes for better model visibility
     float pattern = 0.0;
-    if (luma < 0.15) {
-      // Very dark - empty (black background shows through)
-      pattern = 0.0;
-    } 
-    else if (luma < 0.35) {
-      // Shadows - small Blue crosses on White background
-      pattern = cross(cellUV, 0.15);
-      finalColor = mix(white, blue, pattern);
-    } 
-    else if (luma < 0.55) {
-      // Mid-tones - Blue squares on White background
-      pattern = square(cellUV, 0.35);
-      finalColor = mix(white, blue, pattern);
-    } 
-    else if (luma < 0.75) {
-      // Bright - INVERTED: White circles on Blue background
-      pattern = circle(cellUV, 0.32);
-      finalColor = mix(blue, white, pattern);
-    } 
-    else if (luma < 0.99) {
-      // Very bright - Small White dots on Blue background
-      pattern = circle(cellUV, 0.15);
-      finalColor = mix(blue, white, pattern);
-    }
-    else {
-      // Maximum brightness - solid Blue (hottest spots)
-      finalColor = blue;
-    }
+    if (luma < 0.15) pattern = 1.0;
+    else if (luma < 0.35) pattern = cross(cellUV, 0.15);
+    else if (luma < 0.55) pattern = square(cellUV, 0.35);
+    else if (luma < 0.75) pattern = circle(cellUV, 0.32);
+    else pattern = circle(cellUV, 0.15);
 
-    outputColor = vec4(finalColor, 1.0);
+    float edgeBoost = smoothstep(0.0, 0.2, 1.0 - luma);
+
+    // Use original model color instead of fixed blue
+    vec3 modelColor = src.rgb;
+    vec3 finalColor = mix(vec3(0.0), modelColor, pattern * (0.7 + edgeBoost * 0.5));
+
+    outputColor = vec4(finalColor * 1.1, 1.0);
   }
 `;
 

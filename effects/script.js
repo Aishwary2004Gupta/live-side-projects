@@ -34,6 +34,7 @@ import {
     noiseShader,
     voronoiShader,
     vhsShader,
+    heatMapShader
 } from "./shaders.js";
 
 const handsFocusPoint = new THREE.Vector3(0, 0, 0);
@@ -323,7 +324,7 @@ const map = {
     noise,
     voronoi,
     vhs,
-    heatMapShader,
+    heatMap,
 };
 
 /* ================= CONTROLS ================= */

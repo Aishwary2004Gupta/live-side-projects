@@ -302,6 +302,9 @@ const vhs = makeEffect("VHS", vhsShader, {
     time: 0.0,
     resolution: new THREE.Vector2(innerWidth, innerHeight),
 });
+const heatMap = makeEffect("HeatMap", heatMapShader, { // <--- CREATE INSTANCE
+    resolution: new THREE.Vector2(innerWidth, innerHeight),
+});
 
 const map = {
     normal,
@@ -320,6 +323,7 @@ const map = {
     noise,
     voronoi,
     vhs,
+    heatMapShader,
 };
 
 /* ================= CONTROLS ================= */

@@ -563,3 +563,35 @@ export const vhsShader = `
     o = vec4(color, 1.0);
   }
 `;
+
+export const heatMapShader = `
+  precision highp float;
+  uniform vec2 resolution;
+
+  void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor) {
+      // Get the base brightness (Luma) of the pixel
+      vec3 color = inputColor.rgb;
+      float luma = dot(color.rgb, vec3(0.2126, 0.7152, 0.0722));
+      
+      // Boost contrast slightly so "cool" areas look colder
+      luma = pow(luma, 0.7); 
+
+      // Heat Gradient Mapping:
+      // Low Luma (Dark): Blue/Cyan (Cold)
+      // Mid Luma: Purple/Pink
+      // High Luma (Bright): Orange/Red/Yellow (Hot)
+      // Very High: White (Hottest)
+      
+      vec3 cold   = vec3(0.0, 0.0, 0.5); // Dark Blue
+      vec3 mid    = vec3(0.6, 0.0, 1.0); // Purple/Magenta
+      vec3 hot    = vec3(1.0, 0.4, 0.0); // Orange
+      vec3 white  = vec3(1.0, 1.0, 1.0); // Pure White
+      
+      // Mix between colors based on intensity
+      vec3 finalColor = mix(cold, mid, luma);          // Blue to Purple
+      finalColor = mix(finalColor, hot, luma);         // Purple to Orange
+      finalColor = mix(finalColor, white, smoothstep(0.7, 1.0, luma)); // Orange to White peak
+      
+      outputColor = vec4(finalColor, 1.0);
+  }
+`;

@@ -564,42 +564,84 @@ export const vhsShader = `
   }
 `;
 
+// ... keep your other shaders ...
+
 export const heatMapShader = `
   precision highp float;
   uniform vec2 resolution;
 
+  // Helper to smoothly mix colors based on intensity thresholds
+  // This allows us to map specific brightness ranges to specific heat zones
+  vec3 getHeatColor(float luma) {
+      // 1. Define the "Palette" of the heat map
+      vec3 colDark   = vec3(0.05, 0.00, 0.40); // Deep Midnight Blue
+      vec3 colBlue   = vec3(0.10, 0.20, 1.00); // Cyan/Blue
+      vec3 colPurple = vec3(0.80, 0.00, 1.00); // Magenta/Purple
+      vec3 colGreen  = vec3(0.60, 1.00, 0.10); // Lime Green
+      vec3 colYellow = vec3(1.00, 1.00, 0.20); // Yellow
+      vec3 colRed    = vec3(1.00, 0.30, 0.00); // Burning Orange/Red
+      vec3 colWhite  = vec3(1.00, 1.00, 1.00); // Super Hot White
+
+      // 2. Initial Mix: Cold Range (0.0 - 0.2 Luma)
+      vec3 finalColor = colDark;
+      if (luma > 0.05) {
+          float t = clamp((luma - 0.05) * 3.5, 0.0, 1.0);
+          finalColor = mix(finalColor, colBlue, t);
+      }
+
+      // 3. Mid-Mix: Cool/Warm Transition (0.2 - 0.4 Luma)
+      if (luma > 0.18) {
+          float t = clamp((luma - 0.18) * 4.0, 0.0, 1.0);
+          finalColor = mix(finalColor, colPurple, t);
+      }
+
+      // 4. Hot Mix: Warm Range (0.4 - 0.6 Luma)
+      if (luma > 0.35) {
+          float t = clamp((luma - 0.35) * 3.5, 0.0, 1.0);
+          finalColor = mix(finalColor, colGreen, t * 0.6); // Subtle green tint
+          finalColor = mix(finalColor, colYellow, t * 0.9);
+      }
+
+      // 5. Extreme Mix: Hot Range (0.6 - 1.0 Luma)
+      if (luma > 0.55) {
+          float t = clamp((luma - 0.55) * 3.0, 0.0, 1.0);
+          finalColor = mix(finalColor, colRed, t);
+          
+          // The white-hot peak for specular highlights
+          if (luma > 0.75) {
+              float peak = smoothstep(0.75, 1.0, luma);
+              finalColor = mix(finalColor, colWhite, peak);
+          }
+      }
+
+      return finalColor;
+  }
+
   void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor) {
-      // 1. Get Base Color and Intensity
+      // 1. Sample Input
       vec3 baseColor = inputColor.rgb;
       
-      // Calculate Luma (Brightness) - represents the "Heat Level"
-      float luma = dot(baseColor.rgb, vec3(0.2126, 0.7152, 0.0722));
-      
-      // Apply Gamma Correction to mimic the non-linear response of thermal sensors
-      // This makes mid-tones look cooler and highlights look significantly hotter
-      luma = pow(luma, 0.8);
+      // 2. Calculate Intensity (Luma)
+      // We boost saturation slightly before reading luma to make colors pop more
+      float r = baseColor.r;
+      float g = baseColor.g * 1.2; 
+      float b = baseColor.b;
+      float luma = dot(vec3(r, g, b), vec3(0.2126, 0.7152, 0.0722));
 
-      // 2. Define Heat Palette (The "Texture" equivalent in code)
-      // Coldest (Black background/Low Light)
-      vec3 cold   = vec3(0.00, 0.00, 0.40); 
-      // Cool Area
-      vec3 cool   = vec3(0.00, 0.30, 1.00); 
-      // Warm Area
-      vec3 warm   = vec3(0.60, 0.00, 1.00); 
-      // Hot Area
-      vec3 hot    = vec3(1.00, 0.40, 0.00); 
-      // Very Hot (Highlights)
-      vec3 white  = vec3(1.00, 1.00, 1.00);
+      // 3. Apply Non-Linear Response Curve
+      // This mimics a real thermal camera which has low sensitivity at low temps
+      // and high sensitivity/spike at high temps.
+      luma = pow(luma, 0.75); 
 
-      // 3. Map Intensity to Colors (Simulating the Texture Lookup)
-      vec3 finalColor = mix(cold, cool, min(max(luma * 4.0, 0.0), 1.0));
-      finalColor = mix(finalColor, warm, min(max((luma - 0.2) * 2.5, 0.0), 1.0));
-      finalColor = mix(finalColor, hot, min(max((luma - 0.4) * 3.0, 0.0), 1.0));
-      finalColor = mix(finalColor, white, max(luma - 0.75, 0.0));
+      // 4. Get Color from Palette
+      vec3 finalColor = getHeatColor(luma);
 
-      // Optional: Add a slight glow to very hot spots
-      float glow = max(luma - 0.9, 0.0) * 0.5;
-      finalColor += vec3(glow);
+      // 5. Add "Glow" Effect to very hot pixels
+      // If pixel is super bright, push it beyond 1.0 slightly for bloom effect
+      if (luma > 0.85) {
+          float glowAmount = (luma - 0.85) * 2.0;
+          finalColor += vec3(glowAmount);
+      }
 
       outputColor = vec4(finalColor, 1.0);
   }

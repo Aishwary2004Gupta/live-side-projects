@@ -569,29 +569,38 @@ export const heatMapShader = `
   uniform vec2 resolution;
 
   void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor) {
-      // Get the base brightness (Luma) of the pixel
-      vec3 color = inputColor.rgb;
-      float luma = dot(color.rgb, vec3(0.2126, 0.7152, 0.0722));
+      // 1. Get Base Color and Intensity
+      vec3 baseColor = inputColor.rgb;
       
-      // Boost contrast slightly so "cool" areas look colder
-      luma = pow(luma, 0.7); 
+      // Calculate Luma (Brightness) - represents the "Heat Level"
+      float luma = dot(baseColor.rgb, vec3(0.2126, 0.7152, 0.0722));
+      
+      // Apply Gamma Correction to mimic the non-linear response of thermal sensors
+      // This makes mid-tones look cooler and highlights look significantly hotter
+      luma = pow(luma, 0.8);
 
-      // Heat Gradient Mapping:
-      // Low Luma (Dark): Blue/Cyan (Cold)
-      // Mid Luma: Purple/Pink
-      // High Luma (Bright): Orange/Red/Yellow (Hot)
-      // Very High: White (Hottest)
-      
-      vec3 cold   = vec3(0.0, 0.0, 0.5); // Dark Blue
-      vec3 mid    = vec3(0.6, 0.0, 1.0); // Purple/Magenta
-      vec3 hot    = vec3(1.0, 0.4, 0.0); // Orange
-      vec3 white  = vec3(1.0, 1.0, 1.0); // Pure White
-      
-      // Mix between colors based on intensity
-      vec3 finalColor = mix(cold, mid, luma);          // Blue to Purple
-      finalColor = mix(finalColor, hot, luma);         // Purple to Orange
-      finalColor = mix(finalColor, white, smoothstep(0.7, 1.0, luma)); // Orange to White peak
-      
+      // 2. Define Heat Palette (The "Texture" equivalent in code)
+      // Coldest (Black background/Low Light)
+      vec3 cold   = vec3(0.00, 0.00, 0.40); 
+      // Cool Area
+      vec3 cool   = vec3(0.00, 0.30, 1.00); 
+      // Warm Area
+      vec3 warm   = vec3(0.60, 0.00, 1.00); 
+      // Hot Area
+      vec3 hot    = vec3(1.00, 0.40, 0.00); 
+      // Very Hot (Highlights)
+      vec3 white  = vec3(1.00, 1.00, 1.00);
+
+      // 3. Map Intensity to Colors (Simulating the Texture Lookup)
+      vec3 finalColor = mix(cold, cool, min(max(luma * 4.0, 0.0), 1.0));
+      finalColor = mix(finalColor, warm, min(max((luma - 0.2) * 2.5, 0.0), 1.0));
+      finalColor = mix(finalColor, hot, min(max((luma - 0.4) * 3.0, 0.0), 1.0));
+      finalColor = mix(finalColor, white, max(luma - 0.75, 0.0));
+
+      // Optional: Add a slight glow to very hot spots
+      float glow = max(luma - 0.9, 0.0) * 0.5;
+      finalColor += vec3(glow);
+
       outputColor = vec4(finalColor, 1.0);
   }
 `;

@@ -314,31 +314,74 @@ export const complexShader = `
   precision highp float;
   uniform float pixelSize;
   uniform vec2 resolution;
-  float circle(vec2 uv, float r) { return 1.0 - smoothstep(r - 0.05, r + 0.05, length(uv - 0.5)); }
-  float square(vec2 uv, float size) { vec2 d = abs(uv - 0.5); return step(max(d.x, d.y), size); }
-  float cross(vec2 uv, float thickness) { float h = step(abs(uv.x - 0.5), thickness); float v = step(abs(uv.y - 0.5), thickness); return max(h, v); }
+
+  // SDF for a cross shape (closer to edges = closer to 0)
+  float crossSDF(vec2 p) {
+      p = abs(p - 0.5);
+      return min(p.x, p.y);
+  }
+
+  // SDF for a circle
+  float circleSDF(vec2 p) {
+      return length(p - 0.5);
+  }
+
+  // SDF for a triangle
+  float triangleSDF(vec2 p) {
+      const float r = 1.0;
+      const float k = sqrt(3.0);
+      p.x = abs(p.x) - r;
+      p.y = p.y + r/k;
+      if( p.x+k*p.y>0.0 ) p = vec2(p.x-k*p.y,-k*p.x-p.y)/2.0;
+      p.x -= clamp( p.x, -2.0*r, 0.0 );
+      return -length(p)*sign(p.y);
+  }
+
   void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor) {
-    vec2 cellSize = pixelSize / resolution;
-    vec2 uvPixel = cellSize * floor(uv / cellSize);
-    vec4 src = texture2D(inputBuffer, uvPixel);
-    float luma = dot(src.rgb, vec3(0.2126, 0.7152, 0.0722));
-    vec2 cellUV = fract(uv / cellSize);
+      // 1. Grid Sampling
+      vec2 normalizedPixelSize = pixelSize / resolution;
+      float rowIndex = floor(uv.x / normalizedPixelSize.x);
+      vec2 uvPixel = normalizedPixelSize * floor(uv / normalizedPixelSize);
+      vec4 color = texture2D(inputBuffer, uvPixel);
 
-    // Enhanced pattern sizes for better model visibility
-    float pattern = 0.0;
-    if (luma < 0.15) pattern = 1.0;
-    else if (luma < 0.35) pattern = cross(cellUV, 0.15);
-    else if (luma < 0.55) pattern = square(cellUV, 0.35);
-    else if (luma < 0.75) pattern = circle(cellUV, 0.32);
-    else pattern = circle(cellUV, 0.15);
+      // 2. Calculate Brightness
+      float luma = dot(vec3(0.2126, 0.7152, 0.0722), color.rgb);
+      
+      // 3. Get position within the cell
+      vec2 cellUV = fract(uv / normalizedPixelSize);
+      
+      // 4. Default state: White background
+      color = vec4(1.0);
 
-    float edgeBoost = smoothstep(0.0, 0.2, 1.0 - luma);
+      // 5. Calculate distance from center (Circle SDF)
+      float d = circleSDF(cellUV);
+      
+      // --- LOGIC LAYERS ---
+      
+      // Layer 1: Medium Brightness (Blue Circle on White)
+      if (luma > 0.2) {
+        if (d < 0.3) {
+          color = vec4(0.0, 0.31, 0.933, 1.0); // Blue Circle
+        } else {
+          color = vec4(1.0, 1.0, 1.0, 1.0);    // White Background
+        }
+      }
 
-    // Use original model color instead of fixed blue
-    vec3 modelColor = src.rgb;
-    vec3 finalColor = mix(vec3(0.0), modelColor, pattern * (0.7 + edgeBoost * 0.5));
+      // Layer 2: High Brightness (Inverted: White Circle on Blue)
+      if (luma > 0.75) {
+        if (d < 0.3) {
+          color = vec4(1.0, 1.0, 1.0, 1.0);     // White Circle
+        } else {
+          color = vec4(0.0, 0.31, 0.933, 1.0);  // Blue Background
+        }
+      }
 
-    outputColor = vec4(finalColor * 1.1, 1.0);
+      // Layer 3: Maximum Brightness (Solid Blue)
+      if (luma > 0.99) {
+        color = vec4(0.0, 0.31, 0.933, 1.0);
+      }
+
+      outputColor = color;
   }
 `;
 

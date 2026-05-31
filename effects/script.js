@@ -805,7 +805,7 @@ const MODELS = {
     try: {
         url: "https://raw.githubusercontent.com/Aishwary2004Gupta/models/cloud/goku_insane.glb",
         scale: 0.31,
-        rotation: { x: 0, y: 2.6, z: 0 },
+        rotation: { x: 0, y: Math.PI - 1, z: 0 },
         position: { x: 0, y: -1.2, z: 0 },
     },
 };

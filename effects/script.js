@@ -809,7 +809,7 @@ const MODELS = {
         position: { x: 0, y: -1.2, z: 0 },
     },
     try: {
-        url: "https://raw.githubusercontent.com/Aishwary2004Gupta/models/cloud/goku_insane.glb",
+        url: "https://raw.githubusercontent.com/Aishwary2004Gupta/models/cloud/money_bag.glb",
         scale: 0.31,
         rotation: { x: 0, y: Math.PI - 1, z: 0 },
         position: { x: 0, y: -1.2, z: 0 },

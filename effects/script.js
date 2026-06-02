@@ -815,10 +815,10 @@ const MODELS = {
         position: { x: 0, y: -0.8, z: 0 },
     },
     try: {
-        url: "https://raw.githubusercontent.com/Aishwary2004Gupta/models/cloud/canon_camera.glb",
+        url: "https://raw.githubusercontent.com/Aishwary2004Gupta/models/cloud/canon_800d.glb",
         scale: 17, 
         rotation: { x: 0, y: 0, z: 0 },
-        position: { x: 0, y: -0.8, z: 0 },
+        position: { x: 0, y: 0, z: 0 },
     },
 };
 

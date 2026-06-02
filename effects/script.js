@@ -257,6 +257,7 @@ const lines = makeEffect("Lines", linesShader, {
 const complex = makeEffect("Complex", complexShader, {
     pixelSize: 10.0,
     resolution: new THREE.Vector2(innerWidth, innerHeight),
+    // pattern: 0, // 0 = Stripes/Cross, 1 = Sine Wave
 });
 const woven = makeEffect("Woven", wovenShader, {
     pixelSize: 10.0,

@@ -814,7 +814,7 @@ const MODELS = {
         rotation: { x: 0, y: 0, z: 0 },
         position: { x: 0, y: -0.8, z: 0 },
     },
-    canon_camera: {
+    try: {
         url: "https://raw.githubusercontent.com/Aishwary2004Gupta/models/cloud/canon_camera.glb",
         scale: 0.009, 
         rotation: { x: 0, y: 0, z: 0 },

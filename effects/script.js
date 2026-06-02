@@ -808,7 +808,7 @@ const MODELS = {
         rotation: { x: 0, y: Math.PI - 1, z: 0 },
         position: { x: 0, y: -1.2, z: 0 },
     },
-    try: {
+    money_bag: {
         url: "https://raw.githubusercontent.com/Aishwary2004Gupta/models/cloud/money_bag.glb",
         scale: 0.009, 
         rotation: { x: 0, y: 0, z: 0 },

@@ -817,7 +817,7 @@ const MODELS = {
     try: {
         url: "https://raw.githubusercontent.com/Aishwary2004Gupta/models/cloud/canon_800d.glb",
         scale: 17, 
-        rotation: { x: 0, y: Math.PI - 1.5, z: -0.2 },
+        rotation: { x: 0, y: Math.PI - 1.6, z: -0.07 },
         position: { x: 0, y: 0, z: 0 },
     },
 };

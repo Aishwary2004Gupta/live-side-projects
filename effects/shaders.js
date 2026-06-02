@@ -314,31 +314,95 @@ export const complexShader = `
   precision highp float;
   uniform float pixelSize;
   uniform vec2 resolution;
-  float circle(vec2 uv, float r) { return 1.0 - smoothstep(r - 0.05, r + 0.05, length(uv - 0.5)); }
-  float square(vec2 uv, float size) { vec2 d = abs(uv - 0.5); return step(max(d.x, d.y), size); }
-  float cross(vec2 uv, float thickness) { float h = step(abs(uv.x - 0.5), thickness); float v = step(abs(uv.y - 0.5), thickness); return max(h, v); }
+  uniform int pattern;
+
   void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor) {
-    vec2 cellSize = pixelSize / resolution;
-    vec2 uvPixel = cellSize * floor(uv / cellSize);
-    vec4 src = texture2D(inputBuffer, uvPixel);
-    float luma = dot(src.rgb, vec3(0.2126, 0.7152, 0.0722));
-    vec2 cellUV = fract(uv / cellSize);
+    vec2 normalizedPixelSize = pixelSize / resolution;
+    float rowIndex = floor(uv.x / normalizedPixelSize.x);
+    vec2 uvPixel = normalizedPixelSize * floor(uv / normalizedPixelSize);
+    vec4 color = texture2D(inputBuffer, uvPixel);
 
-    // Enhanced pattern sizes for better model visibility
-    float pattern = 0.0;
-    if (luma < 0.15) pattern = 1.0;
-    else if (luma < 0.35) pattern = cross(cellUV, 0.15);
-    else if (luma < 0.55) pattern = square(cellUV, 0.35);
-    else if (luma < 0.75) pattern = circle(cellUV, 0.32);
-    else pattern = circle(cellUV, 0.15);
+    float luma = dot(vec3(0.2126, 0.7152, 0.0722), color.rgb);
+    
+    vec2 cellUV = fract(uv / normalizedPixelSize);
+    color = vec4(1.0);
 
-    float edgeBoost = smoothstep(0.0, 0.2, 1.0 - luma);
+    // === PATTERN 0: Stripes + Cross Stripes ===
+    if(pattern == 0) {
+      float stripesMatrix[64];
+      stripesMatrix[0]=0.2;  stripesMatrix[1]=1.0;  stripesMatrix[2]=1.0;  stripesMatrix[3]=0.2;
+      stripesMatrix[4]=0.2;  stripesMatrix[5]=1.0;  stripesMatrix[6]=1.0;  stripesMatrix[7]=0.2;
+      stripesMatrix[8]=0.2;  stripesMatrix[9]=0.2;  stripesMatrix[10]=1.0; stripesMatrix[11]=1.0;
+      stripesMatrix[12]=0.2; stripesMatrix[13]=0.2; stripesMatrix[14]=1.0; stripesMatrix[15]=1.0;
+      stripesMatrix[16]=1.0; stripesMatrix[17]=0.2; stripesMatrix[18]=0.2; stripesMatrix[19]=1.0;
+      stripesMatrix[20]=1.0; stripesMatrix[21]=0.2; stripesMatrix[22]=0.2; stripesMatrix[23]=1.0;
+      stripesMatrix[24]=1.0; stripesMatrix[25]=1.0; stripesMatrix[26]=0.2; stripesMatrix[27]=0.2;
+      stripesMatrix[28]=1.0; stripesMatrix[29]=1.0; stripesMatrix[30]=0.2; stripesMatrix[31]=0.2;
+      stripesMatrix[32]=0.2; stripesMatrix[33]=1.0; stripesMatrix[34]=1.0; stripesMatrix[35]=0.2;
+      stripesMatrix[36]=0.2; stripesMatrix[37]=1.0; stripesMatrix[38]=1.0; stripesMatrix[39]=0.2;
+      stripesMatrix[40]=0.2; stripesMatrix[41]=0.2; stripesMatrix[42]=1.0; stripesMatrix[43]=1.0;
+      stripesMatrix[44]=0.2; stripesMatrix[45]=0.2; stripesMatrix[46]=1.0; stripesMatrix[47]=1.0;
+      stripesMatrix[48]=1.0; stripesMatrix[49]=0.2; stripesMatrix[50]=0.2; stripesMatrix[51]=1.0;
+      stripesMatrix[52]=1.0; stripesMatrix[53]=0.2; stripesMatrix[54]=0.2; stripesMatrix[55]=1.0;
+      stripesMatrix[56]=1.0; stripesMatrix[57]=1.0; stripesMatrix[58]=0.2; stripesMatrix[59]=0.2;
+      stripesMatrix[60]=1.0; stripesMatrix[61]=1.0; stripesMatrix[62]=0.2; stripesMatrix[63]=0.2;
 
-    // Use original model color instead of fixed blue
-    vec3 modelColor = src.rgb;
-    vec3 finalColor = mix(vec3(0.0), modelColor, pattern * (0.7 + edgeBoost * 0.5));
+      float crossStripeMatrix[64];
+      crossStripeMatrix[0]=1.0;  crossStripeMatrix[1]=0.2;  crossStripeMatrix[2]=0.2;  crossStripeMatrix[3]=0.2;
+      crossStripeMatrix[4]=0.2;  crossStripeMatrix[5]=0.2;  crossStripeMatrix[6]=0.2;  crossStripeMatrix[7]=1.0;
+      crossStripeMatrix[8]=0.2;  crossStripeMatrix[9]=1.0;  crossStripeMatrix[10]=0.2; crossStripeMatrix[11]=0.2;
+      crossStripeMatrix[12]=0.2; crossStripeMatrix[13]=0.2; crossStripeMatrix[14]=1.0; crossStripeMatrix[15]=0.2;
+      crossStripeMatrix[16]=0.2; crossStripeMatrix[17]=0.2; crossStripeMatrix[18]=1.0; crossStripeMatrix[19]=0.2;
+      crossStripeMatrix[20]=0.2; crossStripeMatrix[21]=1.0; crossStripeMatrix[22]=0.2; crossStripeMatrix[23]=0.2;
+      crossStripeMatrix[24]=0.2; crossStripeMatrix[25]=0.2; crossStripeMatrix[26]=0.2; crossStripeMatrix[27]=1.0;
+      crossStripeMatrix[28]=1.0; crossStripeMatrix[29]=0.2; crossStripeMatrix[30]=0.2; crossStripeMatrix[31]=0.2;
+      crossStripeMatrix[32]=0.2; crossStripeMatrix[33]=0.2; crossStripeMatrix[34]=0.2; crossStripeMatrix[35]=1.0;
+      crossStripeMatrix[36]=1.0; crossStripeMatrix[37]=0.2; crossStripeMatrix[38]=0.2; crossStripeMatrix[39]=0.2;
+      crossStripeMatrix[40]=0.2; crossStripeMatrix[41]=0.2; crossStripeMatrix[42]=1.0; crossStripeMatrix[43]=0.2;
+      crossStripeMatrix[44]=0.2; crossStripeMatrix[45]=1.0; crossStripeMatrix[46]=0.2; crossStripeMatrix[47]=0.2;
+      crossStripeMatrix[48]=0.2; crossStripeMatrix[49]=1.0; crossStripeMatrix[50]=0.2; crossStripeMatrix[51]=0.2;
+      crossStripeMatrix[52]=0.2; crossStripeMatrix[53]=0.2; crossStripeMatrix[54]=1.0; crossStripeMatrix[55]=0.2;
+      crossStripeMatrix[56]=1.0; crossStripeMatrix[57]=0.2; crossStripeMatrix[58]=0.2; crossStripeMatrix[59]=0.2;
+      crossStripeMatrix[60]=0.2; crossStripeMatrix[61]=0.2; crossStripeMatrix[62]=0.2; crossStripeMatrix[63]=1.0;
 
-    outputColor = vec4(finalColor * 1.1, 1.0);
+      int x = int(cellUV.x * 8.0);
+      int y = int(cellUV.y * 8.0);
+      int index = y * 8 + x;
+      
+      if(luma < 0.6) {
+          color = (stripesMatrix[index] > luma) ? vec4(1.0) : vec4(0.0, 0.31, 0.933, 1.0);
+      } else {
+          color = (crossStripeMatrix[index] > luma) ? vec4(1.0) : vec4(0.0, 0.31, 0.933, 1.0);
+      }
+    }
+
+    // === PATTERN 1: Sine Wave Pattern ===
+    if(pattern == 1) {
+      float sineMatrix[64];
+      sineMatrix[0]=0.99;  sineMatrix[1]=0.75;  sineMatrix[2]=0.2;   sineMatrix[3]=0.2;
+      sineMatrix[4]=0.2;   sineMatrix[5]=0.2;   sineMatrix[6]=0.99;  sineMatrix[7]=0.99;
+      sineMatrix[8]=0.99;  sineMatrix[9]=0.99;  sineMatrix[10]=0.75; sineMatrix[11]=0.2;
+      sineMatrix[12]=0.2;  sineMatrix[13]=0.99; sineMatrix[14]=0.99; sineMatrix[15]=0.75;
+      sineMatrix[16]=0.2;  sineMatrix[17]=0.99; sineMatrix[18]=0.99; sineMatrix[19]=0.75;
+      sineMatrix[20]=0.99; sineMatrix[21]=0.99; sineMatrix[22]=0.2;  sineMatrix[23]=0.2;
+      sineMatrix[24]=0.2;  sineMatrix[25]=0.2;  sineMatrix[26]=0.99; sineMatrix[27]=0.99;
+      sineMatrix[28]=0.99; sineMatrix[29]=0.2;  sineMatrix[30]=0.2;  sineMatrix[31]=0.2;
+      sineMatrix[32]=0.2;  sineMatrix[33]=0.2;  sineMatrix[34]=0.2;  sineMatrix[35]=0.99;
+      sineMatrix[36]=0.99; sineMatrix[37]=0.99; sineMatrix[38]=0.2;  sineMatrix[39]=0.2;
+      sineMatrix[40]=0.2;  sineMatrix[41]=0.2;  sineMatrix[42]=0.99; sineMatrix[43]=0.99;
+      sineMatrix[44]=0.75; sineMatrix[45]=0.99; sineMatrix[46]=0.99; sineMatrix[47]=0.2;
+      sineMatrix[48]=0.75; sineMatrix[49]=0.99; sineMatrix[50]=0.99; sineMatrix[51]=0.2;
+      sineMatrix[52]=0.2;  sineMatrix[53]=0.75; sineMatrix[54]=0.99; sineMatrix[55]=0.99;
+      sineMatrix[56]=0.99; sineMatrix[57]=0.99; sineMatrix[58]=0.2;  sineMatrix[59]=0.2;
+      sineMatrix[60]=0.2;  sineMatrix[61]=0.2;  sineMatrix[62]=0.75; sineMatrix[63]=0.99;
+
+      int x = int(cellUV.x * 8.0);
+      int y = int(cellUV.y * 8.0);
+      int index = y * 8 + x;
+      color = (sineMatrix[index] > luma) ? vec4(1.0) : vec4(0.0, 0.31, 0.933, 1.0);
+    }
+
+    outputColor = color;
   }
 `;
 

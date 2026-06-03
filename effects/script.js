@@ -35,6 +35,7 @@ import {
     voronoiShader,
     vhsShader,
     heatMapShader,
+    minecraftShader,
 } from "./shaders.js";
 
 const handsFocusPoint = new THREE.Vector3(0, 0, 0);
@@ -307,6 +308,10 @@ const vhs = makeEffect("VHS", vhsShader, {
 const heatMap = makeEffect("HeatMap", heatMapShader, { // <--- CREATE INSTANCE
     resolution: new THREE.Vector2(innerWidth, innerHeight),
 });
+const minecraft = makeEffect("Minecraft", minecraftShader, {
+    pixelSize: 12.0, // Default block size
+    resolution: new THREE.Vector2(innerWidth, innerHeight),
+});
 
 const map = {
     normal,
@@ -326,6 +331,7 @@ const map = {
     voronoi,
     vhs,
     heatMap,
+    minecraft,
 };
 
 /* ================= CONTROLS ================= */
@@ -1109,6 +1115,7 @@ pixelInput.oninput = (e) => {
         "woven",
         "lego",
         "lines",
+        "minecraft",
     ].forEach((key) => {
         if (map[key]?.uniforms?.get("pixelSize"))
             map[key].uniforms.get("pixelSize").value = value;

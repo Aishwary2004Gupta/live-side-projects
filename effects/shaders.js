@@ -647,3 +647,44 @@ export const heatMapShader = `
   }
 `;
 
+export const minecraftShader = `
+  precision highp float;
+  uniform float pixelSize;
+  uniform vec2 resolution;
+
+  void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor) {
+    // 1. Blockify (Voxelization) - Make it pixelated
+    vec2 s = pixelSize / resolution;
+    vec2 uvPixel = s * floor(uv / s);
+    vec4 color = texture2D(inputBuffer, uvPixel);
+
+    // 2. Posterize Colors - Reduce color depth for that retro blocky palette
+    float levels = 6.0;
+    color.rgb = floor(color.rgb * levels + 0.5) / levels;
+
+    // 3. Boost Saturation - Minecraft colors are vibrant
+    float luma = dot(color.rgb, vec3(0.299, 0.587, 0.114));
+    color.rgb = mix(vec3(luma), color.rgb, 1.25);
+
+    // 4. Fake Block Lighting & Edges
+    vec2 cellUV = fract(uv / s);
+
+    // Simulate light coming from top-left (shadows on bottom and right edges)
+    float shadow = 1.0;
+    shadow *= smoothstep(0.15, 0.0, cellUV.y) * 0.25 + 0.75; // Bottom shadow
+    shadow *= smoothstep(0.85, 1.0, cellUV.x) * 0.15 + 0.85; // Right shadow
+
+    // Add a subtle grid line to separate blocks
+    float gridX = smoothstep(0.0, 0.04, cellUV.x) * smoothstep(1.0, 0.96, cellUV.x);
+    float gridY = smoothstep(0.0, 0.04, cellUV.y) * smoothstep(1.0, 0.96, cellUV.y);
+    float grid = 1.0 - (gridX * gridY);
+
+    color.rgb *= shadow;
+    color.rgb *= (1.0 - grid * 0.4); // Darken edges to create block separation
+
+    // 5. Final Contrast Boost
+    color.rgb = clamp(color.rgb * 1.1, 0.0, 1.0);
+
+    outputColor = vec4(color.rgb, 1.0);
+  }
+`;

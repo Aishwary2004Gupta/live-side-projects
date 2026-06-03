@@ -647,39 +647,48 @@ export const heatMapShader = `
   }
 `;
 
-export const minecraftShader = `
+export const minecraftBlocksShader = `
   precision highp float;
   uniform float pixelSize;
   uniform vec2 resolution;
 
-  void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor) {
-    // 1. Calculate grid step based on the pixel size
-    vec2 s = pixelSize / resolution;
-    
-    // 2. Snap UVs to the grid (the "blocks")
-    vec2 uvSnap = s * floor(uv / s);
-    
-    // 3. Sample the source image at the snapped location
-    vec4 c = texture2D(inputBuffer, uvSnap);
-    
-    // 4. Color Quantization (Reducing color depth)
-    // This creates distinct bands of color rather than gradients
-    float steps = 16.0; // Higher number = more detail, lower = more retro/limited palette
-    vec3 colors = floor(c.rgb * steps) / steps;
-    
-    // 5. Optional: Dithering simulation for shadowed areas
-    // A simple noise function can break up solid gradients slightly
-    float n = fract(sin(dot(uvSnap * 50.0, vec2(12.9898, 78.233))) * 43758.5453);
-    float threshold = 0.1 + c.r * 0.1; // Lighter areas tolerate less noise
-    
-    vec3 finalColor = colors;
-    
-    // Mix in a tiny bit of random noise only if the color wasn't quantized perfectly
-    if (n < threshold && c.a > 0.1) {
-        finalColor += vec3(n - threshold) * 0.2;
-    }
+  // Simple color quantization to mimic Minecraft's limited palette
+  vec3 quantizeColor(vec3 color) {
+    // Reduce to 16 levels per channel for that blocky palette feel
+    return floor(color * 15.0 + 0.5) / 15.0;
+  }
 
-    // Output result
-    outputColor = vec4(finalColor, 1.0);
+  float random(vec2 st) {
+    return fract(sin(dot(st.xy, vec2(12.9898,78.233))) * 43758.5453123);
+  }
+
+  void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor) {
+    vec2 s = pixelSize / resolution;
+    vec2 cellIndex = floor(uv / s);
+    vec2 uvPixel = s * cellIndex;
+    vec2 cellUV = fract(uv / s);
+    
+    // Sample the color for this block
+    vec4 color = texture2D(inputBuffer, uvPixel);
+    
+    // Quantize to get that limited Minecraft palette
+    color.rgb = quantizeColor(color.rgb);
+    
+    // Add subtle block-to-block variation for more organic look
+    float variation = (random(cellIndex) - 0.5) * 0.03;
+    color.rgb += variation;
+    color.rgb = clamp(color.rgb, 0.0, 1.0);
+    
+    // Subtle grid lines between blocks
+    float gridThickness = 0.03;
+    float gridMask = 1.0;
+    if (cellUV.x < gridThickness || cellUV.x > 1.0 - gridThickness || 
+        cellUV.y < gridThickness || cellUV.y > 1.0 - gridThickness) {
+      gridMask = 0.92; // Slightly darken grid lines
+    }
+    
+    color.rgb *= gridMask;
+    
+    outputColor = vec4(color.rgb, 1.0);
   }
 `;

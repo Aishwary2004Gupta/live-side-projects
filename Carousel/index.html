@@ -1,553 +1,139 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <title>Carousel</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <style>
-      /* ====== 3D Carousel Styles ====== */
-      .scene,
-      .a3d {
-        display: grid;
-      }
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Containerized Python API</title>
 
-      .scene {
-        overflow: hidden;
-        perspective: 45em;
-        mask: linear-gradient(90deg, #0000, #000 15% 85%, #0000);
-        cursor: grab;
-        width: 100%;
-        max-width: 100vw;
-        padding: 5rem 0;
-        touch-action: pan-y;
-      }
-
-      .scene:active {
-        cursor: grabbing;
-      }
-
-      .a3d {
-        place-self: center;
-        transform-style: preserve-3d;
-        --ry: 0turn;
-        transform: rotateY(var(--ry));
-        will-change: transform;
-      }
-
-      .card {
-        --cardGap: 1.5em;
-
-        --w: 23em;
-        --ba: 1turn / var(--n);
-        --pop: 0em;
-        --tiltX: 0deg;
-        --tiltY: 0deg;
-
-        grid-area: 1 / 1;
-        width: var(--w);
-        aspect-ratio: 7 / 10;
-        object-fit: cover;
-        border-radius: 1.5em;
-        box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.4);
-        backface-visibility: hidden;
-
-        transition:
-          transform 0.5s cubic-bezier(0.23, 1, 0.32, 1),
-          box-shadow 0.5s ease;
-
-        transform: rotateY(calc(var(--i) * var(--ba)))
-          translateZ(
-            calc(
-              -1 * (0.5 * var(--w) + var(--cardGap)) / tan(0.5 * var(--ba)) +
-                var(--pop)
-            )
-          )
-          rotateX(var(--tiltX)) rotateY(var(--tiltY));
-      }
-
-      .card.is-hovered {
-        box-shadow: 0 30px 60px -12px rgba(0, 0, 0, 0.55);
-        filter: saturate(1.12) contrast(1.05);
-      }
-
-      /* ====== Page Styles ====== */
-      html {
-        height: 100%;
-        overflow: hidden;
-      }
-
-      body {
+<style>
+    * {
         margin: 0;
-        min-height: 100vh;
-        background: #fff3ed;
-        display: grid;
-        place-items: center;
-        font-family: system-ui, sans-serif;
-        overflow-x: hidden;
-        height: 100%;
-      }
-
-      .info {
-        color: #888;
-        font-size: 0.95rem;
-        z-index: 10;
-        pointer-events: none;
-        text-align: center;
-        width: 100%;
-      }
-
-      /* ============================================================
-         FULL CIRCLE MODE
-         ============================================================ */
-      .scene.full {
-        mask: none;
-        -webkit-mask: none;
-        position: fixed;
-        inset: 0;
         padding: 0;
-        perspective: 120em;
-      }
+        box-sizing: border-box;
+        font-family: "Segoe UI", Arial, sans-serif;
+    }
 
-      .scene.full .a3d {
-        transform: rotateZ(var(--ry));
-      }
+    body {
+        background: #1e1e1e;
+        color: white;
+        min-height: 100vh;
+    }
 
-      .scene.full .card {
-        --w: clamp(4.2rem, 9vmin, 6.4rem);
-        border-radius: 0.65rem;
-        box-shadow: 0 12px 28px -14px rgba(0, 0, 0, 0.35);
-        /* --R: min(44vmin, 420px); */
-        --R: calc(min(44vmin, 420px));
+    .container {
+        width: 78%;
+        margin: 40px auto;
+    }
 
-        transform: rotateZ(calc(var(--i) * (1turn / var(--n))))
-          translateY(calc(-1 * var(--R))) translateZ(var(--pop))
-          rotateX(var(--tiltX)) rotateY(var(--tiltY));
-      }
+    .welcome-title {
+        font-size: 4rem;
+        font-weight: 300;
+        margin-bottom: 15px;
+    }
 
-      /* Center the info text inside the circle in full mode ONLY */
-      .scene.full .info {
-        position: absolute;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-        font-size: 1.05rem;
-        color: #666;
-        z-index: 20;
-        text-align: center;
-        white-space: nowrap;
-      }
+    .quote {
+        font-size: 1rem;
+        margin-bottom: 100px;
+    }
 
-      /* NEW STYLE: Positioning for Semi-Circle Mode (Not Full) */
-      .scene:not(.full) .info {
-        position: absolute;
-        bottom: 20px;
-        left: 50%;
-        transform: translateX(-50%);
-        width: auto;
-        color: #aaa;
-      }
+    .rocket-container {
+        display: flex;
+        justify-content: center;
+        margin: 60px 0 120px;
+    }
 
-      .scene.full::after {
-        content: "";
-        position: absolute;
-        width: calc(var(--R) * 2 + 20vmin);
-        aspect-ratio: 1;
-        border-radius: 50%;
-        border: 1px solid rgba(0, 0, 0, 0.07);
-        pointer-events: none;
-        left: 50%;
-        top: 50%;
-        transform: translate(-50%, -50%);
-      }
+    .rocket {
+        font-size: 12rem;
+        transform: rotate(-10deg);
+    }
 
-      .scene.is-layouting .a3d {
-        transition: transform 900ms cubic-bezier(0.22, 0.61, 0.36, 1);
-      }
-      .scene.is-layouting .card {
-        transition:
-          transform 900ms cubic-bezier(0.22, 0.61, 0.36, 1),
-          box-shadow 0.5s ease;
-      }
+    .section-title {
+        font-size: 3.5rem;
+        font-weight: 300;
+        margin-bottom: 20px;
+    }
 
-      .layout-btn {
-        position: fixed;
-        top: 1.25rem;
-        right: 1.25rem;
-        z-index: 10;
-        border: 1px solid rgba(0, 0, 0, 0.15);
-        background: #fff;
-        padding: 0.65rem 1.05rem;
-        border-radius: 999px;
-        font: inherit;
-        cursor: pointer;
-        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
-      }
-    </style>
-  </head>
+    .description {
+        font-size: 1.15rem;
+        line-height: 1.8;
+        margin-bottom: 20px;
+    }
 
-  <body>
-    <button class="layout-btn" id="layoutBtn">Show full circle</button>
+    .description a {
+        color: #00d084;
+        text-decoration: none;
+    }
 
-    <div class="scene" id="scene">
-      <div class="a3d">
-        <!-- <img
-          class="card"
-          src="https://images.unsplash.com/photo-1730652201845-095193ddb555?q=80&w=722&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D?w=400"
-          alt="mona-lisa"
-        />
-        <img
-          class="card"
-          src="https://images.unsplash.com/flagged/photo-1572392640988-ba48d1a74457?q=80&w=764&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D?w=400"
-          alt="art1"
-        />
-        <img
-          class="card"
-          src="https://images.unsplash.com/photo-1579783928621-7a13d66a62d1?q=80&w=690&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D?w=400"
-          alt="art2"
-        />
-        <img
-          class="card"
-          src="https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?q=80&w=708&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D?w=400"
-          alt="art3"
-        />
-        <img
-          class="card"
-          src="https://plus.unsplash.com/premium_photo-1661963273643-3530570bff6b?q=80&w=687&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D?w=400"
-          alt="cliff"
-        />
-        <img
-          class="card"
-          src="https://images.unsplash.com/photo-1762970444229-63fa47ddad16?q=80&w=739&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D?w=400"
-          alt="art4"
-        />
-        <img
-          class="card"
-          src="https://images.unsplash.com/photo-1597424482786-0b1b7065dbac?q=80&w=687&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D?w=400"
-          alt="some-temple"
-        />
-        <img
-          class="card"
-          src="https://images.unsplash.com/photo-1762970443978-e3f63489dd5d?q=80&w=775&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D?w=400"
-          alt="art5"
-        />
-        <img
-          class="card"
-          src="https://images.unsplash.com/photo-1772843062016-4258198fbbce?q=80&w=736&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D?w=400"
-          alt="grafity"
-        /> -->
-        <img
-          class="card"
-          src="https://images.unsplash.com/photo-1574854985839-28de904a49bb?q=80&w=687&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D?w=400"
-          alt="img"
-        />
-        <img
-          class="card"
-          src="https://images.unsplash.com/photo-1765024164017-22a096a09ed6?q=80&w=672&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D?w=400"
-          alt="img"
-        />
-        <img
-          class="card"
-          src="https://images.unsplash.com/photo-1776101419518-4677bded70ed?q=80&w=687&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D?w=400"
-          alt="img"
-        />
-        <img
-          class="card"
-          src="https://images.unsplash.com/photo-1778088167550-efb6b7b8cbe4?q=80&w=735&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D?w=400"
-          alt="img"
-        />
-        <img
-          class="card"
-          src="https://plus.unsplash.com/premium_photo-1697730320983-f99aab252a44?q=80&w=687&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D?w=400"
-          alt="img"
-        />
-        <img
-          class="card"
-          src="https://images.unsplash.com/photo-1603638672033-9d8bef363b29?q=80&w=687&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D?w=400"
-          alt="img"
-        />
-        <img
-          class="card"
-          src="https://plus.unsplash.com/premium_photo-1661912874572-3195ceee2e7c?q=80&w=687&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D?w=400"
-          alt="img"
-        />
-        <img
-          class="card"
-          src="http://images.unsplash.com/photo-1761160781452-77b984fe94e0?q=80&w=687&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D?w=400"
-          alt="img"
-        />
-        <img
-          class="card"
-          src="https://plus.unsplash.com/premium_photo-1661953220283-78f0c59eaee5?q=80&w=690&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D?w=400"
-          alt="img"
-        />
-        <img
-          class="card"
-          src="https://images.unsplash.com/photo-1756985836420-a9934b694ac9?q=80&w=1974&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D?w=400"
-          alt="img"
-        />
-        <img
-          class="card"
-          src="https://images.unsplash.com/photo-1772339014113-29414e7295b3?q=80&w=687&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D?w=400"
-          alt="img"
-        />
-        <img
-          class="card"
-          src="https://plus.unsplash.com/premium_photo-1742457608525-050e57ec5086?q=80&w=687&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D?w=400"
-          alt="img"
-        />
-        <img
-          class="card"
-          src="https://images.unsplash.com/photo-1682157693947-c67c6420b016?q=80&w=735&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D?w=400"
-          alt="img"
-        />
-        <img
-          class="card"
-          src="https://images.unsplash.com/photo-1630121008266-3e6fbe505e7f?q=80&w=735&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D?w=400"
-          alt="img"
-        />
-        <img
-          class="card"
-          src="https://images.unsplash.com/photo-1601980740525-fc689655157f?q=80&w=750&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D?w=400"
-          alt="img"
-        />
-        <img
-          class="card"
-          src="https://images.unsplash.com/photo-1678966432189-d58296e45ad2?q=80&w=627&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D?w=400"
-          alt="img"
-        />
-        <img
-          class="card"
-          src="https://images.unsplash.com/photo-1545126178-862cdb469409?q=80&w=687&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D?w=400"
-          alt="img"
-        />
-        <img
-          class="card"
-          src="https://images.unsplash.com/photo-1597512945089-17f1e583b274?q=80&w=687&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D?w=400"
-          alt="img"
-        />
-        <img
-          class="card"
-          src="https://images.unsplash.com/photo-1585135497273-1a86b09fe70e?q=80&w=735&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D?w=400"
-          alt="img"
-        />
-        <img
-          class="card"
-          src="https://images.unsplash.com/photo-1546533658-8f1f550b9a4e?q=80&w=687&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D?w=400"
-          alt="img"
-        />
-        <img
-          class="card"
-          src="https://images.unsplash.com/photo-1603378995290-8d4ce0495ddd?q=80&w=687&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D?w=400"
-          alt="img"
-        />
-        <img
-          class="card"
-          src="https://images.unsplash.com/photo-1669873939341-9d34c6434c56?q=80&w=764&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D?w=400"
-          alt="img"
-        />
-        <img
-          class="card"
-          src="https://plus.unsplash.com/premium_photo-1702598754680-e49cb0e6eff8?q=80&w=688&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D?w=400"
-          alt="img"
-        />
-      </div>
+    .description a:hover {
+        text-decoration: underline;
+    }
 
-      <p class="info">
-        Drag/Scroll to rotate • Hover any front-facing card to Pop &amp; Tilt
-      </p>
+    .instruction {
+        font-size: 1.1rem;
+        margin-bottom: 25px;
+        line-height: 1.7;
+    }
+
+    .buttons {
+        display: flex;
+        gap: 2px;
+    }
+
+    .btn {
+        background: #3da5f5;
+        color: white;
+        padding: 14px 20px;
+        text-decoration: none;
+        border-radius: 6px;
+        font-size: 1rem;
+        transition: 0.3s;
+    }
+
+    .btn:hover {
+        background: #2589d6;
+    }
+</style>
+</head>
+
+<body>
+
+<div class="container">
+
+    <h1 class="welcome-title">
+        Welcome to the webpage, Aishwary Gupta!
+    </h1>
+
+    <p class="quote">
+        Here's a quote for you:
+        "The only way to do great work is to love what you do."
+        - Steve Jobs
+    </p>
+
+    <div class="rocket-container">
+        <div class="rocket">🚀</div>
     </div>
 
-    <script>
-      const scene = document.querySelector(".scene");
-      const a3d = document.querySelector(".a3d");
-      // Get all cards immediately
-      let cards = Array.from(document.querySelectorAll(".card"));
+    <h2 class="section-title">
+        Containerized Python API
+    </h2>
 
-      cards.forEach((card, index) => {
-        card.style.setProperty("--i", index);
-      });
+    <p class="description">
+        This is a containerized application that exposes a JSON API using
+        <a href="#">FastAPI</a> with
+        <a href="#">Azure</a>!
+    </p>
 
-      // 2. Set total count N and pass it to the container via CSS variable
-      const N = cards.length;
-      a3d.style.setProperty("--n", N);
+    <p class="instruction">
+        Use the buttons below to make use of the interactive (OpenAPI)
+        documentation for trying out the API dynamically, or browse
+        the project source.
+    </p>
 
-      const btn = document.getElementById("layoutBtn");
+    <div class="buttons">
+        <a href="#" class="btn">Try it out</a>
+        <a href="#" class="btn">Project source</a>
+    </div>
 
-      let ry = 0;
-      let velocity = 0;
-      let isDragging = false;
-      let isPaused = false;
-      let lastX = 0;
+</div>
 
-      let isFull = false;
-      let isLayouting = false;
-
-      let hoveredCard = null;
-      let mouseX = -9999;
-      let mouseY = -9999;
-      let mouseInScene = false;
-
-      const FRICTION = 0.92;
-      const AUTO_SPEED = 0.0003;
-      const MAX_TILT = 35;
-      const POP_SEMI = 8;
-      const POP_FULL = 2.25;
-      const FRONT_ARC = 0.24;
-
-      cards.forEach((c) => (c.style.pointerEvents = "none"));
-
-      function cardAngle(i) {
-        const raw = ry + i / N;
-        return raw - Math.round(raw);
-      }
-
-      function resetCard(card) {
-        card.style.setProperty("--pop", "0em");
-        card.style.setProperty("--tiltX", "0deg");
-        card.style.setProperty("--tiltY", "0deg");
-        card.classList.remove("is-hovered");
-      }
-
-      function applyTilt(card, cx, cy) {
-        const r = card.getBoundingClientRect();
-        const x = Math.max(0, Math.min(1, (cx - r.left) / r.width));
-        const y = Math.max(0, Math.min(1, (cy - r.top) / r.height));
-
-        const pop = isFull ? POP_FULL : POP_SEMI;
-
-        card.style.setProperty("--tiltX", (0.5 - y) * MAX_TILT * 2 + "deg");
-        card.style.setProperty("--tiltY", (x - 0.5) * MAX_TILT * 2 + "deg");
-        card.style.setProperty("--pop", pop + "em");
-        card.classList.add("is-hovered");
-      }
-
-      function findCardAt(cx, cy) {
-        let best = null;
-        let bestDist = Infinity;
-        const ARC = isFull ? 0.5 : FRONT_ARC;
-
-        for (let i = 0; i < N; i++) {
-          const angle = cardAngle(i);
-          if (Math.abs(angle) > ARC) continue;
-
-          const r = cards[i].getBoundingClientRect();
-          if (cx >= r.left && cx <= r.right && cy >= r.top && cy <= r.bottom) {
-            if (Math.abs(angle) < bestDist) {
-              bestDist = Math.abs(angle);
-              best = cards[i];
-            }
-          }
-        }
-        return best;
-      }
-
-      function updateHover() {
-        if (isDragging || !mouseInScene) return;
-        const target = findCardAt(mouseX, mouseY);
-
-        if (target === hoveredCard) {
-          if (hoveredCard) applyTilt(hoveredCard, mouseX, mouseY);
-          return;
-        }
-
-        if (hoveredCard) resetCard(hoveredCard);
-        hoveredCard = target;
-
-        if (hoveredCard) {
-          isPaused = true;
-          velocity = 0;
-          applyTilt(hoveredCard, mouseX, mouseY);
-        } else {
-          isPaused = false;
-        }
-      }
-
-      window.addEventListener("mousemove", (e) => {
-        mouseX = e.clientX;
-        mouseY = e.clientY;
-        mouseInScene =
-          document.elementFromPoint(e.clientX, e.clientY)?.closest(".scene") !==
-          null;
-        updateHover();
-      });
-
-      window.addEventListener("pointerdown", (e) => {
-        if (hoveredCard) {
-          resetCard(hoveredCard);
-          hoveredCard = null;
-          isPaused = false;
-        }
-        isDragging = true;
-        lastX = e.clientX;
-        velocity = 0;
-      });
-
-      window.addEventListener("pointermove", (e) => {
-        if (!isDragging) return;
-        const delta = e.clientX - lastX;
-        velocity = delta * -0.0008;
-        ry += velocity;
-        lastX = e.clientX;
-      });
-
-      window.addEventListener("pointerup", () => (isDragging = false));
-
-      window.addEventListener(
-        "wheel",
-        (e) => {
-          e.preventDefault();
-          if (isPaused) return;
-
-          velocity -= (e.deltaX + e.deltaY) * 0.00005;
-        },
-        { passive: false },
-      );
-
-      btn.addEventListener("click", () => {
-        if (hoveredCard) {
-          resetCard(hoveredCard);
-          hoveredCard = null;
-        }
-        isPaused = false;
-        velocity = 0;
-
-        isFull = !isFull;
-        btn.textContent = isFull ? "Show semi circle" : "Show full circle";
-
-        isLayouting = true;
-        scene.classList.add("is-layouting");
-        scene.classList.toggle("full", isFull);
-
-        setTimeout(() => {
-          isLayouting = false;
-          scene.classList.remove("is-layouting");
-        }, 900);
-      });
-
-      function loop() {
-        if (!isDragging) {
-          velocity *= FRICTION;
-          if (Math.abs(velocity) < 1e-7) velocity = 0;
-
-          if (!isPaused && !isLayouting) {
-            ry += velocity + AUTO_SPEED;
-          }
-        }
-
-        a3d.style.setProperty("--ry", ry + "turn");
-        requestAnimationFrame(loop);
-      }
-
-      window.addEventListener("blur", () => {
-        isDragging = false;
-        if (hoveredCard) {
-          resetCard(hoveredCard);
-          hoveredCard = null;
-        }
-        isPaused = false;
-      });
-
-      loop();
-    </script>
-  </body>
+</body>
 </html>

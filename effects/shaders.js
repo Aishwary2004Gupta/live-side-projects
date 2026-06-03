@@ -647,39 +647,3 @@ export const heatMapShader = `
   }
 `;
 
-export const minecraftShader = `
-  precision highp float;
-  uniform float pixelSize;
-  uniform vec2 resolution;
-
-  void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor) {
-    // 1. Calculate grid step based on the pixel size
-    vec2 s = pixelSize / resolution;
-    
-    // 2. Snap UVs to the grid (the "blocks")
-    vec2 uvSnap = s * floor(uv / s);
-    
-    // 3. Sample the source image at the snapped location
-    vec4 c = texture2D(inputBuffer, uvSnap);
-    
-    // 4. Color Quantization (Reducing color depth)
-    // This creates distinct bands of color rather than gradients
-    float steps = 16.0; // Higher number = more detail, lower = more retro/limited palette
-    vec3 colors = floor(c.rgb * steps) / steps;
-    
-    // 5. Optional: Dithering simulation for shadowed areas
-    // A simple noise function can break up solid gradients slightly
-    float n = fract(sin(dot(uvSnap * 50.0, vec2(12.9898, 78.233))) * 43758.5453);
-    float threshold = 0.1 + c.r * 0.1; // Lighter areas tolerate less noise
-    
-    vec3 finalColor = colors;
-    
-    // Mix in a tiny bit of random noise only if the color wasn't quantized perfectly
-    if (n < threshold && c.a > 0.1) {
-        finalColor += vec3(n - threshold) * 0.2;
-    }
-
-    // Output result
-    outputColor = vec4(finalColor, 1.0);
-  }
-`;

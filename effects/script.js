@@ -35,7 +35,6 @@ import {
     voronoiShader,
     vhsShader,
     heatMapShader,
-    minecraftShader,
 } from "./shaders.js";
 
 const handsFocusPoint = new THREE.Vector3(0, 0, 0);
@@ -308,10 +307,6 @@ const vhs = makeEffect("VHS", vhsShader, {
 const heatMap = makeEffect("HeatMap", heatMapShader, { // <--- CREATE INSTANCE
     resolution: new THREE.Vector2(innerWidth, innerHeight),
 });
-const minecraft = makeEffect("Minecraft", minecraftShader, {
-    pixelSize: 16.0,
-    resolution: new THREE.Vector2(innerWidth, innerHeight),
-});
 
 const map = {
     normal,
@@ -331,7 +326,6 @@ const map = {
     voronoi,
     vhs,
     heatMap,
-    minecraft,
 };
 
 /* ================= CONTROLS ================= */

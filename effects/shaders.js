@@ -652,95 +652,39 @@ export const minecraftShader = `
   uniform float pixelSize;
   uniform vec2 resolution;
 
-  float random(vec2 st) {
-    return fract(sin(dot(st.xy, vec2(12.9898, 78.233))) * 43758.5453123);
-  }
-  
-  // Quantize a color channel to N steps (limited palette like Minecraft textures)
-  float quantize(float val, float steps) {
-    return floor(val * steps + 0.5) / steps;
-  }
-  
-  vec3 rgbToHsv(vec3 c) {
-    vec4 K = vec4(0.0, -1.0/3.0, 2.0/3.0, -1.0);
-    vec4 p = mix(vec4(c.bg, K.wz), vec4(c.gb, K.xy), step(c.b, c.g));
-    vec4 q = mix(vec4(p.xyw, c.r), vec4(c.r, p.yzx), step(p.x, c.r));
-    float d = q.x - min(q.w, q.y);
-    float e = 1.0e-10;
-    return vec3(abs(q.z + (q.w - q.y) / (6.0*d + e)), d/(q.x+e), q.x);
-  }
-  
-  vec3 hsvToRgb(vec3 c) {
-    vec4 K = vec4(1.0, 2.0/3.0, 1.0/3.0, 3.0);
-    vec3 p = abs(fract(c.xxx + K.xyz)*6.0 - K.www);
-    return c.z * mix(K.xxx, clamp(p - K.xxx, 0.0, 1.0), c.y);
-  }
-
   void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor) {
-    // 1. BLOCK GRID — chunky pixelation (Minecraft blocks)
+    // 1. Blockify (Voxelization) - Make it pixelated
     vec2 s = pixelSize / resolution;
     vec2 uvPixel = s * floor(uv / s);
     vec4 color = texture2D(inputBuffer, uvPixel);
-    
-    float luma = dot(color.rgb, vec3(0.2126, 0.7152, 0.0722));
-    vec2 cellPos = floor(uv / s);
+
+    // 2. Posterize Colors - Reduce color depth for that retro blocky palette
+    float levels = 6.0;
+    color.rgb = floor(color.rgb * levels + 0.5) / levels;
+
+    // 3. Boost Saturation - Minecraft colors are vibrant
+    float luma = dot(color.rgb, vec3(0.299, 0.587, 0.114));
+    color.rgb = mix(vec3(luma), color.rgb, 1.25);
+
+    // 4. Fake Block Lighting & Edges
     vec2 cellUV = fract(uv / s);
-    
-    // 2. BACKGROUND — dark void (or sky-like if you prefer)
-    if (luma < 0.02) {
-      outputColor = vec4(0.0, 0.0, 0.0, 1.0);
-      return;
-    }
-    
-    // 3. COLOR QUANTIZATION — Minecraft's limited palette feel
-    // Quantize each channel to 6 steps for that chunky color look
-    color.r = quantize(color.r, 6.0);
-    color.g = quantize(color.g, 6.0);
-    color.b = quantize(color.b, 6.0);
-    color.rgb = clamp(color.rgb, 0.08, 0.95);
-    
-    // Boost saturation slightly so blocks look vibrant like Minecraft textures
-    vec3 hsv = rgbToHsv(color.rgb);
-    hsv.y *= 1.3;
-    color.rgb = hsvToRgb(hsv);
-    
-    // 4. BLOCK TEXTURE NOISE — adds that pixelated dirt/stone/grass detail
-    // Sub-pixel noise grid inside each block (16x16 inner texture like real MC blocks)
-    vec2 innerGrid = floor(cellUV * 4.0) / 4.0;
-    float texNoise = random(cellPos + innerGrid) * 0.25 - 0.125;
-    color.rgb += vec3(texNoise);
-    
-    // 5. FAUX 3D CUBE SHADING — makes each block look raised
-    // Top-left highlight, bottom-right shadow (classic Minecraft block lighting)
-    float topEdge = smoothstep(0.0, 0.15, 1.0 - cellUV.y);
-    float leftEdge = smoothstep(0.0, 0.15, cellUV.x);
-    float bottomEdge = smoothstep(0.0, 0.15, cellUV.y);
-    float rightEdge = smoothstep(0.0, 0.15, 1.0 - cellUV.x);
-    
-    float highlight = (topEdge + leftEdge) * 0.5;
-    float shadow = (bottomEdge + rightEdge) * 0.5;
-    
-    // Apply directional lighting (lighter on top-left, darker on bottom-right)
-    color.rgb *= 0.85 + (1.0 - shadow) * 0.15;
-    color.rgb += (1.0 - highlight) * 0.08;
-    
-    // 6. BLOCK BORDERS — dark outlines so each block is clearly defined
-    float borderThickness = 0.05;
-    float border = step(borderThickness, cellUV.x) * 
-                   step(borderThickness, cellUV.y) * 
-                   step(borderThickness, 1.0 - cellUV.x) * 
-                   step(borderThickness, 1.0 - cellUV.y);
-    
-    // Darken the border edges of each block
-    color.rgb *= mix(0.45, 1.0, border);
-    
-    // 7. CHUNK VARIATION — slight per-block color shift to break up uniformity
-    float blockVariation = (random(cellPos) - 0.5) * 0.08;
-    color.rgb += vec3(blockVariation);
-    
-    // 8. FINAL CLAMP & CONTRAST
+
+    // Simulate light coming from top-left (shadows on bottom and right edges)
+    float shadow = 1.0;
+    shadow *= smoothstep(0.15, 0.0, cellUV.y) * 0.25 + 0.75; // Bottom shadow
+    shadow *= smoothstep(0.85, 1.0, cellUV.x) * 0.15 + 0.85; // Right shadow
+
+    // Add a subtle grid line to separate blocks
+    float gridX = smoothstep(0.0, 0.04, cellUV.x) * smoothstep(1.0, 0.96, cellUV.x);
+    float gridY = smoothstep(0.0, 0.04, cellUV.y) * smoothstep(1.0, 0.96, cellUV.y);
+    float grid = 1.0 - (gridX * gridY);
+
+    color.rgb *= shadow;
+    color.rgb *= (1.0 - grid * 0.4); // Darken edges to create block separation
+
+    // 5. Final Contrast Boost
     color.rgb = clamp(color.rgb * 1.1, 0.0, 1.0);
-    
+
     outputColor = vec4(color.rgb, 1.0);
   }
 `;

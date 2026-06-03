@@ -331,6 +331,7 @@ const map = {
     voronoi,
     vhs,
     heatMap,
+    minecraft,
 };
 
 /* ================= CONTROLS ================= */

@@ -34,7 +34,8 @@ import {
     noiseShader,
     voronoiShader,
     vhsShader,
-    heatMapShader
+    heatMapShader,
+    minecraftShader,
 } from "./shaders.js";
 
 const handsFocusPoint = new THREE.Vector3(0, 0, 0);

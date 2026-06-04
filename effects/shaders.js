@@ -653,74 +653,38 @@ export const minecraftShader = `
   uniform vec2 resolution;
 
   void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor) {
-    // 1. Voxel Grid - Create the block structure
+    // 1. Blockify (Voxelization) - Make it pixelated
     vec2 s = pixelSize / resolution;
     vec2 uvPixel = s * floor(uv / s);
     vec4 color = texture2D(inputBuffer, uvPixel);
-    
-    vec2 cellUV = fract(uv / s);
-    vec2 cellPos = floor(uv / s);
 
-    // 2. Posterize Colors - Minecraft-style limited palette
-    float levels = 5.0;
+    // 2. Posterize Colors - Reduce color depth for that retro blocky palette
+    float levels = 6.0;
     color.rgb = floor(color.rgb * levels + 0.5) / levels;
 
-    // 3. Boost Saturation for vibrant Minecraft colors
+    // 3. Boost Saturation - Minecraft colors are vibrant
     float luma = dot(color.rgb, vec3(0.299, 0.587, 0.114));
-    color.rgb = mix(vec3(luma), color.rgb, 1.3);
+    color.rgb = mix(vec3(luma), color.rgb, 1.25);
 
-    // 4. Create 3D Block Effect
-    // Simulate a cube with top face, side faces, and edges
-    
-    float blockSize = 1.0;
-    float edgeWidth = 0.08;
-    
-    // Calculate which face of the cube we're on
-    // Top face (brightest - lit from above)
-    float topFace = smoothstep(0.75, 0.85, cellUV.y);
-    
-    // Bottom face (darkest - in shadow)
-    float bottomFace = smoothstep(0.25, 0.15, cellUV.y);
-    
-    // Left face (medium shadow)
-    float leftFace = smoothstep(0.15, 0.25, cellUV.x) * (1.0 - smoothstep(0.85, 0.75, cellUV.x));
-    float leftShadow = smoothstep(0.0, 0.15, cellUV.x) * 0.3;
-    
-    // Right face (darker shadow)
-    float rightShadow = smoothstep(1.0, 0.85, cellUV.x) * 0.5;
-    
-    // Main face (center)
-    float mainFace = 1.0 - topFace - bottomFace - leftShadow - rightShadow;
-    mainFace = clamp(mainFace, 0.0, 1.0);
-    
-    // Apply lighting to each face
-    vec3 topColor = color.rgb * 1.25;      // Bright top
-    vec3 mainColor = color.rgb * 1.0;      // Normal center
-    vec3 leftColor = color.rgb * 0.75;     // Slightly dark left
-    vec3 rightColor = color.rgb * 0.6;     // Darker right
-    vec3 bottomColor = color.rgb * 0.5;    // Darkest bottom
-    
-    // Combine faces
-    vec3 finalColor = topColor * topFace + 
-                      mainColor * mainFace + 
-                      leftColor * leftShadow + 
-                      rightColor * rightShadow + 
-                      bottomColor * bottomFace;
-    
-    // 5. Add Block Edges (dark borders between blocks)
-    float edgeX = smoothstep(0.0, edgeWidth, cellUV.x) * smoothstep(1.0, 1.0 - edgeWidth, cellUV.x);
-    float edgeY = smoothstep(0.0, edgeWidth, cellUV.y) * smoothstep(1.0, 1.0 - edgeWidth, cellUV.y);
-    float edge = 1.0 - (edgeX * edgeY);
-    
-    finalColor *= (1.0 - edge * 0.6);
-    
-    // 6. Add subtle noise for texture variation
-    float noise = fract(sin(dot(cellPos, vec2(12.9898, 78.233))) * 43758.5453);
-    finalColor += (noise - 0.5) * 0.05;
-    
-    // 7. Final adjustments
-    finalColor = clamp(finalColor, 0.0, 1.0);
-    
-    outputColor = vec4(finalColor, 1.0);
+    // 4. Fake Block Lighting & Edges
+    vec2 cellUV = fract(uv / s);
+
+    // Simulate light coming from top-left (shadows on bottom and right edges)
+    float shadow = 1.0;
+    shadow *= smoothstep(0.15, 0.0, cellUV.y) * 0.25 + 0.75; // Bottom shadow
+    shadow *= smoothstep(0.85, 1.0, cellUV.x) * 0.15 + 0.85; // Right shadow
+
+    // Add a subtle grid line to separate blocks
+    float gridX = smoothstep(0.0, 0.04, cellUV.x) * smoothstep(1.0, 0.96, cellUV.x);
+    float gridY = smoothstep(0.0, 0.04, cellUV.y) * smoothstep(1.0, 0.96, cellUV.y);
+    float grid = 1.0 - (gridX * gridY);
+
+    color.rgb *= shadow;
+    color.rgb *= (1.0 - grid * 0.4); // Darken edges to create block separation
+
+    // 5. Final Contrast Boost
+    color.rgb = clamp(color.rgb * 1.1, 0.0, 1.0);
+
+    outputColor = vec4(color.rgb, 1.0);
   }
 `;

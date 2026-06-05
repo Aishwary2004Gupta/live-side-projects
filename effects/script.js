@@ -837,7 +837,7 @@ const MODELS = {
         url: "https://raw.githubusercontent.com/Aishwary2004Gupta/models/cloud/prime.glb",
         scale: 6,
         rotation: { x: 0, y: Math.PI - 0.4, z: 0 },
-        position: { x: 0, y: -1.1, z: 0 },
+        position: { x: 0, y: -1, z: 0 },
     },
 };
 

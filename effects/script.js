@@ -841,7 +841,7 @@ const MODELS = {
     },
     try: {
         url: "https://raw.githubusercontent.com/Aishwary2004Gupta/models/cloud/bloxx.glb",
-        scale: 6,
+        scale: 1,
         rotation: { x: 0, y: Math.PI, z: 0 },
         position: { x: 0, y: 0, z: 0 },
     },

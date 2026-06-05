@@ -853,9 +853,9 @@ const MODELS = {
     },
     try: {
         url: "https://raw.githubusercontent.com/Aishwary2004Gupta/models/cloud/fantasmatico.glb",
-        scale: 0.1,
+        scale: 0.05,
         rotation: { x: 0, y: Math.PI, z: 0 },
-        position: { x: 0, y: -1.2, z: 0 },
+        position: { x: 0, y: -1, z: 0 },
     },
 };
 

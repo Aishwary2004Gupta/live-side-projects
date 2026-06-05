@@ -834,7 +834,7 @@ const MODELS = {
         position: { x: 0, y: 0, z: 0 },
     },
     try: {
-        url: "https://raw.githubusercontent.com/Aishwary2004Gupta/models/cloud/bulbasaur.glb",
+        url: "https://raw.githubusercontent.com/Aishwary2004Gupta/models/cloud/prime.glb",
         scale: 0.4,
         rotation: { x: 0, y: Math.PI - 0.4, z: 0 },
         position: { x: 0, y: -1.1, z: 0 },

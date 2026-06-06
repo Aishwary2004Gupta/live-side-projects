@@ -859,9 +859,9 @@ const MODELS = {
     },
     try: {
         url: "https://raw.githubusercontent.com/Aishwary2004Gupta/models/cloud/xlr8.glb",
-        scale: 0.5,
+        scale: 0.4,
         rotation: { x: 0, y: Math.PI, z: 0 },
-        position: { x: 0, y: -1, z: 0 },
+        position: { x: 0, y: -1.3, z: 0 },
     },
 };
 

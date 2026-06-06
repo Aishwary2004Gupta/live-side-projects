@@ -865,8 +865,8 @@ const MODELS = {
     },
     try: {
         url: "https://raw.githubusercontent.com/Aishwary2004Gupta/models/cloud/classic_omnitrix.glb",
-        scale: 1,
-        rotation: { x: 0, y: Math.PI + 0.5, z: 0 },
+        scale: 0.3,
+        rotation: { x: 0, y: Math.PI, z: 0 },
         position: { x: 0, y: -1.1, z: 0 },
     },
 };

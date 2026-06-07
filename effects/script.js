@@ -1147,7 +1147,7 @@ modelListItems.forEach((item) => {
     });
 });
 
-switchEffect("lines"); //change default effect here
+switchEffect("normal"); //change default effect here
 
 pixelInput.oninput = (e) => {
     const value = +e.target.value;

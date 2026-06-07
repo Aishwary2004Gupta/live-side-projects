@@ -870,7 +870,7 @@ const MODELS = {
         position: { x: 0, y: -0.7, z: 0 },
     },
     try: {
-        url: "https://raw.githubusercontent.com/Aishwary2004Gupta/models/cloud/classic_omnitrix.glb",
+        url: "https://raw.githubusercontent.com/Aishwary2004Gupta/models/cloud/omnitrix2.glb",
         scale: 0.3,
         rotation: { x: -0.7, y: Math.PI + 1, z: 0.1 },
         position: { x: 0, y: -0.7, z: 0 },

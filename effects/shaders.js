@@ -55,27 +55,46 @@ export const linesShader = `
     vec2 uvPixel = normalizedPixelSize * floor(uv / normalizedPixelSize);
 
     vec4 color = texture2D(inputBuffer, uvPixel);
+
     float luma = dot(vec3(0.2126, 0.7152, 0.0722), color.rgb);
 
-    if (luma < 0.05) {
-      outputColor = vec4(0.0, 0.0, 0.0, 1.0);
-      return;
+    vec2 cellUV = fract(uv / normalizedPixelSize);
+    float lineWidth = 0.0;
+
+    if (luma > 0.0) {
+      lineWidth = 1.0;
     }
 
-    vec2 cellUV = fract(uv / normalizedPixelSize);
+    if (luma > 0.3) {
+      lineWidth = 0.7;
+    }
 
-    // Enhanced line width for better model definition
-    float lineWidth = luma > 0.8 ? 0.15 : luma > 0.5 ? 0.3 : luma > 0.2 ? 0.5 : 0.7;
+    if (luma > 0.5) {
+      lineWidth = 0.5;
+    }
+
+    if (luma > 0.7) {
+      lineWidth = 0.3;
+    }
+
+    if (luma > 0.9) {
+      lineWidth = 0.1;
+    }
+
+    if (luma > 0.99) {
+      lineWidth = 0.0;
+    }
 
     float yStart = 0.05;
     float yEnd = 0.95;
 
     if (cellUV.y > yStart && cellUV.y < yEnd && cellUV.x > 0.0 && cellUV.x < lineWidth) {
-      // Preserve original color instead of black lines
-      outputColor = vec4(color.rgb * 1.2, 1.0);
+      color = vec4(0.0, 0.0, 0.0, 1.0);
     } else {
-      outputColor = vec4(0.0, 0.0, 0.0, 1.0);
+      color = vec4(0.70, 0.74, 0.73, 1.0);
     }
+    
+    outputColor = color;
   }
 `;
 

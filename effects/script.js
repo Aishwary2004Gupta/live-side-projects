@@ -318,6 +318,10 @@ const tetris = makeEffect("Tetris", tetrisShader, {
     pixelSize: 10.0,
     resolution: new THREE.Vector2(innerWidth, innerHeight),
 });
+const sketch = makeEffect("Sketch", sketchShader, {
+    time: 0.0,
+    resolution: new THREE.Vector2(innerWidth, innerHeight),
+});
 
 const map = {
     normal,

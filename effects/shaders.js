@@ -762,11 +762,11 @@ export const tetrisShader = `
 
 export const sketchShader = `
   precision highp float;
-  uniform float time;
+  uniform float pixelSize;
   uniform vec2 resolution;
 
   float random(vec2 st) {
-    return fract(sin(dot(st.xy, vec2(12.9898, 78.233))) * 43758.5453123);
+    return fract(sin(dot(st.xy, vec2(12.9898,78.233))) * 43758.5453123);
   }
 
   float noise(vec2 st) {
@@ -780,119 +780,71 @@ export const sketchShader = `
     return mix(a, b, u.x) + (c - a) * u.y * (1.0 - u.x) + (d - b) * u.x * u.y;
   }
 
-  // Multi-directional edge detection (Sobel)
-  float getEdge(vec2 uv) {
-    vec2 px = 1.0 / resolution;
-
-    vec3 s00 = texture2D(inputBuffer, uv + vec2(-px.x, -px.y)).rgb;
-    vec3 s01 = texture2D(inputBuffer, uv + vec2( 0.0,  -px.y)).rgb;
-    vec3 s02 = texture2D(inputBuffer, uv + vec2( px.x, -px.y)).rgb;
-    vec3 s10 = texture2D(inputBuffer, uv + vec2(-px.x,  0.0 )).rgb;
-    vec3 s12 = texture2D(inputBuffer, uv + vec2( px.x,  0.0 )).rgb;
-    vec3 s20 = texture2D(inputBuffer, uv + vec2(-px.x,  px.y)).rgb;
-    vec3 s21 = texture2D(inputBuffer, uv + vec2( 0.0,   px.y)).rgb;
-    vec3 s22 = texture2D(inputBuffer, uv + vec2( px.x,  px.y)).rgb;
-
-    vec3 gx = -s00 - 2.0*s10 - s20 + s02 + 2.0*s12 + s22;
-    vec3 gy = -s00 - 2.0*s01 - s02 + s20 + 2.0*s21 + s22;
-
-    return length(vec2(length(gx), length(gy)));
-  }
-
-  // Pencil hatching lines in multiple directions
-  float hatch(vec2 uv, float angle, float spacing, float thickness) {
+  // Cross-hatch pattern
+  float hatch(vec2 uv, float density, float angle) {
     float c = cos(angle);
     float s = sin(angle);
-    vec2 rotUV = vec2(uv.x * c - uv.y * s, uv.x * s + uv.y * c);
-    float line = abs(fract(rotUV.x / spacing) - 0.5);
-    return smoothstep(thickness, thickness - 0.005, line);
+    vec2 rotated = vec2(uv.x * c - uv.y * s, uv.x * s + uv.y * c);
+    return smoothstep(0.5 - density, 0.5 + density, abs(sin(rotated.x * 80.0)));
   }
 
   void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor) {
-    vec4 originalColor = texture2D(inputBuffer, uv);
-    float luma = dot(originalColor.rgb, vec3(0.2126, 0.7152, 0.0722));
-
-    // 1. BACKGROUND - Cream paper color
-    vec3 paperColor = vec3(0.96, 0.94, 0.90);
-
-    // 2. BACKGROUND CHECK - If model is not present return paper
-    if (luma < 0.02) {
-      // Subtle paper texture noise for the background
-      float paperNoise = noise(uv * 800.0) * 0.04;
-      outputColor = vec4(paperColor - paperNoise, 1.0);
+    vec2 s = pixelSize / resolution;
+    vec2 uvPixel = s * floor(uv / s);
+    vec4 color = texture2D(inputBuffer, uvPixel);
+    
+    float luma = dot(color.rgb, vec3(0.2126, 0.7152, 0.0722));
+    
+    // Paper background with texture
+    float paperNoise = noise(uv * 300.0) * 0.08;
+    vec3 paperColor = vec3(0.92, 0.90, 0.87) + paperNoise;
+    
+    // If background (very dark), return paper texture
+    if (luma < 0.15) {
+      outputColor = vec4(paperColor, 1.0);
       return;
     }
-
-    // 3. PAPER TEXTURE - Subtle grain across whole image
-    float paperGrain = noise(uv * 600.0) * 0.06;
-    float paperGrain2 = noise(uv * 200.0 + 1.5) * 0.03;
-    vec3 paper = paperColor - paperGrain - paperGrain2;
-
-    // 4. EDGE DETECTION - Strong pencil outline strokes
-    float edge = getEdge(uv);
-    edge = pow(edge * 3.5, 1.2);
-    edge = clamp(edge, 0.0, 1.0);
-
-    // Add wobble to edges to simulate hand-drawn lines
-    vec2 wobbleUV = uv + vec2(
-      noise(uv * 120.0 + 0.5) - 0.5,
-      noise(uv * 120.0 + 1.5) - 0.5
-    ) * 0.003;
-    float edgeWobble = getEdge(wobbleUV);
-    edgeWobble = clamp(edgeWobble * 3.0, 0.0, 1.0);
-    edge = max(edge, edgeWobble * 0.6);
-
-    // Darken edges (pencil line color - dark grey/graphite)
-    vec3 pencilColor = vec3(0.12, 0.10, 0.09);
-    vec3 edgeLayer = mix(paper, pencilColor, edge);
-
-    // 5. HATCHING - Pencil shading lines based on darkness
+    
+    vec2 cellUV = fract(uv / s);
+    
+    // Edge detection for outlines
+    vec2 offset = s * 0.5;
+    float lumaL = dot(texture2D(inputBuffer, uv - offset).rgb, vec3(0.2126, 0.7152, 0.0722));
+    float lumaR = dot(texture2D(inputBuffer, uv + offset).rgb, vec3(0.2126, 0.7152, 0.0722));
+    float lumaT = dot(texture2D(inputBuffer, uv + offset * vec2(0,1)).rgb, vec3(0.2126, 0.7152, 0.0722));
+    float lumaB = dot(texture2D(inputBuffer, uv - offset * vec2(0,1)).rgb, vec3(0.2126, 0.7152, 0.0722));
+    
+    float edge = abs(lumaL - lumaR) + abs(lumaT - lumaB);
+    float outline = smoothstep(0.15, 0.35, edge);
+    
+    // Convert to red pencil style (preserve reds, desaturate others)
+    vec3 sketchColor = color.rgb;
+    float sketchLuma = dot(sketchColor, vec3(0.299, 0.587, 0.114));
+    sketchColor = mix(vec3(sketchLuma), sketchColor, 0.65);
+    
+    // Cross-hatching based on darkness
     float darkness = 1.0 - luma;
-    vec3 hatchLayer = edgeLayer;
-
-    if (darkness > 0.15) {
-      float spacing1 = 0.006;
-      float h1 = hatch(uv, radians(45.0), spacing1, 0.003);
-      float h1strength = smoothstep(0.15, 0.5, darkness);
-      hatchLayer = mix(hatchLayer, pencilColor, h1 * h1strength * 0.6);
-    }
-
-    if (darkness > 0.35) {
-      float spacing2 = 0.005;
-      float h2 = hatch(uv, radians(-45.0), spacing2, 0.0025);
-      float h2strength = smoothstep(0.35, 0.7, darkness);
-      hatchLayer = mix(hatchLayer, pencilColor, h2 * h2strength * 0.55);
-    }
-
-    if (darkness > 0.55) {
-      float spacing3 = 0.004;
-      float h3 = hatch(uv, radians(0.0), spacing3, 0.002);
-      float h3strength = smoothstep(0.55, 0.85, darkness);
-      hatchLayer = mix(hatchLayer, pencilColor, h3 * h3strength * 0.5);
-    }
-
-    if (darkness > 0.72) {
-      float spacing4 = 0.0035;
-      float h4 = hatch(uv, radians(90.0), spacing4, 0.0018);
-      float h4strength = smoothstep(0.72, 1.0, darkness);
-      hatchLayer = mix(hatchLayer, pencilColor, h4 * h4strength * 0.45);
-    }
-
-    // 6. COLOR BLEED - Subtle tint of original color bleeding through
-    // This is the key to the "colored sketch" look from your reference image
-    float colorBleed = 0.35;
-    vec3 tintedColor = mix(hatchLayer, originalColor.rgb, colorBleed * luma);
-
-    // 7. PAPER TEXTURE on top of everything
-    vec3 finalColor = tintedColor - paperGrain * 0.4;
-
-    // 8. Slight desaturation to match that "faded pencil" look
-    float finalLuma = dot(finalColor, vec3(0.2126, 0.7152, 0.0722));
-    finalColor = mix(vec3(finalLuma), finalColor, 0.75);
-
-    // 9. Slight contrast boost
-    finalColor = clamp(finalColor * 1.05 - 0.02, 0.0, 1.0);
-
-    outputColor = vec4(finalColor, 1.0);
+    vec2 hatchUV = cellUV * 10.0;
+    
+    float h1 = hatch(hatchUV, 0.25, 0.0);      // Horizontal
+    float h2 = hatch(hatchUV, 0.2, 1.57);      // Vertical  
+    float h3 = hatch(hatchUV, 0.3, 0.78);      // Diagonal
+    
+    float hatchPattern = mix(1.0, h1 * h2 * h3, darkness * 0.7);
+    
+    // Mix sketch color with paper
+    vec3 finalColor = mix(paperColor, sketchColor, 0.55);
+    finalColor *= hatchPattern;
+    
+    // Add dark pencil outlines
+    finalColor = mix(finalColor, vec3(0.15, 0.12, 0.1), outline * 0.7);
+    
+    // Paper grain
+    finalColor += (random(uv * 400.0) - 0.5) * 0.04;
+    
+    // Subtle red tint to shadows for that colored pencil look
+    finalColor = mix(finalColor, finalColor * vec3(1.1, 0.95, 0.9), darkness * 0.3);
+    
+    outputColor = vec4(clamp(finalColor, 0.0, 1.0), 1.0);
   }
 `;

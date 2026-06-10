@@ -759,6 +759,7 @@ export const tetrisShader = `
     outputColor = vec4(color.rgb, 1.0);
   }
 `;
+
 export const sketchShader = `
   precision highp float;
   uniform float time;

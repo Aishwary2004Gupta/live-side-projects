@@ -342,7 +342,8 @@ const map = {
     vhs,
     heatMap,
     minecraft,
-    tetris
+    tetris,
+    sketch,
 };
 
 /* ================= CONTROLS ================= */

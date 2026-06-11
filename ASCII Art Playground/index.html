@@ -32,35 +32,6 @@
         z-index: 1;
       }
 
-      #normalMount,
-      #asciiMount {
-        position: absolute;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-      }
-
-      #normalMount {
-        z-index: 1;
-        display: none;
-        background: #000;
-      }
-
-      #asciiMount {
-        z-index: 2;
-      }
-
-      #normalMount > canvas,
-      #asciiMount > * {
-        width: 100% !important;
-        height: 100% !important;
-        padding-top: 56px !important;
-        padding-bottom: 52px !important;
-        box-sizing: border-box !important;
-        display: block !important;
-      }
-
       /* ===== TOP BAR ===== */
       #topBar {
         position: fixed;
@@ -91,9 +62,8 @@
         gap: 16px;
       }
 
-      /* ===== BUTTONS ===== */
-      #uploadBtn,
-      #normalBtn {
+      /* ===== UPLOAD BUTTON ===== */
+      #uploadBtn {
         background: #0a0a0a;
         border: 1px solid #333;
         color: #aaa;
@@ -107,15 +77,9 @@
         letter-spacing: 0.5px;
       }
 
-      #uploadBtn:hover,
-      #normalBtn:hover {
+      #uploadBtn:hover {
         border-color: #666;
         color: #fff;
-      }
-
-      #normalBtn.is-on {
-        color: #fff;
-        border-color: #777;
       }
 
       #fileInput {
@@ -247,6 +211,7 @@
         color: #fff;
       }
 
+      /* ===== FILE NAME DISPLAY ===== */
       #fileName {
         font-size: 11px;
         color: #444;
@@ -279,6 +244,8 @@
         position: fixed;
         inset: 0;
         background: rgba(1, 1, 1, 0.85);
+        display: flex;
+        flex-direction: column;
         align-items: center;
         justify-content: center;
         z-index: 30;
@@ -310,6 +277,23 @@
           transform: rotate(360deg);
         }
       }
+
+      /* ===== ASCII CONTAINER ===== */
+      #asciiMount {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+      }
+
+      #asciiMount > div {
+        width: 100% !important;
+        height: 100% !important;
+        padding-top: 56px !important;
+        padding-bottom: 52px !important;
+        box-sizing: border-box !important;
+      }
     </style>
   </head>
 
@@ -319,8 +303,6 @@
       <h1>ASCII Art Playground</h1>
       <div id="topBarRight">
         <span id="fileName">astronaut.obj (default)</span>
-
-        <button id="normalBtn" type="button">Normal View: OFF</button>
 
         <!-- Background ASCII Toggle -->
         <label class="toggle-wrapper">
@@ -334,7 +316,6 @@
         <!-- Upload Button -->
         <button
           id="uploadBtn"
-          type="button"
           onclick="document.getElementById('fileInput').click()"
         >
           + Upload Model / Image
@@ -349,7 +330,6 @@
 
     <!-- CANVAS -->
     <div id="canvasContainer">
-      <div id="normalMount"></div>
       <div id="asciiMount"></div>
       <div id="axisHUD">
         <canvas id="axisCanvas" width="80" height="80"></canvas>
@@ -432,28 +412,18 @@
       renderer.setPixelRatio(window.devicePixelRatio);
       renderer.setSize(window.innerWidth, window.innerHeight);
 
-      const normalMount = document.getElementById("normalMount");
-      const asciiMount = document.getElementById("asciiMount");
-
-      renderer.domElement.style.position = "absolute";
-      renderer.domElement.style.inset = "0";
-      renderer.domElement.style.width = "100%";
-      renderer.domElement.style.height = "100%";
-      normalMount.appendChild(renderer.domElement);
-
       /* ===========================
          ASCII EFFECT
       =========================== */
       let currentChars = " .:-=+*#%@";
       let currentFontSize = 8;
       let asciiEffect = null;
-      let normalMode = false;
-
-      const bgToggle = document.getElementById("bgToggle");
-      const normalBtn = document.getElementById("normalBtn");
+      const asciiMount = document.getElementById("asciiMount");
 
       function buildAsciiEffect() {
-        asciiMount.innerHTML = "";
+        if (asciiEffect) {
+          asciiMount.innerHTML = "";
+        }
 
         asciiEffect = new AsciiEffect(renderer, currentChars, {
           invert: true,
@@ -461,20 +431,18 @@
         });
 
         asciiEffect.setSize(window.innerWidth, window.innerHeight);
-
         asciiEffect.domElement.style.position = "absolute";
         asciiEffect.domElement.style.top = "0";
         asciiEffect.domElement.style.left = "0";
         asciiEffect.domElement.style.width = "100%";
         asciiEffect.domElement.style.height = "100%";
-        asciiEffect.domElement.style.borderCollapse = "collapse";
 
+        applyColorMode();
         asciiMount.appendChild(asciiEffect.domElement);
-        applyAsciiStyles();
       }
 
       /* ===========================
-         COLOR + ASCII STYLE MODES
+         COLOR MODES
       =========================== */
       const colorModes = {
         white: { color: "#ffffff", background: "#000000" },
@@ -484,64 +452,15 @@
         red: { color: "#ff2222", background: "#0a0000" },
       };
 
-      function applyAsciiStyles() {
+      function applyColorMode() {
         if (!asciiEffect) return;
-
-        const mode =
-          colorModes[document.getElementById("colorMode").value] ||
-          colorModes.white;
-
-        const bgOn = bgToggle.checked;
-        const bg = bgOn ? mode.background : "transparent";
-        const blend = bgOn ? "normal" : "screen";
-        const spacing = Math.max(0, Math.round(currentFontSize * 0.15));
-
-        asciiEffect.domElement.style.background = bg;
-        asciiEffect.domElement.style.mixBlendMode = blend;
+        const mode = colorModes[document.getElementById("colorMode").value];
+        asciiEffect.domElement.style.color = mode.color;
+        asciiEffect.domElement.style.background = mode.background;
         asciiEffect.domElement.style.fontFamily = "Fira Code, monospace";
         asciiEffect.domElement.style.fontSize = currentFontSize + "px";
-        asciiEffect.domElement.style.lineHeight = currentFontSize + "px";
-        asciiEffect.domElement.style.letterSpacing = spacing + "px";
-
-        let runtimeStyle = document.getElementById("asciiRuntimeStyles");
-        if (!runtimeStyle) {
-          runtimeStyle = document.createElement("style");
-          runtimeStyle.id = "asciiRuntimeStyles";
-          document.head.appendChild(runtimeStyle);
-        }
-
-        /*
-          Important:
-          Three's AsciiEffect recreates internal spans/tds regularly,
-          and some have inline color styles. These forced rules make the
-          font size, font family, background mode and color mode reliable.
-        */
-        runtimeStyle.textContent = `
-          #asciiMount > * {
-            background: ${bg} !important;
-            mix-blend-mode: ${blend} !important;
-          }
-
-          #asciiMount,
-          #asciiMount * {
-            color: ${mode.color} !important;
-            font-family: "Fira Code", monospace !important;
-            font-size: ${currentFontSize}px !important;
-            line-height: ${currentFontSize}px !important;
-            letter-spacing: ${spacing}px !important;
-          }
-        `;
+        asciiEffect.domElement.style.lineHeight = "1.0";
       }
-
-      function setNormalMode(on) {
-        normalMode = on;
-        normalMount.style.display = on ? "block" : "none";
-        normalBtn.textContent = on ? "Normal View: ON" : "Normal View: OFF";
-        normalBtn.classList.toggle("is-on", on);
-        applyAsciiStyles();
-      }
-
-      normalBtn.addEventListener("click", () => setNormalMode(!normalMode));
 
       /* ===========================
          LIGHTS
@@ -570,12 +489,9 @@
       =========================== */
       const gltfLoader = new GLTFLoader();
       const objLoader = new OBJLoader();
-      const textureLoader = new THREE.TextureLoader();
-
       let currentModel = null;
       let autoRotate = true;
       let rotationSpeed = 0.005;
-
       const loadingOverlay = document.getElementById("loadingOverlay");
       const loadingText = document.getElementById("loadingText");
 
@@ -604,58 +520,22 @@
       }
 
       function fitCameraToModel(model) {
-        let box = new THREE.Box3().setFromObject(model);
-        let size = box.getSize(new THREE.Vector3());
-        let maxDim = Math.max(size.x, size.y, size.z);
-
-        if (!Number.isFinite(maxDim) || maxDim <= 0) {
-          camera.position.set(0, 0, 5);
-          controls.target.set(0, 0, 0);
-          controls.update();
-          return;
-        }
-
-        // Normalize uploaded assets so models/images are comfortable to view.
-        const targetSize = 2.4;
-        model.scale.setScalar(targetSize / maxDim);
-
-        box = new THREE.Box3().setFromObject(model);
+        const box = new THREE.Box3().setFromObject(model);
         const center = box.getCenter(new THREE.Vector3());
-        size = box.getSize(new THREE.Vector3());
-        maxDim = Math.max(size.x, size.y, size.z);
+        const size = box.getSize(new THREE.Vector3());
+        const maxDim = Math.max(size.x, size.y, size.z);
 
         model.position.sub(center);
 
         const fov = camera.fov * (Math.PI / 180);
-        let cameraZ = Math.abs(maxDim / Math.tan(fov / 2)) * 1.35;
-        if (!Number.isFinite(cameraZ) || cameraZ <= 0) cameraZ = 5;
-
+        let cameraZ = Math.abs(maxDim / Math.tan(fov / 2)) * 1.4;
         camera.position.set(0, 0, cameraZ);
-        camera.near = Math.max(0.001, cameraZ / 100);
+        camera.near = cameraZ / 100;
         camera.far = cameraZ * 100;
         camera.updateProjectionMatrix();
 
         controls.target.set(0, 0, 0);
         controls.update();
-      }
-
-      function createFallbackModel() {
-        clearModel();
-        const group = new THREE.Group();
-        const mesh = new THREE.Mesh(
-          new THREE.TorusKnotGeometry(1, 0.32, 128, 32),
-          new THREE.MeshStandardMaterial({
-            color: 0xffffff,
-            roughness: 0.45,
-            metalness: 0.25,
-          }),
-        );
-        group.add(mesh);
-        scene.add(group);
-        currentModel = group;
-        autoRotate = true;
-        fitCameraToModel(group);
-        hideLoading();
       }
 
       function loadDefaultModel() {
@@ -675,19 +555,18 @@
             clearModel();
             scene.add(obj);
             currentModel = obj;
-            autoRotate = true;
             fitCameraToModel(obj);
             hideLoading();
           },
           undefined,
           (err) => {
             console.error("Failed to load default model", err);
-            createFallbackModel();
+            hideLoading();
           },
         );
       }
 
-      function loadGLTF(url, name, revoke = false) {
+      function loadGLTF(url, name) {
         showLoading(`Loading ${name}...`);
         gltfLoader.load(
           url,
@@ -695,22 +574,18 @@
             clearModel();
             scene.add(gltf.scene);
             currentModel = gltf.scene;
-            autoRotate = true;
             fitCameraToModel(gltf.scene);
             hideLoading();
-            if (revoke) URL.revokeObjectURL(url);
           },
           undefined,
           (err) => {
             console.error("GLTF load error", err);
             hideLoading();
-            if (revoke) URL.revokeObjectURL(url);
-            alert("Could not load that model file.");
           },
         );
       }
 
-      function loadOBJ(url, name, revoke = false) {
+      function loadOBJ(url, name) {
         showLoading(`Loading ${name}...`);
         objLoader.load(
           url,
@@ -727,17 +602,13 @@
             clearModel();
             scene.add(obj);
             currentModel = obj;
-            autoRotate = true;
             fitCameraToModel(obj);
             hideLoading();
-            if (revoke) URL.revokeObjectURL(url);
           },
           undefined,
           (err) => {
             console.error("OBJ load error", err);
             hideLoading();
-            if (revoke) URL.revokeObjectURL(url);
-            alert("Could not load that OBJ file.");
           },
         );
       }
@@ -748,40 +619,23 @@
       function loadImageAsPlane(file) {
         showLoading("Loading image...");
         const url = URL.createObjectURL(file);
-
-        textureLoader.load(
-          url,
-          (tex) => {
-            tex.colorSpace = THREE.SRGBColorSpace;
-
-            clearModel();
-            const aspect = tex.image.width / tex.image.height;
-            const geo = new THREE.PlaneGeometry(aspect * 3, 3);
-            const mat = new THREE.MeshBasicMaterial({
-              map: tex,
-              side: THREE.DoubleSide,
-            });
-            const mesh = new THREE.Mesh(geo, mat);
-
-            scene.add(mesh);
-            currentModel = mesh;
-            autoRotate = false;
-
-            camera.position.set(0, 0, 5);
-            controls.target.set(0, 0, 0);
-            controls.update();
-
-            hideLoading();
-            URL.revokeObjectURL(url);
-          },
-          undefined,
-          (err) => {
-            console.error("Image load error", err);
-            hideLoading();
-            URL.revokeObjectURL(url);
-            alert("Could not load that image.");
-          },
-        );
+        const texture = new THREE.TextureLoader().load(url, (tex) => {
+          clearModel();
+          const aspect = tex.image.width / tex.image.height;
+          const geo = new THREE.PlaneGeometry(aspect * 3, 3);
+          const mat = new THREE.MeshBasicMaterial({
+            map: tex,
+            side: THREE.DoubleSide,
+          });
+          const mesh = new THREE.Mesh(geo, mat);
+          scene.add(mesh);
+          currentModel = mesh;
+          autoRotate = false;
+          camera.position.set(0, 0, 5);
+          controls.target.set(0, 0, 0);
+          controls.update();
+          hideLoading();
+        });
       }
 
       /* ===========================
@@ -796,26 +650,41 @@
         const ext = name.split(".").pop().toLowerCase();
         const url = URL.createObjectURL(file);
 
-        if (ext === "glb" || ext === "gltf" || ext === "usdz") {
-          loadGLTF(url, name, true);
+        if (ext === "glb" || ext === "gltf") {
+          autoRotate = true;
+          loadGLTF(url, name);
         } else if (ext === "obj") {
-          loadOBJ(url, name, true);
+          autoRotate = true;
+          loadOBJ(url, name);
+        } else if (ext === "usdz") {
+          // USDZ: attempt GLTF loader (may work in some browsers)
+          autoRotate = true;
+          loadGLTF(url, name);
         } else if (["png", "jpg", "jpeg", "webp"].includes(ext)) {
           loadImageAsPlane(file);
-        } else {
-          hideLoading();
-          URL.revokeObjectURL(url);
-          alert("Unsupported file type.");
         }
 
         e.target.value = "";
       });
 
       /* ===========================
-         BACKGROUND + SETTINGS
+         BACKGROUND TOGGLE
       =========================== */
-      bgToggle.addEventListener("change", applyAsciiStyles);
+      const bgToggle = document.getElementById("bgToggle");
+      bgToggle.addEventListener("change", () => {
+        if (!asciiEffect) return;
+        if (bgToggle.checked) {
+          asciiEffect.domElement.style.background =
+            colorModes[document.getElementById("colorMode").value].background;
+        } else {
+          asciiEffect.domElement.style.background = "transparent";
+          asciiEffect.domElement.style.mixBlendMode = "screen";
+        }
+      });
 
+      /* ===========================
+         SETTINGS CONTROLS
+      =========================== */
       document.getElementById("charSet").addEventListener("change", (e) => {
         currentChars = e.target.value;
         buildAsciiEffect();
@@ -824,10 +693,12 @@
       document
         .getElementById("fontSizeSlider")
         .addEventListener("input", (e) => {
-          currentFontSize = parseInt(e.target.value, 10);
+          currentFontSize = parseInt(e.target.value);
           document.getElementById("fontSizeVal").textContent =
             currentFontSize + "px";
-          applyAsciiStyles();
+          if (asciiEffect) {
+            asciiEffect.domElement.style.fontSize = currentFontSize + "px";
+          }
         });
 
       document
@@ -837,7 +708,12 @@
         });
 
       document.getElementById("colorMode").addEventListener("change", () => {
-        applyAsciiStyles();
+        applyColorMode();
+        if (bgToggle.checked) {
+          const mode = colorModes[document.getElementById("colorMode").value];
+          if (asciiEffect)
+            asciiEffect.domElement.style.background = mode.background;
+        }
       });
 
       /* ===========================
@@ -850,7 +726,6 @@
         const ex = cx + v.x * scale;
         const ey = cy - v.y * scale;
         const alpha = v.z < 0 ? 0.3 : 0.9;
-
         axisCtx.strokeStyle = color;
         axisCtx.fillStyle = color;
         axisCtx.globalAlpha = alpha;
@@ -859,7 +734,6 @@
         axisCtx.moveTo(cx, cy);
         axisCtx.lineTo(ex, ey);
         axisCtx.stroke();
-
         axisCtx.globalAlpha = 1.0;
         axisCtx.font = "11px Fira Code, monospace";
         axisCtx.fillText(label, ex + 3, ey + 3);
@@ -869,23 +743,19 @@
         const w = axisCanvas.width;
         const h = axisCanvas.height;
         axisCtx.clearRect(0, 0, w, h);
-
         const cx = w / 2;
         const cy = h / 2;
         const scale = w * 0.35;
-
         const invQ = camera.quaternion.clone().invert();
         const xV = new THREE.Vector3(1, 0, 0).applyQuaternion(invQ);
         const yV = new THREE.Vector3(0, 1, 0).applyQuaternion(invQ);
         const zV = new THREE.Vector3(0, 0, 1).applyQuaternion(invQ);
-
         axisCtx.globalAlpha = 0.8;
         axisCtx.strokeStyle = "rgba(255,255,255,0.1)";
         axisCtx.lineWidth = 1;
         axisCtx.beginPath();
         axisCtx.arc(cx, cy, scale, 0, Math.PI * 2);
         axisCtx.stroke();
-
         drawAxis(xV, "#ff4d4d", "X", cx, cy, scale);
         drawAxis(yV, "#46ff7a", "Y", cx, cy, scale);
         drawAxis(zV, "#4da6ff", "Z", cx, cy, scale);
@@ -915,17 +785,15 @@
 
         updateAxisHUD();
 
-        if (normalMode) {
-          renderer.render(scene, camera);
-        }
-
         if (asciiEffect) {
           asciiEffect.render(scene, camera);
         }
       }
 
+      /* ===========================
+         INIT
+      =========================== */
       buildAsciiEffect();
-      setNormalMode(false);
       loadDefaultModel();
       animate();
     </script>

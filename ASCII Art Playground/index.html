@@ -4,207 +4,268 @@
     <meta charset="UTF-8" />
     <title>ASCII Art Playground</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-
     <style>
       @import url("https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;600&display=swap");
 
       * {
+        margin: 0;
+        padding: 0;
         box-sizing: border-box;
       }
 
       html,
       body {
-        margin: 0;
         width: 100%;
         height: 100%;
         overflow: hidden;
-        background: #000;
-        font-family: "Fira Code", monospace;
+        background: #010101;
+        font-family: "Fira Code", "Courier New", monospace;
+        color: #fff;
       }
 
-      #asciiOutput {
-        position: fixed;
-        inset: 0;
-        margin: 0;
-        padding: 70px 16px 70px 16px;
-        background: #000;
-        color: #fff;
-        font-family: "Fira Code", monospace;
-        font-size: 8px;
-        line-height: 1;
-        letter-spacing: 0;
-        white-space: pre;
-        overflow: hidden;
-        user-select: none;
+      #canvasContainer {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
         z-index: 1;
       }
 
+      /* ===== TOP BAR ===== */
       #topBar {
         position: fixed;
         top: 0;
         left: 0;
         right: 0;
         height: 56px;
-        background: rgba(10, 10, 10, 0.94);
-        border-bottom: 1px solid #222;
+        background: rgba(10, 10, 10, 0.92);
+        border-bottom: 1px solid #1a1a1a;
         display: flex;
         align-items: center;
         justify-content: space-between;
-        padding: 0 22px;
-        z-index: 10;
-        color: #fff;
+        padding: 0 24px;
+        z-index: 20;
+        backdrop-filter: blur(8px);
       }
 
       #topBar h1 {
-        margin: 0;
-        font-size: 14px;
+        font-size: 15px;
         font-weight: 600;
-        letter-spacing: 0.8px;
+        letter-spacing: 1px;
+        color: #fff;
       }
 
-      #topControls {
+      #topBarRight {
         display: flex;
         align-items: center;
         gap: 16px;
       }
 
-      #fileName {
-        max-width: 240px;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-        font-size: 11px;
-        color: #777;
-      }
-
+      /* ===== UPLOAD BUTTON ===== */
       #uploadBtn {
         background: #0a0a0a;
         border: 1px solid #333;
-        color: #ccc;
-        padding: 7px 14px;
+        color: #aaa;
         font-family: "Fira Code", monospace;
         font-size: 12px;
+        padding: 7px 16px;
         cursor: pointer;
+        transition:
+          border-color 0.2s,
+          color 0.2s;
+        letter-spacing: 0.5px;
       }
 
       #uploadBtn:hover {
-        color: #fff;
         border-color: #666;
+        color: #fff;
       }
 
       #fileInput {
         display: none;
       }
 
-      .toggleWrapper {
+      /* ===== TOGGLE SWITCH ===== */
+      .toggle-wrapper {
         display: flex;
         align-items: center;
-        gap: 8px;
-        font-size: 11px;
-        color: #777;
+        gap: 10px;
+        font-size: 12px;
+        color: #555;
         cursor: pointer;
         user-select: none;
       }
 
-      .toggleWrapper:hover {
-        color: #fff;
+      .toggle-wrapper:hover {
+        color: #aaa;
       }
 
-      .switch {
+      .toggle-switch {
         position: relative;
-        width: 40px;
+        width: 38px;
         height: 20px;
       }
 
-      .switch input {
-        display: none;
+      .toggle-switch input {
+        opacity: 0;
+        width: 0;
+        height: 0;
+        position: absolute;
       }
 
-      .slider {
+      .toggle-track {
         position: absolute;
         inset: 0;
         background: #222;
-        border: 1px solid #444;
+        border: 1px solid #333;
+        transition: background 0.2s;
         cursor: pointer;
       }
 
-      .slider::before {
+      .toggle-track::after {
         content: "";
         position: absolute;
+        left: 3px;
+        top: 50%;
+        transform: translateY(-50%);
         width: 12px;
         height: 12px;
-        left: 3px;
-        top: 3px;
-        background: #777;
-        transition: 0.2s;
+        background: #555;
+        transition:
+          left 0.2s,
+          background 0.2s;
       }
 
-      .switch input:checked + .slider::before {
-        transform: translateX(19px);
+      .toggle-switch input:checked + .toggle-track {
+        background: #1a1a1a;
+        border-color: #555;
+      }
+
+      .toggle-switch input:checked + .toggle-track::after {
+        left: 21px;
         background: #fff;
       }
 
-      #bottomBar {
+      /* ===== SETTINGS PANEL ===== */
+      #settingsPanel {
         position: fixed;
+        bottom: 0;
         left: 0;
         right: 0;
-        bottom: 0;
-        height: 56px;
-        background: rgba(10, 10, 10, 0.94);
-        border-top: 1px solid #222;
+        height: 52px;
+        background: rgba(10, 10, 10, 0.92);
+        border-top: 1px solid #1a1a1a;
         display: flex;
         align-items: center;
         justify-content: center;
-        gap: 30px;
-        z-index: 10;
-        color: #777;
+        gap: 32px;
+        z-index: 20;
+        backdrop-filter: blur(8px);
+        padding: 0 24px;
       }
 
-      .controlGroup {
+      .setting-group {
         display: flex;
         align-items: center;
-        gap: 10px;
+        gap: 12px;
         font-size: 11px;
+        color: #555;
       }
 
-      select,
-      input[type="range"] {
-        font-family: "Fira Code", monospace;
+      .setting-group label {
+        white-space: nowrap;
       }
 
-      select {
+      .setting-group input[type="range"] {
+        -webkit-appearance: none;
+        appearance: none;
+        width: 100px;
+        height: 2px;
+        background: #333;
+        outline: none;
+      }
+
+      .setting-group input[type="range"]::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        width: 12px;
+        height: 12px;
+        background: #fff;
+        border-radius: 50%;
+        cursor: pointer;
+      }
+
+      .setting-group select {
         background: #0a0a0a;
-        color: #ccc;
         border: 1px solid #333;
-        padding: 4px 8px;
+        color: #aaa;
+        font-family: "Fira Code", monospace;
         font-size: 11px;
+        padding: 4px 8px;
+        cursor: pointer;
+        outline: none;
       }
 
-      input[type="range"] {
-        width: 110px;
+      .setting-group select:hover {
+        border-color: #555;
+        color: #fff;
       }
 
-      #loading {
+      /* ===== FILE NAME DISPLAY ===== */
+      #fileName {
+        font-size: 11px;
+        color: #444;
+        max-width: 200px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      /* ===== AXIS HUD ===== */
+      #axisHUD {
+        position: fixed;
+        bottom: 70px;
+        right: 20px;
+        z-index: 15;
+        pointer-events: none;
+      }
+
+      #axisCanvas {
+        width: 80px;
+        height: 80px;
+        border-radius: 50%;
+        background: rgba(10, 10, 10, 0.45);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        backdrop-filter: blur(6px);
+      }
+
+      /* ===== LOADING ===== */
+      #loadingOverlay {
         position: fixed;
         inset: 0;
-        background: rgba(0, 0, 0, 0.86);
-        z-index: 20;
-        display: none;
+        background: rgba(1, 1, 1, 0.85);
+        display: flex;
+        flex-direction: column;
         align-items: center;
         justify-content: center;
-        flex-direction: column;
-        gap: 14px;
-        color: #777;
-        font-size: 13px;
+        z-index: 30;
+        display: none;
+        gap: 16px;
       }
 
-      #loading.visible {
+      #loadingOverlay.visible {
         display: flex;
+      }
+
+      #loadingText {
+        font-size: 13px;
+        color: #555;
+        letter-spacing: 1px;
       }
 
       .spinner {
-        width: 26px;
-        height: 26px;
+        width: 24px;
+        height: 24px;
         border: 2px solid #222;
         border-top-color: #fff;
         border-radius: 50%;
@@ -216,39 +277,69 @@
           transform: rotate(360deg);
         }
       }
+
+      /* ===== ASCII CONTAINER ===== */
+      #asciiMount {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+      }
+
+      #asciiMount > div {
+        width: 100% !important;
+        height: 100% !important;
+        padding-top: 56px !important;
+        padding-bottom: 52px !important;
+        box-sizing: border-box !important;
+      }
     </style>
   </head>
 
   <body>
-    <pre id="asciiOutput"></pre>
-
+    <!-- TOP BAR -->
     <div id="topBar">
       <h1>ASCII Art Playground</h1>
+      <div id="topBarRight">
+        <span id="fileName">astronaut.obj (default)</span>
 
-      <div id="topControls">
-        <span id="fileName">astronaut.obj</span>
-
-        <label class="toggleWrapper">
-          ASCII Background
-          <span class="switch">
-            <input type="checkbox" id="asciiBgToggle" checked />
-            <span class="slider"></span>
-          </span>
+        <!-- Background ASCII Toggle -->
+        <label class="toggle-wrapper">
+          <span>ASCII Background</span>
+          <div class="toggle-switch">
+            <input type="checkbox" id="bgToggle" checked />
+            <div class="toggle-track"></div>
+          </div>
         </label>
 
-        <button id="uploadBtn">+ Upload Image / Model</button>
-
+        <!-- Upload Button -->
+        <button
+          id="uploadBtn"
+          onclick="document.getElementById('fileInput').click()"
+        >
+          + Upload Model / Image
+        </button>
         <input
-          id="fileInput"
           type="file"
+          id="fileInput"
           accept=".obj,.glb,.gltf,.usdz,.png,.jpg,.jpeg,.webp"
         />
       </div>
     </div>
 
-    <div id="bottomBar">
-      <div class="controlGroup">
-        <span>Characters</span>
+    <!-- CANVAS -->
+    <div id="canvasContainer">
+      <div id="asciiMount"></div>
+      <div id="axisHUD">
+        <canvas id="axisCanvas" width="80" height="80"></canvas>
+      </div>
+    </div>
+
+    <!-- BOTTOM BAR -->
+    <div id="settingsPanel">
+      <div class="setting-group">
+        <label>Chars</label>
         <select id="charSet">
           <option value=" .:-=+*#%@">Standard</option>
           <option
@@ -256,39 +347,44 @@
           >
             Detailed
           </option>
-          <option value=" .oO0@">Circles</option>
-          <option value=" .+x*#%@">Sharp</option>
-          <option value=" .░▒▓█">Blocks</option>
-          <option value=" .-=+#@">Clean</option>
+          <option value=" .oO0@">Simple Circles</option>
+          <option value=" +x*#">Cross Hatch</option>
+          <option value=" ▒░█">Block</option>
+          <option value=" .-~:;=!*#$@">Retro</option>
         </select>
       </div>
-
-      <div class="controlGroup">
-        <span>Font Size</span>
-        <input id="fontSize" type="range" min="5" max="16" value="8" />
-        <span id="fontSizeValue">8px</span>
+      <div class="setting-group">
+        <label>Font Size</label>
+        <input type="range" id="fontSizeSlider" min="4" max="20" value="8" />
+        <span id="fontSizeVal">8px</span>
       </div>
-
-      <div class="controlGroup">
-        <span>Rotate</span>
-        <input id="rotateSpeed" type="range" min="0" max="10" value="2" />
+      <div class="setting-group">
+        <label>Rotation Speed</label>
+        <input
+          type="range"
+          id="rotationSpeed"
+          min="0"
+          max="10"
+          value="2"
+          step="0.5"
+        />
       </div>
-
-      <div class="controlGroup">
-        <span>Color</span>
+      <div class="setting-group">
+        <label>Color</label>
         <select id="colorMode">
-          <option value="#ffffff">White</option>
-          <option value="#00ff41">Matrix Green</option>
-          <option value="#ffb000">Amber</option>
-          <option value="#00ffff">Cyan</option>
-          <option value="#ff3333">Red</option>
+          <option value="white">White on Black</option>
+          <option value="green">Green (Matrix)</option>
+          <option value="amber">Amber (Retro)</option>
+          <option value="cyan">Cyan (Neon)</option>
+          <option value="red">Red</option>
         </select>
       </div>
     </div>
 
-    <div id="loading">
+    <!-- LOADING -->
+    <div id="loadingOverlay">
       <div class="spinner"></div>
-      <div id="loadingText">Loading...</div>
+      <div id="loadingText">Loading model...</div>
     </div>
 
     <script type="module">
@@ -296,35 +392,13 @@
       import { OrbitControls } from "https://esm.sh/three@0.160.0/examples/jsm/controls/OrbitControls.js";
       import { GLTFLoader } from "https://esm.sh/three@0.160.0/examples/jsm/loaders/GLTFLoader.js";
       import { OBJLoader } from "https://esm.sh/three@0.160.0/examples/jsm/loaders/OBJLoader.js";
+      import { AsciiEffect } from "https://esm.sh/three@0.160.0/examples/jsm/effects/AsciiEffect.js";
 
-      const asciiOutput = document.getElementById("asciiOutput");
-      const fileInput = document.getElementById("fileInput");
-      const uploadBtn = document.getElementById("uploadBtn");
-      const fileName = document.getElementById("fileName");
-      const asciiBgToggle = document.getElementById("asciiBgToggle");
-      const charSetInput = document.getElementById("charSet");
-      const fontSizeInput = document.getElementById("fontSize");
-      const fontSizeValue = document.getElementById("fontSizeValue");
-      const rotateSpeedInput = document.getElementById("rotateSpeed");
-      const colorMode = document.getElementById("colorMode");
-      const loading = document.getElementById("loading");
-      const loadingText = document.getElementById("loadingText");
-
-      let chars = charSetInput.value;
-      let fontSize = Number(fontSizeInput.value);
-      let showAsciiBackground = true;
-      let backgroundChar = ".";
-      let rotateSpeed = Number(rotateSpeedInput.value) * 0.0018;
-      let currentModel = null;
-      let autoRotate = true;
-
-      const sampleCanvas = document.createElement("canvas");
-      const sampleCtx = sampleCanvas.getContext("2d", {
-        willReadFrequently: true,
-      });
-
+      /* ===========================
+         SCENE SETUP
+      =========================== */
       const scene = new THREE.Scene();
-      scene.background = null;
+      scene.background = new THREE.Color(0x000000);
 
       const camera = new THREE.PerspectiveCamera(
         45,
@@ -332,382 +406,392 @@
         0.01,
         1000,
       );
-      camera.position.set(0, 0, 5);
+      camera.position.set(0, 1, 5);
 
-      const renderer = new THREE.WebGLRenderer({
-        antialias: true,
-        alpha: true,
-        preserveDrawingBuffer: true,
-        premultipliedAlpha: false,
-      });
-
+      const renderer = new THREE.WebGLRenderer({ antialias: true });
       renderer.setPixelRatio(window.devicePixelRatio);
       renderer.setSize(window.innerWidth, window.innerHeight);
-      renderer.setClearColor(0x000000, 0);
 
-      const controls = new OrbitControls(camera, document.body);
+      /* ===========================
+         ASCII EFFECT
+      =========================== */
+      let currentChars = " .:-=+*#%@";
+      let currentFontSize = 8;
+      let asciiEffect = null;
+      const asciiMount = document.getElementById("asciiMount");
+
+      function buildAsciiEffect() {
+        if (asciiEffect) {
+          asciiMount.innerHTML = "";
+        }
+
+        asciiEffect = new AsciiEffect(renderer, currentChars, {
+          invert: true,
+          resolution: 0.15,
+        });
+
+        asciiEffect.setSize(window.innerWidth, window.innerHeight);
+        asciiEffect.domElement.style.position = "absolute";
+        asciiEffect.domElement.style.top = "0";
+        asciiEffect.domElement.style.left = "0";
+        asciiEffect.domElement.style.width = "100%";
+        asciiEffect.domElement.style.height = "100%";
+
+        applyColorMode();
+        asciiMount.appendChild(asciiEffect.domElement);
+      }
+
+      /* ===========================
+         COLOR MODES
+      =========================== */
+      const colorModes = {
+        white: { color: "#ffffff", background: "#000000" },
+        green: { color: "#00ff41", background: "#000000" },
+        amber: { color: "#ffb000", background: "#0a0600" },
+        cyan: { color: "#00ffff", background: "#000000" },
+        red: { color: "#ff2222", background: "#0a0000" },
+      };
+
+      function applyColorMode() {
+        if (!asciiEffect) return;
+        const mode = colorModes[document.getElementById("colorMode").value];
+        asciiEffect.domElement.style.color = mode.color;
+        asciiEffect.domElement.style.background = mode.background;
+        asciiEffect.domElement.style.fontFamily = "Fira Code, monospace";
+        asciiEffect.domElement.style.fontSize = currentFontSize + "px";
+        asciiEffect.domElement.style.lineHeight = "1.0";
+      }
+
+      /* ===========================
+         LIGHTS
+      =========================== */
+      scene.add(new THREE.AmbientLight(0xffffff, 0.8));
+      const dirLight = new THREE.DirectionalLight(0xffffff, 8);
+      dirLight.position.set(5, 10, 5);
+      scene.add(dirLight);
+      const backLight = new THREE.DirectionalLight(0xffffff, 3);
+      backLight.position.set(-5, -5, -5);
+      scene.add(backLight);
+
+      /* ===========================
+         CONTROLS
+      =========================== */
+      const controls = new OrbitControls(
+        camera,
+        document.getElementById("canvasContainer"),
+      );
       controls.enableDamping = true;
       controls.dampingFactor = 0.05;
+      controls.enablePan = true;
 
-      scene.add(new THREE.AmbientLight(0xffffff, 0.85));
-
-      const light = new THREE.DirectionalLight(0xffffff, 8);
-      light.position.set(5, 10, 5);
-      scene.add(light);
-
-      const fill = new THREE.DirectionalLight(0xffffff, 3);
-      fill.position.set(-5, -4, -5);
-      scene.add(fill);
-
+      /* ===========================
+         MODEL LOADING
+      =========================== */
       const gltfLoader = new GLTFLoader();
       const objLoader = new OBJLoader();
+      let currentModel = null;
+      let autoRotate = true;
+      let rotationSpeed = 0.005;
+      const loadingOverlay = document.getElementById("loadingOverlay");
+      const loadingText = document.getElementById("loadingText");
 
-      function showLoading(text) {
+      function showLoading(text = "Loading...") {
         loadingText.textContent = text;
-        loading.classList.add("visible");
+        loadingOverlay.classList.add("visible");
       }
 
       function hideLoading() {
-        loading.classList.remove("visible");
-      }
-
-      function disposeObject(root) {
-        if (!root) return;
-
-        root.traverse((obj) => {
-          if (obj.isMesh) {
-            if (obj.geometry) obj.geometry.dispose();
-
-            if (obj.material) {
-              if (Array.isArray(obj.material)) {
-                obj.material.forEach((m) => m.dispose && m.dispose());
-              } else {
-                obj.material.dispose && obj.material.dispose();
-              }
-            }
-          }
-        });
+        loadingOverlay.classList.remove("visible");
       }
 
       function clearModel() {
-        if (!currentModel) return;
-        scene.remove(currentModel);
-        disposeObject(currentModel);
-        currentModel = null;
+        if (currentModel) {
+          scene.remove(currentModel);
+          currentModel.traverse((obj) => {
+            if (obj.isMesh) {
+              obj.geometry?.dispose();
+              if (Array.isArray(obj.material))
+                obj.material.forEach((m) => m.dispose?.());
+              else obj.material?.dispose?.();
+            }
+          });
+          currentModel = null;
+        }
       }
 
-      function fitCameraToObject(object) {
-        const box = new THREE.Box3().setFromObject(object);
+      function fitCameraToModel(model) {
+        const box = new THREE.Box3().setFromObject(model);
         const center = box.getCenter(new THREE.Vector3());
         const size = box.getSize(new THREE.Vector3());
         const maxDim = Math.max(size.x, size.y, size.z);
 
-        object.position.sub(center);
+        model.position.sub(center);
 
         const fov = camera.fov * (Math.PI / 180);
-        const distance = Math.abs(maxDim / Math.sin(fov / 2)) * 0.85;
-
-        camera.position.set(0, 0, distance);
-        camera.near = distance / 100;
-        camera.far = distance * 100;
+        let cameraZ = Math.abs(maxDim / Math.tan(fov / 2)) * 1.4;
+        camera.position.set(0, 0, cameraZ);
+        camera.near = cameraZ / 100;
+        camera.far = cameraZ * 100;
         camera.updateProjectionMatrix();
 
         controls.target.set(0, 0, 0);
         controls.update();
       }
 
-      function prepareOBJMaterials(obj) {
-        obj.traverse((child) => {
-          if (child.isMesh) {
-            child.material = new THREE.MeshStandardMaterial({
-              color: 0xffffff,
-              roughness: 0.5,
-              metalness: 0.25,
-            });
-          }
-        });
-      }
-
-      function loadDefaultAstronaut() {
+      function loadDefaultModel() {
         showLoading("Loading astronaut...");
-
         objLoader.load(
           "https://raw.githubusercontent.com/Aishwary2004Gupta/ThreeJS_visuals/main/assets/astronaut.obj",
           (obj) => {
-            prepareOBJMaterials(obj);
+            obj.traverse((child) => {
+              if (child.isMesh) {
+                child.material = new THREE.MeshStandardMaterial({
+                  color: 0xffffff,
+                  roughness: 0.5,
+                  metalness: 0.3,
+                });
+              }
+            });
             clearModel();
             scene.add(obj);
             currentModel = obj;
-            autoRotate = true;
-            fitCameraToObject(obj);
+            fitCameraToModel(obj);
             hideLoading();
           },
           undefined,
           (err) => {
-            console.error(err);
-            hideLoading();
-          },
-        );
-      }
-
-      function loadOBJ(url, name) {
-        showLoading("Loading OBJ...");
-
-        objLoader.load(
-          url,
-          (obj) => {
-            prepareOBJMaterials(obj);
-            clearModel();
-            scene.add(obj);
-            currentModel = obj;
-            autoRotate = true;
-            fitCameraToObject(obj);
-            hideLoading();
-          },
-          undefined,
-          (err) => {
-            console.error(err);
+            console.error("Failed to load default model", err);
             hideLoading();
           },
         );
       }
 
       function loadGLTF(url, name) {
-        showLoading("Loading GLTF/GLB...");
-
+        showLoading(`Loading ${name}...`);
         gltfLoader.load(
           url,
           (gltf) => {
             clearModel();
             scene.add(gltf.scene);
             currentModel = gltf.scene;
-            autoRotate = true;
-            fitCameraToObject(gltf.scene);
+            fitCameraToModel(gltf.scene);
             hideLoading();
           },
           undefined,
           (err) => {
-            console.error(err);
+            console.error("GLTF load error", err);
             hideLoading();
           },
         );
       }
 
-      async function loadUSDZ(url, name) {
-        showLoading("Loading USDZ...");
-
-        try {
-          const module =
-            await import("https://esm.sh/three@0.160.0/examples/jsm/loaders/USDZLoader.js");
-
-          const loader = new module.USDZLoader();
-
-          loader.load(
-            url,
-            (object) => {
-              clearModel();
-              scene.add(object);
-              currentModel = object;
-              autoRotate = true;
-              fitCameraToObject(object);
-              hideLoading();
-            },
-            undefined,
-            (err) => {
-              console.error(err);
-              hideLoading();
-              alert(
-                "USDZ could not be loaded. Convert it to GLB if this fails.",
-              );
-            },
-          );
-        } catch (err) {
-          console.error(err);
-          hideLoading();
-          alert(
-            "USDZ loading is not available in this browser/build. Convert USDZ to GLB for best support.",
-          );
-        }
-      }
-
-      function loadImage(file) {
-        showLoading("Loading image...");
-
-        const url = URL.createObjectURL(file);
-
-        new THREE.TextureLoader().load(
+      function loadOBJ(url, name) {
+        showLoading(`Loading ${name}...`);
+        objLoader.load(
           url,
-          (texture) => {
-            clearModel();
-
-            const aspect = texture.image.width / texture.image.height;
-            const geometry = new THREE.PlaneGeometry(aspect * 3, 3);
-            const material = new THREE.MeshBasicMaterial({
-              map: texture,
-              side: THREE.DoubleSide,
-              transparent: true,
+          (obj) => {
+            obj.traverse((child) => {
+              if (child.isMesh) {
+                child.material = new THREE.MeshStandardMaterial({
+                  color: 0xffffff,
+                  roughness: 0.5,
+                  metalness: 0.3,
+                });
+              }
             });
-
-            const plane = new THREE.Mesh(geometry, material);
-            scene.add(plane);
-
-            currentModel = plane;
-            autoRotate = false;
-
-            camera.position.set(0, 0, 5);
-            camera.near = 0.01;
-            camera.far = 100;
-            camera.updateProjectionMatrix();
-
-            controls.target.set(0, 0, 0);
-            controls.update();
-
+            clearModel();
+            scene.add(obj);
+            currentModel = obj;
+            fitCameraToModel(obj);
             hideLoading();
           },
           undefined,
           (err) => {
-            console.error(err);
+            console.error("OBJ load error", err);
             hideLoading();
           },
         );
       }
 
-      function calculateAsciiGrid() {
-        const charWidth = fontSize * 0.62;
-        const charHeight = fontSize * 1.0;
-
-        const cols = Math.floor(window.innerWidth / charWidth);
-        const rows = Math.floor(window.innerHeight / charHeight);
-
-        return {
-          cols: Math.max(cols, 20),
-          rows: Math.max(rows, 20),
-        };
+      /* ===========================
+         IMAGE AS PLANE
+      =========================== */
+      function loadImageAsPlane(file) {
+        showLoading("Loading image...");
+        const url = URL.createObjectURL(file);
+        const texture = new THREE.TextureLoader().load(url, (tex) => {
+          clearModel();
+          const aspect = tex.image.width / tex.image.height;
+          const geo = new THREE.PlaneGeometry(aspect * 3, 3);
+          const mat = new THREE.MeshBasicMaterial({
+            map: tex,
+            side: THREE.DoubleSide,
+          });
+          const mesh = new THREE.Mesh(geo, mat);
+          scene.add(mesh);
+          currentModel = mesh;
+          autoRotate = false;
+          camera.position.set(0, 0, 5);
+          controls.target.set(0, 0, 0);
+          controls.update();
+          hideLoading();
+        });
       }
 
-      function brightnessToChar(r, g, b, a) {
-        if (a < 10) {
-          return showAsciiBackground ? backgroundChar : " ";
-        }
-
-        const brightness = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
-
-        let index = Math.floor(brightness * (chars.length - 1));
-
-        index = Math.max(1, index);
-        index = Math.min(chars.length - 1, index);
-
-        return chars[index];
-      }
-
-      function renderAscii() {
-        const { cols, rows } = calculateAsciiGrid();
-
-        if (sampleCanvas.width !== cols || sampleCanvas.height !== rows) {
-          sampleCanvas.width = cols;
-          sampleCanvas.height = rows;
-        }
-
-        sampleCtx.clearRect(0, 0, cols, rows);
-        sampleCtx.drawImage(renderer.domElement, 0, 0, cols, rows);
-
-        const imageData = sampleCtx.getImageData(0, 0, cols, rows).data;
-
-        let output = "";
-
-        for (let y = 0; y < rows; y++) {
-          let row = "";
-
-          for (let x = 0; x < cols; x++) {
-            const index = (y * cols + x) * 4;
-            const r = imageData[index];
-            const g = imageData[index + 1];
-            const b = imageData[index + 2];
-            const a = imageData[index + 3];
-
-            row += brightnessToChar(r, g, b, a);
-          }
-
-          output += row + "\n";
-        }
-
-        asciiOutput.textContent = output;
-      }
-
-      uploadBtn.addEventListener("click", () => {
-        fileInput.click();
-      });
-
-      fileInput.addEventListener("change", (e) => {
+      /* ===========================
+         FILE UPLOAD HANDLER
+      =========================== */
+      document.getElementById("fileInput").addEventListener("change", (e) => {
         const file = e.target.files[0];
         if (!file) return;
 
         const name = file.name;
+        document.getElementById("fileName").textContent = name;
         const ext = name.split(".").pop().toLowerCase();
         const url = URL.createObjectURL(file);
 
-        fileName.textContent = name;
-
-        if (ext === "obj") {
-          loadOBJ(url, name);
-        } else if (ext === "glb" || ext === "gltf") {
+        if (ext === "glb" || ext === "gltf") {
+          autoRotate = true;
           loadGLTF(url, name);
+        } else if (ext === "obj") {
+          autoRotate = true;
+          loadOBJ(url, name);
         } else if (ext === "usdz") {
-          loadUSDZ(url, name);
+          // USDZ: attempt GLTF loader (may work in some browsers)
+          autoRotate = true;
+          loadGLTF(url, name);
         } else if (["png", "jpg", "jpeg", "webp"].includes(ext)) {
-          loadImage(file);
-        } else {
-          alert("Unsupported file type.");
+          loadImageAsPlane(file);
         }
 
         e.target.value = "";
       });
 
-      asciiBgToggle.addEventListener("change", () => {
-        showAsciiBackground = asciiBgToggle.checked;
+      /* ===========================
+         BACKGROUND TOGGLE
+      =========================== */
+      const bgToggle = document.getElementById("bgToggle");
+      bgToggle.addEventListener("change", () => {
+        if (!asciiEffect) return;
+        if (bgToggle.checked) {
+          asciiEffect.domElement.style.background =
+            colorModes[document.getElementById("colorMode").value].background;
+        } else {
+          asciiEffect.domElement.style.background = "transparent";
+          asciiEffect.domElement.style.mixBlendMode = "screen";
+        }
       });
 
-      charSetInput.addEventListener("change", () => {
-        chars = charSetInput.value;
+      /* ===========================
+         SETTINGS CONTROLS
+      =========================== */
+      document.getElementById("charSet").addEventListener("change", (e) => {
+        currentChars = e.target.value;
+        buildAsciiEffect();
       });
 
-      fontSizeInput.addEventListener("input", () => {
-        fontSize = Number(fontSizeInput.value);
-        fontSizeValue.textContent = fontSize + "px";
-        asciiOutput.style.fontSize = fontSize + "px";
+      document
+        .getElementById("fontSizeSlider")
+        .addEventListener("input", (e) => {
+          currentFontSize = parseInt(e.target.value);
+          document.getElementById("fontSizeVal").textContent =
+            currentFontSize + "px";
+          if (asciiEffect) {
+            asciiEffect.domElement.style.fontSize = currentFontSize + "px";
+          }
+        });
+
+      document
+        .getElementById("rotationSpeed")
+        .addEventListener("input", (e) => {
+          rotationSpeed = parseFloat(e.target.value) * 0.002;
+        });
+
+      document.getElementById("colorMode").addEventListener("change", () => {
+        applyColorMode();
+        if (bgToggle.checked) {
+          const mode = colorModes[document.getElementById("colorMode").value];
+          if (asciiEffect)
+            asciiEffect.domElement.style.background = mode.background;
+        }
       });
 
-      rotateSpeedInput.addEventListener("input", () => {
-        rotateSpeed = Number(rotateSpeedInput.value) * 0.0018;
-      });
+      /* ===========================
+         AXIS HUD
+      =========================== */
+      const axisCanvas = document.getElementById("axisCanvas");
+      const axisCtx = axisCanvas.getContext("2d");
 
-      colorMode.addEventListener("change", () => {
-        asciiOutput.style.color = colorMode.value;
-      });
+      function drawAxis(v, color, label, cx, cy, scale) {
+        const ex = cx + v.x * scale;
+        const ey = cy - v.y * scale;
+        const alpha = v.z < 0 ? 0.3 : 0.9;
+        axisCtx.strokeStyle = color;
+        axisCtx.fillStyle = color;
+        axisCtx.globalAlpha = alpha;
+        axisCtx.lineWidth = 2;
+        axisCtx.beginPath();
+        axisCtx.moveTo(cx, cy);
+        axisCtx.lineTo(ex, ey);
+        axisCtx.stroke();
+        axisCtx.globalAlpha = 1.0;
+        axisCtx.font = "11px Fira Code, monospace";
+        axisCtx.fillText(label, ex + 3, ey + 3);
+      }
 
+      function updateAxisHUD() {
+        const w = axisCanvas.width;
+        const h = axisCanvas.height;
+        axisCtx.clearRect(0, 0, w, h);
+        const cx = w / 2;
+        const cy = h / 2;
+        const scale = w * 0.35;
+        const invQ = camera.quaternion.clone().invert();
+        const xV = new THREE.Vector3(1, 0, 0).applyQuaternion(invQ);
+        const yV = new THREE.Vector3(0, 1, 0).applyQuaternion(invQ);
+        const zV = new THREE.Vector3(0, 0, 1).applyQuaternion(invQ);
+        axisCtx.globalAlpha = 0.8;
+        axisCtx.strokeStyle = "rgba(255,255,255,0.1)";
+        axisCtx.lineWidth = 1;
+        axisCtx.beginPath();
+        axisCtx.arc(cx, cy, scale, 0, Math.PI * 2);
+        axisCtx.stroke();
+        drawAxis(xV, "#ff4d4d", "X", cx, cy, scale);
+        drawAxis(yV, "#46ff7a", "Y", cx, cy, scale);
+        drawAxis(zV, "#4da6ff", "Z", cx, cy, scale);
+      }
+
+      /* ===========================
+         RESIZE
+      =========================== */
       window.addEventListener("resize", () => {
         camera.aspect = window.innerWidth / window.innerHeight;
         camera.updateProjectionMatrix();
         renderer.setSize(window.innerWidth, window.innerHeight);
+        if (asciiEffect)
+          asciiEffect.setSize(window.innerWidth, window.innerHeight);
       });
 
+      /* ===========================
+         ANIMATE
+      =========================== */
       function animate() {
         requestAnimationFrame(animate);
-
         controls.update();
 
         if (autoRotate && currentModel) {
-          currentModel.rotation.y += rotateSpeed;
+          currentModel.rotation.y += rotationSpeed;
         }
 
-        renderer.render(scene, camera);
-        renderAscii();
+        updateAxisHUD();
+
+        if (asciiEffect) {
+          asciiEffect.render(scene, camera);
+        }
       }
 
-      asciiOutput.style.fontSize = fontSize + "px";
-      asciiOutput.style.color = colorMode.value;
-
-      loadDefaultAstronaut();
+      buildAsciiEffect();
+      loadDefaultModel();
       animate();
     </script>
   </body>

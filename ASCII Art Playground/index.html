@@ -71,9 +71,7 @@
         font-size: 12px;
         padding: 7px 16px;
         cursor: pointer;
-        transition:
-          border-color 0.2s,
-          color 0.2s;
+        transition: border-color 0.2s, color 0.2s;
         letter-spacing: 0.5px;
       }
 
@@ -132,9 +130,7 @@
         width: 12px;
         height: 12px;
         background: #555;
-        transition:
-          left 0.2s,
-          background 0.2s;
+        transition: left 0.2s, background 0.2s;
       }
 
       .toggle-switch input:checked + .toggle-track {
@@ -163,6 +159,7 @@
         z-index: 20;
         backdrop-filter: blur(8px);
         padding: 0 24px;
+        flex-wrap: wrap;
       }
 
       .setting-group {
@@ -195,6 +192,15 @@
         cursor: pointer;
       }
 
+      .setting-group input[type="range"]::-moz-range-thumb {
+        width: 12px;
+        height: 12px;
+        background: #fff;
+        border-radius: 50%;
+        cursor: pointer;
+        border: none;
+      }
+
       .setting-group select {
         background: #0a0a0a;
         border: 1px solid #333;
@@ -209,6 +215,11 @@
       .setting-group select:hover {
         border-color: #555;
         color: #fff;
+      }
+
+      .setting-group span {
+        min-width: 35px;
+        color: #aaa;
       }
 
       /* ===== FILE NAME DISPLAY ===== */
@@ -244,7 +255,6 @@
         position: fixed;
         inset: 0;
         background: rgba(1, 1, 1, 0.85);
-        display: flex;
         flex-direction: column;
         align-items: center;
         justify-content: center;
@@ -285,14 +295,7 @@
         left: 0;
         width: 100%;
         height: 100%;
-      }
-
-      #asciiMount > div {
-        width: 100% !important;
-        height: 100% !important;
-        padding-top: 56px !important;
-        padding-bottom: 52px !important;
-        box-sizing: border-box !important;
+        overflow: hidden;
       }
     </style>
   </head>
@@ -304,6 +307,9 @@
       <div id="topBarRight">
         <span id="fileName">astronaut.obj (default)</span>
 
+        <!-- Normal View Button -->
+        <button id="normalBtn">Normal View</button>
+
         <!-- Background ASCII Toggle -->
         <label class="toggle-wrapper">
           <span>ASCII Background</span>
@@ -314,17 +320,10 @@
         </label>
 
         <!-- Upload Button -->
-        <button
-          id="uploadBtn"
-          onclick="document.getElementById('fileInput').click()"
-        >
+        <button id="uploadBtn" onclick="document.getElementById('fileInput').click()">
           + Upload Model / Image
         </button>
-        <input
-          type="file"
-          id="fileInput"
-          accept=".obj,.glb,.gltf,.usdz,.png,.jpg,.jpeg,.webp"
-        />
+        <input type="file" id="fileInput" accept=".obj,.glb,.gltf,.usdz,.png,.jpg,.jpeg,.webp" />
       </div>
     </div>
 
@@ -342,11 +341,7 @@
         <label>Chars</label>
         <select id="charSet">
           <option value=" .:-=+*#%@">Standard</option>
-          <option
-            value=" .'`^,:;Il!i><~+_-?][}{1)(|/tfjrxnuvczXYUJCLQ0OZmwqpdbkhao*#MW&8%B@$"
-          >
-            Detailed
-          </option>
+          <option value=" .'`^,:;Il!i><~+_-?][}{1)(|/tfjrxnuvczXYUJCLQ0OZmwqpdbkhao*#MW&8%B@$">Detailed</option>
           <option value=" .oO0@">Simple Circles</option>
           <option value=" +x*#">Cross Hatch</option>
           <option value=" ▒░█">Block</option>
@@ -360,14 +355,8 @@
       </div>
       <div class="setting-group">
         <label>Rotation Speed</label>
-        <input
-          type="range"
-          id="rotationSpeed"
-          min="0"
-          max="10"
-          value="2"
-          step="0.5"
-        />
+        <input type="range" id="rotationSpeed" min="0" max="10" value="2" step="0.5" />
+        <span id="rotationSpeedVal">2.0</span>
       </div>
       <div class="setting-group">
         <label>Color</label>
@@ -400,12 +389,7 @@
       const scene = new THREE.Scene();
       scene.background = new THREE.Color(0x000000);
 
-      const camera = new THREE.PerspectiveCamera(
-        45,
-        window.innerWidth / window.innerHeight,
-        0.01,
-        1000,
-      );
+      const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.01, 1000);
       camera.position.set(0, 1, 5);
 
       const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -413,33 +397,19 @@
       renderer.setSize(window.innerWidth, window.innerHeight);
 
       /* ===========================
-         ASCII EFFECT
+         STATE
       =========================== */
       let currentChars = " .:-=+*#%@";
       let currentFontSize = 8;
       let asciiEffect = null;
+      let useAscii = true;
+      let autoRotate = true;
+      let rotationSpeed = 0.005;
+      let currentModel = null;
+
       const asciiMount = document.getElementById("asciiMount");
-
-      function buildAsciiEffect() {
-        if (asciiEffect) {
-          asciiMount.innerHTML = "";
-        }
-
-        asciiEffect = new AsciiEffect(renderer, currentChars, {
-          invert: true,
-          resolution: 0.15,
-        });
-
-        asciiEffect.setSize(window.innerWidth, window.innerHeight);
-        asciiEffect.domElement.style.position = "absolute";
-        asciiEffect.domElement.style.top = "0";
-        asciiEffect.domElement.style.left = "0";
-        asciiEffect.domElement.style.width = "100%";
-        asciiEffect.domElement.style.height = "100%";
-
-        applyColorMode();
-        asciiMount.appendChild(asciiEffect.domElement);
-      }
+      const normalBtn = document.getElementById("normalBtn");
+      const bgToggle = document.getElementById("bgToggle");
 
       /* ===========================
          COLOR MODES
@@ -463,6 +433,75 @@
       }
 
       /* ===========================
+         ASCII EFFECT
+      =========================== */
+      function buildAsciiEffect() {
+        if (asciiEffect) {
+          asciiMount.removeChild(asciiEffect.domElement);
+          asciiEffect = null;
+        }
+
+        asciiEffect = new AsciiEffect(renderer, currentChars, {
+          invert: true,
+          resolution: 0.15,
+        });
+
+        asciiEffect.setSize(window.innerWidth, window.innerHeight);
+        asciiEffect.domElement.style.position = "absolute";
+        asciiEffect.domElement.style.top = "0";
+        asciiEffect.domElement.style.left = "0";
+        asciiEffect.domElement.style.width = "100%";
+        asciiEffect.domElement.style.height = "100%";
+
+        applyColorMode();
+        asciiMount.appendChild(asciiEffect.domElement);
+      }
+
+      /* ===========================
+         NORMAL VIEW (raw WebGL)
+      =========================== */
+      function showNormalView() {
+        // Remove ASCII effect
+        if (asciiEffect) {
+          asciiMount.removeChild(asciiEffect.domElement);
+          asciiEffect = null;
+        }
+
+        // Create a canvas in the mount
+        asciiMount.innerHTML = "";
+        const canvas = document.createElement("canvas");
+        canvas.style.position = "absolute";
+        canvas.style.top = "0";
+        canvas.style.left = "0";
+        canvas.style.width = "100%";
+        canvas.style.height = "100%";
+        canvas.style.display = "block";
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+        asciiMount.appendChild(canvas);
+
+        // Replace renderer to draw to this canvas
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.domElement = canvas;
+
+        useAscii = false;
+        normalBtn.textContent = "ASCII View";
+        normalBtn.onclick = showAsciiView;
+      }
+
+      function showAsciiView() {
+        // Restore original renderer domElement
+        asciiMount.innerHTML = "";
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.domElement = renderer.domElement; // keep current
+
+        useAscii = true;
+        buildAsciiEffect();
+        normalBtn.textContent = "Normal View";
+        normalBtn.onclick = showNormalView;
+      }
+
+      /* ===========================
          LIGHTS
       =========================== */
       scene.add(new THREE.AmbientLight(0xffffff, 0.8));
@@ -476,10 +515,7 @@
       /* ===========================
          CONTROLS
       =========================== */
-      const controls = new OrbitControls(
-        camera,
-        document.getElementById("canvasContainer"),
-      );
+      const controls = new OrbitControls(camera, document.getElementById("canvasContainer"));
       controls.enableDamping = true;
       controls.dampingFactor = 0.05;
       controls.enablePan = true;
@@ -489,9 +525,6 @@
       =========================== */
       const gltfLoader = new GLTFLoader();
       const objLoader = new OBJLoader();
-      let currentModel = null;
-      let autoRotate = true;
-      let rotationSpeed = 0.005;
       const loadingOverlay = document.getElementById("loadingOverlay");
       const loadingText = document.getElementById("loadingText");
 
@@ -619,14 +652,11 @@
       function loadImageAsPlane(file) {
         showLoading("Loading image...");
         const url = URL.createObjectURL(file);
-        const texture = new THREE.TextureLoader().load(url, (tex) => {
+        new THREE.TextureLoader().load(url, (tex) => {
           clearModel();
           const aspect = tex.image.width / tex.image.height;
           const geo = new THREE.PlaneGeometry(aspect * 3, 3);
-          const mat = new THREE.MeshBasicMaterial({
-            map: tex,
-            side: THREE.DoubleSide,
-          });
+          const mat = new THREE.MeshBasicMaterial({ map: tex, side: THREE.DoubleSide });
           const mesh = new THREE.Mesh(geo, mat);
           scene.add(mesh);
           currentModel = mesh;
@@ -657,7 +687,6 @@
           autoRotate = true;
           loadOBJ(url, name);
         } else if (ext === "usdz") {
-          // USDZ: attempt GLTF loader (may work in some browsers)
           autoRotate = true;
           loadGLTF(url, name);
         } else if (["png", "jpg", "jpeg", "webp"].includes(ext)) {
@@ -668,17 +697,18 @@
       });
 
       /* ===========================
-         BACKGROUND TOGGLE
+         BACKGROUND TOGGLE (FIXED)
       =========================== */
-      const bgToggle = document.getElementById("bgToggle");
       bgToggle.addEventListener("change", () => {
         if (!asciiEffect) return;
         if (bgToggle.checked) {
-          asciiEffect.domElement.style.background =
-            colorModes[document.getElementById("colorMode").value].background;
+          const mode = colorModes[document.getElementById("colorMode").value];
+          asciiEffect.domElement.style.background = mode.background;
+          asciiEffect.domElement.style.mixBlendMode = "normal";
         } else {
+          // Transparent background - use body background and blend mode
           asciiEffect.domElement.style.background = "transparent";
-          asciiEffect.domElement.style.mixBlendMode = "screen";
+          asciiEffect.domElement.style.mixBlendMode = "difference";
         }
       });
 
@@ -687,32 +717,37 @@
       =========================== */
       document.getElementById("charSet").addEventListener("change", (e) => {
         currentChars = e.target.value;
-        buildAsciiEffect();
+        if (useAscii) buildAsciiEffect();
       });
 
-      document
-        .getElementById("fontSizeSlider")
-        .addEventListener("input", (e) => {
-          currentFontSize = parseInt(e.target.value);
-          document.getElementById("fontSizeVal").textContent =
-            currentFontSize + "px";
-          if (asciiEffect) {
-            asciiEffect.domElement.style.fontSize = currentFontSize + "px";
-          }
-        });
+      document.getElementById("fontSizeSlider").addEventListener("input", (e) => {
+        currentFontSize = parseInt(e.target.value);
+        document.getElementById("fontSizeVal").textContent = currentFontSize + "px";
+        if (asciiEffect) {
+          asciiEffect.domElement.style.fontSize = currentFontSize + "px";
+        }
+      });
 
-      document
-        .getElementById("rotationSpeed")
-        .addEventListener("input", (e) => {
-          rotationSpeed = parseFloat(e.target.value) * 0.002;
-        });
+      document.getElementById("rotationSpeed").addEventListener("input", (e) => {
+        rotationSpeed = parseFloat(e.target.value) * 0.002;
+        document.getElementById("rotationSpeedVal").textContent = parseFloat(e.target.value).toFixed(1);
+      });
 
       document.getElementById("colorMode").addEventListener("change", () => {
+        if (!useAscii) return;
         applyColorMode();
-        if (bgToggle.checked) {
-          const mode = colorModes[document.getElementById("colorMode").value];
-          if (asciiEffect)
-            asciiEffect.domElement.style.background = mode.background;
+        if (!bgToggle.checked) {
+          // Re-apply blend mode if background is off
+          if (asciiEffect) asciiEffect.domElement.style.mixBlendMode = "difference";
+        }
+      });
+
+      // Normal/ASCII view toggle button
+      normalBtn.addEventListener("click", () => {
+        if (useAscii) {
+          showNormalView();
+        } else {
+          showAsciiView();
         }
       });
 
@@ -768,8 +803,7 @@
         camera.aspect = window.innerWidth / window.innerHeight;
         camera.updateProjectionMatrix();
         renderer.setSize(window.innerWidth, window.innerHeight);
-        if (asciiEffect)
-          asciiEffect.setSize(window.innerWidth, window.innerHeight);
+        if (asciiEffect) asciiEffect.setSize(window.innerWidth, window.innerHeight);
       });
 
       /* ===========================
@@ -785,14 +819,13 @@
 
         updateAxisHUD();
 
-        if (asciiEffect) {
+        if (useAscii && asciiEffect) {
           asciiEffect.render(scene, camera);
+        } else {
+          renderer.render(scene, camera);
         }
       }
 
-      /* ===========================
-         INIT
-      =========================== */
       buildAsciiEffect();
       loadDefaultModel();
       animate();

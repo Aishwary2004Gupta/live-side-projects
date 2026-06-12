@@ -4,311 +4,207 @@
     <meta charset="UTF-8" />
     <title>ASCII Art Playground</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
     <style>
       @import url("https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;600&display=swap");
 
       * {
-        margin: 0;
-        padding: 0;
         box-sizing: border-box;
       }
 
       html,
       body {
+        margin: 0;
         width: 100%;
         height: 100%;
         overflow: hidden;
         background: #000;
-        font-family: "Fira Code", "Courier New", monospace;
-        color: #fff;
+        font-family: "Fira Code", monospace;
       }
 
-      #canvasContainer {
+      #asciiOutput {
         position: fixed;
         inset: 0;
+        margin: 0;
+        padding: 70px 16px 70px 16px;
+        background: #000;
+        color: #fff;
+        font-family: "Fira Code", monospace;
+        font-size: 8px;
+        line-height: 1;
+        letter-spacing: 0;
+        white-space: pre;
         overflow: hidden;
+        user-select: none;
         z-index: 1;
       }
 
-      #canvasContainer canvas,
-      #canvasContainer > div {
-        position: absolute;
-        inset: 0;
-      }
-
-      /* ===== TOP BAR ===== */
       #topBar {
         position: fixed;
         top: 0;
         left: 0;
         right: 0;
-        min-height: 56px;
-        background: rgba(10, 10, 10, 0.88);
-        border-bottom: 1px solid #1a1a1a;
+        height: 56px;
+        background: rgba(10, 10, 10, 0.94);
+        border-bottom: 1px solid #222;
         display: flex;
         align-items: center;
         justify-content: space-between;
-        padding: 10px 20px;
-        z-index: 20;
-        backdrop-filter: blur(8px);
-        gap: 12px;
-        flex-wrap: wrap;
+        padding: 0 22px;
+        z-index: 10;
+        color: #fff;
       }
 
       #topBar h1 {
-        font-size: 15px;
+        margin: 0;
+        font-size: 14px;
         font-weight: 600;
-        letter-spacing: 1px;
-        color: #fff;
-        white-space: nowrap;
+        letter-spacing: 0.8px;
       }
 
-      #topBarRight {
+      #topControls {
         display: flex;
         align-items: center;
-        gap: 12px;
-        flex-wrap: wrap;
-        justify-content: flex-end;
+        gap: 16px;
       }
 
       #fileName {
-        font-size: 11px;
-        color: #777;
-        max-width: 220px;
+        max-width: 240px;
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
+        font-size: 11px;
+        color: #777;
       }
 
-      .btn,
-      .view-btn {
+      #uploadBtn {
         background: #0a0a0a;
         border: 1px solid #333;
-        color: #aaa;
+        color: #ccc;
+        padding: 7px 14px;
         font-family: "Fira Code", monospace;
         font-size: 12px;
-        padding: 7px 14px;
         cursor: pointer;
-        transition:
-          border-color 0.2s,
-          color 0.2s,
-          background 0.2s;
-        letter-spacing: 0.4px;
       }
 
-      .btn:hover,
-      .view-btn:hover {
+      #uploadBtn:hover {
+        color: #fff;
         border-color: #666;
-        color: #fff;
-      }
-
-      .view-btn.active {
-        border-color: #fff;
-        color: #fff;
-        background: #151515;
-      }
-
-      .view-switch {
-        display: flex;
-        border: 1px solid #333;
-      }
-
-      .view-switch .view-btn {
-        border: none;
-        border-right: 1px solid #333;
-      }
-
-      .view-switch .view-btn:last-child {
-        border-right: none;
       }
 
       #fileInput {
         display: none;
       }
 
-      /* ===== TOGGLE ===== */
-      .toggle-wrapper {
+      .toggleWrapper {
         display: flex;
         align-items: center;
-        gap: 10px;
-        font-size: 12px;
+        gap: 8px;
+        font-size: 11px;
         color: #777;
         cursor: pointer;
         user-select: none;
       }
 
-      .toggle-wrapper:hover {
-        color: #aaa;
+      .toggleWrapper:hover {
+        color: #fff;
       }
 
-      .toggle-switch {
+      .switch {
         position: relative;
         width: 40px;
-        height: 22px;
+        height: 20px;
       }
 
-      .toggle-switch input {
-        opacity: 0;
-        width: 0;
-        height: 0;
-        position: absolute;
+      .switch input {
+        display: none;
       }
 
-      .toggle-track {
+      .slider {
         position: absolute;
         inset: 0;
-        background: #1b1b1b;
-        border: 1px solid #333;
-        transition: 0.2s;
+        background: #222;
+        border: 1px solid #444;
+        cursor: pointer;
       }
 
-      .toggle-track::after {
+      .slider::before {
         content: "";
         position: absolute;
-        width: 14px;
-        height: 14px;
+        width: 12px;
+        height: 12px;
         left: 3px;
-        top: 50%;
-        transform: translateY(-50%);
-        background: #666;
+        top: 3px;
+        background: #777;
         transition: 0.2s;
       }
 
-      .toggle-switch input:checked + .toggle-track {
-        border-color: #777;
-        background: #121212;
-      }
-
-      .toggle-switch input:checked + .toggle-track::after {
-        left: 21px;
+      .switch input:checked + .slider::before {
+        transform: translateX(19px);
         background: #fff;
       }
 
-      /* ===== BOTTOM BAR ===== */
-      #settingsPanel {
+      #bottomBar {
         position: fixed;
-        bottom: 0;
         left: 0;
         right: 0;
-        min-height: 56px;
-        background: rgba(10, 10, 10, 0.88);
-        border-top: 1px solid #1a1a1a;
+        bottom: 0;
+        height: 56px;
+        background: rgba(10, 10, 10, 0.94);
+        border-top: 1px solid #222;
         display: flex;
         align-items: center;
         justify-content: center;
-        gap: 24px;
-        z-index: 20;
-        backdrop-filter: blur(8px);
-        padding: 10px 20px;
-        flex-wrap: wrap;
+        gap: 30px;
+        z-index: 10;
+        color: #777;
       }
 
-      .setting-group {
+      .controlGroup {
         display: flex;
         align-items: center;
         gap: 10px;
         font-size: 11px;
-        color: #777;
       }
 
-      .setting-group label {
-        white-space: nowrap;
-      }
-
-      .setting-group input[type="range"] {
-        -webkit-appearance: none;
-        appearance: none;
-        width: 110px;
-        height: 2px;
-        background: #333;
-        outline: none;
-      }
-
-      .setting-group input[type="range"]::-webkit-slider-thumb {
-        -webkit-appearance: none;
-        appearance: none;
-        width: 12px;
-        height: 12px;
-        border-radius: 50%;
-        background: #fff;
-        cursor: pointer;
-      }
-
-      .setting-group input[type="range"]::-moz-range-thumb {
-        width: 12px;
-        height: 12px;
-        border: none;
-        border-radius: 50%;
-        background: #fff;
-        cursor: pointer;
-      }
-
-      .setting-group select {
-        background: #0a0a0a;
-        border: 1px solid #333;
-        color: #aaa;
+      select,
+      input[type="range"] {
         font-family: "Fira Code", monospace;
-        font-size: 11px;
+      }
+
+      select {
+        background: #0a0a0a;
+        color: #ccc;
+        border: 1px solid #333;
         padding: 4px 8px;
-        cursor: pointer;
-        outline: none;
-      }
-
-      .setting-group select:hover {
-        border-color: #555;
-        color: #fff;
-      }
-
-      .value-label {
-        min-width: 42px;
-        color: #ddd;
         font-size: 11px;
       }
 
-      /* ===== AXIS HUD ===== */
-      #axisHUD {
-        position: fixed;
-        bottom: 74px;
-        right: 16px;
-        z-index: 15;
-        pointer-events: none;
+      input[type="range"] {
+        width: 110px;
       }
 
-      #axisCanvas {
-        width: 82px;
-        height: 82px;
-        border-radius: 50%;
-        background: rgba(10, 10, 10, 0.42);
-        border: 1px solid rgba(255, 255, 255, 0.1);
-        backdrop-filter: blur(6px);
-      }
-
-      /* ===== LOADING ===== */
-      #loadingOverlay {
+      #loading {
         position: fixed;
         inset: 0;
-        background: rgba(1, 1, 1, 0.88);
+        background: rgba(0, 0, 0, 0.86);
+        z-index: 20;
         display: none;
-        flex-direction: column;
         align-items: center;
         justify-content: center;
-        z-index: 30;
-        gap: 16px;
+        flex-direction: column;
+        gap: 14px;
+        color: #777;
+        font-size: 13px;
       }
 
-      #loadingOverlay.visible {
+      #loading.visible {
         display: flex;
       }
 
-      #loadingText {
-        font-size: 13px;
-        color: #888;
-        letter-spacing: 1px;
-      }
-
       .spinner {
-        width: 24px;
-        height: 24px;
+        width: 26px;
+        height: 26px;
         border: 2px solid #222;
         border-top-color: #fff;
         border-radius: 50%;
@@ -320,113 +216,77 @@
           transform: rotate(360deg);
         }
       }
-
-      @media (max-width: 900px) {
-        #topBar,
-        #settingsPanel {
-          justify-content: center;
-        }
-
-        #fileName {
-          max-width: 150px;
-        }
-      }
     </style>
   </head>
 
   <body>
+    <pre id="asciiOutput"></pre>
+
     <div id="topBar">
       <h1>ASCII Art Playground</h1>
 
-      <div id="topBarRight">
-        <span id="fileName">astronaut.obj (default)</span>
+      <div id="topControls">
+        <span id="fileName">astronaut.obj</span>
 
-        <div class="view-switch">
-          <button id="asciiViewBtn" class="view-btn active">ASCII View</button>
-          <button id="normalViewBtn" class="view-btn">Normal View</button>
-        </div>
-
-        <label class="toggle-wrapper">
-          <span>ASCII Background</span>
-          <div class="toggle-switch">
-            <input type="checkbox" id="bgToggle" checked />
-            <div class="toggle-track"></div>
-          </div>
+        <label class="toggleWrapper">
+          ASCII Background
+          <span class="switch">
+            <input type="checkbox" id="asciiBgToggle" checked />
+            <span class="slider"></span>
+          </span>
         </label>
 
-        <button
-          id="uploadBtn"
-          class="btn"
-          onclick="document.getElementById('fileInput').click()"
-        >
-          + Upload Model / Image
-        </button>
+        <button id="uploadBtn">+ Upload Image / Model</button>
 
         <input
-          type="file"
           id="fileInput"
-          accept=".obj,.glb,.gltf,.png,.jpg,.jpeg,.webp"
+          type="file"
+          accept=".obj,.glb,.gltf,.usdz,.png,.jpg,.jpeg,.webp"
         />
       </div>
     </div>
 
-    <div id="canvasContainer">
-      <div id="axisHUD">
-        <canvas id="axisCanvas" width="82" height="82"></canvas>
-      </div>
-    </div>
-
-    <div id="settingsPanel">
-      <div class="setting-group">
-        <label>Chars</label>
+    <div id="bottomBar">
+      <div class="controlGroup">
+        <span>Characters</span>
         <select id="charSet">
           <option value=" .:-=+*#%@">Standard</option>
-          <option
-            value=" .'`^,:;Il!i><~+_-?][}{1)(|/tfjrxnuvczXYUJCLQ0OZmwqpdbkhao*#MW&8%B@$"
-          >
+          <option value=" .'`^,:;Il!i><~+_-?][}{1)(|/tfjrxnuvczXYUJCLQ0OZmwqpdbkhao*#MW&8%B@$">
             Detailed
           </option>
-          <option value=" .oO0@">Simple Circles</option>
-          <option value=" +x*#">Cross Hatch</option>
-          <option value=" ▒░█">Block</option>
-          <option value=" .-~:;=!*#$@">Retro</option>
+          <option value=" .oO0@">Circles</option>
+          <option value=" .+x*#%@">Sharp</option>
+          <option value=" .░▒▓█">Blocks</option>
+          <option value=" .-=+#@">Clean</option>
         </select>
       </div>
 
-      <div class="setting-group">
-        <label>Font Size</label>
-        <input type="range" id="fontSizeSlider" min="4" max="20" value="8" />
-        <span id="fontSizeVal" class="value-label">8px</span>
+      <div class="controlGroup">
+        <span>Font Size</span>
+        <input id="fontSize" type="range" min="5" max="16" value="8" />
+        <span id="fontSizeValue">8px</span>
       </div>
 
-      <div class="setting-group">
-        <label>Rotation Speed</label>
-        <input
-          type="range"
-          id="rotationSpeed"
-          min="0"
-          max="10"
-          value="2"
-          step="0.5"
-        />
-        <span id="rotationSpeedVal" class="value-label">2.0</span>
+      <div class="controlGroup">
+        <span>Rotate</span>
+        <input id="rotateSpeed" type="range" min="0" max="10" value="2" />
       </div>
 
-      <div class="setting-group">
-        <label>Color</label>
+      <div class="controlGroup">
+        <span>Color</span>
         <select id="colorMode">
-          <option value="white">White on Black</option>
-          <option value="green">Green (Matrix)</option>
-          <option value="amber">Amber (Retro)</option>
-          <option value="cyan">Cyan (Neon)</option>
-          <option value="red">Red</option>
+          <option value="#ffffff">White</option>
+          <option value="#00ff41">Matrix Green</option>
+          <option value="#ffb000">Amber</option>
+          <option value="#00ffff">Cyan</option>
+          <option value="#ff3333">Red</option>
         </select>
       </div>
     </div>
 
-    <div id="loadingOverlay">
+    <div id="loading">
       <div class="spinner"></div>
-      <div id="loadingText">Loading model...</div>
+      <div id="loadingText">Loading...</div>
     </div>
 
     <script type="module">
@@ -434,30 +294,35 @@
       import { OrbitControls } from "https://esm.sh/three@0.160.0/examples/jsm/controls/OrbitControls.js";
       import { GLTFLoader } from "https://esm.sh/three@0.160.0/examples/jsm/loaders/GLTFLoader.js";
       import { OBJLoader } from "https://esm.sh/three@0.160.0/examples/jsm/loaders/OBJLoader.js";
-      import { AsciiEffect } from "https://esm.sh/three@0.160.0/examples/jsm/effects/AsciiEffect.js";
 
-      /* ===========================
-         DOM
-      =========================== */
-      const canvasContainer = document.getElementById("canvasContainer");
-      const fileNameEl = document.getElementById("fileName");
+      const asciiOutput = document.getElementById("asciiOutput");
       const fileInput = document.getElementById("fileInput");
-      const asciiViewBtn = document.getElementById("asciiViewBtn");
-      const normalViewBtn = document.getElementById("normalViewBtn");
-      const bgToggle = document.getElementById("bgToggle");
-      const charSetSelect = document.getElementById("charSet");
-      const fontSizeSlider = document.getElementById("fontSizeSlider");
-      const fontSizeVal = document.getElementById("fontSizeVal");
-      const rotationSpeedSlider = document.getElementById("rotationSpeed");
-      const rotationSpeedVal = document.getElementById("rotationSpeedVal");
-      const colorModeSelect = document.getElementById("colorMode");
-      const loadingOverlay = document.getElementById("loadingOverlay");
+      const uploadBtn = document.getElementById("uploadBtn");
+      const fileName = document.getElementById("fileName");
+      const asciiBgToggle = document.getElementById("asciiBgToggle");
+      const charSetInput = document.getElementById("charSet");
+      const fontSizeInput = document.getElementById("fontSize");
+      const fontSizeValue = document.getElementById("fontSizeValue");
+      const rotateSpeedInput = document.getElementById("rotateSpeed");
+      const colorMode = document.getElementById("colorMode");
+      const loading = document.getElementById("loading");
       const loadingText = document.getElementById("loadingText");
 
-      /* ===========================
-         SCENE SETUP
-      =========================== */
+      let chars = charSetInput.value;
+      let fontSize = Number(fontSizeInput.value);
+      let showAsciiBackground = true;
+      let backgroundChar = ".";
+      let rotateSpeed = Number(rotateSpeedInput.value) * 0.0018;
+      let currentModel = null;
+      let autoRotate = true;
+
+      const sampleCanvas = document.createElement("canvas");
+      const sampleCtx = sampleCanvas.getContext("2d", {
+        willReadFrequently: true,
+      });
+
       const scene = new THREE.Scene();
+      scene.background = null;
 
       const camera = new THREE.PerspectiveCamera(
         45,
@@ -469,427 +334,304 @@
 
       const renderer = new THREE.WebGLRenderer({
         antialias: true,
-        alpha: false,
+        alpha: true,
+        preserveDrawingBuffer: true,
+        premultipliedAlpha: false,
       });
-      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-      renderer.setSize(window.innerWidth, window.innerHeight);
-      renderer.outputColorSpace = THREE.SRGBColorSpace;
-      renderer.domElement.style.position = "absolute";
-      renderer.domElement.style.top = "0";
-      renderer.domElement.style.left = "0";
-      renderer.domElement.style.width = "100%";
-      renderer.domElement.style.height = "100%";
-      renderer.domElement.style.display = "block";
-      canvasContainer.appendChild(renderer.domElement);
 
-      /* ===========================
-         LIGHTS
-      =========================== */
+      renderer.setPixelRatio(window.devicePixelRatio);
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.setClearColor(0x000000, 0);
+
+      const controls = new OrbitControls(camera, document.body);
+      controls.enableDamping = true;
+      controls.dampingFactor = 0.05;
+
       scene.add(new THREE.AmbientLight(0xffffff, 0.85));
 
-      const dirLight = new THREE.DirectionalLight(0xffffff, 6);
-      dirLight.position.set(5, 10, 6);
-      scene.add(dirLight);
+      const light = new THREE.DirectionalLight(0xffffff, 8);
+      light.position.set(5, 10, 5);
+      scene.add(light);
 
-      const backLight = new THREE.DirectionalLight(0xffffff, 2.2);
-      backLight.position.set(-5, -4, -5);
-      scene.add(backLight);
+      const fill = new THREE.DirectionalLight(0xffffff, 3);
+      fill.position.set(-5, -4, -5);
+      scene.add(fill);
 
-      /* ===========================
-         CONTROLS
-      =========================== */
-      const controls = new OrbitControls(camera, canvasContainer);
-      controls.enableDamping = true;
-      controls.dampingFactor = 0.06;
-      controls.enablePan = false;
-      controls.screenSpacePanning = false;
-
-      // Prevent CTRL from affecting controls
-      let ctrlPressed = false;
-
-      function setCtrlBlocked(blocked) {
-        ctrlPressed = blocked;
-        controls.enabled = !blocked;
-      }
-
-      window.addEventListener("keydown", (e) => {
-        if (e.key === "Control") {
-          setCtrlBlocked(true);
-        }
-      });
-
-      window.addEventListener("keyup", (e) => {
-        if (e.key === "Control") {
-          setCtrlBlocked(false);
-        }
-      });
-
-      window.addEventListener("blur", () => {
-        setCtrlBlocked(false);
-      });
-
-      // Block ctrl + wheel / ctrl + pointer interactions
-      ["pointerdown", "mousedown", "wheel"].forEach((type) => {
-        canvasContainer.addEventListener(
-          type,
-          (e) => {
-            if (e.ctrlKey) {
-              e.preventDefault();
-              e.stopPropagation();
-            }
-          },
-          { passive: false, capture: true },
-        );
-      });
-
-      window.addEventListener(
-        "wheel",
-        (e) => {
-          if (e.ctrlKey) e.preventDefault();
-        },
-        { passive: false },
-      );
-
-      canvasContainer.addEventListener("contextmenu", (e) => {
-        e.preventDefault();
-      });
-
-      /* ===========================
-         STATE
-      =========================== */
       const gltfLoader = new GLTFLoader();
       const objLoader = new OBJLoader();
 
-      let currentModel = null;
-      let currentObjectURL = null;
-      let asciiEffect = null;
-
-      let viewMode = "ascii"; // 'ascii' | 'normal'
-      let currentChars = charSetSelect.value;
-      let currentFontSize = parseInt(fontSizeSlider.value, 10);
-      let rotationSpeed = parseFloat(rotationSpeedSlider.value) * 0.002;
-      let autoRotate = true;
-
-      const colorModes = {
-        white: { color: "#ffffff", background: "#000000" },
-        green: { color: "#00ff41", background: "#000000" },
-        amber: { color: "#ffb000", background: "#120a00" },
-        cyan: { color: "#00ffff", background: "#000000" },
-        red: { color: "#ff4040", background: "#120000" },
-      };
-
-      /* ===========================
-         HELPERS
-      =========================== */
-      function showLoading(text = "Loading...") {
+      function showLoading(text) {
         loadingText.textContent = text;
-        loadingOverlay.classList.add("visible");
+        loading.classList.add("visible");
       }
 
       function hideLoading() {
-        loadingOverlay.classList.remove("visible");
+        loading.classList.remove("visible");
       }
 
-      function revokeCurrentURL() {
-        if (currentObjectURL) {
-          URL.revokeObjectURL(currentObjectURL);
-          currentObjectURL = null;
-        }
-      }
+      function disposeObject(root) {
+        if (!root) return;
 
-      function disposeMaterial(material) {
-        if (!material) return;
+        root.traverse((obj) => {
+          if (obj.isMesh) {
+            if (obj.geometry) obj.geometry.dispose();
 
-        if (Array.isArray(material)) {
-          material.forEach(disposeMaterial);
-          return;
-        }
-
-        for (const key in material) {
-          const value = material[key];
-          if (value && value.isTexture) value.dispose();
-        }
-
-        material.dispose?.();
+            if (obj.material) {
+              if (Array.isArray(obj.material)) {
+                obj.material.forEach((m) => m.dispose && m.dispose());
+              } else {
+                obj.material.dispose && obj.material.dispose();
+              }
+            }
+          }
+        });
       }
 
       function clearModel() {
         if (!currentModel) return;
-
         scene.remove(currentModel);
-
-        currentModel.traverse((obj) => {
-          if (obj.isMesh) {
-            obj.geometry?.dispose?.();
-            disposeMaterial(obj.material);
-          }
-        });
-
+        disposeObject(currentModel);
         currentModel = null;
       }
 
-      function fitCameraToModel(model) {
-        const box = new THREE.Box3().setFromObject(model);
+      function fitCameraToObject(object) {
+        const box = new THREE.Box3().setFromObject(object);
         const center = box.getCenter(new THREE.Vector3());
         const size = box.getSize(new THREE.Vector3());
+        const maxDim = Math.max(size.x, size.y, size.z);
 
-        model.position.sub(center);
+        object.position.sub(center);
 
-        const maxDim = Math.max(size.x, size.y, size.z, 1);
-        const fov = THREE.MathUtils.degToRad(camera.fov);
-        let cameraZ = (maxDim / (2 * Math.tan(fov / 2))) * 2.1;
+        const fov = camera.fov * (Math.PI / 180);
+        const distance = Math.abs(maxDim / Math.sin(fov / 2)) * 0.85;
 
-        camera.position.set(0, 0, cameraZ);
-        camera.near = Math.max(0.01, cameraZ / 100);
-        camera.far = cameraZ * 100;
+        camera.position.set(0, 0, distance);
+        camera.near = distance / 100;
+        camera.far = distance * 100;
         camera.updateProjectionMatrix();
 
         controls.target.set(0, 0, 0);
         controls.update();
       }
 
-      function applySceneBackground() {
-        const mode = colorModes[colorModeSelect.value];
-        scene.background = new THREE.Color(mode.background);
-        renderer.setClearColor(mode.background, 1);
-        document.body.style.background = mode.background;
-      }
-
-      /* ===========================
-         ASCII LOGIC
-         Based on the style of the code you shared:
-         renderer canvas + ascii layer both live in the container
-      =========================== */
-      function getEffectiveChars() {
-        // If ASCII background is ON:
-        // remove spaces so dark areas also use characters,
-        // filling the screen with ASCII.
-        if (bgToggle.checked) {
-          const noSpaces = currentChars.replace(/\s/g, "");
-          return noSpaces.length ? noSpaces : ".:-=+*#%@";
-        }
-
-        // If OFF:
-        // keep spaces so dark areas remain transparent / empty
-        return currentChars;
-      }
-
-      function getAsciiResolutionFromFontSize(px) {
-        // AsciiEffect internally derives character size from resolution.
-        // This mapping makes the slider actually affect the output.
-        return THREE.MathUtils.clamp(2 / px, 0.08, 0.5);
-      }
-
-      function styleAsciiEffect() {
-        if (!asciiEffect) return;
-
-        const mode = colorModes[colorModeSelect.value];
-        const el = asciiEffect.domElement;
-
-        el.style.position = "absolute";
-        el.style.top = "0";
-        el.style.left = "0";
-        el.style.width = "100%";
-        el.style.height = "100%";
-        el.style.margin = "0";
-        el.style.padding = "0";
-        el.style.overflow = "hidden";
-        el.style.pointerEvents = "none";
-        el.style.userSelect = "none";
-        el.style.zIndex = "2";
-        el.style.color = mode.color;
-        el.style.background = bgToggle.checked
-          ? mode.background
-          : "transparent";
-
-        const table = el.querySelector("table");
-        if (table) {
-          table.style.width = "100%";
-          table.style.height = "100%";
-          table.style.margin = "0";
-          table.style.padding = "0";
-          table.style.borderCollapse = "collapse";
-          table.style.fontFamily = `"Fira Code", "Courier New", monospace`;
-          table.style.fontSize = `${currentFontSize}px`;
-          table.style.lineHeight = `${currentFontSize}px`;
-          table.style.color = mode.color;
-          table.style.background = bgToggle.checked
-            ? mode.background
-            : "transparent";
-        }
-      }
-
-      function buildAsciiEffect() {
-        if (asciiEffect?.domElement?.parentNode) {
-          asciiEffect.domElement.parentNode.removeChild(asciiEffect.domElement);
-        }
-
-        asciiEffect = new AsciiEffect(renderer, getEffectiveChars(), {
-          invert: true,
-          resolution: getAsciiResolutionFromFontSize(currentFontSize),
-          scale: 1,
+      function prepareOBJMaterials(obj) {
+        obj.traverse((child) => {
+          if (child.isMesh) {
+            child.material = new THREE.MeshStandardMaterial({
+              color: 0xffffff,
+              roughness: 0.5,
+              metalness: 0.25,
+            });
+          }
         });
-
-        asciiEffect.setSize(window.innerWidth, window.innerHeight);
-        canvasContainer.appendChild(asciiEffect.domElement);
-        styleAsciiEffect();
-        updateViewMode();
       }
 
-      function updateViewMode() {
-        asciiViewBtn.classList.toggle("active", viewMode === "ascii");
-        normalViewBtn.classList.toggle("active", viewMode === "normal");
-
-        if (viewMode === "normal") {
-          renderer.domElement.style.display = "block";
-          if (asciiEffect) asciiEffect.domElement.style.display = "none";
-          return;
-        }
-
-        // ASCII view
-        if (asciiEffect) asciiEffect.domElement.style.display = "block";
-
-        // If ASCII background is ON, show only the ASCII layer.
-        // If OFF, keep the normal renderer under it.
-        renderer.domElement.style.display = bgToggle.checked ? "none" : "block";
-      }
-
-      /* ===========================
-         MODEL LOADING
-      =========================== */
-      function loadDefaultModel() {
+      function loadDefaultAstronaut() {
         showLoading("Loading astronaut...");
 
         objLoader.load(
           "https://raw.githubusercontent.com/Aishwary2004Gupta/ThreeJS_visuals/main/assets/astronaut.obj",
           (obj) => {
-            obj.traverse((child) => {
-              if (child.isMesh) {
-                child.material = new THREE.MeshStandardMaterial({
-                  color: 0xffffff,
-                  roughness: 0.5,
-                  metalness: 0.25,
-                });
-              }
-            });
-
+            prepareOBJMaterials(obj);
             clearModel();
             scene.add(obj);
             currentModel = obj;
             autoRotate = true;
-            fitCameraToModel(obj);
+            fitCameraToObject(obj);
             hideLoading();
           },
           undefined,
           (err) => {
-            console.error("Failed to load default model:", err);
+            console.error(err);
             hideLoading();
-            alert("Could not load the default model.");
-          },
-        );
-      }
-
-      function loadGLTF(url, name) {
-        showLoading(`Loading ${name}...`);
-
-        gltfLoader.load(
-          url,
-          (gltf) => {
-            clearModel();
-            const model = gltf.scene;
-            scene.add(model);
-            currentModel = model;
-            autoRotate = true;
-            fitCameraToModel(model);
-            hideLoading();
-            revokeCurrentURL();
-          },
-          undefined,
-          (err) => {
-            console.error("GLTF load error:", err);
-            hideLoading();
-            revokeCurrentURL();
-            alert("Failed to load GLTF/GLB file.");
           },
         );
       }
 
       function loadOBJ(url, name) {
-        showLoading(`Loading ${name}...`);
+        showLoading("Loading OBJ...");
 
         objLoader.load(
           url,
           (obj) => {
-            obj.traverse((child) => {
-              if (child.isMesh) {
-                child.material = new THREE.MeshStandardMaterial({
-                  color: 0xffffff,
-                  roughness: 0.5,
-                  metalness: 0.25,
-                });
-              }
-            });
-
+            prepareOBJMaterials(obj);
             clearModel();
             scene.add(obj);
             currentModel = obj;
             autoRotate = true;
-            fitCameraToModel(obj);
+            fitCameraToObject(obj);
             hideLoading();
-            revokeCurrentURL();
           },
           undefined,
           (err) => {
-            console.error("OBJ load error:", err);
+            console.error(err);
             hideLoading();
-            revokeCurrentURL();
-            alert("Failed to load OBJ file.");
           },
         );
       }
 
-      function loadImageAsPlane(url, name) {
-        showLoading(`Loading ${name}...`);
+      function loadGLTF(url, name) {
+        showLoading("Loading GLTF/GLB...");
 
-        const textureLoader = new THREE.TextureLoader();
-        textureLoader.load(
+        gltfLoader.load(
+          url,
+          (gltf) => {
+            clearModel();
+            scene.add(gltf.scene);
+            currentModel = gltf.scene;
+            autoRotate = true;
+            fitCameraToObject(gltf.scene);
+            hideLoading();
+          },
+          undefined,
+          (err) => {
+            console.error(err);
+            hideLoading();
+          },
+        );
+      }
+
+      async function loadUSDZ(url, name) {
+        showLoading("Loading USDZ...");
+
+        try {
+          const module = await import(
+            "https://esm.sh/three@0.160.0/examples/jsm/loaders/USDZLoader.js"
+          );
+
+          const loader = new module.USDZLoader();
+
+          loader.load(
+            url,
+            (object) => {
+              clearModel();
+              scene.add(object);
+              currentModel = object;
+              autoRotate = true;
+              fitCameraToObject(object);
+              hideLoading();
+            },
+            undefined,
+            (err) => {
+              console.error(err);
+              hideLoading();
+              alert("USDZ could not be loaded. Convert it to GLB if this fails.");
+            },
+          );
+        } catch (err) {
+          console.error(err);
+          hideLoading();
+          alert("USDZ loading is not available in this browser/build. Convert USDZ to GLB for best support.");
+        }
+      }
+
+      function loadImage(file) {
+        showLoading("Loading image...");
+
+        const url = URL.createObjectURL(file);
+
+        new THREE.TextureLoader().load(
           url,
           (texture) => {
-            texture.colorSpace = THREE.SRGBColorSpace;
-
             clearModel();
 
-            const imgW = texture.image.width || 1;
-            const imgH = texture.image.height || 1;
-            const aspect = imgW / imgH;
-
-            const height = 3;
-            const width = height * aspect;
-
-            const geometry = new THREE.PlaneGeometry(width, height);
+            const aspect = texture.image.width / texture.image.height;
+            const geometry = new THREE.PlaneGeometry(aspect * 3, 3);
             const material = new THREE.MeshBasicMaterial({
               map: texture,
               side: THREE.DoubleSide,
+              transparent: true,
             });
 
             const plane = new THREE.Mesh(geometry, material);
             scene.add(plane);
+
             currentModel = plane;
             autoRotate = false;
-            fitCameraToModel(plane);
+
+            camera.position.set(0, 0, 5);
+            camera.near = 0.01;
+            camera.far = 100;
+            camera.updateProjectionMatrix();
+
+            controls.target.set(0, 0, 0);
+            controls.update();
 
             hideLoading();
-            revokeCurrentURL();
           },
           undefined,
           (err) => {
-            console.error("Image load error:", err);
+            console.error(err);
             hideLoading();
-            revokeCurrentURL();
-            alert("Failed to load image.");
           },
         );
       }
+
+      function calculateAsciiGrid() {
+        const charWidth = fontSize * 0.62;
+        const charHeight = fontSize * 1.0;
+
+        const cols = Math.floor(window.innerWidth / charWidth);
+        const rows = Math.floor(window.innerHeight / charHeight);
+
+        return {
+          cols: Math.max(cols, 20),
+          rows: Math.max(rows, 20),
+        };
+      }
+
+      function brightnessToChar(r, g, b, a) {
+        if (a < 10) {
+          return showAsciiBackground ? backgroundChar : " ";
+        }
+
+        const brightness = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
+
+        let index = Math.floor(brightness * (chars.length - 1));
+
+        index = Math.max(1, index);
+        index = Math.min(chars.length - 1, index);
+
+        return chars[index];
+      }
+
+      function renderAscii() {
+        const { cols, rows } = calculateAsciiGrid();
+
+        if (sampleCanvas.width !== cols || sampleCanvas.height !== rows) {
+          sampleCanvas.width = cols;
+          sampleCanvas.height = rows;
+        }
+
+        sampleCtx.clearRect(0, 0, cols, rows);
+        sampleCtx.drawImage(renderer.domElement, 0, 0, cols, rows);
+
+        const imageData = sampleCtx.getImageData(0, 0, cols, rows).data;
+
+        let output = "";
+
+        for (let y = 0; y < rows; y++) {
+          let row = "";
+
+          for (let x = 0; x < cols; x++) {
+            const index = (y * cols + x) * 4;
+            const r = imageData[index];
+            const g = imageData[index + 1];
+            const b = imageData[index + 2];
+            const a = imageData[index + 3];
+
+            row += brightnessToChar(r, g, b, a);
+          }
+
+          output += row + "\n";
+        }
+
+        asciiOutput.textContent = output;
+      }
+
+      uploadBtn.addEventListener("click", () => {
+        fileInput.click();
+      });
 
       fileInput.addEventListener("change", (e) => {
         const file = e.target.files[0];
@@ -899,165 +641,68 @@
         const ext = name.split(".").pop().toLowerCase();
         const url = URL.createObjectURL(file);
 
-        currentObjectURL = url;
-        fileNameEl.textContent = name;
+        fileName.textContent = name;
 
-        if (ext === "glb" || ext === "gltf") {
-          loadGLTF(url, name);
-        } else if (ext === "obj") {
+        if (ext === "obj") {
           loadOBJ(url, name);
+        } else if (ext === "glb" || ext === "gltf") {
+          loadGLTF(url, name);
+        } else if (ext === "usdz") {
+          loadUSDZ(url, name);
         } else if (["png", "jpg", "jpeg", "webp"].includes(ext)) {
-          loadImageAsPlane(url, name);
+          loadImage(file);
         } else {
-          revokeCurrentURL();
-          alert(
-            "Unsupported file type. Use OBJ, GLB, GLTF, PNG, JPG, JPEG, or WEBP.",
-          );
+          alert("Unsupported file type.");
         }
 
         e.target.value = "";
       });
 
-      /* ===========================
-         UI EVENTS
-      =========================== */
-      asciiViewBtn.addEventListener("click", () => {
-        viewMode = "ascii";
-        updateViewMode();
+      asciiBgToggle.addEventListener("change", () => {
+        showAsciiBackground = asciiBgToggle.checked;
       });
 
-      normalViewBtn.addEventListener("click", () => {
-        viewMode = "normal";
-        updateViewMode();
+      charSetInput.addEventListener("change", () => {
+        chars = charSetInput.value;
       });
 
-      charSetSelect.addEventListener("change", (e) => {
-        currentChars = e.target.value;
-        buildAsciiEffect();
+      fontSizeInput.addEventListener("input", () => {
+        fontSize = Number(fontSizeInput.value);
+        fontSizeValue.textContent = fontSize + "px";
+        asciiOutput.style.fontSize = fontSize + "px";
       });
 
-      fontSizeSlider.addEventListener("input", (e) => {
-        currentFontSize = parseInt(e.target.value, 10);
-        fontSizeVal.textContent = `${currentFontSize}px`;
-        buildAsciiEffect();
+      rotateSpeedInput.addEventListener("input", () => {
+        rotateSpeed = Number(rotateSpeedInput.value) * 0.0018;
       });
 
-      rotationSpeedSlider.addEventListener("input", (e) => {
-        const val = parseFloat(e.target.value);
-        rotationSpeed = val * 0.002;
-        rotationSpeedVal.textContent = val.toFixed(1);
+      colorMode.addEventListener("change", () => {
+        asciiOutput.style.color = colorMode.value;
       });
 
-      colorModeSelect.addEventListener("change", () => {
-        applySceneBackground();
-        styleAsciiEffect();
-      });
-
-      bgToggle.addEventListener("change", () => {
-        // Rebuild because full-screen ASCII fill depends on removing spaces
-        buildAsciiEffect();
-      });
-
-      /* ===========================
-         AXIS HUD
-      =========================== */
-      const axisCanvas = document.getElementById("axisCanvas");
-      const axisCtx = axisCanvas.getContext("2d");
-
-      function drawAxis(v, color, label, cx, cy, scale) {
-        const ex = cx + v.x * scale;
-        const ey = cy - v.y * scale;
-        const alpha = v.z < 0 ? 0.3 : 0.95;
-
-        axisCtx.strokeStyle = color;
-        axisCtx.fillStyle = color;
-        axisCtx.globalAlpha = alpha;
-        axisCtx.lineWidth = 2.2;
-        axisCtx.beginPath();
-        axisCtx.moveTo(cx, cy);
-        axisCtx.lineTo(ex, ey);
-        axisCtx.stroke();
-
-        axisCtx.globalAlpha = 1;
-        axisCtx.font = "11px Fira Code, monospace";
-        axisCtx.fillText(label, ex + 3, ey + 3);
-      }
-
-      function updateAxisHUD() {
-        const w = axisCanvas.width;
-        const h = axisCanvas.height;
-        const cx = w / 2;
-        const cy = h / 2;
-        const scale = w * 0.35;
-
-        axisCtx.clearRect(0, 0, w, h);
-
-        const invQ = camera.quaternion.clone().invert();
-        const xV = new THREE.Vector3(1, 0, 0).applyQuaternion(invQ);
-        const yV = new THREE.Vector3(0, 1, 0).applyQuaternion(invQ);
-        const zV = new THREE.Vector3(0, 0, 1).applyQuaternion(invQ);
-
-        axisCtx.globalAlpha = 0.8;
-        axisCtx.strokeStyle = "rgba(255,255,255,0.12)";
-        axisCtx.lineWidth = 1;
-        axisCtx.beginPath();
-        axisCtx.arc(cx, cy, scale, 0, Math.PI * 2);
-        axisCtx.stroke();
-
-        drawAxis(xV, "#ff4d4d", "X", cx, cy, scale);
-        drawAxis(yV, "#46ff7a", "Y", cx, cy, scale);
-        drawAxis(zV, "#4da6ff", "Z", cx, cy, scale);
-      }
-
-      /* ===========================
-         RESIZE
-      =========================== */
-      function onResize() {
+      window.addEventListener("resize", () => {
         camera.aspect = window.innerWidth / window.innerHeight;
         camera.updateProjectionMatrix();
-
         renderer.setSize(window.innerWidth, window.innerHeight);
+      });
 
-        if (asciiEffect) {
-          asciiEffect.setSize(window.innerWidth, window.innerHeight);
-          styleAsciiEffect();
-        }
-
-        updateViewMode();
-      }
-
-      window.addEventListener("resize", onResize);
-
-      /* ===========================
-         ANIMATION
-      =========================== */
       function animate() {
         requestAnimationFrame(animate);
 
-        if (!ctrlPressed) {
-          controls.update();
-        }
+        controls.update();
 
         if (autoRotate && currentModel) {
-          currentModel.rotation.y += rotationSpeed;
+          currentModel.rotation.y += rotateSpeed;
         }
 
-        updateAxisHUD();
-
-        if (viewMode === "ascii") {
-          if (asciiEffect) asciiEffect.render(scene, camera);
-        } else {
-          renderer.render(scene, camera);
-        }
+        renderer.render(scene, camera);
+        renderAscii();
       }
 
-      /* ===========================
-         INIT
-      =========================== */
-      applySceneBackground();
-      buildAsciiEffect();
-      loadDefaultModel();
-      updateViewMode();
+      asciiOutput.style.fontSize = fontSize + "px";
+      asciiOutput.style.color = colorMode.value;
+
+      loadDefaultAstronaut();
       animate();
     </script>
   </body>

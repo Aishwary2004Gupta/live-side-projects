@@ -371,7 +371,11 @@
         <label>Chars</label>
         <select id="charSet">
           <option value=" .:-=+*#%@">Standard</option>
-          <option value=" .,:;irsXA253hMHGS#9B@$">Detailed</option>
+          <option
+            value=" .'`^,:;Il!i~+_-?][}{1)(|/tfjrxnuvczXYUJCLQ0OZmwqpdbkhao*#MW8%B@$"
+          >
+            Detailed
+          </option>
           <option value=" .oO0@">Simple Circles</option>
           <option value=" .+x*#">Cross Hatch</option>
           <option value=" .░▒█">Block</option>
@@ -489,6 +493,9 @@
       let rotationSpeed = parseFloat(rotationSpeedSlider.value) * 0.002;
       let autoRotate = true;
 
+      let fontRebuildTimer = null;
+      let wasAutoRotatingBeforeFontDrag = false;
+
       const colorModes = {
         white: { color: "#ffffff", background: "#000000" },
         green: { color: "#00ff41", background: "#000000" },
@@ -571,7 +578,7 @@
       }
 
       function sanitizeAsciiChars(chars) {
-        return chars.replace(/[<>&]/g, "");
+        return chars.replace(/</g, "").replace(/>/g, "").replace(/&/g, "");
       }
 
       function getEffectiveChars() {
@@ -581,6 +588,7 @@
           if (chars.startsWith(" ")) {
             return "." + chars.slice(1);
           }
+
           return "." + chars;
         }
 
@@ -589,6 +597,10 @@
         }
 
         return " " + chars;
+      }
+
+      function getAsciiResolutionFromFontSize(px) {
+        return THREE.MathUtils.clamp(2 / px, 0.05, 0.5);
       }
 
       function styleAsciiEffect() {
@@ -606,31 +618,41 @@
         el.style.userSelect = "none";
         el.style.color = mode.color;
         el.style.backgroundColor = mode.background;
-
-        const table = el.querySelector("table");
-        if (table) {
-          table.style.fontFamily = '"Fira Code", monospace';
-          table.style.fontVariantLigatures = "none";
-          table.style.fontKerning = "none";
-          table.style.letterSpacing = "0px";
-          table.style.fontSize = currentFontSize + "px";
-          table.style.lineHeight = currentFontSize + "px";
-        }
       }
 
       function buildAsciiEffect() {
+        const savedCameraPosition = camera.position.clone();
+        const savedCameraQuaternion = camera.quaternion.clone();
+        const savedCameraZoom = camera.zoom;
+        const savedControlsTarget = controls.target.clone();
+        const savedModelQuaternion = currentModel
+          ? currentModel.quaternion.clone()
+          : null;
+
         if (asciiEffect?.domElement?.parentNode) {
           asciiEffect.domElement.parentNode.removeChild(asciiEffect.domElement);
         }
 
         asciiEffect = new AsciiEffect(renderer, getEffectiveChars(), {
           invert: true,
-          resolution: 0.18,
-          scale: 1,
+          resolution: getAsciiResolutionFromFontSize(currentFontSize),
         });
 
         asciiEffect.setSize(window.innerWidth, window.innerHeight);
         canvasContainer.appendChild(asciiEffect.domElement);
+
+        camera.position.copy(savedCameraPosition);
+        camera.quaternion.copy(savedCameraQuaternion);
+        camera.zoom = savedCameraZoom;
+        camera.updateProjectionMatrix();
+
+        controls.target.copy(savedControlsTarget);
+        controls.update();
+
+        if (currentModel && savedModelQuaternion) {
+          currentModel.quaternion.copy(savedModelQuaternion);
+        }
+
         styleAsciiEffect();
         updateViewMode();
       }
@@ -639,13 +661,13 @@
         asciiViewBtn.classList.toggle("active", viewMode === "ascii");
         normalViewBtn.classList.toggle("active", viewMode === "normal");
 
-        if (viewMode === "ascii") {
-          renderer.domElement.style.display = "none";
-          if (asciiEffect) asciiEffect.domElement.style.display = "block";
-        } else {
-          renderer.domElement.style.display = "block";
-          if (asciiEffect) asciiEffect.domElement.style.display = "none";
+        const isAscii = viewMode === "ascii";
+
+        if (asciiEffect) {
+          asciiEffect.domElement.style.display = isAscii ? "block" : "none";
         }
+
+        renderer.domElement.style.display = isAscii ? "none" : "block";
       }
 
       function loadDefaultModel() {
@@ -828,10 +850,28 @@
         buildAsciiEffect();
       });
 
+      fontSizeSlider.addEventListener("pointerdown", () => {
+        wasAutoRotatingBeforeFontDrag = autoRotate;
+        autoRotate = false;
+      });
+
+      fontSizeSlider.addEventListener("pointerup", () => {
+        autoRotate = wasAutoRotatingBeforeFontDrag;
+      });
+
+      fontSizeSlider.addEventListener("pointercancel", () => {
+        autoRotate = wasAutoRotatingBeforeFontDrag;
+      });
+
       fontSizeSlider.addEventListener("input", (e) => {
         currentFontSize = parseInt(e.target.value, 10);
         fontSizeVal.textContent = `${currentFontSize}px`;
-        styleAsciiEffect();
+
+        clearTimeout(fontRebuildTimer);
+
+        fontRebuildTimer = setTimeout(() => {
+          buildAsciiEffect();
+        }, 120);
       });
 
       rotationSpeedSlider.addEventListener("input", (e) => {
@@ -898,8 +938,19 @@
       }
 
       window.addEventListener("resize", () => {
+        const savedCameraPosition = camera.position.clone();
+        const savedCameraQuaternion = camera.quaternion.clone();
+        const savedCameraZoom = camera.zoom;
+        const savedControlsTarget = controls.target.clone();
+
         camera.aspect = window.innerWidth / window.innerHeight;
+        camera.position.copy(savedCameraPosition);
+        camera.quaternion.copy(savedCameraQuaternion);
+        camera.zoom = savedCameraZoom;
         camera.updateProjectionMatrix();
+
+        controls.target.copy(savedControlsTarget);
+        controls.update();
 
         renderer.setSize(window.innerWidth, window.innerHeight);
 

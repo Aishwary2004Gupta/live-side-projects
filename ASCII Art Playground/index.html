@@ -375,7 +375,11 @@
         <label>Chars</label>
         <select id="charSet">
           <option value=" .:-=+*#%@">Standard</option>
-          <option value=" .,:;irsXA253hMHGS#9B&@">Detailed</option>
+          <option
+            value=" .'`^,:;Il!i><~+_-?][}{1)(|/tfjrxnuvczXYUJCLQ0OZmwqpdbkhao*#MW&8%B@$"
+          >
+            Detailed
+          </option>
           <option value=" .oO0@">Simple Circles</option>
           <option value=" .+x*#">Cross Hatch</option>
           <option value=" .░▒█">Block</option>
@@ -599,27 +603,21 @@
             ? "." + currentChars.slice(1)
             : currentChars;
         }
-        return currentChars.startsWith(" ") ? currentChars : " " + currentChars;
+        return currentChars.startsWith(" ")
+          ? currentChars
+          : " " + currentChars;
       }
 
       // AsciiEffect derives its internal font size as (2 / resolution).
       // So resolution = 2 / desiredFontSize makes the slider value exact.
-      function getAsciiResolutionFromFontSize() {
-        return 0.18;
+      function getAsciiResolutionFromFontSize(px) {
+        return THREE.MathUtils.clamp(2 / px, 0.05, 0.5);
       }
 
       function styleAsciiEffect() {
         if (!asciiEffect) return;
         const mode = colorModes[colorModeSelect.value];
         const el = asciiEffect.domElement;
-
-        const table = el.querySelector("table");
-        if (table) {
-          table.style.fontFamily = '"Fira Code", monospace';
-          table.style.fontVariantLigatures = "none";
-          table.style.fontKerning = "none";
-          table.style.letterSpacing = "0px";
-        }
 
         el.style.position = "absolute";
         el.style.top = "0";
@@ -642,8 +640,7 @@
 
         asciiEffect = new AsciiEffect(renderer, getEffectiveChars(), {
           invert: true,
-          resolution: 0.18,
-          scale: 1,
+          resolution: getAsciiResolutionFromFontSize(currentFontSize),
         });
 
         asciiEffect.setSize(window.innerWidth, window.innerHeight);
@@ -851,15 +848,12 @@
       });
 
       // Debounced rebuild — rebuilding the effect on every slider tick is heavy
-      // let fontRebuildTimer = null;
-
+      let fontRebuildTimer = null;
       fontSizeSlider.addEventListener("input", (e) => {
         currentFontSize = parseInt(e.target.value, 10);
         fontSizeVal.textContent = `${currentFontSize}px`;
-
-        if (asciiEffect) {
-          asciiEffect.domElement.style.fontSize = `${currentFontSize}px`;
-        }
+        clearTimeout(fontRebuildTimer);
+        fontRebuildTimer = setTimeout(buildAsciiEffect, 120);
       });
 
       rotationSpeedSlider.addEventListener("input", (e) => {

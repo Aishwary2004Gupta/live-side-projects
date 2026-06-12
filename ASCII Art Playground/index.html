@@ -4,6 +4,7 @@
     <meta charset="UTF-8" />
     <title>ASCII Art Playground</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
     <style>
       @import url("https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;600&display=swap");
 
@@ -30,13 +31,22 @@
         z-index: 1;
       }
 
-      #canvasContainer canvas,
-      #canvasContainer > div {
+      #canvasContainer > canvas {
         position: absolute;
         inset: 0;
+        z-index: 1;
       }
 
-      /* ===== TOP BAR ===== */
+      .ascii-layer {
+        position: absolute !important;
+        inset: 0 !important;
+        width: 100% !important;
+        height: 100% !important;
+        z-index: 2 !important;
+        pointer-events: none !important;
+        user-select: none !important;
+      }
+
       #topBar {
         position: fixed;
         top: 0;
@@ -126,7 +136,6 @@
         display: none;
       }
 
-      /* ===== TOGGLE ===== */
       .toggle-wrapper {
         display: flex;
         align-items: center;
@@ -184,7 +193,6 @@
         background: #fff;
       }
 
-      /* ===== BOTTOM BAR ===== */
       #settingsPanel {
         position: fixed;
         bottom: 0;
@@ -265,7 +273,6 @@
         font-size: 11px;
       }
 
-      /* ===== AXIS HUD ===== */
       #axisHUD {
         position: fixed;
         bottom: 74px;
@@ -283,7 +290,6 @@
         backdrop-filter: blur(6px);
       }
 
-      /* ===== LOADING ===== */
       #loadingOverlay {
         position: fixed;
         inset: 0;
@@ -354,18 +360,12 @@
           </div>
         </label>
 
-        <button
-          id="uploadBtn"
-          class="btn"
-          onclick="document.getElementById('fileInput').click()"
-        >
-          + Upload Model / Image
-        </button>
+        <button id="uploadBtn" class="btn">+ Upload Model / Image</button>
 
         <input
           type="file"
           id="fileInput"
-          accept=".obj,.glb,.gltf,.png,.jpg,.jpeg,.webp"
+          accept=".obj,.glb,.gltf,.usdz,.png,.jpg,.jpeg,.webp"
         />
       </div>
     </div>
@@ -382,7 +382,7 @@
         <select id="charSet">
           <option value=" .:-=+*#%@">Standard</option>
           <option
-            value=" .'`^,:;Il!i><~+_-?][}{1)(|/tfjrxnuvczXYUJCLQ0OZmwqpdbkhao*#MW&8%B@$"
+            value=" .'`^,:;Il!i><~+_-?][}{1)(|/tfjrxnuvczXYUJCLQ0OZmwqpdbkhao*#MW&amp;8%B@$"
           >
             Detailed
           </option>
@@ -436,12 +436,10 @@
       import { OBJLoader } from "https://esm.sh/three@0.160.0/examples/jsm/loaders/OBJLoader.js";
       import { AsciiEffect } from "https://esm.sh/three@0.160.0/examples/jsm/effects/AsciiEffect.js";
 
-      /* ===========================
-         DOM
-      =========================== */
       const canvasContainer = document.getElementById("canvasContainer");
       const fileNameEl = document.getElementById("fileName");
       const fileInput = document.getElementById("fileInput");
+      const uploadBtn = document.getElementById("uploadBtn");
       const asciiViewBtn = document.getElementById("asciiViewBtn");
       const normalViewBtn = document.getElementById("normalViewBtn");
       const bgToggle = document.getElementById("bgToggle");
@@ -454,9 +452,6 @@
       const loadingOverlay = document.getElementById("loadingOverlay");
       const loadingText = document.getElementById("loadingText");
 
-      /* ===========================
-         SCENE SETUP
-      =========================== */
       const scene = new THREE.Scene();
 
       const camera = new THREE.PerspectiveCamera(
@@ -470,7 +465,9 @@
       const renderer = new THREE.WebGLRenderer({
         antialias: true,
         alpha: false,
+        preserveDrawingBuffer: true,
       });
+
       renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
       renderer.setSize(window.innerWidth, window.innerHeight);
       renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -479,12 +476,9 @@
       renderer.domElement.style.left = "0";
       renderer.domElement.style.width = "100%";
       renderer.domElement.style.height = "100%";
-      renderer.domElement.style.display = "block";
+      renderer.domElement.style.zIndex = "1";
       canvasContainer.appendChild(renderer.domElement);
 
-      /* ===========================
-         LIGHTS
-      =========================== */
       scene.add(new THREE.AmbientLight(0xffffff, 0.85));
 
       const dirLight = new THREE.DirectionalLight(0xffffff, 6);
@@ -495,16 +489,12 @@
       backLight.position.set(-5, -4, -5);
       scene.add(backLight);
 
-      /* ===========================
-         CONTROLS
-      =========================== */
       const controls = new OrbitControls(camera, canvasContainer);
       controls.enableDamping = true;
       controls.dampingFactor = 0.06;
       controls.enablePan = false;
       controls.screenSpacePanning = false;
 
-      // Prevent CTRL from affecting controls
       let ctrlPressed = false;
 
       function setCtrlBlocked(blocked) {
@@ -513,22 +503,17 @@
       }
 
       window.addEventListener("keydown", (e) => {
-        if (e.key === "Control") {
-          setCtrlBlocked(true);
-        }
+        if (e.key === "Control") setCtrlBlocked(true);
       });
 
       window.addEventListener("keyup", (e) => {
-        if (e.key === "Control") {
-          setCtrlBlocked(false);
-        }
+        if (e.key === "Control") setCtrlBlocked(false);
       });
 
       window.addEventListener("blur", () => {
         setCtrlBlocked(false);
       });
 
-      // Block ctrl + wheel / ctrl + pointer interactions
       ["pointerdown", "mousedown", "wheel"].forEach((type) => {
         canvasContainer.addEventListener(
           type,
@@ -554,9 +539,6 @@
         e.preventDefault();
       });
 
-      /* ===========================
-         STATE
-      =========================== */
       const gltfLoader = new GLTFLoader();
       const objLoader = new OBJLoader();
 
@@ -564,7 +546,7 @@
       let currentObjectURL = null;
       let asciiEffect = null;
 
-      let viewMode = "ascii"; // 'ascii' | 'normal'
+      let viewMode = "ascii";
       let currentChars = charSetSelect.value;
       let currentFontSize = parseInt(fontSizeSlider.value, 10);
       let rotationSpeed = parseFloat(rotationSpeedSlider.value) * 0.002;
@@ -578,9 +560,6 @@
         red: { color: "#ff4040", background: "#120000" },
       };
 
-      /* ===========================
-         HELPERS
-      =========================== */
       function showLoading(text = "Loading...") {
         loadingText.textContent = text;
         loadingOverlay.classList.add("visible");
@@ -629,15 +608,18 @@
       }
 
       function fitCameraToModel(model) {
+        model.updateMatrixWorld(true);
+
         const box = new THREE.Box3().setFromObject(model);
         const center = box.getCenter(new THREE.Vector3());
         const size = box.getSize(new THREE.Vector3());
 
         model.position.sub(center);
+        model.updateMatrixWorld(true);
 
         const maxDim = Math.max(size.x, size.y, size.z, 1);
         const fov = THREE.MathUtils.degToRad(camera.fov);
-        let cameraZ = (maxDim / (2 * Math.tan(fov / 2))) * 2.1;
+        const cameraZ = (maxDim / (2 * Math.tan(fov / 2))) * 2.1;
 
         camera.position.set(0, 0, cameraZ);
         camera.near = Math.max(0.01, cameraZ / 100);
@@ -648,44 +630,44 @@
         controls.update();
       }
 
-      function applySceneBackground() {
-        const mode = colorModes[colorModeSelect.value];
-        scene.background = new THREE.Color(mode.background);
-        renderer.setClearColor(mode.background, 1);
-        document.body.style.background = mode.background;
+      function getMode() {
+        return colorModes[colorModeSelect.value] || colorModes.white;
       }
 
-      /* ===========================
-         ASCII LOGIC
-         Based on the style of the code you shared:
-         renderer canvas + ascii layer both live in the container
-      =========================== */
+      function setRenderBackground(hex) {
+        scene.background = new THREE.Color(hex);
+        renderer.setClearColor(hex, 1);
+        document.body.style.background = hex;
+      }
+
       function getEffectiveChars() {
-        // If ASCII background is ON:
-        // remove spaces so dark areas also use characters,
-        // filling the screen with ASCII.
         if (bgToggle.checked) {
-          const noSpaces = currentChars.replace(/\s/g, "");
-          return noSpaces.length ? noSpaces : ".:-=+*#%@";
+          let cleaned = currentChars.replace(/\s/g, "");
+
+          if (!cleaned.length) cleaned = ".:-=+*#%@";
+
+          if (cleaned.charAt(0) !== ".") {
+            cleaned = "." + cleaned;
+          }
+
+          return cleaned;
         }
 
-        // If OFF:
-        // keep spaces so dark areas remain transparent / empty
-        return currentChars;
+        const withoutLeadingSpace = currentChars.replace(/^\s+/, "");
+        return " " + withoutLeadingSpace;
       }
 
       function getAsciiResolutionFromFontSize(px) {
-        // AsciiEffect internally derives character size from resolution.
-        // This mapping makes the slider actually affect the output.
-        return THREE.MathUtils.clamp(2 / px, 0.08, 0.5);
+        return THREE.MathUtils.clamp(2.0 / px, 0.08, 0.5);
       }
 
       function styleAsciiEffect() {
         if (!asciiEffect) return;
 
-        const mode = colorModes[colorModeSelect.value];
+        const mode = getMode();
         const el = asciiEffect.domElement;
 
+        el.classList.add("ascii-layer");
         el.style.position = "absolute";
         el.style.top = "0";
         el.style.left = "0";
@@ -696,27 +678,12 @@
         el.style.overflow = "hidden";
         el.style.pointerEvents = "none";
         el.style.userSelect = "none";
-        el.style.zIndex = "2";
         el.style.color = mode.color;
-        el.style.background = bgToggle.checked
-          ? mode.background
-          : "transparent";
-
-        const table = el.querySelector("table");
-        if (table) {
-          table.style.width = "100%";
-          table.style.height = "100%";
-          table.style.margin = "0";
-          table.style.padding = "0";
-          table.style.borderCollapse = "collapse";
-          table.style.fontFamily = `"Fira Code", "Courier New", monospace`;
-          table.style.fontSize = `${currentFontSize}px`;
-          table.style.lineHeight = `${currentFontSize}px`;
-          table.style.color = mode.color;
-          table.style.background = bgToggle.checked
-            ? mode.background
-            : "transparent";
-        }
+        el.style.background = mode.background;
+        el.style.backgroundColor = mode.background;
+        el.style.fontFamily = `"Fira Code", "Courier New", monospace`;
+        el.style.fontSize = `${currentFontSize}px`;
+        el.style.lineHeight = `${currentFontSize}px`;
       }
 
       function buildAsciiEffect() {
@@ -725,7 +692,7 @@
         }
 
         asciiEffect = new AsciiEffect(renderer, getEffectiveChars(), {
-          invert: true,
+          invert: false,
           resolution: getAsciiResolutionFromFontSize(currentFontSize),
           scale: 1,
         });
@@ -741,38 +708,43 @@
         normalViewBtn.classList.toggle("active", viewMode === "normal");
 
         if (viewMode === "normal") {
-          renderer.domElement.style.display = "block";
-          if (asciiEffect) asciiEffect.domElement.style.display = "none";
+          renderer.domElement.style.opacity = "1";
+          renderer.domElement.style.pointerEvents = "auto";
+
+          if (asciiEffect) {
+            asciiEffect.domElement.style.display = "none";
+          }
+
           return;
         }
 
-        // ASCII view
-        if (asciiEffect) asciiEffect.domElement.style.display = "block";
+        renderer.domElement.style.opacity = "0";
+        renderer.domElement.style.pointerEvents = "none";
 
-        // If ASCII background is ON, show only the ASCII layer.
-        // If OFF, keep the normal renderer under it.
-        renderer.domElement.style.display = bgToggle.checked ? "none" : "block";
+        if (asciiEffect) {
+          asciiEffect.domElement.style.display = "block";
+        }
       }
 
-      /* ===========================
-         MODEL LOADING
-      =========================== */
+      function applyOBJMaterial(obj) {
+        obj.traverse((child) => {
+          if (child.isMesh) {
+            child.material = new THREE.MeshStandardMaterial({
+              color: 0xffffff,
+              roughness: 0.5,
+              metalness: 0.25,
+            });
+          }
+        });
+      }
+
       function loadDefaultModel() {
         showLoading("Loading astronaut...");
 
         objLoader.load(
           "https://raw.githubusercontent.com/Aishwary2004Gupta/ThreeJS_visuals/main/assets/astronaut.obj",
           (obj) => {
-            obj.traverse((child) => {
-              if (child.isMesh) {
-                child.material = new THREE.MeshStandardMaterial({
-                  color: 0xffffff,
-                  roughness: 0.5,
-                  metalness: 0.25,
-                });
-              }
-            });
-
+            applyOBJMaterial(obj);
             clearModel();
             scene.add(obj);
             currentModel = obj;
@@ -784,7 +756,7 @@
           (err) => {
             console.error("Failed to load default model:", err);
             hideLoading();
-            alert("Could not load the default model.");
+            alert("Could not load the default astronaut model.");
           },
         );
       }
@@ -796,11 +768,13 @@
           url,
           (gltf) => {
             clearModel();
+
             const model = gltf.scene;
             scene.add(model);
             currentModel = model;
             autoRotate = true;
             fitCameraToModel(model);
+
             hideLoading();
             revokeCurrentURL();
           },
@@ -820,21 +794,13 @@
         objLoader.load(
           url,
           (obj) => {
-            obj.traverse((child) => {
-              if (child.isMesh) {
-                child.material = new THREE.MeshStandardMaterial({
-                  color: 0xffffff,
-                  roughness: 0.5,
-                  metalness: 0.25,
-                });
-              }
-            });
-
+            applyOBJMaterial(obj);
             clearModel();
             scene.add(obj);
             currentModel = obj;
             autoRotate = true;
             fitCameraToModel(obj);
+
             hideLoading();
             revokeCurrentURL();
           },
@@ -848,10 +814,49 @@
         );
       }
 
+      async function loadUSDZ(url, name) {
+        showLoading(`Loading ${name}...`);
+
+        try {
+          const module = await import(
+            "https://esm.sh/three@0.160.0/examples/jsm/loaders/USDZLoader.js"
+          );
+
+          const loader = new module.USDZLoader();
+
+          loader.load(
+            url,
+            (object) => {
+              clearModel();
+              scene.add(object);
+              currentModel = object;
+              autoRotate = true;
+              fitCameraToModel(object);
+
+              hideLoading();
+              revokeCurrentURL();
+            },
+            undefined,
+            (err) => {
+              console.error("USDZ load error:", err);
+              hideLoading();
+              revokeCurrentURL();
+              alert("Failed to load USDZ file. If it fails, convert it to GLB.");
+            },
+          );
+        } catch (err) {
+          console.error("USDZ loader import error:", err);
+          hideLoading();
+          revokeCurrentURL();
+          alert("USDZ loading is not available here. Convert USDZ to GLB.");
+        }
+      }
+
       function loadImageAsPlane(url, name) {
         showLoading(`Loading ${name}...`);
 
         const textureLoader = new THREE.TextureLoader();
+
         textureLoader.load(
           url,
           (texture) => {
@@ -873,6 +878,7 @@
             });
 
             const plane = new THREE.Mesh(geometry, material);
+
             scene.add(plane);
             currentModel = plane;
             autoRotate = false;
@@ -891,6 +897,10 @@
         );
       }
 
+      uploadBtn.addEventListener("click", () => {
+        fileInput.click();
+      });
+
       fileInput.addEventListener("change", (e) => {
         const file = e.target.files[0];
         if (!file) return;
@@ -906,21 +916,20 @@
           loadGLTF(url, name);
         } else if (ext === "obj") {
           loadOBJ(url, name);
+        } else if (ext === "usdz") {
+          loadUSDZ(url, name);
         } else if (["png", "jpg", "jpeg", "webp"].includes(ext)) {
           loadImageAsPlane(url, name);
         } else {
           revokeCurrentURL();
           alert(
-            "Unsupported file type. Use OBJ, GLB, GLTF, PNG, JPG, JPEG, or WEBP.",
+            "Unsupported file type. Use OBJ, GLB, GLTF, USDZ, PNG, JPG, JPEG, or WEBP.",
           );
         }
 
         e.target.value = "";
       });
 
-      /* ===========================
-         UI EVENTS
-      =========================== */
       asciiViewBtn.addEventListener("click", () => {
         viewMode = "ascii";
         updateViewMode();
@@ -949,18 +958,13 @@
       });
 
       colorModeSelect.addEventListener("change", () => {
-        applySceneBackground();
         styleAsciiEffect();
       });
 
       bgToggle.addEventListener("change", () => {
-        // Rebuild because full-screen ASCII fill depends on removing spaces
         buildAsciiEffect();
       });
 
-      /* ===========================
-         AXIS HUD
-      =========================== */
       const axisCanvas = document.getElementById("axisCanvas");
       const axisCtx = axisCanvas.getContext("2d");
 
@@ -1009,9 +1013,6 @@
         drawAxis(zV, "#4da6ff", "Z", cx, cy, scale);
       }
 
-      /* ===========================
-         RESIZE
-      =========================== */
       function onResize() {
         camera.aspect = window.innerWidth / window.innerHeight;
         camera.updateProjectionMatrix();
@@ -1028,9 +1029,6 @@
 
       window.addEventListener("resize", onResize);
 
-      /* ===========================
-         ANIMATION
-      =========================== */
       function animate() {
         requestAnimationFrame(animate);
 
@@ -1045,13 +1043,18 @@
         updateAxisHUD();
 
         if (viewMode === "ascii") {
-          if (asciiEffect) asciiEffect.render(scene, camera);
+          setRenderBackground("#000000");
+
+          if (asciiEffect) {
+            asciiEffect.render(scene, camera);
+          }
         } else {
+          const mode = getMode();
+          setRenderBackground(mode.background);
           renderer.render(scene, camera);
         }
       }
 
-      applySceneBackground();
       buildAsciiEffect();
       loadDefaultModel();
       updateViewMode();

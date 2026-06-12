@@ -83,10 +83,7 @@
         font-size: 12px;
         padding: 7px 14px;
         cursor: pointer;
-        transition:
-          border-color 0.2s,
-          color 0.2s,
-          background 0.2s;
+        transition: border-color 0.2s, color 0.2s, background 0.2s;
         letter-spacing: 0.4px;
       }
 
@@ -226,15 +223,6 @@
         cursor: pointer;
       }
 
-      .setting-group input[type="range"]::-moz-range-thumb {
-        width: 12px;
-        height: 12px;
-        border: none;
-        border-radius: 50%;
-        background: #fff;
-        cursor: pointer;
-      }
-
       .setting-group select {
         background: #0a0a0a;
         border: 1px solid #333;
@@ -306,9 +294,7 @@
       }
 
       @keyframes spin {
-        to {
-          transform: rotate(360deg);
-        }
+        to { transform: rotate(360deg); }
       }
 
       @media (max-width: 900px) {
@@ -371,11 +357,8 @@
         <label>Chars</label>
         <select id="charSet">
           <option value=" .:-=+*#%@">Standard</option>
-          <option
-            value=" .'`^,:;Il!i~+_-?][}{1)(|/tfjrxnuvczXYUJCLQ0OZmwqpdbkhao*#MW8%B@$"
-          >
-            Detailed
-          </option>
+          <!-- Safe version of Detailed set (removed <, >, &) -->
+          <option value=" .'`^,:;Il!i~+_-?][}{1)(|/tfjrxnuvczXYUJCLQ0OZmwqpdbkhao*#MW8%B@$">Detailed</option>
           <option value=" .oO0@">Simple Circles</option>
           <option value=" .+x*#">Cross Hatch</option>
           <option value=" .░▒█">Block</option>
@@ -441,6 +424,9 @@
       const loadingOverlay = document.getElementById("loadingOverlay");
       const loadingText = document.getElementById("loadingText");
 
+      /* ===========================
+         SCENE SETUP
+      =========================== */
       const scene = new THREE.Scene();
       scene.background = new THREE.Color(0x000000);
 
@@ -461,25 +447,29 @@
       renderer.domElement.style.left = "0";
       canvasContainer.appendChild(renderer.domElement);
 
+      /* ===========================
+         LIGHTS
+      =========================== */
       scene.add(new THREE.AmbientLight(0xffffff, 0.85));
-
       const dirLight = new THREE.DirectionalLight(0xffffff, 6);
       dirLight.position.set(5, 10, 6);
       scene.add(dirLight);
-
       const backLight = new THREE.DirectionalLight(0xffffff, 2.2);
       backLight.position.set(-5, -4, -5);
       scene.add(backLight);
 
+      /* ===========================
+         CONTROLS
+      =========================== */
       const controls = new OrbitControls(camera, canvasContainer);
       controls.enableDamping = true;
       controls.dampingFactor = 0.06;
       controls.enablePan = false;
+      canvasContainer.addEventListener("contextmenu", (e) => e.preventDefault());
 
-      canvasContainer.addEventListener("contextmenu", (e) =>
-        e.preventDefault(),
-      );
-
+      /* ===========================
+         STATE
+      =========================== */
       const gltfLoader = new GLTFLoader();
       const objLoader = new OBJLoader();
 
@@ -504,6 +494,9 @@
         red: { color: "#ff4040", background: "#120000" },
       };
 
+      /* ===========================
+         HELPERS
+      =========================== */
       function showLoading(text = "Loading...") {
         loadingText.textContent = text;
         loadingOverlay.classList.add("visible");
@@ -522,32 +515,26 @@
 
       function disposeMaterial(material) {
         if (!material) return;
-
         if (Array.isArray(material)) {
           material.forEach(disposeMaterial);
           return;
         }
-
         for (const key in material) {
           const value = material[key];
           if (value && value.isTexture) value.dispose();
         }
-
         material.dispose?.();
       }
 
       function clearModel() {
         if (!currentModel) return;
-
         scene.remove(currentModel);
-
         currentModel.traverse((obj) => {
           if (obj.isMesh) {
             obj.geometry?.dispose?.();
             disposeMaterial(obj.material);
           }
         });
-
         currentModel = null;
       }
 
@@ -555,18 +542,14 @@
         const box = new THREE.Box3().setFromObject(model);
         const center = box.getCenter(new THREE.Vector3());
         const size = box.getSize(new THREE.Vector3());
-
         model.position.sub(center);
-
         const maxDim = Math.max(size.x, size.y, size.z, 0.001);
         const fov = THREE.MathUtils.degToRad(camera.fov);
         const cameraZ = (maxDim / (2 * Math.tan(fov / 2))) * 2.1;
-
         camera.position.set(0, 0, cameraZ);
         camera.near = Math.max(0.01, cameraZ / 100);
         camera.far = cameraZ * 100;
         camera.updateProjectionMatrix();
-
         controls.target.set(0, 0, 0);
         controls.update();
       }
@@ -577,6 +560,10 @@
         document.body.style.background = mode.background;
       }
 
+      /* ===========================
+         ASCII LOGIC
+      =========================== */
+      // Remove dangerous HTML characters (<, >, &) that break the layout during rotation
       function sanitizeAsciiChars(chars) {
         return chars.replace(/</g, "").replace(/>/g, "").replace(/&/g, "");
       }
@@ -588,14 +575,12 @@
           if (chars.startsWith(" ")) {
             return "." + chars.slice(1);
           }
-
           return "." + chars;
         }
 
         if (chars.startsWith(" ")) {
           return chars;
         }
-
         return " " + chars;
       }
 
@@ -605,34 +590,34 @@
 
       function styleAsciiEffect() {
         if (!asciiEffect) return;
-
         const mode = colorModes[colorModeSelect.value];
         const el = asciiEffect.domElement;
-
         el.style.position = "absolute";
         el.style.top = "0";
         el.style.left = "0";
         el.style.zIndex = "2";
         el.style.overflow = "hidden";
-        el.style.pointerEvents = "none";
+        el.style.pointerEvents = "none"; // Pass clicks through to Three.js
         el.style.userSelect = "none";
         el.style.color = mode.color;
         el.style.backgroundColor = mode.background;
       }
 
       function buildAsciiEffect() {
+        // --- FIX FOR CAMERA JUMP: Save State ---
         const savedCameraPosition = camera.position.clone();
         const savedCameraQuaternion = camera.quaternion.clone();
         const savedCameraZoom = camera.zoom;
         const savedControlsTarget = controls.target.clone();
-        const savedModelQuaternion = currentModel
-          ? currentModel.quaternion.clone()
-          : null;
+        // Also save model rotation to prevent it from spinning wildly during rebuild
+        const savedModelRotation = currentModel ? currentModel.rotation.clone() : null;
 
+        // Clear old effect
         if (asciiEffect?.domElement?.parentNode) {
           asciiEffect.domElement.parentNode.removeChild(asciiEffect.domElement);
         }
 
+        // Create new effect with new resolution (font size)
         asciiEffect = new AsciiEffect(renderer, getEffectiveChars(), {
           invert: true,
           resolution: getAsciiResolutionFromFontSize(currentFontSize),
@@ -641,6 +626,7 @@
         asciiEffect.setSize(window.innerWidth, window.innerHeight);
         canvasContainer.appendChild(asciiEffect.domElement);
 
+        // --- RESTORE STATE IMMEDIATELY ---
         camera.position.copy(savedCameraPosition);
         camera.quaternion.copy(savedCameraQuaternion);
         camera.zoom = savedCameraZoom;
@@ -649,8 +635,8 @@
         controls.target.copy(savedControlsTarget);
         controls.update();
 
-        if (currentModel && savedModelQuaternion) {
-          currentModel.quaternion.copy(savedModelQuaternion);
+        if (currentModel && savedModelRotation) {
+          currentModel.rotation.copy(savedModelRotation);
         }
 
         styleAsciiEffect();
@@ -660,19 +646,18 @@
       function updateViewMode() {
         asciiViewBtn.classList.toggle("active", viewMode === "ascii");
         normalViewBtn.classList.toggle("active", viewMode === "normal");
-
         const isAscii = viewMode === "ascii";
-
         if (asciiEffect) {
           asciiEffect.domElement.style.display = isAscii ? "block" : "none";
         }
-
         renderer.domElement.style.display = isAscii ? "none" : "block";
       }
 
+      /* ===========================
+         MODEL LOADING
+      =========================== */
       function loadDefaultModel() {
         showLoading("Loading astronaut...");
-
         objLoader.load(
           "https://raw.githubusercontent.com/Aishwary2004Gupta/ThreeJS_visuals/main/assets/astronaut.obj",
           (obj) => {
@@ -685,7 +670,6 @@
                 });
               }
             });
-
             clearModel();
             scene.add(obj);
             currentModel = obj;
@@ -695,43 +679,36 @@
           },
           undefined,
           (err) => {
-            console.error("Failed to load default model:", err);
+            console.error(err);
             hideLoading();
-            alert("Could not load the default model.");
-          },
+          }
         );
       }
 
       function loadGLTF(url, name) {
         showLoading(`Loading ${name}...`);
-
         gltfLoader.load(
           url,
           (gltf) => {
             clearModel();
-            const model = gltf.scene;
-            scene.add(model);
-            currentModel = model;
+            scene.add(gltf.scene);
+            currentModel = gltf.scene;
             autoRotate = true;
-            fitCameraToModel(model);
+            fitCameraToModel(gltf.scene);
             hideLoading();
             revokeCurrentURL();
           },
           undefined,
           (err) => {
-            console.error("GLTF load error:", err);
+            console.error(err);
             hideLoading();
             revokeCurrentURL();
-            alert(
-              "Failed to load GLTF/GLB file. Note: .gltf files with external textures/bin files cannot be loaded from a single file upload — use .glb instead.",
-            );
-          },
+          }
         );
       }
 
       function loadOBJ(url, name) {
         showLoading(`Loading ${name}...`);
-
         objLoader.load(
           url,
           (obj) => {
@@ -744,7 +721,6 @@
                 });
               }
             });
-
             clearModel();
             scene.add(obj);
             currentModel = obj;
@@ -755,140 +731,96 @@
           },
           undefined,
           (err) => {
-            console.error("OBJ load error:", err);
+            console.error(err);
             hideLoading();
             revokeCurrentURL();
-            alert("Failed to load OBJ file.");
-          },
+          }
         );
       }
 
       function loadImageAsPlane(url, name) {
         showLoading(`Loading ${name}...`);
-
         new THREE.TextureLoader().load(
           url,
           (texture) => {
             texture.colorSpace = THREE.SRGBColorSpace;
-
             clearModel();
-
             const imgW = texture.image.width || 1;
             const imgH = texture.image.height || 1;
             const aspect = imgW / imgH;
-
-            const height = 3;
-            const width = height * aspect;
-
             const plane = new THREE.Mesh(
-              new THREE.PlaneGeometry(width, height),
-              new THREE.MeshBasicMaterial({
-                map: texture,
-                side: THREE.DoubleSide,
-              }),
+              new THREE.PlaneGeometry(aspect * 3, 3),
+              new THREE.MeshBasicMaterial({ map: texture, side: THREE.DoubleSide })
             );
-
             scene.add(plane);
             currentModel = plane;
             autoRotate = false;
             fitCameraToModel(plane);
-
             hideLoading();
             revokeCurrentURL();
           },
           undefined,
-          (err) => {
-            console.error("Image load error:", err);
+          () => {
             hideLoading();
             revokeCurrentURL();
-            alert("Failed to load image.");
-          },
+          }
         );
       }
 
       fileInput.addEventListener("change", (e) => {
         const file = e.target.files[0];
         if (!file) return;
-
-        const name = file.name;
-        const ext = name.split(".").pop().toLowerCase();
-
+        const ext = file.name.split(".").pop().toLowerCase();
         revokeCurrentURL();
-
         const url = URL.createObjectURL(file);
         currentObjectURL = url;
-        fileNameEl.textContent = name;
+        fileNameEl.textContent = file.name;
 
-        if (ext === "glb" || ext === "gltf") {
-          loadGLTF(url, name);
-        } else if (ext === "obj") {
-          loadOBJ(url, name);
-        } else if (["png", "jpg", "jpeg", "webp"].includes(ext)) {
-          loadImageAsPlane(url, name);
-        } else {
-          revokeCurrentURL();
-          alert(
-            "Unsupported file type. Use OBJ, GLB, GLTF, PNG, JPG, JPEG, or WEBP.",
-          );
-        }
-
+        if (["glb", "gltf"].includes(ext)) loadGLTF(url, file.name);
+        else if (ext === "obj") loadOBJ(url, file.name);
+        else if (["png", "jpg", "jpeg", "webp"].includes(ext)) loadImageAsPlane(url, file.name);
+        else alert("Unsupported file type.");
         e.target.value = "";
       });
 
-      asciiViewBtn.addEventListener("click", () => {
-        viewMode = "ascii";
-        updateViewMode();
-      });
-
-      normalViewBtn.addEventListener("click", () => {
-        viewMode = "normal";
-        updateViewMode();
-      });
-
-      charSetSelect.addEventListener("change", (e) => {
+      /* ===========================
+         UI EVENTS
+      =========================== */
+      asciiViewBtn.onclick = () => { viewMode = "ascii"; updateViewMode(); };
+      normalViewBtn.onclick = () => { viewMode = "normal"; updateViewMode(); };
+      
+      charSetSelect.onchange = (e) => {
         currentChars = e.target.value;
         buildAsciiEffect();
-      });
+      };
 
-      fontSizeSlider.addEventListener("pointerdown", () => {
+      // Pause rotation while dragging slider to make it smoother
+      fontSizeSlider.onpointerdown = () => {
         wasAutoRotatingBeforeFontDrag = autoRotate;
         autoRotate = false;
-      });
+      };
+      fontSizeSlider.onpointerup = () => { autoRotate = wasAutoRotatingBeforeFontDrag; };
+      fontSizeSlider.onpointercancel = () => { autoRotate = wasAutoRotatingBeforeFontDrag; };
 
-      fontSizeSlider.addEventListener("pointerup", () => {
-        autoRotate = wasAutoRotatingBeforeFontDrag;
-      });
-
-      fontSizeSlider.addEventListener("pointercancel", () => {
-        autoRotate = wasAutoRotatingBeforeFontDrag;
-      });
-
-      fontSizeSlider.addEventListener("input", (e) => {
+      fontSizeSlider.oninput = (e) => {
         currentFontSize = parseInt(e.target.value, 10);
         fontSizeVal.textContent = `${currentFontSize}px`;
-
         clearTimeout(fontRebuildTimer);
+        // Debounce rebuild to prevent lag/jitter
+        fontRebuildTimer = setTimeout(buildAsciiEffect, 150);
+      };
 
-        fontRebuildTimer = setTimeout(() => {
-          buildAsciiEffect();
-        }, 120);
-      });
+      rotationSpeedSlider.oninput = (e) => {
+        rotationSpeed = parseFloat(e.target.value) * 0.002;
+        rotationSpeedVal.textContent = e.target.value;
+      };
 
-      rotationSpeedSlider.addEventListener("input", (e) => {
-        const val = parseFloat(e.target.value);
-        rotationSpeed = val * 0.002;
-        rotationSpeedVal.textContent = val.toFixed(1);
-      });
+      colorModeSelect.onchange = () => { applySceneBackground(); styleAsciiEffect(); };
+      bgToggle.onchange = () => buildAsciiEffect();
 
-      colorModeSelect.addEventListener("change", () => {
-        applySceneBackground();
-        styleAsciiEffect();
-      });
-
-      bgToggle.addEventListener("change", () => {
-        buildAsciiEffect();
-      });
-
+      /* ===========================
+         AXIS HUD
+      =========================== */
       const axisCanvas = document.getElementById("axisCanvas");
       const axisCtx = axisCanvas.getContext("2d");
 
@@ -896,7 +828,6 @@
         const ex = cx + v.x * scale;
         const ey = cy - v.y * scale;
         const alpha = v.z < 0 ? 0.3 : 0.95;
-
         axisCtx.strokeStyle = color;
         axisCtx.fillStyle = color;
         axisCtx.globalAlpha = alpha;
@@ -905,7 +836,6 @@
         axisCtx.moveTo(cx, cy);
         axisCtx.lineTo(ex, ey);
         axisCtx.stroke();
-
         axisCtx.globalAlpha = 1;
         axisCtx.font = "11px Fira Code, monospace";
         axisCtx.fillText(label, ex + 3, ey + 3);
@@ -917,43 +847,35 @@
         const cx = w / 2;
         const cy = h / 2;
         const scale = w * 0.35;
-
         axisCtx.clearRect(0, 0, w, h);
-
         const invQ = camera.quaternion.clone().invert();
         const xV = new THREE.Vector3(1, 0, 0).applyQuaternion(invQ);
         const yV = new THREE.Vector3(0, 1, 0).applyQuaternion(invQ);
         const zV = new THREE.Vector3(0, 0, 1).applyQuaternion(invQ);
-
         axisCtx.globalAlpha = 0.8;
         axisCtx.strokeStyle = "rgba(255,255,255,0.12)";
         axisCtx.lineWidth = 1;
         axisCtx.beginPath();
         axisCtx.arc(cx, cy, scale, 0, Math.PI * 2);
         axisCtx.stroke();
-
         drawAxis(xV, "#ff4d4d", "X", cx, cy, scale);
         drawAxis(yV, "#46ff7a", "Y", cx, cy, scale);
         drawAxis(zV, "#4da6ff", "Z", cx, cy, scale);
       }
 
       window.addEventListener("resize", () => {
-        const savedCameraPosition = camera.position.clone();
-        const savedCameraQuaternion = camera.quaternion.clone();
-        const savedCameraZoom = camera.zoom;
-        const savedControlsTarget = controls.target.clone();
-
+        const camPos = camera.position.clone();
+        const camRot = camera.quaternion.clone();
+        const camZoom = camera.zoom;
+        const ctlTarget = controls.target.clone();
         camera.aspect = window.innerWidth / window.innerHeight;
-        camera.position.copy(savedCameraPosition);
-        camera.quaternion.copy(savedCameraQuaternion);
-        camera.zoom = savedCameraZoom;
+        camera.position.copy(camPos);
+        camera.quaternion.copy(camRot);
+        camera.zoom = camZoom;
         camera.updateProjectionMatrix();
-
-        controls.target.copy(savedControlsTarget);
+        controls.target.copy(ctlTarget);
         controls.update();
-
         renderer.setSize(window.innerWidth, window.innerHeight);
-
         if (asciiEffect) {
           asciiEffect.setSize(window.innerWidth, window.innerHeight);
           styleAsciiEffect();
@@ -962,15 +884,11 @@
 
       function animate() {
         requestAnimationFrame(animate);
-
         controls.update();
-
         if (autoRotate && currentModel) {
           currentModel.rotation.y += rotationSpeed;
         }
-
         updateAxisHUD();
-
         if (viewMode === "ascii" && asciiEffect) {
           asciiEffect.render(scene, camera);
         } else {

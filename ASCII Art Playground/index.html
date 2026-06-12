@@ -4,6 +4,7 @@
     <meta charset="UTF-8" />
     <title>ASCII Art Playground</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
     <style>
       @import url("https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;600&display=swap");
 
@@ -30,7 +31,6 @@
         z-index: 1;
       }
 
-      /* ===== TOP BAR ===== */
       #topBar {
         position: fixed;
         top: 0;
@@ -120,7 +120,6 @@
         display: none;
       }
 
-      /* ===== TOGGLE ===== */
       .toggle-wrapper {
         display: flex;
         align-items: center;
@@ -178,7 +177,6 @@
         background: #fff;
       }
 
-      /* ===== BOTTOM BAR ===== */
       #settingsPanel {
         position: fixed;
         bottom: 0;
@@ -259,7 +257,6 @@
         font-size: 11px;
       }
 
-      /* ===== AXIS HUD ===== */
       #axisHUD {
         position: fixed;
         bottom: 74px;
@@ -277,7 +274,6 @@
         backdrop-filter: blur(6px);
       }
 
-      /* ===== LOADING ===== */
       #loadingOverlay {
         position: fixed;
         inset: 0;
@@ -376,7 +372,7 @@
         <select id="charSet">
           <option value=" .:-=+*#%@">Standard</option>
           <option
-            value=" .'`^,:;Il!i><~+_-?][}{1)(|/tfjrxnuvczXYUJCLQ0OZmwqpdbkhao*#MW&8%B@$"
+            value=" .'`^,:;Il!i~+_-?][}{1)(|/tfjrxnuvczXYUJCLQ0OZmwqpdbkhao*#MW8%B@$"
           >
             Detailed
           </option>
@@ -430,9 +426,6 @@
       import { OBJLoader } from "https://esm.sh/three@0.160.0/examples/jsm/loaders/OBJLoader.js";
       import { AsciiEffect } from "https://esm.sh/three@0.160.0/examples/jsm/effects/AsciiEffect.js";
 
-      /* ===========================
-         DOM
-      =========================== */
       const canvasContainer = document.getElementById("canvasContainer");
       const fileNameEl = document.getElementById("fileName");
       const fileInput = document.getElementById("fileInput");
@@ -448,9 +441,6 @@
       const loadingOverlay = document.getElementById("loadingOverlay");
       const loadingText = document.getElementById("loadingText");
 
-      /* ===========================
-         SCENE SETUP
-      =========================== */
       const scene = new THREE.Scene();
       scene.background = new THREE.Color(0x000000);
 
@@ -471,9 +461,6 @@
       renderer.domElement.style.left = "0";
       canvasContainer.appendChild(renderer.domElement);
 
-      /* ===========================
-         LIGHTS
-      =========================== */
       scene.add(new THREE.AmbientLight(0xffffff, 0.85));
 
       const dirLight = new THREE.DirectionalLight(0xffffff, 6);
@@ -484,9 +471,6 @@
       backLight.position.set(-5, -4, -5);
       scene.add(backLight);
 
-      /* ===========================
-         CONTROLS
-      =========================== */
       const controls = new OrbitControls(camera, canvasContainer);
       controls.enableDamping = true;
       controls.dampingFactor = 0.06;
@@ -496,9 +480,6 @@
         e.preventDefault(),
       );
 
-      /* ===========================
-         STATE
-      =========================== */
       const gltfLoader = new GLTFLoader();
       const objLoader = new OBJLoader();
 
@@ -506,11 +487,14 @@
       let currentObjectURL = null;
       let asciiEffect = null;
 
-      let viewMode = "ascii"; // 'ascii' | 'normal'
+      let viewMode = "ascii";
       let currentChars = charSetSelect.value;
       let currentFontSize = parseInt(fontSizeSlider.value, 10);
       let rotationSpeed = parseFloat(rotationSpeedSlider.value) * 0.002;
       let autoRotate = true;
+
+      let fontRebuildTimer = null;
+      let wasAutoRotatingBeforeFontDrag = false;
 
       const colorModes = {
         white: { color: "#ffffff", background: "#000000" },
@@ -520,9 +504,6 @@
         red: { color: "#ff4040", background: "#120000" },
       };
 
-      /* ===========================
-         HELPERS
-      =========================== */
       function showLoading(text = "Loading...") {
         loadingText.textContent = text;
         loadingOverlay.classList.add("visible");
@@ -541,26 +522,32 @@
 
       function disposeMaterial(material) {
         if (!material) return;
+
         if (Array.isArray(material)) {
           material.forEach(disposeMaterial);
           return;
         }
+
         for (const key in material) {
           const value = material[key];
           if (value && value.isTexture) value.dispose();
         }
+
         material.dispose?.();
       }
 
       function clearModel() {
         if (!currentModel) return;
+
         scene.remove(currentModel);
+
         currentModel.traverse((obj) => {
           if (obj.isMesh) {
             obj.geometry?.dispose?.();
             disposeMaterial(obj.material);
           }
         });
+
         currentModel = null;
       }
 
@@ -590,30 +577,35 @@
         document.body.style.background = mode.background;
       }
 
-      /* ===========================
-         ASCII LOGIC
-      =========================== */
-      // The first character of the charset is what AsciiEffect uses for
-      // the darkest pixels (with invert:true). If it's a space, the
-      // background is empty. If it's ".", the background fills with dots
-      // exactly like classic ASCII art.
-      function getEffectiveChars() {
-        if (bgToggle.checked) {
-          return currentChars.startsWith(" ")
-            ? "." + currentChars.slice(1)
-            : currentChars;
-        }
-        return currentChars.startsWith(" ") ? currentChars : " " + currentChars;
+      function sanitizeAsciiChars(chars) {
+        return chars.replace(/</g, "").replace(/>/g, "").replace(/&/g, "");
       }
 
-      // AsciiEffect derives its internal font size as (2 / resolution).
-      // So resolution = 2 / desiredFontSize makes the slider value exact.
+      function getEffectiveChars() {
+        let chars = sanitizeAsciiChars(currentChars);
+
+        if (bgToggle.checked) {
+          if (chars.startsWith(" ")) {
+            return "." + chars.slice(1);
+          }
+
+          return "." + chars;
+        }
+
+        if (chars.startsWith(" ")) {
+          return chars;
+        }
+
+        return " " + chars;
+      }
+
       function getAsciiResolutionFromFontSize(px) {
         return THREE.MathUtils.clamp(2 / px, 0.05, 0.5);
       }
 
       function styleAsciiEffect() {
         if (!asciiEffect) return;
+
         const mode = colorModes[colorModeSelect.value];
         const el = asciiEffect.domElement;
 
@@ -622,16 +614,21 @@
         el.style.left = "0";
         el.style.zIndex = "2";
         el.style.overflow = "hidden";
-        el.style.pointerEvents = "none"; // let OrbitControls work through it
+        el.style.pointerEvents = "none";
         el.style.userSelect = "none";
         el.style.color = mode.color;
         el.style.backgroundColor = mode.background;
-        // NOTE: do NOT override the internal table's font-size/width/height.
-        // AsciiEffect computes its own font metrics from `resolution` and
-        // overriding them breaks the character grid alignment.
       }
 
       function buildAsciiEffect() {
+        const savedCameraPosition = camera.position.clone();
+        const savedCameraQuaternion = camera.quaternion.clone();
+        const savedCameraZoom = camera.zoom;
+        const savedControlsTarget = controls.target.clone();
+        const savedModelQuaternion = currentModel
+          ? currentModel.quaternion.clone()
+          : null;
+
         if (asciiEffect?.domElement?.parentNode) {
           asciiEffect.domElement.parentNode.removeChild(asciiEffect.domElement);
         }
@@ -643,6 +640,19 @@
 
         asciiEffect.setSize(window.innerWidth, window.innerHeight);
         canvasContainer.appendChild(asciiEffect.domElement);
+
+        camera.position.copy(savedCameraPosition);
+        camera.quaternion.copy(savedCameraQuaternion);
+        camera.zoom = savedCameraZoom;
+        camera.updateProjectionMatrix();
+
+        controls.target.copy(savedControlsTarget);
+        controls.update();
+
+        if (currentModel && savedModelQuaternion) {
+          currentModel.quaternion.copy(savedModelQuaternion);
+        }
+
         styleAsciiEffect();
         updateViewMode();
       }
@@ -653,16 +663,13 @@
 
         const isAscii = viewMode === "ascii";
 
-        // In ASCII view: hide the WebGL canvas entirely (the ASCII layer
-        // replaces it — never show both at once, that causes a double image).
-        if (asciiEffect)
+        if (asciiEffect) {
           asciiEffect.domElement.style.display = isAscii ? "block" : "none";
+        }
+
         renderer.domElement.style.display = isAscii ? "none" : "block";
       }
 
-      /* ===========================
-         MODEL LOADING
-      =========================== */
       function loadDefaultModel() {
         showLoading("Loading astronaut...");
 
@@ -807,6 +814,7 @@
         const ext = name.split(".").pop().toLowerCase();
 
         revokeCurrentURL();
+
         const url = URL.createObjectURL(file);
         currentObjectURL = url;
         fileNameEl.textContent = name;
@@ -827,9 +835,6 @@
         e.target.value = "";
       });
 
-      /* ===========================
-         UI EVENTS
-      =========================== */
       asciiViewBtn.addEventListener("click", () => {
         viewMode = "ascii";
         updateViewMode();
@@ -845,13 +850,28 @@
         buildAsciiEffect();
       });
 
-      // Debounced rebuild — rebuilding the effect on every slider tick is heavy
-      let fontRebuildTimer = null;
+      fontSizeSlider.addEventListener("pointerdown", () => {
+        wasAutoRotatingBeforeFontDrag = autoRotate;
+        autoRotate = false;
+      });
+
+      fontSizeSlider.addEventListener("pointerup", () => {
+        autoRotate = wasAutoRotatingBeforeFontDrag;
+      });
+
+      fontSizeSlider.addEventListener("pointercancel", () => {
+        autoRotate = wasAutoRotatingBeforeFontDrag;
+      });
+
       fontSizeSlider.addEventListener("input", (e) => {
         currentFontSize = parseInt(e.target.value, 10);
         fontSizeVal.textContent = `${currentFontSize}px`;
+
         clearTimeout(fontRebuildTimer);
-        fontRebuildTimer = setTimeout(buildAsciiEffect, 120);
+
+        fontRebuildTimer = setTimeout(() => {
+          buildAsciiEffect();
+        }, 120);
       });
 
       rotationSpeedSlider.addEventListener("input", (e) => {
@@ -866,14 +886,9 @@
       });
 
       bgToggle.addEventListener("change", () => {
-        // Rebuild because the background fill depends on the charset's
-        // first character (space = empty, "." = dotted background)
         buildAsciiEffect();
       });
 
-      /* ===========================
-         AXIS HUD
-      =========================== */
       const axisCanvas = document.getElementById("axisCanvas");
       const axisCtx = axisCanvas.getContext("2d");
 
@@ -922,12 +937,20 @@
         drawAxis(zV, "#4da6ff", "Z", cx, cy, scale);
       }
 
-      /* ===========================
-         RESIZE
-      =========================== */
       window.addEventListener("resize", () => {
+        const savedCameraPosition = camera.position.clone();
+        const savedCameraQuaternion = camera.quaternion.clone();
+        const savedCameraZoom = camera.zoom;
+        const savedControlsTarget = controls.target.clone();
+
         camera.aspect = window.innerWidth / window.innerHeight;
+        camera.position.copy(savedCameraPosition);
+        camera.quaternion.copy(savedCameraQuaternion);
+        camera.zoom = savedCameraZoom;
         camera.updateProjectionMatrix();
+
+        controls.target.copy(savedControlsTarget);
+        controls.update();
 
         renderer.setSize(window.innerWidth, window.innerHeight);
 
@@ -937,11 +960,9 @@
         }
       });
 
-      /* ===========================
-         ANIMATION
-      =========================== */
       function animate() {
         requestAnimationFrame(animate);
+
         controls.update();
 
         if (autoRotate && currentModel) {
@@ -957,9 +978,6 @@
         }
       }
 
-      /* ===========================
-         INIT
-      =========================== */
       applySceneBackground();
       buildAsciiEffect();
       loadDefaultModel();

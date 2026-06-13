@@ -498,14 +498,21 @@ export const voronoiShader = `
   precision highp float;
   uniform float time;
   uniform vec2 resolution;
+
   vec2 hash(vec2 p) {
     p = vec2(dot(p, vec2(127.1, 311.7)), dot(p, vec2(269.5, 183.3)));
     return -1.0 + 2.0 * fract(sin(p) * 43758.5453123);
   }
+
   void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor) {
     vec4 original = texture2D(inputBuffer, uv);
     float l = dot(original.rgb, vec3(0.299, 0.587, 0.114));
-    if(l < 0.02){ outputColor = vec4(0.0,0.0,0.0,1.0); return; }
+
+    // Keep background pure black if the pixel is empty
+    if(l < 0.02){ 
+      outputColor = vec4(0.0,0.0,0.0,1.0); 
+      return; 
+    }
 
     float cellScale = 42.0;
     vec2 ratio = vec2(resolution.x / resolution.y, 1.0);
@@ -517,6 +524,7 @@ export const voronoiShader = `
     float minD = 8.0;
     float secD = 8.0;
     vec2 centerUV = vec2(0.0);
+    
     for(int y=-1;y<=1;y++){
       for(int x=-1;x<=1;x++){
         vec2 n = vec2(float(x), float(y));
@@ -536,14 +544,31 @@ export const voronoiShader = `
 
     vec4 cellColor = texture2D(inputBuffer, centerUV);
     float cellL = dot(cellColor.rgb, vec3(0.299, 0.587, 0.114));
-    cellL = smoothstep(0.05, 0.6, cellL * 1.4); // Slightly stronger cell brightness
+    cellL = smoothstep(0.05, 0.6, cellL * 1.4);
 
+    // Calculate distance to the nearest neighbor boundary
     float borderDist = secD - minD;
-    float border = smoothstep(0.01, 0.08, borderDist);
-    float outL = cellL * border;
+    
+    // Create a strong white outline where the distance is very small
+    // The range 0.0 to 0.04 defines the thickness of the white line
+    float borderMask = smoothstep(0.0, 0.04, borderDist);
+    
+    // Invert the border mask so it's 1.0 in the center and 0.0 at the edges
+    float cellFillMask = 1.0 - borderMask;
+    
+    // Add a slight glow to the borders to pop them more
+    float borderGlow = smoothstep(0.0, 0.02, borderDist);
 
-    // Use original cell color instead of grayscale
-    outputColor = vec4(cellColor.rgb * outL * 1.2, 1.0);
+    // Mix logic:
+    // 1. Fill with colored cell content (dimmed slightly to contrast with white lines)
+    // 2. Add White borders on top
+    
+    vec3 finalColor = cellColor.rgb * (cellL * 1.2) * cellFillMask;
+    
+    // Add the white outline
+    finalColor += vec3(1.0, 1.0, 1.0) * (borderMask * 1.1) * borderGlow;
+
+    outputColor = vec4(finalColor, 1.0);
   }
 `;
 

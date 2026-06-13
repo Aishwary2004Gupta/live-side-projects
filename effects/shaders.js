@@ -498,21 +498,18 @@ export const voronoiShader = `
   precision highp float;
   uniform float time;
   uniform vec2 resolution;
-
   vec2 hash(vec2 p) {
     p = vec2(dot(p, vec2(127.1, 311.7)), dot(p, vec2(269.5, 183.3)));
     return -1.0 + 2.0 * fract(sin(p) * 43758.5453123);
   }
-
   void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor) {
     vec4 original = texture2D(inputBuffer, uv);
     float l = dot(original.rgb, vec3(0.299, 0.587, 0.114));
+    if(l < 0.02){ outputColor = vec4(0.0,0.0,0.0,1.0); return; }
 
-    float cellScale = 38.0;
+    float cellScale = 42.0;
     vec2 ratio = vec2(resolution.x / resolution.y, 1.0);
-
-    // Slower, gentler drift to reduce sparkle
-    vec2 drift = vec2(time * 0.04, time * 0.03);
+    vec2 drift = vec2(time * 0.15, time * 0.1);
     vec2 coord = uv * ratio * cellScale + drift;
     vec2 cell = floor(coord);
     vec2 local = fract(coord);
@@ -520,50 +517,33 @@ export const voronoiShader = `
     float minD = 8.0;
     float secD = 8.0;
     vec2 centerUV = vec2(0.0);
-
-    for (int y = -1; y <= 1; y++) {
-      for (int x = -1; x <= 1; x++) {
+    for(int y=-1;y<=1;y++){
+      for(int x=-1;x<=1;x++){
         vec2 n = vec2(float(x), float(y));
         vec2 cellPos = cell + n;
-
-        // Slower point motion + smaller amplitude = stable cells
-        vec2 point = vec2(0.5) + 0.28 * sin(time * 0.4 + 6.2831 * hash(cellPos));
-
+        vec2 point = vec2(0.5) + 0.4 * sin(time*1.5 + 6.2831 * hash(cellPos));
         vec2 diff = n + point - local;
         float d = length(diff);
-
-        if (d < minD) {
+        if(d < minD){
           secD = minD;
           minD = d;
           centerUV = (cellPos + point - drift) / (ratio * cellScale);
-        } else if (d < secD) {
+        } else if(d < secD){
           secD = d;
         }
       }
     }
 
-    float borderDist = secD - minD;
-
-    float border = smoothstep(0.02, 0.10, borderDist);
-
-    // Softer, wider outline falloff to stop flickering
-    float outline = 1.0 - smoothstep(0.015, 0.055, borderDist);
-
-    if (l < 0.02) {
-      outputColor = vec4(vec3(outline * 0.85), 1.0);
-      return;
-    }
-
     vec4 cellColor = texture2D(inputBuffer, centerUV);
     float cellL = dot(cellColor.rgb, vec3(0.299, 0.587, 0.114));
-    cellL = smoothstep(0.05, 0.6, cellL * 1.4);
+    cellL = smoothstep(0.05, 0.6, cellL * 1.4); // Slightly stronger cell brightness
 
+    float borderDist = secD - minD;
+    float border = smoothstep(0.01, 0.08, borderDist);
     float outL = cellL * border;
-    vec3 finalColor = cellColor.rgb * outL * 1.2;
 
-    finalColor = mix(finalColor, vec3(0.9), outline);
-
-    outputColor = vec4(finalColor, 1.0);
+    // Use original cell color instead of grayscale
+    outputColor = vec4(cellColor.rgb * outL * 1.2, 1.0);
   }
 `;
 

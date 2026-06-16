@@ -881,7 +881,7 @@ const MODELS = {
         rotation: { x: -1, y: Math.PI + 0.7, z: -0.4 },
         position: { x: 0, y: 0, z: 0 },
     },
-    try: {
+    mickey_mouse: {
         url: "https://raw.githubusercontent.com/Aishwary2004Gupta/models/cloud/mickey_mouse.glb",
         scale: 0.7,
         rotation: { x: 0, y: Math.PI, z: 0 },

@@ -882,7 +882,7 @@ const MODELS = {
         position: { x: 0, y: 0, z: 0 },
     },
     try: {
-        url: "https://raw.githubusercontent.com/Aishwary2004Gupta/models/cloud/omnitrix2.glb",
+        url: "https://raw.githubusercontent.com/Aishwary2004Gupta/models/cloud/mickey_mouse.glb",
         scale: 0.35,
         rotation: { x: -1, y: Math.PI + 0.7, z: -0.4 },
         position: { x: 0, y: 0, z: 0 },

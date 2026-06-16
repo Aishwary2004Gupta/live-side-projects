@@ -883,9 +883,9 @@ const MODELS = {
     },
     try: {
         url: "https://raw.githubusercontent.com/Aishwary2004Gupta/models/cloud/mickey_mouse.glb",
-        scale: 0.35,
+        scale: 1,
         rotation: { x: 0, y: Math.PI, z: 0 },
-        position: { x: 0, y: 0, z: 0 },
+        position: { x: 0, y: -1, z: 0 },
     },
 };
 

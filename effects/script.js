@@ -888,7 +888,7 @@ const MODELS = {
         position: { x: 0, y: -1.1, z: 0 },
     },
     try: {
-        url: "https://raw.githubusercontent.com/Aishwary2004Gupta/models/cloud/mickey_mouse.glb",
+        url: "https://raw.githubusercontent.com/Aishwary2004Gupta/models/cloud/donald_duck.glb",
         scale: 0.7,
         rotation: { x: 0, y: Math.PI, z: 0 },
         position: { x: 0, y: -1.1, z: 0 },

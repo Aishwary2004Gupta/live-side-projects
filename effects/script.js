@@ -898,7 +898,7 @@ const MODELS = {
         rotation: { x: 0, y: Math.PI + 0.5, z: 0 },
         position: { x: 0, y: -1.2, z: 0 },
     },
-    try: {
+    donald_duck: {
         url: "https://raw.githubusercontent.com/Aishwary2004Gupta/models/cloud/donald_duck.glb",
         scale: 1.1,
         rotation: { x: 0, y: Math.PI + 0.5, z: 0 },

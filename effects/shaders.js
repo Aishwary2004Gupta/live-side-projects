@@ -901,65 +901,105 @@ export const clayShader = `
   precision highp float;
   uniform vec2 resolution;
 
-  vec4 sampleOffset(vec2 uv, vec2 off) {
-    return texture2D(inputBuffer, uv + off / resolution);
+  float random(vec2 st) {
+    return fract(sin(dot(st.xy, vec2(12.9898, 78.233))) * 43758.5453123);
+  }
+
+  float noise(vec2 st) {
+    vec2 i = floor(st);
+    vec2 f = fract(st);
+
+    float a = random(i);
+    float b = random(i + vec2(1.0, 0.0));
+    float c = random(i + vec2(0.0, 1.0));
+    float d = random(i + vec2(1.0, 1.0));
+
+    vec2 u = f * f * (3.0 - 2.0 * f);
+
+    return mix(a, b, u.x) +
+           (c - a) * u.y * (1.0 - u.x) +
+           (d - b) * u.x * u.y;
+  }
+
+  float getLuma(vec3 c) {
+    return dot(c, vec3(0.2126, 0.7152, 0.0722));
+  }
+
+  float getEdge(vec2 uv) {
+    vec2 px = 1.0 / resolution;
+
+    float c  = getLuma(texture2D(inputBuffer, uv).rgb);
+    float l  = getLuma(texture2D(inputBuffer, uv - vec2(px.x, 0.0)).rgb);
+    float r  = getLuma(texture2D(inputBuffer, uv + vec2(px.x, 0.0)).rgb);
+    float u  = getLuma(texture2D(inputBuffer, uv + vec2(0.0, px.y)).rgb);
+    float d  = getLuma(texture2D(inputBuffer, uv - vec2(0.0, px.y)).rgb);
+
+    float edge = abs(c - l) + abs(c - r) + abs(c - u) + abs(c - d);
+    return smoothstep(0.05, 0.22, edge);
   }
 
   void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor) {
-    vec3 color = inputColor.rgb;
-    float luma = dot(color, vec3(0.2126, 0.7152, 0.0722));
+    vec3 src = inputColor.rgb;
+    float luma = getLuma(src);
 
-    // Keep background clean
-    if (luma < 0.02) {
+    if (luma < 0.015) {
       outputColor = vec4(0.0, 0.0, 0.0, 1.0);
       return;
     }
 
-    // 1. SOFTEN COLORS - Clay has smooth, matte tones
-    // Gentle posterization (soft banding, not harsh like lego)
-    float levels = 12.0;
-    vec3 softColor = floor(color * levels + 0.5) / levels;
-    color = mix(color, softColor, 0.4); // Blend for smoothness
+    float edge = getEdge(uv);
 
-    // 2. EDGE-BASED AMBIENT OCCLUSION
-    // Detect edges to darken crevices like real clay shadows
-    float edge = 0.0;
-    edge += abs(luma - dot(sampleOffset(uv, vec2(-1.5, 0.0)).rgb, vec3(0.2126, 0.7152, 0.0722)));
-    edge += abs(luma - dot(sampleOffset(uv, vec2( 1.5, 0.0)).rgb, vec3(0.2126, 0.7152, 0.0722)));
-    edge += abs(luma - dot(sampleOffset(uv, vec2( 0.0,-1.5)).rgb, vec3(0.2126, 0.7152, 0.0722)));
-    edge += abs(luma - dot(sampleOffset(uv, vec2( 0.0, 1.5)).rgb, vec3(0.2126, 0.7152, 0.0722)));
-    edge = clamp(edge * 1.5, 0.0, 1.0);
+    vec3 gray = vec3(luma);
 
-    // Soft AO - darken edges gently (clay crevices)
-    float ao = 1.0 - edge * 0.45;
+    vec3 pastelColor = mix(gray, src, 0.58);
+    pastelColor = pow(pastelColor, vec3(0.82));
+    pastelColor = clamp(pastelColor * 1.05, 0.0, 1.0);
 
-    // 3. MATTE SURFACE - Reduce harsh highlights, keep soft shading
-    // Compress the bright values to remove shiny/glossy look
-    vec3 matte = color;
-    matte = pow(matte, vec3(0.9)); // Lift shadows slightly
-    matte = mix(matte, vec3(luma), 0.15); // Slight desaturation for clay feel
+    vec3 warmClayTint = vec3(0.96, 0.82, 0.68);
+    vec3 clayColor = mix(warmClayTint * luma, pastelColor, 0.78);
 
-    // 4. SOFT WARM TINT - Clay has a subtle warm, earthy undertone
-    vec3 warmTint = vec3(1.04, 1.0, 0.96);
-    matte *= warmTint;
+    float softShade = smoothstep(0.02, 0.95, luma);
+    softShade = pow(softShade, 0.72);
 
-    // 5. SOFT TOP HIGHLIGHT - Simulate soft studio lighting from above
-    float topLight = smoothstep(0.3, 0.9, luma) * 0.12;
-    matte += vec3(topLight);
+    clayColor *= 0.62 + softShade * 0.58;
 
-    // 6. ROUNDED RIM SOFTNESS - Slightly brighten mid-tones for that "puffy" clay look
-    float midBoost = smoothstep(0.2, 0.6, luma) * (1.0 - smoothstep(0.6, 1.0, luma));
-    matte += matte * midBoost * 0.15;
+    vec2 grainUV = uv * resolution / 7.5;
 
-    // 7. APPLY AO
-    vec3 finalColor = matte * ao;
+    float fineNoise = noise(grainUV * 0.8);
+    float mediumNoise = noise(grainUV * 0.22 + 4.0);
 
-    // 8. FINAL SMOOTHING - Gentle contrast for soft clay finish
-    finalColor = clamp(finalColor * 1.05 - 0.01, 0.0, 1.0);
+    vec2 warp = vec2(
+      noise(uv * 45.0 + 2.0),
+      noise(uv * 45.0 + 9.0)
+    ) - 0.5;
 
-    // Slight overall softness (lift pure blacks to dark grey, clay isn't pure black)
-    finalColor = mix(vec3(0.06, 0.06, 0.07), finalColor, smoothstep(0.0, 0.15, luma));
+    vec2 ridgeUV = uv + warp * 0.012;
 
-    outputColor = vec4(finalColor, 1.0);
+    float ridgeA = sin((ridgeUV.x * resolution.x * 0.42) + noise(ridgeUV * 80.0) * 8.0);
+    float ridgeB = sin((ridgeUV.y * resolution.y * 0.34) + noise(ridgeUV * 65.0 + 3.0) * 6.0);
+    float ridgeC = sin(((ridgeUV.x + ridgeUV.y) * resolution.x * 0.18) + noise(ridgeUV * 50.0 + 7.0) * 7.0);
+
+    float ridges = (ridgeA * 0.45 + ridgeB * 0.35 + ridgeC * 0.20);
+    ridges = ridges * 0.5 + 0.5;
+
+    float fingerprint = smoothstep(0.45, 0.85, ridges);
+    fingerprint = (fingerprint - 0.5) * 0.055;
+
+    float grain = (fineNoise - 0.5) * 0.045 + (mediumNoise - 0.5) * 0.035;
+
+    clayColor += grain;
+    clayColor += fingerprint * (0.35 + luma * 0.65);
+
+    vec3 creaseColor = vec3(0.36, 0.27, 0.30);
+    clayColor = mix(clayColor, clayColor * creaseColor, edge * 0.35);
+
+    float highlight = smoothstep(0.72, 1.0, luma);
+    clayColor += vec3(0.08, 0.065, 0.05) * highlight;
+
+    clayColor = mix(vec3(getLuma(clayColor)), clayColor, 0.88);
+
+    clayColor = clamp(clayColor, 0.0, 1.0);
+
+    outputColor = vec4(clayColor, 1.0);
   }
 `;

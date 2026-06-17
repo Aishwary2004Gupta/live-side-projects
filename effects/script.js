@@ -38,6 +38,7 @@ import {
     minecraftShader,
     tetrisShader,
     sketchShader,
+    clayShader,
 } from "./shaders.js";
 
 const handsFocusPoint = new THREE.Vector3(0, 0, 0);
@@ -344,6 +345,7 @@ const map = {
     minecraft,
     tetris,
     sketch,
+    clay,
 };
 
 /* ================= CONTROLS ================= */

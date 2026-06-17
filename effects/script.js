@@ -323,6 +323,9 @@ const sketch = makeEffect("Sketch", sketchShader, {
     time: 0.0,
     resolution: new THREE.Vector2(innerWidth, innerHeight),
 });
+const clay = makeEffect("Clay", clayShader, {
+    resolution: new THREE.Vector2(innerWidth, innerHeight),
+});
 
 const map = {
     normal,

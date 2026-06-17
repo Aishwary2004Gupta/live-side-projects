@@ -896,3 +896,70 @@ export const sketchShader = `
     outputColor = vec4(finalColor, 1.0);
   }
 `;
+
+export const clayShader = `
+  precision highp float;
+  uniform vec2 resolution;
+
+  vec4 sampleOffset(vec2 uv, vec2 off) {
+    return texture2D(inputBuffer, uv + off / resolution);
+  }
+
+  void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor) {
+    vec3 color = inputColor.rgb;
+    float luma = dot(color, vec3(0.2126, 0.7152, 0.0722));
+
+    // Keep background clean
+    if (luma < 0.02) {
+      outputColor = vec4(0.0, 0.0, 0.0, 1.0);
+      return;
+    }
+
+    // 1. SOFTEN COLORS - Clay has smooth, matte tones
+    // Gentle posterization (soft banding, not harsh like lego)
+    float levels = 12.0;
+    vec3 softColor = floor(color * levels + 0.5) / levels;
+    color = mix(color, softColor, 0.4); // Blend for smoothness
+
+    // 2. EDGE-BASED AMBIENT OCCLUSION
+    // Detect edges to darken crevices like real clay shadows
+    float edge = 0.0;
+    edge += abs(luma - dot(sampleOffset(uv, vec2(-1.5, 0.0)).rgb, vec3(0.2126, 0.7152, 0.0722)));
+    edge += abs(luma - dot(sampleOffset(uv, vec2( 1.5, 0.0)).rgb, vec3(0.2126, 0.7152, 0.0722)));
+    edge += abs(luma - dot(sampleOffset(uv, vec2( 0.0,-1.5)).rgb, vec3(0.2126, 0.7152, 0.0722)));
+    edge += abs(luma - dot(sampleOffset(uv, vec2( 0.0, 1.5)).rgb, vec3(0.2126, 0.7152, 0.0722)));
+    edge = clamp(edge * 1.5, 0.0, 1.0);
+
+    // Soft AO - darken edges gently (clay crevices)
+    float ao = 1.0 - edge * 0.45;
+
+    // 3. MATTE SURFACE - Reduce harsh highlights, keep soft shading
+    // Compress the bright values to remove shiny/glossy look
+    vec3 matte = color;
+    matte = pow(matte, vec3(0.9)); // Lift shadows slightly
+    matte = mix(matte, vec3(luma), 0.15); // Slight desaturation for clay feel
+
+    // 4. SOFT WARM TINT - Clay has a subtle warm, earthy undertone
+    vec3 warmTint = vec3(1.04, 1.0, 0.96);
+    matte *= warmTint;
+
+    // 5. SOFT TOP HIGHLIGHT - Simulate soft studio lighting from above
+    float topLight = smoothstep(0.3, 0.9, luma) * 0.12;
+    matte += vec3(topLight);
+
+    // 6. ROUNDED RIM SOFTNESS - Slightly brighten mid-tones for that "puffy" clay look
+    float midBoost = smoothstep(0.2, 0.6, luma) * (1.0 - smoothstep(0.6, 1.0, luma));
+    matte += matte * midBoost * 0.15;
+
+    // 7. APPLY AO
+    vec3 finalColor = matte * ao;
+
+    // 8. FINAL SMOOTHING - Gentle contrast for soft clay finish
+    finalColor = clamp(finalColor * 1.05 - 0.01, 0.0, 1.0);
+
+    // Slight overall softness (lift pure blacks to dark grey, clay isn't pure black)
+    finalColor = mix(vec3(0.06, 0.06, 0.07), finalColor, smoothstep(0.0, 0.15, luma));
+
+    outputColor = vec4(finalColor, 1.0);
+  }
+`;

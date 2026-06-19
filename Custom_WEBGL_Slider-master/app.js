@@ -752,52 +752,32 @@ const titles = selectAll(".slider-title");
 const canvas = select(".webgl-canvas");
 const loader = select(".loader");
 
-// Updated loader with wave effect animation
-function animateLoader() {
-  const loaderText = document.querySelector('.loader-text');
-  const loaderWave = document.querySelector('.loader-wave');
-  
-  // Add additional wave animation using GSAP for more complex effect
-  gsap.to(loaderText, {
-    y: -20,
-    duration: 1.5,
-    ease: "sine.inOut",
-    yoyo: true,
-    repeat: -1
-  });
-  
-  gsap.to(loaderWave, {
-    scale: 1.3,
-    opacity: 0.7,
-    duration: 1,
-    ease: "sine.inOut",
-    yoyo: true,
-    repeat: -1
-  });
-}
+const loaderFX = new LoaderTextFX({
+  canvas: select(".loader-webgl-canvas"),
+  textElement: select(".loader-text"),
+});
 
 // init all after content loaded
 
 imagesLoaded(document.body, () => {
   console.log("images loaded");
-  
-  // Start loader wave animation
-  animateLoader();
-  
+
   loader.classList.add("is-loaded");
+
   const newSlider = new Slider({
     element: slider,
     elements: slides,
     titles: titles,
   });
+
   const WEBGL = new Webgl({
     canvas: canvas,
     elements: slides,
     scroll: newSlider.scroll,
   });
-  
-  // Add a small delay to see the loader animation before it fades
+
   setTimeout(() => {
+    loaderFX.destroy();
     loader.remove();
-  }, 1500); // Increased to 1500ms to show the wave effect
+  }, 1000);
 });

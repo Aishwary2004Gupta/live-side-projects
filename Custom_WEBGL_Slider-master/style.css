@@ -83,7 +83,8 @@ body {
   z-index: -1;
 }
 
-/* Updated loader with wave effect */
+/* loader */
+
 .loader {
   position: fixed;
   top: 0;
@@ -92,64 +93,138 @@ body {
   height: 100%;
   z-index: 100;
   background-color: #f5f5f5;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  transition: all 0.5s ease;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  isolation: isolate;
+  transition: opacity 0.5s ease;
 }
 
 .loader.is-loaded {
   opacity: 0 !important;
+  pointer-events: none;
 }
 
-.loader-content {
-  position: relative;
-  text-align: center;
-}
-
-.loader.is-loaded {
-  opacity: 0 !important;
-}
-
-.loader h1 {
-  font-size: 10rem;
-}
-
-.loader-wave {
+.loader-webgl-canvas {
   position: absolute;
-  bottom: -50px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 200px;
-  height: 100px;
-  background: linear-gradient(180deg, rgba(245,245,245,0) 0%, rgba(245,245,245,1) 100%);
-  border-radius: 50%;
-  filter: blur(10px);
-  animation: waveEffect 2s ease-in-out infinite;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 1;
+  pointer-events: none;
 }
 
-@keyframes loaderWave {
-  0%, 100% {
-    transform: translateY(0) rotate(0deg);
+/* fallback text if WebGL fails */
+.loader-text {
+  position: relative;
+  z-index: 2;
+  font-size: clamp(4rem, 12vw, 10rem);
+  font-weight: 800;
+  line-height: 0.9;
+  color: #111;
+  letter-spacing: -0.07em;
+  text-transform: uppercase;
+}
+
+/* Hide fallback DOM text once WebGL loader is active */
+.loader.has-loader-webgl .loader-text {
+  opacity: 0;
+}
+
+/* fallback glitch effect */
+.loader-text::before,
+.loader-text::after {
+  content: attr(data-text);
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.75;
+}
+
+.loader-text::before {
+  color: #00e5ff;
+  transform: translate(-3px, 0);
+  animation: fallbackGlitchOne 0.8s infinite steps(2, end);
+}
+
+.loader-text::after {
+  color: #ff005d;
+  transform: translate(3px, 0);
+  animation: fallbackGlitchTwo 0.65s infinite steps(2, end);
+}
+
+.loader::before {
+  content: "";
+  position: absolute;
+  inset: -20%;
+  z-index: 3;
+  pointer-events: none;
+  opacity: 0.08;
+  mix-blend-mode: multiply;
+  background: repeating-linear-gradient(
+    to bottom,
+    rgba(0, 0, 0, 0.12) 0px,
+    rgba(0, 0, 0, 0.12) 1px,
+    transparent 1px,
+    transparent 5px
+  );
+  animation: loaderScanlines 0.8s linear infinite;
+}
+
+@keyframes loaderScanlines {
+  from {
+    transform: translateY(0);
   }
+
+  to {
+    transform: translateY(20px);
+  }
+}
+
+@keyframes fallbackGlitchOne {
+  0% {
+    clip-path: inset(0 0 85% 0);
+  }
+
+  20% {
+    clip-path: inset(40% 0 45% 0);
+  }
+
+  40% {
+    clip-path: inset(12% 0 62% 0);
+  }
+
+  60% {
+    clip-path: inset(75% 0 8% 0);
+  }
+
+  80% {
+    clip-path: inset(25% 0 50% 0);
+  }
+
+  100% {
+    clip-path: inset(0 0 85% 0);
+  }
+}
+
+@keyframes fallbackGlitchTwo {
+  0% {
+    clip-path: inset(80% 0 0 0);
+  }
+
   25% {
-    transform: translateY(-10px) rotate(2deg);
+    clip-path: inset(10% 0 70% 0);
   }
-  50% {
-    transform: translateY(0) rotate(0deg);
-  }
-  75% {
-    transform: translateY(10px) rotate(-2deg);
-  }
-}
 
-@keyframes waveEffect {
-  0%, 100% {
-    transform: translateX(-50%) scale(1);
-    opacity: 0.3;
-  }
   50% {
-    transform: translateX(-50%) scale(1.2);
-    opacity: 0.6;
+    clip-path: inset(55% 0 25% 0);
+  }
+
+  75% {
+    clip-path: inset(35% 0 35% 0);
+  }
+
+  100% {
+    clip-path: inset(80% 0 0 0);
   }
 }

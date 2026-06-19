@@ -1,11 +1,9 @@
 // slider
 class Slider {
   constructor({ element, elements, titles, numbers }) {
-    // take slider element
     this.element = element;
     this.elements = [...elements];
     this.titles = [...titles];
-    // create scroll object
     this.scroll = {
       ease: 0.1,
       current: 0,
@@ -19,15 +17,12 @@ class Slider {
     };
     this.isDragging = false;
 
-    // take slider bounds
     this.SliderHeight = this.element.clientHeight;
     this.SlideHeight = this.elements[0].clientHeight;
     this.wrapHeight = this.SliderHeight * this.elements.length;
 
-    // add snap to scroll
     this.handleOnCheck = _.debounce(this.onCheck.bind(this), 100);
 
-    // init all
     this.dispose(0);
     this.addEvents();
     this.render();
@@ -87,16 +82,12 @@ class Slider {
     this.element.addEventListener(
       "touchstart",
       this.handleTouchStart.bind(this),
-      {
-        passive: true,
-      }
+      { passive: true }
     );
     this.element.addEventListener(
       "touchmove",
       this.handleTouchMove.bind(this),
-      {
-        passive: true,
-      }
+      { passive: true }
     );
     this.element.addEventListener("touchend", this.handleTouchEnd.bind(this), {
       passive: true,
@@ -104,45 +95,29 @@ class Slider {
     this.element.addEventListener(
       "mousedown",
       this.handleTouchStart.bind(this),
-      {
-        passive: true,
-      }
+      { passive: true }
     );
     this.element.addEventListener(
       "mousemove",
       this.handleTouchMove.bind(this),
-      {
-        passive: true,
-      }
+      { passive: true }
     );
     this.element.addEventListener("mouseup", this.handleTouchEnd.bind(this), {
       passive: true,
     });
-    this.element.addEventListener("selectstart", () => {
-      return false;
-    });
+    this.element.addEventListener("selectstart", () => false);
     window.addEventListener("resize", this.onResize.bind(this));
   }
 
   onCheck() {
-    const itemIndex = Math.round(
-      Math.abs(this.scroll.target) / this.SlideHeight
-    );
+    const itemIndex = Math.round(Math.abs(this.scroll.target) / this.SlideHeight);
     const item = this.SlideHeight * itemIndex;
 
-    if (this.scroll.target < 0) {
-      gsap.to(this.scroll, {
-        target: -item,
-        duration: 0.5,
-        ease: "elastic.out(1, 1)",
-      });
-    } else {
-      gsap.to(this.scroll, {
-        target: item,
-        duration: 0.5,
-        ease: "elastic.out(1, 1)",
-      });
-    }
+    gsap.to(this.scroll, {
+      target: this.scroll.target < 0 ? -item : item,
+      duration: 0.5,
+      ease: "elastic.out(1, 1)",
+    });
   }
 
   onResize() {
@@ -157,7 +132,6 @@ class Slider {
       this.scroll.target,
       this.scroll.ease
     );
-    // slider scroll
     this.dispose(this.scroll.current);
 
     this.scroll.speed = this.scroll.current - this.scroll.last;
@@ -167,7 +141,6 @@ class Slider {
       Math.round(Math.abs(this.scroll.current) / this.SlideHeight) %
       this.elements.length;
 
-    // slider titles scroll
     gsap.set(this.titles, {
       y: (i) => {
         return i * this.SlideHeight + this.scroll.current;
@@ -199,7 +172,6 @@ const _SHADERS = {
   fragment: document.querySelector("#fragment").textContent,
 };
 
-// webgl
 // webgl plane
 class PlaneSmooth {
   constructor({ element, scene }) {
@@ -212,7 +184,6 @@ class PlaneSmooth {
     this.offset = new THREE.Vector2(0, 0);
     this.clock = new THREE.Clock();
 
-    // custom webgl cursor
     this.mouse = {
       current: new THREE.Vector2(0, 0),
       follow: new THREE.Vector2(0, 0),
@@ -232,14 +203,10 @@ class PlaneSmooth {
     });
 
     this.element.addEventListener("mouseenter", () => {
-      gsap.to(this.element, {
-        rotate: 2.5,
-      });
+      gsap.to(this.element, { rotate: 2.5 });
     });
     this.element.addEventListener("mouseleave", () => {
-      gsap.to(this.element, {
-        rotate: 0,
-      });
+      gsap.to(this.element, { rotate: 0 });
     });
   }
 
@@ -257,39 +224,28 @@ class PlaneSmooth {
     this.imageTexture = new THREE.TextureLoader().load(this.image.src);
     this.imageTexture.minFilter = THREE.LinearFilter;
     this.imageTexture.generateMipmaps = false;
+    
     this.uniforms = {
-      uTexture: {
-        value: this.imageTexture,
-      },
-      uOffset: {
-        value: new THREE.Vector2(0, 0),
-      },
-      uAlpha: {
-        value: 1,
-      },
+      uTexture: { value: this.imageTexture },
+      uOffset: { value: new THREE.Vector2(0, 0) },
+      uAlpha: { value: 1 },
       uTime: { value: 0 },
       uPlaneSizes: { value: [0, 0] },
       uImageSizes: { value: [0, 0] },
       uViewportSizes: { value: [window.innerWidth, window.innerHeight] },
       uZoom: { value: 0.85 },
       uParallax: { value: 0 },
-      uProgress: {
-        value: 0,
-      },
-      uResolution: {
-        value: new THREE.Vector2(window.innerWidth / 2, window.innerHeight / 2),
-      },
+      uProgress: { value: 0 },
+      uResolution: { value: new THREE.Vector2(window.innerWidth / 2, window.innerHeight / 2) },
       uQuadSize: { value: new THREE.Vector2(300, 300) },
       uTextureSize: { value: new THREE.Vector2(100, 100) },
-      uCorners: { value: new THREE.Vector4(0, 0, 0, 0) },
+     uCorners: { value: new THREE.Vector4(0, 0, 0, 0) },
       uStrength: { value: 0 },
       uMouse: { value: new THREE.Vector2(-10, -10) },
       uVelo: { value: 0 },
-      uMouseSize: {
-        value: new THREE.Vector2(1, window.innerHeight / window.innerWidth),
-      },
+      uMouseSize: { value: new THREE.Vector2(1, window.innerHeight / window.innerWidth) },
     };
-    this.uniforms.uniformsNeedUpdate = true;
+    
     this.material = new THREE.ShaderMaterial({
       uniforms: this.uniforms,
       vertexShader: this.vert,
@@ -297,6 +253,7 @@ class PlaneSmooth {
       transparent: true,
       side: THREE.DoubleSide,
     });
+    
     this.mesh = new THREE.Mesh(this.geometry, this.material);
     this.getDimension();
     this.mesh.position.set(this.offset.x, this.offset.y, this.z);
@@ -321,34 +278,29 @@ class PlaneSmooth {
   render(scroll) {
     this.scroll = scroll;
     this.scrollSpeed = (this.scroll.target - this.scroll.current) * 0.001;
+    
     // webgl fisheye effect
     this.uniforms.uStrength.value = Math.abs(this.scrollSpeed);
+    
     // webgl parallax effect
-    const positionInViewport =
-      (this.mesh.position.y - this.scroll.current / 100) * 0.05;
-    this.uniforms.uParallax.value = map(
-      positionInViewport,
-      -1.1,
-      1.1,
-      -0.005,
-      0.005
-    );
+    const positionInViewport = (this.mesh.position.y - this.scroll.current / 100) * 0.05;
+    this.uniforms.uParallax.value = map(positionInViewport, -1.1, 1.1, -0.005, 0.005);
+    
     this.uniforms.uPlaneSizes.value = [this.mesh.scale.x, this.mesh.scale.y];
     this.getDimension();
     this.getSpeed();
+    
     this.mesh.position.set(this.offset.x, this.offset.y, this.z);
     this.mesh.scale.set(this.sizes.x, this.sizes.y, 1);
     this.uniforms.uOffset.value.set(0, -this.scrollSpeed);
-    // webgl curve effect
-    this.uniforms.uImageSizes.value = [
-      this.image.naturalWidth,
-      this.image.naturalHeight,
-    ];
-    // webgl hover effect
+    
+    this.uniforms.uImageSizes.value = [this.image.naturalWidth, this.image.naturalHeight];
+    
     this.uniforms.uMouse.value = this.mouse.follow;
     this.uniforms.uVelo.value = Math.min(this.mouse.targetSpeed, 0.05);
     this.mouse.targetSpeed *= 0.999;
-    // webgl wave effect
+    
+    // webgl wave effect (idle state)
     this.time = this.clock.getElapsedTime();
     this.uniforms.uTime.value = this.time;
   }
@@ -383,9 +335,7 @@ class Webgl {
     });
     this.renderer.setClearColor(0x000000, 0);
     this.perspective = 1000;
-    this.fov =
-      (180 * (2 * Math.atan(window.innerHeight / 2 / this.perspective))) /
-      Math.PI;
+    this.fov = (180 * (2 * Math.atan(window.innerHeight / 2 / this.perspective))) / Math.PI;
 
     this.camera = new THREE.PerspectiveCamera(
       this.fov,
@@ -437,52 +387,66 @@ const titles = selectAll(".slider-title");
 const canvas = select(".webgl-canvas");
 const loader = select(".loader");
 
-// Updated loader with wave effect animation
-function animateLoader() {
-  const loaderText = document.querySelector('.loader-text');
-  const loaderWave = document.querySelector('.loader-wave');
+// Improved Loader Animation Logic
+function initLoaderAnimation() {
+  const letters = document.querySelectorAll('.loader-text span');
   
-  // Add additional wave animation using GSAP for more complex effect
-  gsap.to(loaderText, {
-    y: -20,
-    duration: 1.5,
+  // Create a timeline that repeats infinitely
+  const tl = gsap.timeline({ repeat: -1, yoyo: false });
+  
+  // Animate each letter with a stagger to create a wave
+  // This mimics the sin(uv * time) effect from the shader
+  tl.to(letters, {
+    y: -40, // Move up (like the sine peak)
+    rotation: 5,
+    duration: 1.2,
     ease: "sine.inOut",
-    yoyo: true,
-    repeat: -1
+    stagger: {
+      each: 0.1, // Delay between letters creates the traveling wave
+      from: "start"
+    },
+    yoyo: true, // Go back down
+    repeat: 1 // One full up/down cycle per trigger
   });
-  
-  gsap.to(loaderWave, {
-    scale: 1.3,
-    opacity: 0.7,
-    duration: 1,
-    ease: "sine.inOut",
+
+  // Add glitch intensity bursts occasionally
+  gsap.to(".glitch-text", {
+    textShadow: "4px 0 #ff00c1, -4px 0 #00fff9",
+    duration: 0.1,
+    repeat: 5,
     yoyo: true,
-    repeat: -1
+    repeatDelay: 1.5,
+    ease: "steps(2)"
   });
 }
 
 // init all after content loaded
-
 imagesLoaded(document.body, () => {
   console.log("images loaded");
   
-  // Start loader wave animation
-  animateLoader();
+  // Start the wave and glitch animations immediately
+  initLoaderAnimation();
   
-  loader.classList.add("is-loaded");
+  // Fade out loader
+  setTimeout(() => {
+    loader.classList.add("is-loaded");
+  }, 2000); // Show loader for 2 seconds to enjoy the effect
+  
   const newSlider = new Slider({
     element: slider,
     elements: slides,
     titles: titles,
   });
+  
   const WEBGL = new Webgl({
     canvas: canvas,
     elements: slides,
     scroll: newSlider.scroll,
   });
   
-  // Add a small delay to see the loader animation before it fades
+  // Remove from DOM after fade
   setTimeout(() => {
     loader.remove();
-  }, 1500); // Increased to 1500ms to show the wave effect
+    document.body.style.overflow = 'auto'; // Restore scroll if needed
+  }, 2800);
 });

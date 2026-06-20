@@ -327,6 +327,10 @@ const sketch = makeEffect("Sketch", sketchShader, {
 const clay = makeEffect("Clay", clayShader, {
     resolution: new THREE.Vector2(innerWidth, innerHeight),
 });
+const liquidChrome = makeEffect("LiquidChrome", liquidChromeShader, {
+    time: 0.0,
+    resolution: new THREE.Vector2(innerWidth, innerHeight),
+});
 
 const map = {
     normal,

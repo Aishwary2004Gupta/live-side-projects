@@ -1003,3 +1003,4 @@ export const clayShader = `
     outputColor = vec4(clayColor, 1.0);
   }
 `;
+

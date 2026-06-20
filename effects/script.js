@@ -354,6 +354,7 @@ const map = {
     tetris,
     sketch,
     clay,
+    liquidChrome,
 };
 
 /* ================= CONTROLS ================= */

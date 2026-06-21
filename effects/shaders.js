@@ -1161,73 +1161,73 @@ export const liquidChromeShader = `
   }
 `;
 
-export const chromeRippleShader = `
-  precision highp float;
-  uniform float time;
-  uniform vec2 resolution;
+// export const chromeRippleShader = `
+//   precision highp float;
+//   uniform float time;
+//   uniform vec2 resolution;
 
-  float getLuma(vec3 c) {
-    return dot(c, vec3(0.2126, 0.7152, 0.0722));
-  }
+//   float getLuma(vec3 c) {
+//     return dot(c, vec3(0.2126, 0.7152, 0.0722));
+//   }
 
-  void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor) {
-    // 1. HORIZONTAL FREQUENCY RIPPLE DISPLACEMENT
-    // Sample the brightness at the current row to drive the ripple frequency
-    vec4 base = texture2D(inputBuffer, uv);
-    float baseLuma = getLuma(base.rgb);
+//   void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor) {
+//     // 1. HORIZONTAL FREQUENCY RIPPLE DISPLACEMENT
+//     // Sample the brightness at the current row to drive the ripple frequency
+//     vec4 base = texture2D(inputBuffer, uv);
+//     float baseLuma = getLuma(base.rgb);
 
-    // Vertical column position drives high-frequency horizontal waves
-    float freq = 90.0 + baseLuma * 120.0;
-    float ripple = sin(uv.x * freq + time * 1.5) * 0.012 * (0.3 + baseLuma);
+//     // Vertical column position drives high-frequency horizontal waves
+//     float freq = 90.0 + baseLuma * 120.0;
+//     float ripple = sin(uv.x * freq + time * 1.5) * 0.012 * (0.3 + baseLuma);
 
-    // Stretch ripples horizontally based on brightness (the "liquid" pull)
-    vec2 rippleUV = uv;
-    rippleUV.x += ripple;
-    rippleUV.y += sin(uv.x * freq * 0.5) * 0.004;
+//     // Stretch ripples horizontally based on brightness (the "liquid" pull)
+//     vec2 rippleUV = uv;
+//     rippleUV.x += ripple;
+//     rippleUV.y += sin(uv.x * freq * 0.5) * 0.004;
 
-    // 2. CHROMATIC ABERRATION - split RGB channels for iridescent edges
-    float shift = 0.006 + baseLuma * 0.012;
-    float r = texture2D(inputBuffer, rippleUV + vec2(shift, 0.0)).r;
-    float g = texture2D(inputBuffer, rippleUV).g;
-    float b = texture2D(inputBuffer, rippleUV - vec2(shift, 0.0)).b;
-    vec3 col = vec3(r, g, b);
+//     // 2. CHROMATIC ABERRATION - split RGB channels for iridescent edges
+//     float shift = 0.006 + baseLuma * 0.012;
+//     float r = texture2D(inputBuffer, rippleUV + vec2(shift, 0.0)).r;
+//     float g = texture2D(inputBuffer, rippleUV).g;
+//     float b = texture2D(inputBuffer, rippleUV - vec2(shift, 0.0)).b;
+//     vec3 col = vec3(r, g, b);
 
-    float luma = getLuma(col);
+//     float luma = getLuma(col);
 
-    // 3. PURE BLACK BACKGROUND
-    if (luma < 0.03) {
-      outputColor = vec4(0.0, 0.0, 0.0, 1.0);
-      return;
-    }
+//     // 3. PURE BLACK BACKGROUND
+//     if (luma < 0.03) {
+//       outputColor = vec4(0.0, 0.0, 0.0, 1.0);
+//       return;
+//     }
 
-    // 4. CHROME / GLASS SHADING
-    // Create sharp specular streaks from the ripple peaks
-    float streak = abs(sin(uv.x * freq + time * 1.5));
-    streak = pow(streak, 8.0);
-    float specular = streak * smoothstep(0.2, 0.9, luma);
+//     // 4. CHROME / GLASS SHADING
+//     // Create sharp specular streaks from the ripple peaks
+//     float streak = abs(sin(uv.x * freq + time * 1.5));
+//     streak = pow(streak, 8.0);
+//     float specular = streak * smoothstep(0.2, 0.9, luma);
 
-    // 5. IRIDESCENT COLOR GRADING (blue / teal / orange like the reference)
-    vec3 coolTint = vec3(0.15, 0.45, 0.85);   // Blue/Teal
-    vec3 warmTint = vec3(1.0, 0.45, 0.1);      // Orange/Red
+//     // 5. IRIDESCENT COLOR GRADING (blue / teal / orange like the reference)
+//     vec3 coolTint = vec3(0.15, 0.45, 0.85);   // Blue/Teal
+//     vec3 warmTint = vec3(1.0, 0.45, 0.1);      // Orange/Red
 
-    // Use the ripple phase to oscillate between cool and warm tints
-    float phase = sin(uv.x * freq * 0.5 + time) * 0.5 + 0.5;
-    vec3 iridescence = mix(coolTint, warmTint, phase);
+//     // Use the ripple phase to oscillate between cool and warm tints
+//     float phase = sin(uv.x * freq * 0.5 + time) * 0.5 + 0.5;
+//     vec3 iridescence = mix(coolTint, warmTint, phase);
 
-    // Blend the chrome tint over the displaced image
-    vec3 chrome = mix(col, col * iridescence * 1.8, 0.55);
+//     // Blend the chrome tint over the displaced image
+//     vec3 chrome = mix(col, col * iridescence * 1.8, 0.55);
 
-    // 6. METALLIC CONTRAST - deepen shadows, blow out highlights
-    chrome = pow(chrome, vec3(1.3));
-    chrome += vec3(specular) * 1.2;
+//     // 6. METALLIC CONTRAST - deepen shadows, blow out highlights
+//     chrome = pow(chrome, vec3(1.3));
+//     chrome += vec3(specular) * 1.2;
 
-    // 7. EDGE GLOW - bright rim where ripples are steepest
-    float edgeGlow = pow(streak, 3.0) * luma;
-    chrome += iridescence * edgeGlow * 0.6;
+//     // 7. EDGE GLOW - bright rim where ripples are steepest
+//     float edgeGlow = pow(streak, 3.0) * luma;
+//     chrome += iridescence * edgeGlow * 0.6;
 
-    // 8. FINAL POLISH
-    chrome = clamp(chrome * 1.15, 0.0, 1.0);
+//     // 8. FINAL POLISH
+//     chrome = clamp(chrome * 1.15, 0.0, 1.0);
 
-    outputColor = vec4(chrome, 1.0);
-  }
-`;
+//     outputColor = vec4(chrome, 1.0);
+//   }
+// `;

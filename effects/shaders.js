@@ -572,8 +572,6 @@ export const vhsShader = `
   }
 `;
 
-// ... keep your other shaders ...
-
 export const heatMapShader = `
   precision highp float;
   uniform vec2 resolution;

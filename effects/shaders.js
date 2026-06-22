@@ -1007,6 +1007,14 @@ export const liquidChromeShader = `
   uniform float time;
   uniform vec2 resolution;
 
+  float lumaOf(vec3 c) {
+    return dot(c, vec3(0.2126, 0.7152, 0.0722));
+  }
+
+  vec2 safeUV(vec2 uv) {
+    return clamp(uv, vec2(0.001), vec2(0.999));
+  }
+
   float random(vec2 st) {
     return fract(sin(dot(st.xy, vec2(12.9898, 78.233))) * 43758.5453123);
   }
@@ -1027,137 +1035,201 @@ export const liquidChromeShader = `
            (d - b) * u.x * u.y;
   }
 
-  float fbm(vec2 p) {
-    float v = 0.0;
-    float a = 0.5;
-
-    for (int i = 0; i < 5; i++) {
-      v += noise(p) * a;
-      p *= 2.0;
-      a *= 0.5;
-    }
-
-    return v;
-  }
-
-  float luma(vec3 c) {
-    return dot(c, vec3(0.2126, 0.7152, 0.0722));
-  }
-
-  float edgeDetect(vec2 uv) {
+  vec2 gradientAt(vec2 uv) {
     vec2 px = 1.0 / resolution;
 
-    float c  = luma(texture2D(inputBuffer, uv).rgb);
-    float l  = luma(texture2D(inputBuffer, uv - vec2(px.x, 0.0)).rgb);
-    float r  = luma(texture2D(inputBuffer, uv + vec2(px.x, 0.0)).rgb);
-    float u  = luma(texture2D(inputBuffer, uv + vec2(0.0, px.y)).rgb);
-    float d  = luma(texture2D(inputBuffer, uv - vec2(0.0, px.y)).rgb);
+    float left  = lumaOf(texture2D(inputBuffer, safeUV(uv - vec2(px.x, 0.0))).rgb);
+    float right = lumaOf(texture2D(inputBuffer, safeUV(uv + vec2(px.x, 0.0))).rgb);
+    float down  = lumaOf(texture2D(inputBuffer, safeUV(uv - vec2(0.0, px.y))).rgb);
+    float up    = lumaOf(texture2D(inputBuffer, safeUV(uv + vec2(0.0, px.y))).rgb);
 
-    float e = abs(c - l) + abs(c - r) + abs(c - u) + abs(c - d);
-    return smoothstep(0.05, 0.25, e);
+    return vec2(right - left, up - down);
   }
 
-  vec3 sampleChromatic(vec2 uv, float amount) {
-    float r = texture2D(inputBuffer, uv + vec2(amount, 0.0)).r;
-    float g = texture2D(inputBuffer, uv).g;
-    float b = texture2D(inputBuffer, uv - vec2(amount, 0.0)).b;
-    return vec3(r, g, b);
+  float edgeAt(vec2 uv) {
+    vec2 px = 1.0 / resolution;
+
+    float c  = lumaOf(texture2D(inputBuffer, uv).rgb);
+    float l  = lumaOf(texture2D(inputBuffer, safeUV(uv - vec2(px.x, 0.0))).rgb);
+    float r  = lumaOf(texture2D(inputBuffer, safeUV(uv + vec2(px.x, 0.0))).rgb);
+    float u  = lumaOf(texture2D(inputBuffer, safeUV(uv + vec2(0.0, px.y))).rgb);
+    float d  = lumaOf(texture2D(inputBuffer, safeUV(uv - vec2(0.0, px.y))).rgb);
+
+    float e = abs(c - l) + abs(c - r) + abs(c - u) + abs(c - d);
+    return smoothstep(0.035, 0.22, e);
   }
 
   void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor) {
     vec3 original = texture2D(inputBuffer, uv).rgb;
-    float baseLuma = luma(original);
+    float originalLuma = lumaOf(original);
 
-    if (baseLuma < 0.015) {
+    float edge = edgeAt(uv);
+
+    float objectMask = smoothstep(0.012, 0.075, originalLuma + edge * 0.45);
+
+    if (objectMask < 0.01) {
       outputColor = vec4(0.0, 0.0, 0.0, 1.0);
       return;
     }
 
-    float mask = smoothstep(0.015, 0.12, baseLuma);
+    vec2 grad = gradientAt(uv);
+    vec3 fakeNormal = normalize(vec3(-grad * 9.0, 1.0));
 
-    vec2 p = uv;
-    vec2 aspect = vec2(resolution.x / resolution.y, 1.0);
+    vec2 centeredUV = uv - 0.5;
+    centeredUV.x *= resolution.x / resolution.y;
+    float radial = length(centeredUV);
 
-    float n1 = fbm(vec2(p.x * 3.5, p.y * 8.0 + time * 0.15));
-    float n2 = fbm(vec2(p.x * 14.0 + time * 0.2, p.y * 3.0));
+    float broadWave = sin(
+      uv.x * 44.0 +
+      sin(uv.y * 14.0 + time * 0.18) * 5.0 +
+      fakeNormal.y * 6.0
+    );
 
-    float horizontalWave =
-      sin(p.y * 70.0 + n1 * 8.0 + time * 1.3) * 0.018;
+    float tightWave = sin(
+      uv.x * 125.0 +
+      uv.y * 10.0 +
+      fakeNormal.x * 10.0 +
+      noise(uv * 18.0) * 5.0
+    );
 
-    float tightWave =
-      sin(p.y * 180.0 + n2 * 12.0 - time * 1.8) * 0.006;
+    float fineWave = sin(
+      uv.x * 310.0 +
+      uv.y * 26.0 +
+      noise(uv * 48.0) * 8.0
+    );
 
-    float columnNoise = random(vec2(floor(p.x * 80.0), 3.0));
-    float columnMask = smoothstep(0.72, 1.0, columnNoise);
+    float horizontalMelt = sin(
+      uv.y * 36.0 +
+      broadWave * 4.0 +
+      radial * 10.0
+    );
 
-    float verticalPull =
-      sin(p.x * 90.0 + time * 0.6) * 0.012 * columnMask;
+    float displacementAmount =
+      0.004 +
+      originalLuma * 0.020 +
+      edge * 0.045;
 
-    float xDistort = (horizontalWave + tightWave + verticalPull) * mask;
+    vec2 displacement = vec2(
+      broadWave * displacementAmount * 0.75 +
+      tightWave * displacementAmount * 0.35 +
+      fakeNormal.x * 0.020,
+      horizontalMelt * displacementAmount * 0.45 +
+      fineWave * 0.002 +
+      fakeNormal.y * 0.010
+    );
 
-    float yDistort =
-      sin(p.x * 45.0 + n1 * 5.0 + time) * 0.008 * mask;
+    vec2 refractUV = safeUV(uv + displacement);
 
-    vec2 warpedUV = uv + vec2(xDistort, yDistort);
+    vec3 refracted = texture2D(inputBuffer, refractUV).rgb;
+    float refractedLuma = lumaOf(refracted);
 
-    warpedUV.x += sin(warpedUV.y * 35.0 + time * 0.8) * 0.01 * mask;
-    warpedUV.x += (fbm(warpedUV * vec2(8.0, 20.0)) - 0.5) * 0.018 * mask;
+    vec2 grad2 = gradientAt(refractUV);
+    vec3 n = normalize(vec3(-grad2 * 11.0, 1.0));
 
-    warpedUV = clamp(warpedUV, vec2(0.001), vec2(0.999));
+    float edge2 = edgeAt(refractUV);
 
-    float chroma = 0.004 + abs(xDistort) * 0.45;
+    float displacedMask = smoothstep(0.02, 0.12, refractedLuma + edge2 * 0.35);
+    float finalMask = max(objectMask, displacedMask);
 
-    vec3 refracted = sampleChromatic(warpedUV, chroma);
-
-    vec3 smear = vec3(0.0);
-    float total = 0.0;
-
-    for (int i = -5; i <= 5; i++) {
-      float fi = float(i);
-      float w = 1.0 - abs(fi) / 6.0;
-      vec2 off = vec2(
-        sin(fi * 1.7 + time) * 0.002,
-        fi * 0.006 * (0.4 + columnMask)
-      );
-
-      vec2 suv = clamp(warpedUV + off * mask, vec2(0.001), vec2(0.999));
-      smear += texture2D(inputBuffer, suv).rgb * w;
-      total += w;
+    if (finalMask < 0.01) {
+      outputColor = vec4(0.0, 0.0, 0.0, 1.0);
+      return;
     }
 
-    smear /= total;
+    vec2 chromeUV = refractUV;
 
-    vec3 color = mix(refracted, smear, 0.45);
+    float verticalBand1 = sin(
+      (chromeUV.x + n.x * 0.22 + broadWave * 0.018) * 72.0
+    );
 
-    float colorLuma = luma(color);
+    float verticalBand2 = sin(
+      (chromeUV.x + n.y * 0.16 + tightWave * 0.015) * 155.0
+    );
 
-    vec3 deepBlue = vec3(0.01, 0.04, 0.09);
-    vec3 cyanGlow = vec3(0.0, 0.85, 1.0);
-    vec3 orangeHot = vec3(1.0, 0.25, 0.02);
-    vec3 whiteHot = vec3(1.0);
+    float verticalBand3 = sin(
+      (chromeUV.x + fineWave * 0.006) * 260.0
+    );
 
-    float bright = smoothstep(0.35, 0.95, colorLuma);
-    float hot = smoothstep(0.55, 1.0, colorLuma);
-    float white = smoothstep(0.82, 1.0, colorLuma);
+    float flowingBand = sin(
+      (chromeUV.y + n.x * 0.18 + horizontalMelt * 0.025) * 22.0
+    );
 
-    color = mix(deepBlue * (0.5 + colorLuma * 2.0), color, 0.72);
-    color = mix(color, cyanGlow, bright * 0.22);
-    color = mix(color, orangeHot, hot * 0.35);
-    color = mix(color, whiteHot, white * 0.65);
+    float softReflection =
+      0.5 +
+      0.25 * verticalBand1 +
+      0.15 * flowingBand +
+      0.10 * sin(radial * 28.0 + n.x * 4.0);
 
-    float edge = edgeDetect(warpedUV);
-    color += edge * vec3(0.75, 0.95, 1.0) * 0.45;
+    float brightStreaks =
+      pow(abs(verticalBand1), 10.0) * 0.85 +
+      pow(abs(verticalBand2), 16.0) * 0.55 +
+      pow(abs(verticalBand3), 24.0) * 0.25;
 
-    float rippleLines =
-      abs(sin((uv.y + xDistort * 2.0) * resolution.y * 0.09));
-    rippleLines = smoothstep(0.88, 1.0, rippleLines);
+    float darkStreaks =
+      pow(1.0 - abs(verticalBand1), 5.0) * 0.55 +
+      pow(1.0 - abs(verticalBand2), 8.0) * 0.35;
 
-    color += rippleLines * vec3(0.0, 0.6, 0.9) * 0.08 * mask;
+    vec3 smearA = texture2D(
+      inputBuffer,
+      safeUV(refractUV + vec2(broadWave * 0.030, horizontalMelt * 0.012))
+    ).rgb;
 
-    color = pow(color, vec3(0.82));
-    color = clamp(color * 1.18 - 0.04, 0.0, 1.0);
+    vec3 smearB = texture2D(
+      inputBuffer,
+      safeUV(refractUV + vec2(-tightWave * 0.020, -horizontalMelt * 0.014))
+    ).rgb;
 
-    outputColor = vec4(color, 1.0);
+    float smearLuma = lumaOf((smearA + smearB) * 0.5);
+
+    float formLight = pow(max(refractedLuma, smearLuma), 0.55);
+
+    float chromeValue =
+      softReflection * 0.55 +
+      formLight * 0.42 +
+      brightStreaks * 0.85 -
+      darkStreaks * 0.55;
+
+    vec3 lightDir = normalize(vec3(-0.45, 0.65, 1.0));
+    float specular = pow(max(dot(n, lightDir), 0.0), 26.0);
+
+    float rim = smoothstep(0.08, 0.32, edge2 + edge * 0.6);
+
+    chromeValue += specular * 1.15;
+    chromeValue += rim * 0.55;
+
+    float moltenHighlight = smoothstep(0.62, 1.0, chromeValue);
+    float deepShadow = smoothstep(0.0, 0.22, chromeValue);
+
+    chromeValue = mix(chromeValue * 0.25, chromeValue, deepShadow);
+
+    chromeValue = clamp(chromeValue, 0.0, 1.0);
+
+    chromeValue = smoothstep(0.08, 0.95, chromeValue);
+
+    float microNoise =
+      noise(uv * resolution * 0.12) * 0.045 +
+      noise(uv * resolution * 0.035 + 5.0) * 0.035;
+
+    chromeValue += (microNoise - 0.04) * finalMask;
+
+    chromeValue = clamp(chromeValue, 0.0, 1.0);
+
+    vec3 silverDark = vec3(0.015, 0.016, 0.018);
+    vec3 silverMid = vec3(0.55, 0.58, 0.60);
+    vec3 silverBright = vec3(0.95, 0.97, 1.0);
+
+    vec3 chromeColor = mix(silverDark, silverMid, chromeValue);
+    chromeColor = mix(chromeColor, silverBright, smoothstep(0.55, 1.0, chromeValue));
+
+    chromeColor = mix(chromeColor, vec3(1.0), moltenHighlight * 0.35);
+
+    chromeColor *= vec3(0.96, 0.98, 1.02);
+
+    chromeColor = clamp(chromeColor * 1.18 - 0.035, 0.0, 1.0);
+
+    vec3 finalColor = mix(vec3(0.0), chromeColor, finalMask);
+
+    outputColor = vec4(finalColor, 1.0);
   }
 `;
 

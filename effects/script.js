@@ -905,9 +905,9 @@ const MODELS = {
         position: { x: 0, y: -1.2, z: 0 },
     },
     try: {
-        url: "https://raw.githubusercontent.com/Aishwary2004Gupta/models/cloud/omnitrix2.glb",
-        scale: 0.35,
-        rotation: { x: -1, y: Math.PI + 0.7, z: -0.4 },
+        url: "https://raw.githubusercontent.com/Aishwary2004Gupta/models/cloud/the_starry_night.glb",
+        scale: 0.28,
+        rotation: { x: 0, y: 2.6, z: 0 },
         position: { x: 0, y: 0, z: 0 },
     },
 };

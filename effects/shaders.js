@@ -1158,7 +1158,6 @@ export const liquidChromeShader = `
 
     outputColor = vec4(finalColor, 1.0);
   }
-`;
 
 // export const chromeRippleShader = `
 //   precision highp float;

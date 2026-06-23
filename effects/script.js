@@ -331,6 +331,10 @@ const liquidChrome = makeEffect("LiquidChrome", liquidChromeShader, {
     time: 0.0,
     resolution: new THREE.Vector2(innerWidth, innerHeight),
 });
+const chromeRipple = makeEffect("ChromeRipple", chromeRippleShader, {
+    time: 0.0,
+    resolution: new THREE.Vector2(innerWidth, innerHeight),
+});
 
 const map = {
     normal,

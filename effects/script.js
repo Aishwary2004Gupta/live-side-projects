@@ -1187,7 +1187,7 @@ modelListItems.forEach((item) => {
     });
 });
 
-switchEffect("liquidChrome"); //change default effect here
+switchEffect("normal"); //change default effect here
 
 pixelInput.oninput = (e) => {
     const value = +e.target.value;

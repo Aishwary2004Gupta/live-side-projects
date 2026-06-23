@@ -355,6 +355,7 @@ const map = {
     sketch,
     clay,
     liquidChrome,
+    chromeRipple,
 };
 
 /* ================= CONTROLS ================= */

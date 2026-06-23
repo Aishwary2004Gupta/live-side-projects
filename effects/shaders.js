@@ -1161,7 +1161,7 @@ export const clayShader = `
 //   }
 // `;
 
-export const liquidChromeShader = `
+export const chromeRippleShader = `
   precision highp float;
   uniform float time;
   uniform vec2 resolution;

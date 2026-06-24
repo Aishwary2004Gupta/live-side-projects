@@ -912,7 +912,7 @@ const MODELS = {
     },
     try: {
         url: "https://raw.githubusercontent.com/Aishwary2004Gupta/models/cloud/mandalorian_helmet.glb",
-        scale: 1,
+        scale: 0.9,
         rotation: { x: 0, y: Math.PI, z: 0 },
         position: { x: 0, y: -1.3, z: 0 },
     },

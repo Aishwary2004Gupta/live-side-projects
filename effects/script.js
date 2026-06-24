@@ -911,7 +911,7 @@ const MODELS = {
         position: { x: 0, y: -1.2, z: 0 },
     },
     try: {
-        url: "https://raw.githubusercontent.com/Aishwary2004Gupta/models/cloud/mandalorian_helmet.glb",
+        url: "https://raw.githubusercontent.com/Aishwary2004Gupta/models/cloud/helmet_mandalorian.glb",
         scale: 0.9,
         rotation: { x: 0, y: Math.PI, z: 0 },
         position: { x: 0, y: -1.1, z: 0 },

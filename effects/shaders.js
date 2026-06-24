@@ -1161,6 +1161,8 @@ export const liquidChromeShader = `
   }
 `;
 
+// add a bit more metallic look to this chrome shader and remove the effect from the background, so it only applies to the model.
+
 export const chromeRippleShader = `
   precision highp float;
   uniform float time;

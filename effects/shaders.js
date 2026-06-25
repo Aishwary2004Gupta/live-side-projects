@@ -1412,246 +1412,139 @@ export const liquidChromeShader = `
   float noise(vec2 st) {
     vec2 i = floor(st);
     vec2 f = fract(st);
-
     float a = random(i);
     float b = random(i + vec2(1.0, 0.0));
     float c = random(i + vec2(0.0, 1.0));
     float d = random(i + vec2(1.0, 1.0));
-
     vec2 u = f * f * (3.0 - 2.0 * f);
-
-    return mix(a, b, u.x) +
-           (c - a) * u.y * (1.0 - u.x) +
-           (d - b) * u.x * u.y;
+    return mix(a, b, u.x) + (c - a) * u.y * (1.0 - u.x) + (d - b) * u.x * u.y;
   }
 
   vec2 gradientAt(vec2 uv) {
     vec2 px = 1.0 / resolution;
-
     float left  = lumaOf(texture2D(inputBuffer, safeUV(uv - vec2(px.x, 0.0))).rgb);
     float right = lumaOf(texture2D(inputBuffer, safeUV(uv + vec2(px.x, 0.0))).rgb);
     float down  = lumaOf(texture2D(inputBuffer, safeUV(uv - vec2(0.0, px.y))).rgb);
     float up    = lumaOf(texture2D(inputBuffer, safeUV(uv + vec2(0.0, px.y))).rgb);
-
     return vec2(right - left, up - down);
   }
 
   float edgeAt(vec2 uv) {
     vec2 px = 1.0 / resolution;
-
     float c  = lumaOf(texture2D(inputBuffer, uv).rgb);
     float l  = lumaOf(texture2D(inputBuffer, safeUV(uv - vec2(px.x, 0.0))).rgb);
     float r  = lumaOf(texture2D(inputBuffer, safeUV(uv + vec2(px.x, 0.0))).rgb);
     float u  = lumaOf(texture2D(inputBuffer, safeUV(uv + vec2(0.0, px.y))).rgb);
     float d  = lumaOf(texture2D(inputBuffer, safeUV(uv - vec2(0.0, px.y))).rgb);
-
     float e = abs(c - l) + abs(c - r) + abs(c - u) + abs(c - d);
-    return smoothstep(0.035, 0.22, e);
+    return smoothstep(0.03, 0.18, e);
   }
 
   void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor) {
     vec3 original = texture2D(inputBuffer, uv).rgb;
     float originalLuma = lumaOf(original);
-
     float edge = edgeAt(uv);
 
-    // Stricter object mask so the effect only applies to the model, not the background
-    float objectMask = smoothstep(0.04, 0.14, originalLuma + edge * 0.35);
+    // Tighter mask combining luma, edge detection, and local contrast
+    float contrast = length(gradientAt(uv));
+    float objectMask = smoothstep(0.015, 0.05, originalLuma + edge * 0.55) * smoothstep(0.008, 0.12, contrast);
 
-    // Background passes through untouched
-    if (objectMask < 0.01) {
-      outputColor = vec4(original, 1.0);
+    if (objectMask < 0.06) {
+      outputColor = vec4(0.0, 0.0, 0.0, 0.0);
       return;
     }
 
     vec2 grad = gradientAt(uv);
-    vec3 fakeNormal = normalize(vec3(-grad * 9.0, 1.0));
+    vec3 fakeNormal = normalize(vec3(-grad * 8.5, 1.0));
 
     vec2 centeredUV = uv - 0.5;
     centeredUV.x *= resolution.x / resolution.y;
     float radial = length(centeredUV);
 
-    float broadWave = sin(
-      uv.x * 44.0 +
-      sin(uv.y * 14.0 + time * 0.18) * 5.0 +
-      fakeNormal.y * 6.0
-    );
+    float broadWave = sin(uv.x * 44.0 + sin(uv.y * 14.0 + time * 0.18) * 5.0 + fakeNormal.y * 6.0);
+    float tightWave = sin(uv.x * 125.0 + uv.y * 10.0 + fakeNormal.x * 10.0 + noise(uv * 18.0) * 5.0);
+    float fineWave = sin(uv.x * 310.0 + uv.y * 26.0 + noise(uv * 48.0) * 8.0);
+    float horizontalMelt = sin(uv.y * 36.0 + broadWave * 4.0 + radial * 10.0);
 
-    float tightWave = sin(
-      uv.x * 125.0 +
-      uv.y * 10.0 +
-      fakeNormal.x * 10.0 +
-      noise(uv * 18.0) * 5.0
-    );
-
-    float fineWave = sin(
-      uv.x * 310.0 +
-      uv.y * 26.0 +
-      noise(uv * 48.0) * 8.0
-    );
-
-    float horizontalMelt = sin(
-      uv.y * 36.0 +
-      broadWave * 4.0 +
-      radial * 10.0
-    );
-
-    float displacementAmount =
-      0.004 +
-      originalLuma * 0.020 +
-      edge * 0.045;
-
+    float displacementAmount = 0.003 + originalLuma * 0.018 + edge * 0.04;
     vec2 displacement = vec2(
-      broadWave * displacementAmount * 0.75 +
-      tightWave * displacementAmount * 0.35 +
-      fakeNormal.x * 0.020,
-      horizontalMelt * displacementAmount * 0.45 +
-      fineWave * 0.002 +
-      fakeNormal.y * 0.010
+      broadWave * displacementAmount * 0.75 + tightWave * displacementAmount * 0.35 + fakeNormal.x * 0.018,
+      horizontalMelt * displacementAmount * 0.45 + fineWave * 0.002 + fakeNormal.y * 0.009
     );
 
     vec2 refractUV = safeUV(uv + displacement);
-
     vec3 refracted = texture2D(inputBuffer, refractUV).rgb;
     float refractedLuma = lumaOf(refracted);
 
     vec2 grad2 = gradientAt(refractUV);
-    vec3 n = normalize(vec3(-grad2 * 11.0, 1.0));
-
+    vec3 n = normalize(vec3(-grad2 * 10.0, 1.0));
     float edge2 = edgeAt(refractUV);
 
-    // Keep the displaced mask consistent with the object so it never bleeds onto background
-    float displacedMask = smoothstep(0.04, 0.14, refractedLuma + edge2 * 0.30);
-    float finalMask = objectMask * displacedMask;
-    finalMask = max(objectMask, displacedMask) * objectMask;
+    float displacedMask = smoothstep(0.02, 0.1, refractedLuma + edge2 * 0.4);
+    float finalMask = max(objectMask, displacedMask);
 
-    if (finalMask < 0.01) {
-      outputColor = vec4(original, 1.0);
+    if (finalMask < 0.05) {
+      outputColor = vec4(0.0, 0.0, 0.0, 0.0);
       return;
     }
 
     vec2 chromeUV = refractUV;
 
-    float verticalBand1 = sin(
-      (chromeUV.x + n.x * 0.22 + broadWave * 0.018) * 72.0
-    );
+    float verticalBand1 = sin((chromeUV.x + n.x * 0.25 + broadWave * 0.02) * 80.0);
+    float verticalBand2 = sin((chromeUV.x + n.y * 0.18 + tightWave * 0.018) * 160.0);
+    float verticalBand3 = sin((chromeUV.x + fineWave * 0.008) * 280.0);
+    float flowingBand = sin((chromeUV.y + n.x * 0.2 + horizontalMelt * 0.03) * 24.0);
 
-    float verticalBand2 = sin(
-      (chromeUV.x + n.y * 0.16 + tightWave * 0.015) * 155.0
-    );
+    float softReflection = 0.5 + 0.28 * verticalBand1 + 0.18 * flowingBand + 0.12 * sin(radial * 30.0 + n.x * 4.5);
+    float brightStreaks = pow(abs(verticalBand1), 12.0) * 0.9 + pow(abs(verticalBand2), 18.0) * 0.6 + pow(abs(verticalBand3), 26.0) * 0.3;
+    float darkStreaks = pow(1.0 - abs(verticalBand1), 6.0) * 0.5 + pow(1.0 - abs(verticalBand2), 9.0) * 0.4;
 
-    float verticalBand3 = sin(
-      (chromeUV.x + fineWave * 0.006) * 260.0
-    );
-
-    float flowingBand = sin(
-      (chromeUV.y + n.x * 0.18 + horizontalMelt * 0.025) * 22.0
-    );
-
-    float softReflection =
-      0.5 +
-      0.25 * verticalBand1 +
-      0.15 * flowingBand +
-      0.10 * sin(radial * 28.0 + n.x * 4.0);
-
-    float brightStreaks =
-      pow(abs(verticalBand1), 10.0) * 0.95 +
-      pow(abs(verticalBand2), 16.0) * 0.65 +
-      pow(abs(verticalBand3), 24.0) * 0.35;
-
-    float darkStreaks =
-      pow(1.0 - abs(verticalBand1), 5.0) * 0.65 +
-      pow(1.0 - abs(verticalBand2), 8.0) * 0.45;
-
-    vec3 smearA = texture2D(
-      inputBuffer,
-      safeUV(refractUV + vec2(broadWave * 0.030, horizontalMelt * 0.012))
-    ).rgb;
-
-    vec3 smearB = texture2D(
-      inputBuffer,
-      safeUV(refractUV + vec2(-tightWave * 0.020, -horizontalMelt * 0.014))
-    ).rgb;
-
+    vec3 smearA = texture2D(inputBuffer, safeUV(refractUV + vec2(broadWave * 0.028, horizontalMelt * 0.01))).rgb;
+    vec3 smearB = texture2D(inputBuffer, safeUV(refractUV + vec2(-tightWave * 0.018, -horizontalMelt * 0.012))).rgb;
     float smearLuma = lumaOf((smearA + smearB) * 0.5);
 
-    float formLight = pow(max(refractedLuma, smearLuma), 0.55);
+    float formLight = pow(max(refractedLuma, smearLuma), 0.5);
+    float chromeValue = softReflection * 0.55 + formLight * 0.45 + brightStreaks * 0.9 - darkStreaks * 0.5;
 
-    float chromeValue =
-      softReflection * 0.50 +
-      formLight * 0.40 +
-      brightStreaks * 0.95 -
-      darkStreaks * 0.65;
+    // Enhanced metallic lighting
+    float fresnel = pow(1.0 - max(dot(n, vec3(0.0, 0.0, 1.0)), 0.0), 3.5);
+    
+    vec3 lightDir = normalize(vec3(-0.4, 0.7, 1.0));
+    vec3 halfDir = normalize(lightDir + vec3(0.0, 0.0, 1.0));
+    float specular = pow(max(dot(n, halfDir), 0.0), 64.0) * 1.5;
+    float rim = smoothstep(0.05, 0.35, edge2 + edge * 0.7) * fresnel;
 
-    // --- Enhanced metallic lighting ---
-    vec3 lightDir = normalize(vec3(-0.45, 0.65, 1.0));
-    vec3 viewDir = vec3(0.0, 0.0, 1.0);
-    vec3 halfVec = normalize(lightDir + viewDir);
+    chromeValue += specular * 1.2;
+    chromeValue += rim * 0.65;
 
-    // Sharper primary specular highlight
-    float specular = pow(max(dot(n, halfVec), 0.0), 48.0);
-
-    // Secondary broad sheen for that brushed-metal glow
-    float sheen = pow(max(dot(n, halfVec), 0.0), 8.0) * 0.4;
-
-    // Fresnel for metallic edge brightening (reflective rim)
-    float fresnel = pow(1.0 - max(dot(n, viewDir), 0.0), 3.0);
-
-    // Anisotropic-style streak specular along the vertical bands
-    float anisoSpec = pow(abs(verticalBand1), 32.0) * specular * 2.0;
-
-    float rim = smoothstep(0.08, 0.32, edge2 + edge * 0.6);
-
-    chromeValue += specular * 1.6;
-    chromeValue += sheen;
-    chromeValue += anisoSpec * 1.2;
-    chromeValue += fresnel * 0.8;
-    chromeValue += rim * 0.55;
-
-    float moltenHighlight = smoothstep(0.62, 1.0, chromeValue);
-    float deepShadow = smoothstep(0.0, 0.22, chromeValue);
-
-    // Increase contrast in shadows for a harder metallic falloff
-    chromeValue = mix(chromeValue * 0.18, chromeValue, deepShadow);
-
+    // Sharpen value curve for metallic contrast
+    float moltenHighlight = smoothstep(0.65, 1.0, chromeValue);
+    float deepShadow = smoothstep(0.0, 0.18, chromeValue);
+    chromeValue = mix(chromeValue * 0.2, chromeValue, deepShadow);
     chromeValue = clamp(chromeValue, 0.0, 1.0);
-
-    // Stronger tonal curve for crisper metal contrast
+    chromeValue = pow(chromeValue, 0.85);
     chromeValue = smoothstep(0.06, 0.92, chromeValue);
-    chromeValue = pow(chromeValue, 0.92);
 
-    float microNoise =
-      noise(uv * resolution * 0.12) * 0.045 +
-      noise(uv * resolution * 0.035 + 5.0) * 0.035;
-
-    chromeValue += (microNoise - 0.04) * finalMask;
-
+    float microNoise = noise(uv * resolution * 0.1) * 0.04 + noise(uv * resolution * 0.03 + 5.0) * 0.03;
+    chromeValue += (microNoise - 0.035) * finalMask;
     chromeValue = clamp(chromeValue, 0.0, 1.0);
 
-    // --- Metallic color ramp (cooler, deeper, more reflective) ---
-    vec3 silverDark   = vec3(0.008, 0.009, 0.012);
-    vec3 silverMidLow = vec3(0.30, 0.33, 0.37);
-    vec3 silverMid    = vec3(0.62, 0.66, 0.70);
-    vec3 silverBright = vec3(0.97, 0.99, 1.0);
+    // Metallic color palette (steel/titanium) with normal-based tint
+    vec3 steelDark = vec3(0.02, 0.025, 0.035);
+    vec3 steelMid = vec3(0.45, 0.48, 0.52);
+    vec3 steelBright = vec3(0.92, 0.94, 0.98);
+    vec3 metallicTint = mix(vec3(0.9, 0.95, 1.0), vec3(1.0, 0.85, 0.75), n.x * 0.5 + 0.5);
 
-    vec3 chromeColor = mix(silverDark, silverMidLow, smoothstep(0.0, 0.4, chromeValue));
-    chromeColor = mix(chromeColor, silverMid, smoothstep(0.3, 0.7, chromeValue));
-    chromeColor = mix(chromeColor, silverBright, smoothstep(0.6, 1.0, chromeValue));
+    vec3 chromeColor = mix(steelDark, steelMid, chromeValue);
+    chromeColor = mix(chromeColor, steelBright * metallicTint, smoothstep(0.58, 1.0, chromeValue));
+    chromeColor = mix(chromeColor, vec3(1.0), moltenHighlight * 0.25);
+    chromeColor += fresnel * vec3(0.25, 0.35, 0.45) * 0.4;
 
-    // Blow out specular hot spots to pure white for that polished-metal pop
-    chromeColor = mix(chromeColor, vec3(1.0), moltenHighlight * 0.5);
-    chromeColor = mix(chromeColor, vec3(1.0), specular * 0.6);
+    // Final contrast punch for metallic snap
+    chromeColor = (chromeColor - 0.5) * 1.15 + 0.5;
+    chromeColor = clamp(chromeColor, 0.0, 1.0);
 
-    // Cool steel tint
-    chromeColor *= vec3(0.95, 0.98, 1.04);
-
-    // Boost overall contrast/saturation of the metal
-    chromeColor = clamp((chromeColor - 0.5) * 1.28 + 0.5, 0.0, 1.0);
-    chromeColor = clamp(chromeColor * 1.12 - 0.025, 0.0, 1.0);
-
-    // Blend metal over the original background using the mask
-    vec3 finalColor = mix(original, chromeColor, finalMask);
-
+    vec3 finalColor = mix(vec3(0.0), chromeColor, finalMask);
     outputColor = vec4(finalColor, 1.0);
   }
 `;

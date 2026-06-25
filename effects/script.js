@@ -910,7 +910,7 @@ const MODELS = {
         rotation: { x: 0, y: Math.PI + 0.5, z: 0 },
         position: { x: 0, y: -1.2, z: 0 },
     },
-    try: {
+    helmet_mandalorian: {
         url: "https://raw.githubusercontent.com/Aishwary2004Gupta/models/cloud/helmet_mandalorian.glb",
         scale: 1,
         rotation: { x: 0, y: Math.PI + 0.6, z: 0 },

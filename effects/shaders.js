@@ -1166,6 +1166,11 @@ export const liquidChromeShader = `
   uniform float time;
   uniform vec2 resolution;
 
+  // --- Outline settings ---
+  const float OUTLINE_WIDTH = 2.5; // pixels
+  const float OUTLINE_SOFTNESS = 0.5;
+  const vec3 OUTLINE_COLOR = vec3(0.0, 0.0, 0.0); // Black outline
+
   float lumaOf(vec3 c) {
     return dot(c, vec3(0.2126, 0.7152, 0.0722));
   }
@@ -1194,10 +1199,6 @@ export const liquidChromeShader = `
            (d - b) * u.x * u.y;
   }
 
-  // --- Background detection ----------------------------------------------
-  // Sample the four corners and average them. Corners are almost always
-  // background, so this gives us the background color for ANY theme
-  // (black, white, or anything else).
   vec3 detectBackground() {
     vec3 c0 = texture2D(inputBuffer, vec2(0.01, 0.01)).rgb;
     vec3 c1 = texture2D(inputBuffer, vec2(0.99, 0.01)).rgb;
@@ -1206,7 +1207,6 @@ export const liquidChromeShader = `
     return (c0 + c1 + c2 + c3) * 0.25;
   }
 
-  // How different a color is from the background (0 = same as bg, 1 = very different)
   float bgDifference(vec3 col, vec3 bg) {
     return clamp(length(col - bg) * 1.6, 0.0, 1.0);
   }
@@ -1235,12 +1235,33 @@ export const liquidChromeShader = `
     return smoothstep(0.035, 0.22, e);
   }
 
-  // Object mask at an arbitrary uv, theme-independent (based on bg difference).
   float maskAt(vec2 uv, vec3 bg) {
     vec3 col = texture2D(inputBuffer, safeUV(uv)).rgb;
     float diff = bgDifference(col, bg);
     float e = edgeAt(safeUV(uv));
     return smoothstep(0.06, 0.18, diff + e * 0.35);
+  }
+
+  // --- Outline detection: checks if we're in background but near the object ---
+  float outlineMaskAt(vec2 uv, vec3 bg) {
+    float px = 1.0 / min(resolution.x, resolution.y);
+    float stepSize = px * OUTLINE_WIDTH;
+    
+    // Sample in 8 directions around the current pixel
+    float nearObject = 0.0;
+    for (int i = 0; i < 8; i++) {
+      float angle = float(i) * 3.14159 / 4.0;
+      vec2 offset = vec2(cos(angle), sin(angle)) * stepSize;
+      float sampleMask = maskAt(uv + offset, bg);
+      nearObject = max(nearObject, sampleMask);
+    }
+    
+    // Outline exists where current pixel is NOT object but nearby pixels ARE object
+    float currentMask = maskAt(uv, bg);
+    float outline = nearObject * (1.0 - currentMask);
+    
+    // Soften the outline edge
+    return smoothstep(OUTLINE_SOFTNESS, 1.0 - OUTLINE_SOFTNESS, outline);
   }
 
   void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor) {
@@ -1250,17 +1271,25 @@ export const liquidChromeShader = `
 
     float edge = edgeAt(uv);
 
-    // Theme-independent object mask: how different is this pixel from the bg?
     float diff = bgDifference(original, bg);
     float objectMask = smoothstep(0.06, 0.18, diff + edge * 0.35);
 
-    // Background stays untouched (renders the original background color).
+    // --- Calculate outline ---
+    float outlineMask = outlineMaskAt(uv, bg);
+    
+    // If we're in the outline region, output the outline color over the background
+    if (outlineMask > 0.01 && objectMask < 0.01) {
+      vec3 outlinedColor = mix(bg, OUTLINE_COLOR, outlineMask);
+      outputColor = vec4(outlinedColor, 1.0);
+      return;
+    }
+
+    // Background stays untouched (no outline, no effect)
     if (objectMask < 0.01) {
       outputColor = vec4(bg, 1.0);
       return;
     }
 
-    // keep originalLuma for the displacement amount (still useful for relief)
     float originalLuma = lumaOf(original);
 
     vec2 grad = gradientAt(uv);
@@ -1410,12 +1439,9 @@ export const liquidChromeShader = `
 
     chromeColor = clamp(chromeColor * 1.18 - 0.035, 0.0, 1.0);
 
-    // Confine STRICTLY to the model silhouette (theme-independent).
-    // Both the current pixel and the refracted sample must be "non-background".
     float refractedObjectMask = maskAt(refractUV, bg);
     float finalMask = objectMask * refractedObjectMask;
 
-    // Blend chrome over the actual background color (works for any theme).
     vec3 finalColor = mix(bg, chromeColor, finalMask);
 
     outputColor = vec4(finalColor, 1.0);

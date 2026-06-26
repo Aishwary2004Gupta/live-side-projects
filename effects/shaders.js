@@ -1161,7 +1161,7 @@ export const clayShader = `
   }
 `;
 
-export const liquidChromeShader = `
+export const liquidMetalShader = `
   precision highp float;
   uniform float time;
   uniform vec2 resolution;
@@ -1223,15 +1223,18 @@ export const liquidChromeShader = `
     float originalLuma = lumaOf(original);
 
     float edge = edgeAt(uv);
+    vec2 grad = gradientAt(uv);
+    float contrast = length(grad);
 
-    float objectMask = smoothstep(0.012, 0.075, originalLuma + edge * 0.45);
+    // Stricter mask: requires both brightness and significant edge/contrast
+    float objectMask = smoothstep(0.06, 0.22, originalLuma) * smoothstep(0.01, 0.12, edge + contrast * 0.4);
 
-    if (objectMask < 0.01) {
-      outputColor = vec4(0.0, 0.0, 0.0, 1.0);
+    // Skip heavy computation for background pixels & preserve original scene
+    if (objectMask < 0.02) {
+      outputColor = inputColor;
       return;
     }
 
-    vec2 grad = gradientAt(uv);
     vec3 fakeNormal = normalize(vec3(-grad * 9.0, 1.0));
 
     vec2 centeredUV = uv - 0.5;
@@ -1286,14 +1289,6 @@ export const liquidChromeShader = `
     vec3 n = normalize(vec3(-grad2 * 11.0, 1.0));
 
     float edge2 = edgeAt(refractUV);
-
-    float displacedMask = smoothstep(0.02, 0.12, refractedLuma + edge2 * 0.35);
-    float finalMask = max(objectMask, displacedMask);
-
-    if (finalMask < 0.01) {
-      outputColor = vec4(0.0, 0.0, 0.0, 1.0);
-      return;
-    }
 
     vec2 chromeUV = refractUV;
 
@@ -1362,15 +1357,13 @@ export const liquidChromeShader = `
     chromeValue = mix(chromeValue * 0.25, chromeValue, deepShadow);
 
     chromeValue = clamp(chromeValue, 0.0, 1.0);
-
     chromeValue = smoothstep(0.08, 0.95, chromeValue);
 
     float microNoise =
       noise(uv * resolution * 0.12) * 0.045 +
       noise(uv * resolution * 0.035 + 5.0) * 0.035;
 
-    chromeValue += (microNoise - 0.04) * finalMask;
-
+    chromeValue += (microNoise - 0.04) * objectMask;
     chromeValue = clamp(chromeValue, 0.0, 1.0);
 
     vec3 silverDark = vec3(0.015, 0.016, 0.018);
@@ -1381,13 +1374,14 @@ export const liquidChromeShader = `
     chromeColor = mix(chromeColor, silverBright, smoothstep(0.55, 1.0, chromeValue));
 
     chromeColor = mix(chromeColor, vec3(1.0), moltenHighlight * 0.35);
-
     chromeColor *= vec3(0.96, 0.98, 1.02);
-
     chromeColor = clamp(chromeColor * 1.18 - 0.035, 0.0, 1.0);
 
-    vec3 finalColor = mix(vec3(0.0), chromeColor, finalMask);
-
+    // Soften mask edges for seamless transition into background
+    float blendMask = smoothstep(0.25, 0.85, objectMask);
+    
+    // Strictly blend effect over original, leaving background untouched
+    vec3 finalColor = mix(original, chromeColor, blendMask);
     outputColor = vec4(finalColor, 1.0);
   }
 `;

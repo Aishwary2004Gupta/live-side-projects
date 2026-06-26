@@ -1224,10 +1224,13 @@ export const liquidChromeShader = `
 
     float edge = edgeAt(uv);
 
-    float objectMask = smoothstep(0.012, 0.075, originalLuma + edge * 0.45);
+    // Object mask: where the model is. Raised lower threshold so faint
+    // background pixels are excluded from the effect.
+    float objectMask = smoothstep(0.045, 0.13, originalLuma + edge * 0.35);
 
+    // Background: leave the original pixels untouched.
     if (objectMask < 0.01) {
-      outputColor = vec4(0.0, 0.0, 0.0, 1.0);
+      outputColor = vec4(original, 1.0);
       return;
     }
 
@@ -1287,11 +1290,16 @@ export const liquidChromeShader = `
 
     float edge2 = edgeAt(refractUV);
 
-    float displacedMask = smoothstep(0.02, 0.12, refractedLuma + edge2 * 0.35);
-    float finalMask = max(objectMask, displacedMask);
+    // Displaced mask must also be sampled with the stricter threshold so the
+    // refraction can't pull background into the model and vice versa.
+    float displacedMask = smoothstep(0.045, 0.13, refractedLuma + edge2 * 0.30);
+
+    // Confine the effect strictly to the model: multiply by objectMask so the
+    // chrome can never spill outside the original silhouette.
+    float finalMask = max(objectMask, displacedMask) * objectMask;
 
     if (finalMask < 0.01) {
-      outputColor = vec4(0.0, 0.0, 0.0, 1.0);
+      outputColor = vec4(original, 1.0);
       return;
     }
 
@@ -1386,7 +1394,9 @@ export const liquidChromeShader = `
 
     chromeColor = clamp(chromeColor * 1.18 - 0.035, 0.0, 1.0);
 
-    vec3 finalColor = mix(vec3(0.0), chromeColor, finalMask);
+    // Blend the chrome over the ORIGINAL background using the mask, so the
+    // background stays intact and only the model becomes chrome.
+    vec3 finalColor = mix(original, chromeColor, finalMask);
 
     outputColor = vec4(finalColor, 1.0);
   }

@@ -1194,6 +1194,23 @@ export const liquidChromeShader = `
            (d - b) * u.x * u.y;
   }
 
+  // --- Background detection ----------------------------------------------
+  // Sample the four corners and average them. Corners are almost always
+  // background, so this gives us the background color for ANY theme
+  // (black, white, or anything else).
+  vec3 detectBackground() {
+    vec3 c0 = texture2D(inputBuffer, vec2(0.01, 0.01)).rgb;
+    vec3 c1 = texture2D(inputBuffer, vec2(0.99, 0.01)).rgb;
+    vec3 c2 = texture2D(inputBuffer, vec2(0.01, 0.99)).rgb;
+    vec3 c3 = texture2D(inputBuffer, vec2(0.99, 0.99)).rgb;
+    return (c0 + c1 + c2 + c3) * 0.25;
+  }
+
+  // How different a color is from the background (0 = same as bg, 1 = very different)
+  float bgDifference(vec3 col, vec3 bg) {
+    return clamp(length(col - bg) * 1.6, 0.0, 1.0);
+  }
+
   vec2 gradientAt(vec2 uv) {
     vec2 px = 1.0 / resolution;
 
@@ -1218,18 +1235,33 @@ export const liquidChromeShader = `
     return smoothstep(0.035, 0.22, e);
   }
 
+  // Object mask at an arbitrary uv, theme-independent (based on bg difference).
+  float maskAt(vec2 uv, vec3 bg) {
+    vec3 col = texture2D(inputBuffer, safeUV(uv)).rgb;
+    float diff = bgDifference(col, bg);
+    float e = edgeAt(safeUV(uv));
+    return smoothstep(0.06, 0.18, diff + e * 0.35);
+  }
+
   void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor) {
+    vec3 bg = detectBackground();
+
     vec3 original = texture2D(inputBuffer, uv).rgb;
-    float originalLuma = lumaOf(original);
 
     float edge = edgeAt(uv);
 
-    float objectMask = smoothstep(0.012, 0.075, originalLuma + edge * 0.45);
+    // Theme-independent object mask: how different is this pixel from the bg?
+    float diff = bgDifference(original, bg);
+    float objectMask = smoothstep(0.06, 0.18, diff + edge * 0.35);
 
+    // Background stays untouched (renders the original background color).
     if (objectMask < 0.01) {
-      outputColor = vec4(0.0, 0.0, 0.0, 1.0);
+      outputColor = vec4(bg, 1.0);
       return;
     }
+
+    // keep originalLuma for the displacement amount (still useful for relief)
+    float originalLuma = lumaOf(original);
 
     vec2 grad = gradientAt(uv);
     vec3 fakeNormal = normalize(vec3(-grad * 9.0, 1.0));
@@ -1265,7 +1297,7 @@ export const liquidChromeShader = `
 
     float displacementAmount =
       0.004 +
-      originalLuma * 0.020 +
+      objectMask * 0.020 +
       edge * 0.045;
 
     vec2 displacement = vec2(
@@ -1286,14 +1318,6 @@ export const liquidChromeShader = `
     vec3 n = normalize(vec3(-grad2 * 11.0, 1.0));
 
     float edge2 = edgeAt(refractUV);
-
-    float displacedMask = smoothstep(0.02, 0.12, refractedLuma + edge2 * 0.35);
-    float finalMask = max(objectMask, displacedMask);
-
-    if (finalMask < 0.01) {
-      outputColor = vec4(0.0, 0.0, 0.0, 1.0);
-      return;
-    }
 
     vec2 chromeUV = refractUV;
 
@@ -1369,7 +1393,7 @@ export const liquidChromeShader = `
       noise(uv * resolution * 0.12) * 0.045 +
       noise(uv * resolution * 0.035 + 5.0) * 0.035;
 
-    chromeValue += (microNoise - 0.04) * finalMask;
+    chromeValue += (microNoise - 0.04) * objectMask;
 
     chromeValue = clamp(chromeValue, 0.0, 1.0);
 
@@ -1386,7 +1410,13 @@ export const liquidChromeShader = `
 
     chromeColor = clamp(chromeColor * 1.18 - 0.035, 0.0, 1.0);
 
-    vec3 finalColor = mix(vec3(0.0), chromeColor, finalMask);
+    // Confine STRICTLY to the model silhouette (theme-independent).
+    // Both the current pixel and the refracted sample must be "non-background".
+    float refractedObjectMask = maskAt(refractUV, bg);
+    float finalMask = objectMask * refractedObjectMask;
+
+    // Blend chrome over the actual background color (works for any theme).
+    vec3 finalColor = mix(bg, chromeColor, finalMask);
 
     outputColor = vec4(finalColor, 1.0);
   }

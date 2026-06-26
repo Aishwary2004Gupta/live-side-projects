@@ -1218,14 +1218,24 @@ export const liquidChromeShader = `
     return smoothstep(0.035, 0.22, e);
   }
 
+  // Samples the object mask at an arbitrary uv (luma + edge based).
+  float maskAt(vec2 uv) {
+    float l = lumaOf(texture2D(inputBuffer, safeUV(uv)).rgb);
+    float e = edgeAt(safeUV(uv));
+    return smoothstep(0.012, 0.075, l + e * 0.45);
+  }
+
   void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor) {
     vec3 original = texture2D(inputBuffer, uv).rgb;
     float originalLuma = lumaOf(original);
 
     float edge = edgeAt(uv);
 
+    // Object mask at the CURRENT pixel. This is the authority for what is
+    // "model" vs "background" — the effect is never allowed to exceed it.
     float objectMask = smoothstep(0.012, 0.075, originalLuma + edge * 0.45);
 
+    // Background stays pure black.
     if (objectMask < 0.01) {
       outputColor = vec4(0.0, 0.0, 0.0, 1.0);
       return;
@@ -1286,14 +1296,6 @@ export const liquidChromeShader = `
     vec3 n = normalize(vec3(-grad2 * 11.0, 1.0));
 
     float edge2 = edgeAt(refractUV);
-
-    float displacedMask = smoothstep(0.02, 0.12, refractedLuma + edge2 * 0.35);
-    float finalMask = max(objectMask, displacedMask);
-
-    if (finalMask < 0.01) {
-      outputColor = vec4(0.0, 0.0, 0.0, 1.0);
-      return;
-    }
 
     vec2 chromeUV = refractUV;
 
@@ -1369,7 +1371,7 @@ export const liquidChromeShader = `
       noise(uv * resolution * 0.12) * 0.045 +
       noise(uv * resolution * 0.035 + 5.0) * 0.035;
 
-    chromeValue += (microNoise - 0.04) * finalMask;
+    chromeValue += (microNoise - 0.04) * objectMask;
 
     chromeValue = clamp(chromeValue, 0.0, 1.0);
 
@@ -1385,6 +1387,15 @@ export const liquidChromeShader = `
     chromeColor *= vec3(0.96, 0.98, 1.02);
 
     chromeColor = clamp(chromeColor * 1.18 - 0.035, 0.0, 1.0);
+
+    // KEY FIX:
+    // The effect is confined STRICTLY to the original object silhouette.
+    // We use only objectMask (the current pixel's mask) — never the displaced
+    // mask — so refraction can't push chrome out into the background.
+    // We also gate by the mask sampled at the refracted position, so any
+    // chrome that would sample empty background gets pulled back to black.
+    float refractedObjectMask = maskAt(refractUV);
+    float finalMask = objectMask * refractedObjectMask;
 
     vec3 finalColor = mix(vec3(0.0), chromeColor, finalMask);
 

@@ -1166,11 +1166,6 @@ export const liquidChromeShader = `
   uniform float time;
   uniform vec2 resolution;
 
-  // --- Outline settings ---
-  const float OUTLINE_WIDTH = 2.5; // pixels
-  const float OUTLINE_SOFTNESS = 0.5;
-  const vec3 OUTLINE_COLOR = vec3(0.0, 0.0, 0.0); // Black outline
-
   float lumaOf(vec3 c) {
     return dot(c, vec3(0.2126, 0.7152, 0.0722));
   }
@@ -1199,6 +1194,7 @@ export const liquidChromeShader = `
            (d - b) * u.x * u.y;
   }
 
+  // --- Background detection ----------------------------------------------
   vec3 detectBackground() {
     vec3 c0 = texture2D(inputBuffer, vec2(0.01, 0.01)).rgb;
     vec3 c1 = texture2D(inputBuffer, vec2(0.99, 0.01)).rgb;
@@ -1235,6 +1231,7 @@ export const liquidChromeShader = `
     return smoothstep(0.035, 0.22, e);
   }
 
+  // Object mask at an arbitrary uv, theme-independent.
   float maskAt(vec2 uv, vec3 bg) {
     vec3 col = texture2D(inputBuffer, safeUV(uv)).rgb;
     float diff = bgDifference(col, bg);
@@ -1242,30 +1239,27 @@ export const liquidChromeShader = `
     return smoothstep(0.06, 0.18, diff + e * 0.35);
   }
 
-  // --- Outline detection: checks if we're in background but near the object ---
-  float outlineMaskAt(vec2 uv, vec3 bg) {
-    float px = 1.0 / min(resolution.x, resolution.y);
-    float stepSize = px * OUTLINE_WIDTH;
-    
-    // Sample in 8 directions around the current pixel
-    float nearObject = 0.0;
-    for (int i = 0; i < 8; i++) {
-      float angle = float(i) * 3.14159 / 4.0;
-      vec2 offset = vec2(cos(angle), sin(angle)) * stepSize;
-      float sampleMask = maskAt(uv + offset, bg);
-      nearObject = max(nearObject, sampleMask);
-    }
-    
-    // Outline exists where current pixel is NOT object but nearby pixels ARE object
-    float currentMask = maskAt(uv, bg);
-    float outline = nearObject * (1.0 - currentMask);
-    
-    // Soften the outline edge
-    return smoothstep(OUTLINE_SOFTNESS, 1.0 - OUTLINE_SOFTNESS, outline);
+  // --- Outline ------------------------------------------------------------
+  // Dilate the object mask by sampling a ring of neighbours. Where the
+  // dilated mask is > 0 but the local mask is ~0, we're just OUTSIDE the
+  // model => that's the outline band.
+  float dilatedMask(vec2 uv, vec3 bg, float radiusPx) {
+    vec2 px = (1.0 / resolution) * radiusPx;
+    float m = 0.0;
+    m = max(m, maskAt(uv + vec2( px.x,  0.0), bg));
+    m = max(m, maskAt(uv + vec2(-px.x,  0.0), bg));
+    m = max(m, maskAt(uv + vec2( 0.0,  px.y), bg));
+    m = max(m, maskAt(uv + vec2( 0.0, -px.y), bg));
+    m = max(m, maskAt(uv + vec2( px.x,  px.y) * 0.7071, bg));
+    m = max(m, maskAt(uv + vec2(-px.x,  px.y) * 0.7071, bg));
+    m = max(m, maskAt(uv + vec2( px.x, -px.y) * 0.7071, bg));
+    m = max(m, maskAt(uv + vec2(-px.x, -px.y) * 0.7071, bg));
+    return m;
   }
 
   void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor) {
     vec3 bg = detectBackground();
+    float bgLuma = lumaOf(bg);
 
     vec3 original = texture2D(inputBuffer, uv).rgb;
 
@@ -1274,19 +1268,23 @@ export const liquidChromeShader = `
     float diff = bgDifference(original, bg);
     float objectMask = smoothstep(0.06, 0.18, diff + edge * 0.35);
 
-    // --- Calculate outline ---
-    float outlineMask = outlineMaskAt(uv, bg);
-    
-    // If we're in the outline region, output the outline color over the background
-    if (outlineMask > 0.01 && objectMask < 0.01) {
-      vec3 outlinedColor = mix(bg, OUTLINE_COLOR, outlineMask);
-      outputColor = vec4(outlinedColor, 1.0);
-      return;
-    }
+    // --- Outline computation ---
+    // Thickness of the outline in pixels.
+    float outlineWidth = 2.5;
+    // Dilate the silhouette outward, then subtract the interior so we keep
+    // only the thin band sitting just outside the model.
+    float outerMask = dilatedMask(uv, bg, outlineWidth);
+    float outlineBand = clamp(outerMask - objectMask, 0.0, 1.0);
 
-    // Background stays untouched (no outline, no effect)
+    // Outline color: dark in light mode, light in dark mode -> always visible.
+    vec3 outlineColor = (bgLuma > 0.5) ? vec3(0.04, 0.04, 0.05) : vec3(0.95, 0.96, 1.0);
+    // Stronger outline in light mode where it's most needed.
+    float outlineStrength = mix(0.6, 1.0, smoothstep(0.4, 0.7, bgLuma));
+
+    // Background (with possible outline) — model effect not applied here.
     if (objectMask < 0.01) {
-      outputColor = vec4(bg, 1.0);
+      vec3 bgOut = mix(bg, outlineColor, outlineBand * outlineStrength);
+      outputColor = vec4(bgOut, 1.0);
       return;
     }
 
@@ -1439,10 +1437,18 @@ export const liquidChromeShader = `
 
     chromeColor = clamp(chromeColor * 1.18 - 0.035, 0.0, 1.0);
 
+    // Confine effect strictly to the model silhouette.
     float refractedObjectMask = maskAt(refractUV, bg);
     float finalMask = objectMask * refractedObjectMask;
 
+    // Blend chrome over the background.
     vec3 finalColor = mix(bg, chromeColor, finalMask);
+
+    // --- Apply outline on top, along the model's edge ---
+    // Inner edge contribution (just inside the silhouette) keeps a crisp rim.
+    float innerEdge = objectMask * (1.0 - smoothstep(0.0, 0.6, objectMask)) + outlineBand;
+    float outline = clamp(max(outlineBand, innerEdge), 0.0, 1.0);
+    finalColor = mix(finalColor, outlineColor, outline * outlineStrength);
 
     outputColor = vec4(finalColor, 1.0);
   }

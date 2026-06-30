@@ -1059,7 +1059,6 @@ export const sketchShader = `
 export const clayShader = `
   precision highp float;
   uniform vec2 resolution;
-  uniform float time;
 
   float random(vec2 st) {
     return fract(sin(dot(st.xy, vec2(12.9898, 78.233))) * 43758.5453123);
@@ -1081,18 +1080,6 @@ export const clayShader = `
            (d - b) * u.x * u.y;
   }
 
-  // Fractal noise for richer, more organic clay surface detail.
-  float fbm(vec2 st) {
-    float v = 0.0;
-    float amp = 0.5;
-    for (int i = 0; i < 5; i++) {
-      v += amp * noise(st);
-      st *= 2.0;
-      amp *= 0.5;
-    }
-    return v;
-  }
-
   float getLuma(vec3 c) {
     return dot(c, vec3(0.2126, 0.7152, 0.0722));
   }
@@ -1110,27 +1097,6 @@ export const clayShader = `
     return smoothstep(0.05, 0.22, edge);
   }
 
-  // Luma gradient -> fake surface normal for the underlying form.
-  vec2 lumaGradient(vec2 uv) {
-    vec2 px = 1.0 / resolution;
-    float l = getLuma(texture2D(inputBuffer, uv - vec2(px.x, 0.0)).rgb);
-    float r = getLuma(texture2D(inputBuffer, uv + vec2(px.x, 0.0)).rgb);
-    float d = getLuma(texture2D(inputBuffer, uv - vec2(0.0, px.y)).rgb);
-    float u = getLuma(texture2D(inputBuffer, uv + vec2(0.0, px.y)).rgb);
-    return vec2(r - l, u - d);
-  }
-
-  // A height field for the clay surface (dents, thumb-presses, tool marks).
-  float clayHeight(vec2 uv) {
-    // Big soft lumps (like pressed dough)
-    float lumps = fbm(uv * 9.0);
-    // Thumb-press dents, irregular
-    float dents = fbm(uv * 22.0 + 13.0);
-    // Fine grainy texture
-    float grain = noise(uv * resolution.x * 0.08);
-    return lumps * 0.6 + dents * 0.3 + grain * 0.1;
-  }
-
   void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor) {
     vec3 src = inputColor.rgb;
     float luma = getLuma(src);
@@ -1141,134 +1107,55 @@ export const clayShader = `
     }
 
     float edge = getEdge(uv);
-    vec2 px = 1.0 / resolution;
 
-    // ---------------------------------------------------------------
-    // 1. BASE CLAY COLOR — desaturated, pastel, slightly waxy.
-    // ---------------------------------------------------------------
     vec3 gray = vec3(luma);
 
-    // Pull toward pastel: heavy desaturation + lift toward mid-tones.
-    vec3 pastelColor = mix(gray, src, 0.45);
-    pastelColor = pow(pastelColor, vec3(0.80));
-    // Clay is never pure black or pure white -> compress the range.
-    pastelColor = mix(vec3(0.18), vec3(0.92), pastelColor);
+    vec3 pastelColor = mix(gray, src, 0.58);
+    pastelColor = pow(pastelColor, vec3(0.82));
+    pastelColor = clamp(pastelColor * 1.05, 0.0, 1.0);
 
-    // Warm dough tint baked into the material.
-    vec3 warmClayTint = vec3(0.98, 0.86, 0.74);
-    vec3 clayColor = pastelColor * mix(vec3(1.0), warmClayTint, 0.5);
+    vec3 warmClayTint = vec3(0.96, 0.82, 0.68);
+    vec3 clayColor = mix(warmClayTint * luma, pastelColor, 0.78);
 
-    // ---------------------------------------------------------------
-    // 2. SURFACE RELIEF — build a height field and derive a normal so
-    //    the clay reads as a soft sculpted 3D solid, not a flat decal.
-    // ---------------------------------------------------------------
-    float hC = clayHeight(uv);
-    float hX = clayHeight(uv + vec2(px.x * 2.0, 0.0));
-    float hY = clayHeight(uv + vec2(0.0, px.y * 2.0));
+    float softShade = smoothstep(0.02, 0.95, luma);
+    softShade = pow(softShade, 0.72);
 
-    // Surface bump normal from the height field.
-    vec3 bumpNormal = normalize(vec3((hC - hX) * 6.0, (hC - hY) * 6.0, 1.0));
+    clayColor *= 0.62 + softShade * 0.58;
 
-    // Form normal from the image luma (the broad shape of the model).
-    vec2 g = lumaGradient(uv);
-    vec3 formNormal = normalize(vec3(-g * 4.0, 1.0));
+    vec2 grainUV = uv * resolution / 7.5;
 
-    // Combine broad form + fine surface bumps.
-    vec3 N = normalize(formNormal + bumpNormal * 0.6);
+    float fineNoise = noise(grainUV * 0.8);
+    float mediumNoise = noise(grainUV * 0.22 + 4.0);
 
-    // ---------------------------------------------------------------
-    // 3. LIGHTING — soft studio light for that doughy, matte look.
-    // ---------------------------------------------------------------
-    vec3 lightDir = normalize(vec3(-0.4, 0.7, 0.85));
-    vec3 viewDir  = vec3(0.0, 0.0, 1.0);
-    vec3 halfDir  = normalize(lightDir + viewDir);
+    vec2 warp = vec2(
+      noise(uv * 45.0 + 2.0),
+      noise(uv * 45.0 + 9.0)
+    ) - 0.5;
 
-    // Soft diffuse (wrap lighting => clay never goes fully black).
-    float NdotL = dot(N, lightDir);
-    float diffuse = clamp(NdotL * 0.5 + 0.5, 0.0, 1.0);
-    diffuse = pow(diffuse, 0.9);
-
-    // Fill light from below to keep it soft and toy-like.
-    vec3 fillDir = normalize(vec3(0.3, -0.5, 0.6));
-    float fill = clamp(dot(N, fillDir) * 0.5 + 0.5, 0.0, 1.0) * 0.25;
-
-    // Combine the model's own luma with computed shading.
-    float shade = mix(luma, diffuse, 0.55) + fill;
-    shade = clamp(shade, 0.0, 1.2);
-
-    clayColor *= 0.55 + shade * 0.6;
-
-    // ---------------------------------------------------------------
-    // 4. SUBSURFACE SCATTERING — the signature soft, waxy glow of
-    //    play-dough. Light bleeds slightly through the material.
-    // ---------------------------------------------------------------
-    float sss = pow(clamp(dot(N, lightDir) * 0.5 + 0.5, 0.0, 1.0), 2.0);
-    vec3 sssColor = vec3(1.0, 0.75, 0.6); // warm waxy bleed
-    clayColor += sssColor * sss * 0.18 * luma;
-
-    // ---------------------------------------------------------------
-    // 5. FINGERPRINTS / TOOL MARKS — lit by the surface normal so they
-    //    actually carve into the material with highlights & shadows.
-    // ---------------------------------------------------------------
-    vec2 warp = vec2(noise(uv * 45.0 + 2.0), noise(uv * 45.0 + 9.0)) - 0.5;
     vec2 ridgeUV = uv + warp * 0.012;
 
-    float ridgeA = sin((ridgeUV.x * resolution.x * 0.40) + noise(ridgeUV * 80.0) * 8.0);
-    float ridgeB = sin((ridgeUV.y * resolution.y * 0.32) + noise(ridgeUV * 65.0 + 3.0) * 6.0);
-    float ridgeC = sin(((ridgeUV.x + ridgeUV.y) * resolution.x * 0.16) + noise(ridgeUV * 50.0 + 7.0) * 7.0);
+    float ridgeA = sin((ridgeUV.x * resolution.x * 0.42) + noise(ridgeUV * 80.0) * 8.0);
+    float ridgeB = sin((ridgeUV.y * resolution.y * 0.34) + noise(ridgeUV * 65.0 + 3.0) * 6.0);
+    float ridgeC = sin(((ridgeUV.x + ridgeUV.y) * resolution.x * 0.18) + noise(ridgeUV * 50.0 + 7.0) * 7.0);
 
-    float ridges = (ridgeA * 0.45 + ridgeB * 0.35 + ridgeC * 0.20) * 0.5 + 0.5;
+    float ridges = (ridgeA * 0.45 + ridgeB * 0.35 + ridgeC * 0.20);
+    ridges = ridges * 0.5 + 0.5;
 
-    // Light the fingerprint ridges directionally: one side bright, one dark.
-    float ridgeShade = (ridges - 0.5);
-    float ridgeLight = ridgeShade * dot(normalize(lightDir.xy), vec2(1.0, 0.6));
-    clayColor += ridgeLight * 0.08 * (0.4 + luma * 0.6);
+    float fingerprint = smoothstep(0.45, 0.85, ridges);
+    fingerprint = (fingerprint - 0.5) * 0.055;
 
-    // ---------------------------------------------------------------
-    // 6. AMBIENT OCCLUSION — darken creases & contact areas.
-    // ---------------------------------------------------------------
-    float ao = 1.0 - edge * 0.55;
-    // Deepen AO in the dents of the height field.
-    ao *= mix(0.85, 1.0, smoothstep(0.2, 0.7, hC));
-    vec3 creaseTint = vec3(0.55, 0.40, 0.42); // warm shadow color
-    clayColor = mix(clayColor * creaseTint, clayColor, ao);
+    float grain = (fineNoise - 0.5) * 0.045 + (mediumNoise - 0.5) * 0.035;
 
-    // ---------------------------------------------------------------
-    // 7. WAXY SPECULAR — soft broad highlight, NOT sharp like plastic.
-    // ---------------------------------------------------------------
-    float spec = pow(clamp(dot(N, halfDir), 0.0, 1.0), 12.0);
-    // Keep it gentle & matte; clay barely shines.
-    clayColor += vec3(1.0, 0.96, 0.9) * spec * 0.22;
-
-    // Broad sheen across the form (the slightly oily play-dough look).
-    float sheen = pow(clamp(dot(N, halfDir), 0.0, 1.0), 2.5) * 0.12;
-    clayColor += sheen;
-
-    // ---------------------------------------------------------------
-    // 8. RIM LIGHT — soft backlight to separate model from background.
-    // ---------------------------------------------------------------
-    float rim = pow(1.0 - clamp(N.z, 0.0, 1.0), 2.5);
-    clayColor += vec3(1.0, 0.85, 0.7) * rim * 0.15;
-
-    // ---------------------------------------------------------------
-    // 9. FINE GRAIN — micro speckle so it isn't plasticky-smooth.
-    // ---------------------------------------------------------------
-    vec2 grainUV = uv * resolution / 6.0;
-    float grain = (noise(grainUV * 0.8) - 0.5) * 0.030
-                + (noise(grainUV * 0.22 + 4.0) - 0.5) * 0.025;
     clayColor += grain;
+    clayColor += fingerprint * (0.35 + luma * 0.65);
 
-    // ---------------------------------------------------------------
-    // 10. FINAL GRADE — desaturate slightly, lift blacks (matte),
-    //     keep it soft and toy-like.
-    // ---------------------------------------------------------------
-    clayColor = mix(vec3(getLuma(clayColor)), clayColor, 0.85);
+    vec3 creaseColor = vec3(0.36, 0.27, 0.30);
+    clayColor = mix(clayColor, clayColor * creaseColor, edge * 0.35);
 
-    // Matte film: never fully black, slightly warm in shadows.
-    clayColor = mix(vec3(0.06, 0.05, 0.055), clayColor, smoothstep(0.0, 0.25, luma));
+    float highlight = smoothstep(0.72, 1.0, luma);
+    clayColor += vec3(0.08, 0.065, 0.05) * highlight;
 
-    // Gentle contrast curve for that molded solid feel.
-    clayColor = pow(clayColor, vec3(0.95));
+    clayColor = mix(vec3(getLuma(clayColor)), clayColor, 0.88);
 
     clayColor = clamp(clayColor, 0.0, 1.0);
 

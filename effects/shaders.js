@@ -895,7 +895,7 @@ export const sketchShader = `
   }
 `;
 
-//water / liquid effect
+//water / liquid effect 👇🏻
 
 // export const liquidChromeShader = `
 //   precision highp float;
@@ -1538,7 +1538,7 @@ export const chromeRippleShader = `
   }
 `;
 
-// Chrome outline shader
+// Chrome outline shader 👇🏻
 
 // export const liquidChromeShader = `
 //   precision highp float;

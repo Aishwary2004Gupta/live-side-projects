@@ -1535,7 +1535,7 @@ export const chromeRippleShader = `
   }
 `;
 
-
+// Chrome outline shader
 // export const liquidChromeShader = `
 //   precision highp float;
 //   uniform float time;

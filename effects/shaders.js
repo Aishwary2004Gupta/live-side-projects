@@ -1454,6 +1454,86 @@ export const liquidChromeShader = `
   }
 `;
 
+export const chromeRippleShader = `
+  precision highp float;
+  uniform float time;
+  uniform vec2 resolution;
+
+  float getLuma(vec3 c) {
+    return dot(c, vec3(0.2126, 0.7152, 0.0722));
+  }
+
+  void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor) {
+    // Sample original pixel WITHOUT any displacement.
+    // This is used purely to detect if this pixel is background.
+    vec4 original = texture2D(inputBuffer, uv);
+    float origLuma = getLuma(original.rgb);
+
+    // Background detection (works for BOTH modes):
+    //  - Dark mode  -> background is near-black (luma very low)
+    //  - Light mode -> background is near-white (luma very high)
+    // If pixel is background, return it directly. No ripple, no chrome.
+    if (origLuma < 0.03 || origLuma > 0.97) {
+      outputColor = original;
+      return;
+    }
+
+    // ---- MODEL PIXEL: apply chrome ripple effect ----
+
+    // 1. HORIZONTAL FREQUENCY RIPPLE DISPLACEMENT
+    float freq = 90.0 + origLuma * 120.0;
+    float ripple = sin(uv.x * freq + time * 1.5) * 0.012 * (0.3 + origLuma);
+
+    vec2 rippleUV = uv;
+    rippleUV.x += ripple;
+    rippleUV.y += sin(uv.x * freq * 0.5) * 0.004;
+
+    // Clamp displaced UV so we never sample background by accident
+    rippleUV = clamp(rippleUV, vec2(0.001), vec2(0.999));
+
+    // 2. CHROMATIC ABERRATION - iridescent edges
+    float shift = 0.006 + origLuma * 0.012;
+    float r = texture2D(inputBuffer, clamp(rippleUV + vec2(shift, 0.0), vec2(0.001), vec2(0.999))).r;
+    float g = texture2D(inputBuffer, rippleUV).g;
+    float b = texture2D(inputBuffer, clamp(rippleUV - vec2(shift, 0.0), vec2(0.001), vec2(0.999))).b;
+    vec3 col = vec3(r, g, b);
+
+    float luma = getLuma(col);
+
+    // 3. SAFETY: if the displaced sample landed on background, fall back to original
+    if (luma < 0.03 || luma > 0.97) {
+      outputColor = original;
+      return;
+    }
+
+    // 4. CHROME / GLASS SHADING
+    float streak = abs(sin(uv.x * freq + time * 1.5));
+    streak = pow(streak, 8.0);
+    float specular = streak * smoothstep(0.2, 0.9, luma);
+
+    // 5. IRIDESCENT COLOR GRADING
+    vec3 coolTint = vec3(0.15, 0.45, 0.85);
+    vec3 warmTint = vec3(1.0, 0.45, 0.1);
+
+    float phase = sin(uv.x * freq * 0.5 + time) * 0.5 + 0.5;
+    vec3 iridescence = mix(coolTint, warmTint, phase);
+
+    vec3 chrome = mix(col, col * iridescence * 1.8, 0.55);
+
+    // 6. METALLIC CONTRAST
+    chrome = pow(chrome, vec3(1.3));
+    chrome += vec3(specular) * 1.2;
+
+    // 7. EDGE GLOW
+    float edgeGlow = pow(streak, 3.0) * luma;
+    chrome += iridescence * edgeGlow * 0.6;
+
+    // 8. FINAL POLISH
+    chrome = clamp(chrome * 1.15, 0.0, 1.0);
+
+    outputColor = vec4(chrome, 1.0);
+  }
+`;
 
 
 // export const liquidChromeShader = `

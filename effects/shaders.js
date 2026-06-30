@@ -1059,6 +1059,16 @@ export const sketchShader = `
 export const clayShader = `
   precision highp float;
   uniform vec2 resolution;
+  uniform float time;
+
+  // --- Play-dough color palette (soft, matte, slightly waxy) ---
+  vec3 clayColors[5] = vec3[5](
+    vec3(0.92, 0.45, 0.42), // Terracotta red
+    vec3(0.95, 0.60, 0.45), // Warm orange
+    vec3(0.88, 0.72, 0.48), // Soft yellow
+    vec3(0.58, 0.72, 0.68), // Mint green
+    vec3(0.62, 0.72, 0.88)  // Soft blue
+  );
 
   float random(vec2 st) {
     return fract(sin(dot(st.xy, vec2(12.9898, 78.233))) * 43758.5453123);
@@ -1067,99 +1077,215 @@ export const clayShader = `
   float noise(vec2 st) {
     vec2 i = floor(st);
     vec2 f = fract(st);
-
     float a = random(i);
     float b = random(i + vec2(1.0, 0.0));
     float c = random(i + vec2(0.0, 1.0));
     float d = random(i + vec2(1.0, 1.0));
-
     vec2 u = f * f * (3.0 - 2.0 * f);
+    return mix(a, b, u.x) + (c - a) * u.y * (1.0 - u.x) + (d - b) * u.x * u.y;
+  }
 
-    return mix(a, b, u.x) +
-           (c - a) * u.y * (1.0 - u.x) +
-           (d - b) * u.x * u.y;
+  // Smooth noise for organic clay variations
+  float smoothNoise(vec2 st) {
+    return noise(st) * 0.5 + noise(st * 2.0) * 0.25 + noise(st * 4.0) * 0.125 + noise(st * 8.0) * 0.0625;
   }
 
   float getLuma(vec3 c) {
     return dot(c, vec3(0.2126, 0.7152, 0.0722));
   }
 
+  vec2 safeUV(vec2 uv) {
+    return clamp(uv, vec2(0.001), vec2(0.999));
+  }
+
   float getEdge(vec2 uv) {
     vec2 px = 1.0 / resolution;
-
-    float c  = getLuma(texture2D(inputBuffer, uv).rgb);
-    float l  = getLuma(texture2D(inputBuffer, uv - vec2(px.x, 0.0)).rgb);
-    float r  = getLuma(texture2D(inputBuffer, uv + vec2(px.x, 0.0)).rgb);
-    float u  = getLuma(texture2D(inputBuffer, uv + vec2(0.0, px.y)).rgb);
-    float d  = getLuma(texture2D(inputBuffer, uv - vec2(0.0, px.y)).rgb);
-
+    float c = getLuma(texture2D(inputBuffer, uv).rgb);
+    float l = getLuma(texture2D(inputBuffer, safeUV(uv - vec2(px.x, 0.0))).rgb);
+    float r = getLuma(texture2D(inputBuffer, safeUV(uv + vec2(px.x, 0.0))).rgb);
+    float u = getLuma(texture2D(inputBuffer, safeUV(uv + vec2(0.0, px.y))).rgb);
+    float d = getLuma(texture2D(inputBuffer, safeUV(uv - vec2(0.0, px.y))).rgb);
     float edge = abs(c - l) + abs(c - r) + abs(c - u) + abs(c - d);
-    return smoothstep(0.05, 0.22, edge);
+    return smoothstep(0.04, 0.18, edge);
+  }
+
+  // Detect background from corners (works for any theme)
+  vec3 detectBackground() {
+    vec3 c0 = texture2D(inputBuffer, vec2(0.01, 0.01)).rgb;
+    vec3 c1 = texture2D(inputBuffer, vec2(0.99, 0.01)).rgb;
+    vec3 c2 = texture2D(inputBuffer, vec2(0.01, 0.99)).rgb;
+    vec3 c3 = texture2D(inputBuffer, vec2(0.99, 0.99)).rgb;
+    return (c0 + c1 + c2 + c3) * 0.25;
+  }
+
+  float bgDifference(vec3 col, vec3 bg) {
+    return clamp(length(col - bg) * 1.4, 0.0, 1.0);
+  }
+
+  float getObjectMask(vec2 uv, vec3 bg) {
+    vec3 col = texture2D(inputBuffer, safeUV(uv)).rgb;
+    float diff = bgDifference(col, bg);
+    float edge = getEdge(uv);
+    return smoothstep(0.05, 0.15, diff + edge * 0.3);
+  }
+
+  // --- Fingerprint simulation (organic swirls and ridges) ---
+  float fingerprintPattern(vec2 uv) {
+    vec2 center = vec2(0.5, 0.5);
+    vec2 toCenter = uv - center;
+    float dist = length(toCenter);
+    float angle = atan(toCenter.y, toCenter.x);
+    
+    // Concentric ridges like real fingerprints
+    float ridges = sin(dist * 25.0 + angle * 3.0 + noise(uv * 15.0) * 2.0);
+    ridges += sin(dist * 45.0 - angle * 2.0 + noise(uv * 25.0 + 5.0) * 1.5) * 0.5;
+    
+    // Add some random smudges
+    float smudge = noise(uv * 30.0 + 10.0);
+    ridges += smudge * 0.3;
+    
+    return ridges * 0.5 + 0.5;
+  }
+
+  // --- Soft subsurface scattering simulation ---
+  // Light bleeds through thin edges of clay (translucency)
+  float subsurfaceScattering(vec2 uv, float thickness) {
+    vec2 px = 1.0 / resolution;
+    float scatter = 0.0;
+    
+    // Sample around the pixel to simulate light diffusion
+    for (int i = -2; i <= 2; i++) {
+      for (int j = -2; j <= 2; j++) {
+        vec2 offset = vec2(float(i), float(j)) * px * 3.0;
+        float sampleLuma = getLuma(texture2D(inputBuffer, safeUV(uv + offset)).rgb);
+        float dist = length(offset * resolution);
+        scatter += sampleLuma * exp(-dist * 0.15);
+      }
+    }
+    scatter /= 25.0;
+    
+    // More scattering at thin edges
+    return scatter * thickness * 0.4;
   }
 
   void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor) {
-    vec3 src = inputColor.rgb;
+    vec3 bg = detectBackground();
+    vec3 src = texture2D(inputBuffer, uv).rgb;
     float luma = getLuma(src);
+    float edge = getEdge(uv);
+    float objectMask = getObjectMask(uv, bg);
 
-    if (luma < 0.015) {
-      outputColor = vec4(0.0, 0.0, 0.0, 1.0);
+    // Background passes through unchanged
+    if (objectMask < 0.01) {
+      outputColor = vec4(bg, 1.0);
       return;
     }
 
-    float edge = getEdge(uv);
+    // --- Select clay color based on position (varied play-dough colors) ---
+    float colorIndex = smoothNoise(uv * 0.3 + time * 0.02) * 4.99;
+    int idx = int(colorIndex);
+    idx = clamp(idx, 0, 4);
+    vec3 baseClayColor = clayColors[idx];
+    
+    // Add subtle color variation within the same piece
+    float colorVar = smoothNoise(uv * 8.0 + 3.0) * 0.08 - 0.04;
+    baseClayColor += vec3(colorVar);
 
-    vec3 gray = vec3(luma);
+    // --- Soft, diffuse lighting (clay has very soft shadows) ---
+    // Reduce contrast for that soft play-dough look
+    float softLuma = pow(luma, 0.85);
+    softLuma = mix(softLuma, 0.5, 0.15); // Lift shadows slightly
+    
+    // Ambient occlusion in crevices
+    float ao = 1.0 - edge * 0.25;
+    softLuma *= ao;
 
-    vec3 pastelColor = mix(gray, src, 0.58);
-    pastelColor = pow(pastelColor, vec3(0.82));
-    pastelColor = clamp(pastelColor * 1.05, 0.0, 1.0);
+    // --- Subsurface scattering (light glow through thin parts) ---
+    float thickness = objectMask;
+    float sss = subsurfaceScattering(uv, thickness);
+    vec3 sssColor = baseClayColor * 1.3 * sss;
 
-    vec3 warmClayTint = vec3(0.96, 0.82, 0.68);
-    vec3 clayColor = mix(warmClayTint * luma, pastelColor, 0.78);
+    // --- Surface texture: fingerprints and tool marks ---
+    float finger = fingerprintPattern(uv);
+    float fingerDetail = smoothstep(0.4, 0.6, finger);
+    
+    // Organic surface bumps (like real molded clay)
+    vec2 bumpUV = uv * 40.0;
+    float surfaceBump = noise(bumpUV) * 0.5 + noise(bumpUV * 2.0 + 5.0) * 0.25;
+    surfaceBump = surfaceBump * 0.5 + 0.5;
+    
+    // Combine fingerprint with surface texture
+    float surfaceDetail = mix(surfaceBump, fingerDetail, 0.6);
+    surfaceDetail = surfaceDetail * 0.5 + 0.5;
 
-    float softShade = smoothstep(0.02, 0.95, luma);
-    softShade = pow(softShade, 0.72);
+    // --- Waxy/matte sheen (very soft, not shiny) ---
+    // Play-dough has a subtle waxy finish, not glossy
+    vec3 lightDir = normalize(vec3(-0.3, 0.5, 0.8));
+    vec3 viewDir = vec3(0.0, 0.0, 1.0);
+    
+    // Fake normal from surface detail
+    vec2 px = 1.0 / resolution;
+    float hL = surfaceDetail;
+    float hR = noise((uv + vec2(px.x, 0.0)) * 40.0) * 0.5 + noise((uv + vec2(px.x, 0.0)) * 80.0 + 5.0) * 0.25;
+    float hU = noise((uv + vec2(0.0, px.y)) * 40.0) * 0.5 + noise((uv + vec2(0.0, px.y)) * 80.0 + 5.0) * 0.25;
+    vec3 fakeNormal = normalize(vec3(hL - hR, hU - hL, 1.5));
+    
+    // Very soft diffuse
+    float diff = max(dot(fakeNormal, lightDir), 0.0);
+    diff = pow(diff, 0.7); // Softer falloff
+    
+    // Subtle waxy specular (very broad and soft)
+    vec3 halfVec = normalize(lightDir + viewDir);
+    float spec = pow(max(dot(fakeNormal, halfVec), 0.0), 8.0) * 0.15;
+    spec *= smoothstep(0.3, 1.0, luma); // Only on brighter areas
 
-    clayColor *= 0.62 + softShade * 0.58;
+    // --- Color application ---
+    vec3 clayColor = baseClayColor * (0.5 + diff * 0.5);
+    clayColor += sssColor; // Add subsurface glow
+    clayColor += vec3(spec) * baseClayColor * 0.3; // Waxy highlight
 
-    vec2 grainUV = uv * resolution / 7.5;
+    // --- Apply surface texture as subtle displacement in lighting ---
+    float textureShadow = (surfaceDetail - 0.5) * 0.08;
+    clayColor += vec3(textureShadow);
 
-    float fineNoise = noise(grainUV * 0.8);
-    float mediumNoise = noise(grainUV * 0.22 + 4.0);
+    // --- Soft edge falloff (hand-molded look) ---
+    // Edges of clay are slightly rounded and softer
+    float edgeSoft = smoothstep(0.0, 0.15, objectMask);
+    edgeSoft = pow(edgeSoft, 0.7);
+    clayColor *= edgeSoft;
 
-    vec2 warp = vec2(
-      noise(uv * 45.0 + 2.0),
-      noise(uv * 45.0 + 9.0)
-    ) - 0.5;
+    // --- Crease darkening in deep edges ---
+    vec3 creaseDark = vec3(0.15, 0.12, 0.10);
+    float crease = edge * objectMask * 0.5;
+    clayColor = mix(clayColor, clayColor * creaseDark, crease);
 
-    vec2 ridgeUV = uv + warp * 0.012;
+    // --- Add subtle "dry spots" or texture variations ---
+    float drySpot = smoothNoise(uv * 60.0 + 15.0);
+    drySpot = smoothstep(0.7, 0.9, drySpot) * 0.03;
+    clayColor += vec3(drySpot);
 
-    float ridgeA = sin((ridgeUV.x * resolution.x * 0.42) + noise(ridgeUV * 80.0) * 8.0);
-    float ridgeB = sin((ridgeUV.y * resolution.y * 0.34) + noise(ridgeUV * 65.0 + 3.0) * 6.0);
-    float ridgeC = sin(((ridgeUV.x + ridgeUV.y) * resolution.x * 0.18) + noise(ridgeUV * 50.0 + 7.0) * 7.0);
+    // --- Final color grading for realistic play-dough ---
+    // Warm up the shadows slightly
+    vec3 shadowTint = vec3(1.05, 0.95, 0.85);
+    vec3 highlightTint = vec3(1.0, 1.02, 1.05);
+    float shadeBlend = smoothstep(0.2, 0.8, luma);
+    clayColor = mix(clayColor * shadowTint, clayColor * highlightTint, shadeBlend);
 
-    float ridges = (ridgeA * 0.45 + ridgeB * 0.35 + ridgeC * 0.20);
-    ridges = ridges * 0.5 + 0.5;
+    // Soften overall contrast (play-dough is matte)
+    clayColor = mix(vec3(getLuma(clayColor)), clayColor, 0.75);
 
-    float fingerprint = smoothstep(0.45, 0.85, ridges);
-    fingerprint = (fingerprint - 0.5) * 0.055;
+    // Slight saturation boost for that vibrant play-dough look
+    vec3 gray = vec3(getLuma(clayColor));
+    clayColor = mix(gray, clayColor, 1.15);
 
-    float grain = (fineNoise - 0.5) * 0.045 + (mediumNoise - 0.5) * 0.035;
-
-    clayColor += grain;
-    clayColor += fingerprint * (0.35 + luma * 0.65);
-
-    vec3 creaseColor = vec3(0.36, 0.27, 0.30);
-    clayColor = mix(clayColor, clayColor * creaseColor, edge * 0.35);
-
-    float highlight = smoothstep(0.72, 1.0, luma);
-    clayColor += vec3(0.08, 0.065, 0.05) * highlight;
-
-    clayColor = mix(vec3(getLuma(clayColor)), clayColor, 0.88);
-
+    // Clamp and final adjustments
     clayColor = clamp(clayColor, 0.0, 1.0);
+    clayColor = pow(clayColor, vec3(0.92)); // Slight gamma for softness
 
-    outputColor = vec4(clayColor, 1.0);
+    // Blend with background using object mask
+    vec3 finalColor = mix(bg, clayColor, objectMask);
+
+    outputColor = vec4(finalColor, 1.0);
   }
 `;
 

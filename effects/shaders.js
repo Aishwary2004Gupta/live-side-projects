@@ -1060,7 +1060,6 @@ export const clayShader = `
   precision highp float;
   uniform vec2 resolution;
 
-  // --- Utility Functions ---
   float random(vec2 st) {
     return fract(sin(dot(st.xy, vec2(12.9898, 78.233))) * 43758.5453123);
   }
@@ -1077,7 +1076,7 @@ export const clayShader = `
   }
 
   float smoothNoise(vec2 st) {
-    return noise(st) * 0.5 + noise(st * 2.0) * 0.25 + noise(st * 4.0) * 0.125;
+    return noise(st) * 0.5 + noise(st * 2.0) * 0.25 + noise(st * 4.0) * 0.125 + noise(st * 8.0) * 0.0625;
   }
 
   float getLuma(vec3 c) {
@@ -1088,7 +1087,6 @@ export const clayShader = `
     return clamp(uv, vec2(0.001), vec2(0.999));
   }
 
-  // --- Edge Detection (The "Crayon Lines") ---
   float getEdge(vec2 uv) {
     vec2 px = 1.0 / resolution;
     float c = getLuma(texture2D(inputBuffer, uv).rgb);
@@ -1097,11 +1095,9 @@ export const clayShader = `
     float u = getLuma(texture2D(inputBuffer, safeUV(uv + vec2(0.0, px.y))).rgb);
     float d = getLuma(texture2D(inputBuffer, safeUV(uv - vec2(0.0, px.y))).rgb);
     float edge = abs(c - l) + abs(c - r) + abs(c - u) + abs(c - d);
-    // Sharper threshold for crisper lines
-    return smoothstep(0.02, 0.12, edge);
+    return smoothstep(0.04, 0.20, edge);
   }
 
-  // --- Background Detection ---
   vec3 detectBackground() {
     vec3 c0 = texture2D(inputBuffer, vec2(0.01, 0.01)).rgb;
     vec3 c1 = texture2D(inputBuffer, vec2(0.99, 0.01)).rgb;
@@ -1111,14 +1107,36 @@ export const clayShader = `
   }
 
   float bgDifference(vec3 col, vec3 bg) {
-    return clamp(length(col - bg) * 1.5, 0.0, 1.0);
+    return clamp(length(col - bg) * 1.4, 0.0, 1.0);
   }
 
   float getObjectMask(vec2 uv, vec3 bg) {
     vec3 col = texture2D(inputBuffer, safeUV(uv)).rgb;
     float diff = bgDifference(col, bg);
     float edge = getEdge(uv);
-    return smoothstep(0.04, 0.12, diff + edge * 0.3);
+    return smoothstep(0.05, 0.15, diff + edge * 0.3);
+  }
+
+  // Soft posterize - creates cartoon-like shading bands but with smooth transitions
+  float softPosterize(float value, float bands) {
+    float scaled = value * bands;
+    float base = floor(scaled);
+    float frac = fract(scaled);
+    float smoothed = smoothstep(0.3, 0.7, frac);
+    return (base + smoothed) / bands;
+  }
+
+  // Fingerprint / thumb-press texture (subtle, organic swirls)
+  float fingerprintPattern(vec2 uv) {
+    vec2 center = vec2(0.5, 0.5);
+    vec2 toCenter = uv - center;
+    float dist = length(toCenter);
+    float angle = atan(toCenter.y, toCenter.x);
+
+    float ridges = sin(dist * 22.0 + angle * 2.5 + noise(uv * 12.0) * 2.0);
+    ridges += sin(dist * 38.0 - angle * 1.8 + noise(uv * 20.0 + 5.0) * 1.5) * 0.4;
+
+    return ridges * 0.5 + 0.5;
   }
 
   void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor) {
@@ -1128,92 +1146,94 @@ export const clayShader = `
     float edge = getEdge(uv);
     float objectMask = getObjectMask(uv, bg);
 
+    // Background stays untouched
     if (objectMask < 0.01) {
       outputColor = vec4(bg, 1.0);
       return;
     }
 
-    // 1. HYPER-SATURATED BASE COLOR (Fresh Crayon Box)
-    vec3 gray = vec3(getLuma(src));
-    float satAmount = 1.6; // Very high saturation
-    vec3 vibrantColor = mix(gray, src, satAmount);
-    vibrantColor *= 1.05; // Slight brightness boost
+    // --- Keep the original color, just work with its shading ---
+    vec3 baseColor = src;
 
-    // 2. SURFACE NORMAL & BUMPS
+    // --- Fake surface normal from local luma gradient (for clay bumps) ---
     vec2 px = 1.0 / resolution;
-    float hL = getLuma(texture2D(inputBuffer, safeUV(uv - vec2(px.x, 0.0))).rgb);
-    float hR = getLuma(texture2D(inputBuffer, safeUV(uv + vec2(px.x, 0.0))).rgb);
-    float hU = getLuma(texture2D(inputBuffer, safeUV(uv + vec2(0.0, px.y))).rgb);
-    float hD = getLuma(texture2D(inputBuffer, safeUV(uv - vec2(0.0, px.y))).rgb);
-    
-    vec2 bumpUV = uv * 30.0;
-    float bump = smoothNoise(bumpUV);
-    float bumpR = smoothNoise(bumpUV + vec2(0.1, 0.0));
-    float bumpU = smoothNoise(bumpUV + vec2(0.0, 0.1));
-    
-    vec3 fakeNormal = normalize(vec3(
-      (hR - hL) * 5.0 + (bumpR - bump) * 1.2, 
-      (hU - hD) * 5.0 + (bumpU - bump) * 1.2, 
-      1.0
-    ));
+    float cL = getLuma(texture2D(inputBuffer, safeUV(uv - vec2(px.x, 0.0))).rgb);
+    float cR = getLuma(texture2D(inputBuffer, safeUV(uv + vec2(px.x, 0.0))).rgb);
+    float cU = getLuma(texture2D(inputBuffer, safeUV(uv + vec2(0.0, px.y))).rgb);
+    float cD = getLuma(texture2D(inputBuffer, safeUV(uv - vec2(0.0, px.y))).rgb);
+    vec2 grad = vec2(cR - cL, cU - cD);
+    vec3 fakeNormal = normalize(vec3(-grad * 6.0, 1.0));
 
-    // 3. HARD CEL-SHADED LIGHTING (The "Crayon Line" Effect)
-    vec3 lightDir = normalize(vec3(-0.4, 0.6, 0.8));
+    // --- Add subtle clay surface bumps to the normal (hand-molded imperfections) ---
+    vec2 bumpUV = uv * resolution / 12.0;
+    float bumpNoise = smoothNoise(bumpUV);
+    vec2 bumpGrad = vec2(
+      smoothNoise(bumpUV + vec2(0.6, 0.0)) - smoothNoise(bumpUV - vec2(0.6, 0.0)),
+      smoothNoise(bumpUV + vec2(0.0, 0.6)) - smoothNoise(bumpUV - vec2(0.0, 0.6))
+    );
+    fakeNormal = normalize(fakeNormal + vec3(bumpGrad * 0.35, 0.0));
+
+    // --- Soft key light (like clay under a big soft studio light) ---
+    vec3 lightDir = normalize(vec3(-0.35, 0.55, 0.85));
     vec3 viewDir = vec3(0.0, 0.0, 1.0);
 
-    float NdotL = max(dot(fakeNormal, lightDir), 0.0);
-    
-    // CRITICAL CHANGE: Hard step instead of smooth gradient
-    // If light > 0.2, it's fully lit. If not, it's fully shadow.
-    float isLit = step(0.25, NdotL); 
-    
-    // Define the colors for Light and Shadow
-    vec3 lightColor = vibrantColor * 1.15; // Bright lit area
-    
-    // SHADOW COLOR: Mix with a dark crayon tone (Deep Purple/Brown)
-    // This creates the "dark line" feel in shadowed areas
-    vec3 shadowTone = vec3(0.15, 0.08, 0.18); // Dark purplish crayon
-    vec3 shadowColor = mix(vibrantColor * 0.4, shadowTone, 0.6);
-    
-    vec3 shadingResult = mix(shadowColor, lightColor, isLit);
+    float diff = max(dot(fakeNormal, lightDir), 0.0);
 
-    // 4. WAXY HIGHLIGHT (Small white dot, like a crayon shine)
+    // Posterize the diffuse lighting into soft cartoon bands
+    float toonDiff = softPosterize(diff, 4.0);
+    toonDiff = mix(diff, toonDiff, 0.65); // blend for softness, not too harsh
+
+    // Lift shadows so nothing goes near-black (clay shadows are soft, never harsh)
+    float shading = mix(0.55, 1.05, toonDiff);
+
+    // --- Ambient occlusion in creases/folds ---
+    float ao = 1.0 - edge * 0.35;
+    shading *= ao;
+
+    // --- Waxy, soft, small specular highlight (not glossy/plastic) ---
     vec3 halfVec = normalize(lightDir + viewDir);
-    float NdotH = max(dot(fakeNormal, halfVec), 0.0);
-    float spec = pow(NdotH, 25.0); // Sharper highlight than before
-    vec3 finalColor = shadingResult + vec3(1.0) * spec * 0.9;
+    float specPower = pow(max(dot(fakeNormal, halfVec), 0.0), 8.0);
+    float spec = smoothstep(0.35, 0.9, specPower) * 0.25;
 
-    // 5. RIM LIGHT (Optional: keeps edges from looking too flat)
+    // --- Subsurface-ish soft glow at thin/bright edges (waxy translucency) ---
     float rim = 1.0 - max(dot(fakeNormal, viewDir), 0.0);
-    rim = pow(rim, 3.0) * 0.2;
-    finalColor += vibrantColor * rim * 0.5;
+    rim = pow(rim, 3.0) * 0.18;
 
-    // 6. THICKEN THE LINES (Dark Creases)
-    // We make the detected edges much darker and thicker
-    float thickLine = smoothstep(0.0, 0.15, edge);
-    vec3 lineColor = vec3(0.08, 0.05, 0.10); // Very dark purple/black line
-    finalColor = mix(finalColor, lineColor, thickLine * 0.85);
+    // --- Compose final clay color, preserving original hue ---
+    vec3 clayColor = baseColor * shading;
+    clayColor += baseColor * spec * 1.4;
+    clayColor += mix(vec3(1.0), baseColor, 0.5) * rim;
 
-    // 7. TEXTURE DETAILS
-    // Fingerprints (subtle)
-    vec2 fingerUV = uv * 15.0;
-    float angle = atan(fingerUV.y - 0.5, fingerUV.x - 0.5);
-    float dist = length(fingerUV - 0.5);
-    float fingerprint = sin(dist * 12.0 + angle * 2.0);
-    fingerprint = smoothstep(-0.3, 0.3, fingerprint) * 0.03;
-    finalColor += vec3(fingerprint);
+    // --- Subtle fingerprint / thumb-press texture ---
+    float finger = fingerprintPattern(uv);
+    float fingerDetail = smoothstep(0.42, 0.62, finger);
+    float fingerShadow = (fingerDetail - 0.5) * 0.05;
+    clayColor += vec3(fingerShadow) * (0.4 + luma * 0.6);
 
-    // Grain (Paper/Chalk texture)
-    float grain = (noise(uv * resolution / 4.0) - 0.5) * 0.04;
-    finalColor += vec3(grain);
+    // --- Fine grain / matte micro-texture (like real play-dough surface) ---
+    float grain = (noise(uv * resolution / 4.0) - 0.5) * 0.03;
+    clayColor += vec3(grain);
 
-    // 8. FINAL POLISH
-    finalColor = pow(clamp(finalColor, 0.0, 1.0), vec3(0.95));
-    finalColor = clamp(finalColor, 0.0, 1.0);
+    // --- Slight color boost so it "pops" like painted clay, without shifting hue ---
+    vec3 gray = vec3(getLuma(clayColor));
+    clayColor = mix(gray, clayColor, 1.12);
 
-    vec3 outColor = mix(bg, finalColor, objectMask);
+    // --- Darken creases slightly with a neutral shadow tone (not colored ink) ---
+    float crease = edge * objectMask * 0.4;
+    clayColor = mix(clayColor, clayColor * 0.55, crease);
 
-    outputColor = vec4(outColor, 1.0);
+    // --- Soft rounded edge falloff (like a hand-rolled clay silhouette) ---
+    float edgeSoft = smoothstep(0.0, 0.12, objectMask);
+    clayColor *= mix(0.85, 1.0, edgeSoft);
+
+    // --- Gentle overall gamma lift for that soft matte plastic-clay finish ---
+    clayColor = pow(clamp(clayColor, 0.0, 1.0), vec3(0.92));
+
+    clayColor = clamp(clayColor, 0.0, 1.0);
+
+    vec3 finalColor = mix(bg, clayColor, objectMask);
+
+    outputColor = vec4(finalColor, 1.0);
   }
 `;
 

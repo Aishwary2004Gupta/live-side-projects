@@ -1059,16 +1059,6 @@ export const sketchShader = `
 export const clayShader = `
   precision highp float;
   uniform vec2 resolution;
-  // uniform float time; // REMOVED: Already provided by post-processing system
-
-  // --- Play-dough color palette (soft, matte, slightly waxy) ---
-  vec3 clayColors[5] = vec3[5](
-    vec3(0.92, 0.45, 0.42), // Terracotta red
-    vec3(0.95, 0.60, 0.45), // Warm orange
-    vec3(0.88, 0.72, 0.48), // Soft yellow
-    vec3(0.58, 0.72, 0.68), // Mint green
-    vec3(0.62, 0.72, 0.88)  // Soft blue
-  );
 
   float random(vec2 st) {
     return fract(sin(dot(st.xy, vec2(12.9898, 78.233))) * 43758.5453123);
@@ -1077,17 +1067,30 @@ export const clayShader = `
   float noise(vec2 st) {
     vec2 i = floor(st);
     vec2 f = fract(st);
+
     float a = random(i);
     float b = random(i + vec2(1.0, 0.0));
     float c = random(i + vec2(0.0, 1.0));
     float d = random(i + vec2(1.0, 1.0));
+
     vec2 u = f * f * (3.0 - 2.0 * f);
-    return mix(a, b, u.x) + (c - a) * u.y * (1.0 - u.x) + (d - b) * u.x * u.y;
+
+    return mix(a, b, u.x) +
+           (c - a) * u.y * (1.0 - u.x) +
+           (d - b) * u.x * u.y;
   }
 
-  // Smooth noise for organic clay variations
-  float smoothNoise(vec2 st) {
-    return noise(st) * 0.5 + noise(st * 2.0) * 0.25 + noise(st * 4.0) * 0.125 + noise(st * 8.0) * 0.0625;
+  float fbm(vec2 st) {
+    float v = 0.0;
+    float a = 0.5;
+
+    for (int i = 0; i < 5; i++) {
+      v += a * noise(st);
+      st *= 2.0;
+      a *= 0.5;
+    }
+
+    return v;
   }
 
   float getLuma(vec3 c) {
@@ -1098,18 +1101,6 @@ export const clayShader = `
     return clamp(uv, vec2(0.001), vec2(0.999));
   }
 
-  float getEdge(vec2 uv) {
-    vec2 px = 1.0 / resolution;
-    float c = getLuma(texture2D(inputBuffer, uv).rgb);
-    float l = getLuma(texture2D(inputBuffer, safeUV(uv - vec2(px.x, 0.0))).rgb);
-    float r = getLuma(texture2D(inputBuffer, safeUV(uv + vec2(px.x, 0.0))).rgb);
-    float u = getLuma(texture2D(inputBuffer, safeUV(uv + vec2(0.0, px.y))).rgb);
-    float d = getLuma(texture2D(inputBuffer, safeUV(uv - vec2(0.0, px.y))).rgb);
-    float edge = abs(c - l) + abs(c - r) + abs(c - u) + abs(c - d);
-    return smoothstep(0.04, 0.18, edge);
-  }
-
-  // Detect background from corners (works for any theme)
   vec3 detectBackground() {
     vec3 c0 = texture2D(inputBuffer, vec2(0.01, 0.01)).rgb;
     vec3 c1 = texture2D(inputBuffer, vec2(0.99, 0.01)).rgb;
@@ -1119,144 +1110,216 @@ export const clayShader = `
   }
 
   float bgDifference(vec3 col, vec3 bg) {
-    return clamp(length(col - bg) * 1.4, 0.0, 1.0);
+    return clamp(length(col - bg) * 1.75, 0.0, 1.0);
   }
 
-  float getObjectMask(vec2 uv, vec3 bg) {
+  float edgeAt(vec2 uv) {
+    vec2 px = 1.0 / resolution;
+
+    float c = getLuma(texture2D(inputBuffer, safeUV(uv)).rgb);
+    float l = getLuma(texture2D(inputBuffer, safeUV(uv - vec2(px.x, 0.0))).rgb);
+    float r = getLuma(texture2D(inputBuffer, safeUV(uv + vec2(px.x, 0.0))).rgb);
+    float u = getLuma(texture2D(inputBuffer, safeUV(uv + vec2(0.0, px.y))).rgb);
+    float d = getLuma(texture2D(inputBuffer, safeUV(uv - vec2(0.0, px.y))).rgb);
+
+    float e = abs(c - l) + abs(c - r) + abs(c - u) + abs(c - d);
+    return smoothstep(0.035, 0.18, e);
+  }
+
+  float maskAt(vec2 uv, vec3 bg) {
     vec3 col = texture2D(inputBuffer, safeUV(uv)).rgb;
     float diff = bgDifference(col, bg);
-    float edge = getEdge(uv);
-    return smoothstep(0.05, 0.15, diff + edge * 0.3);
+    float edge = edgeAt(uv);
+
+    return smoothstep(0.055, 0.16, diff + edge * 0.22);
   }
 
-  // --- Fingerprint simulation (organic swirls and ridges) ---
-  float fingerprintPattern(vec2 uv) {
-    vec2 center = vec2(0.5, 0.5);
-    vec2 toCenter = uv - center;
-    float dist = length(toCenter);
-    float angle = atan(toCenter.y, toCenter.x);
-    
-    // Concentric ridges like real fingerprints
-    float ridges = sin(dist * 25.0 + angle * 3.0 + noise(uv * 15.0) * 2.0);
-    ridges += sin(dist * 45.0 - angle * 2.0 + noise(uv * 25.0 + 5.0) * 1.5) * 0.5;
-    
-    // Add some random smudges
-    float smudge = noise(uv * 30.0 + 10.0);
-    ridges += smudge * 0.3;
-    
-    return ridges * 0.5 + 0.5;
-  }
-
-  // --- Soft subsurface scattering simulation ---
-  float subsurfaceScattering(vec2 uv, float thickness) {
+  vec3 softSample(vec2 uv) {
     vec2 px = 1.0 / resolution;
-    float scatter = 0.0;
-    
-    for (int i = -2; i <= 2; i++) {
-      for (int j = -2; j <= 2; j++) {
-        vec2 offset = vec2(float(i), float(j)) * px * 3.0;
-        float sampleLuma = getLuma(texture2D(inputBuffer, safeUV(uv + offset)).rgb);
-        float dist = length(offset * resolution);
-        scatter += sampleLuma * exp(-dist * 0.15);
-      }
-    }
-    scatter /= 25.0;
-    
-    return scatter * thickness * 0.4;
+
+    vec3 c = texture2D(inputBuffer, safeUV(uv)).rgb * 0.36;
+
+    c += texture2D(inputBuffer, safeUV(uv + vec2( px.x, 0.0))).rgb * 0.10;
+    c += texture2D(inputBuffer, safeUV(uv + vec2(-px.x, 0.0))).rgb * 0.10;
+    c += texture2D(inputBuffer, safeUV(uv + vec2(0.0,  px.y))).rgb * 0.10;
+    c += texture2D(inputBuffer, safeUV(uv + vec2(0.0, -px.y))).rgb * 0.10;
+
+    c += texture2D(inputBuffer, safeUV(uv + vec2( px.x,  px.y))).rgb * 0.06;
+    c += texture2D(inputBuffer, safeUV(uv + vec2(-px.x,  px.y))).rgb * 0.06;
+    c += texture2D(inputBuffer, safeUV(uv + vec2( px.x, -px.y))).rgb * 0.06;
+    c += texture2D(inputBuffer, safeUV(uv + vec2(-px.x, -px.y))).rgb * 0.06;
+
+    return c;
+  }
+
+  vec2 lumaGradient(vec2 uv) {
+    vec2 px = 1.0 / resolution;
+
+    float l = getLuma(texture2D(inputBuffer, safeUV(uv - vec2(px.x, 0.0))).rgb);
+    float r = getLuma(texture2D(inputBuffer, safeUV(uv + vec2(px.x, 0.0))).rgb);
+    float d = getLuma(texture2D(inputBuffer, safeUV(uv - vec2(0.0, px.y))).rgb);
+    float u = getLuma(texture2D(inputBuffer, safeUV(uv + vec2(0.0, px.y))).rgb);
+
+    return vec2(r - l, u - d);
+  }
+
+  float clayHeight(vec2 uv) {
+    float softLumps = fbm(uv * 8.0);
+    float pressedDents = fbm(uv * 18.0 + 6.5);
+    float fineClay = noise(uv * resolution * 0.10);
+
+    return softLumps * 0.55 + pressedDents * 0.30 + fineClay * 0.15;
+  }
+
+  float outerOutline(vec2 uv, vec3 bg, float radiusPx) {
+    vec2 px = (1.0 / resolution) * radiusPx;
+
+    float center = maskAt(uv, bg);
+    float m = center;
+
+    m = max(m, maskAt(uv + vec2( px.x,  0.0), bg));
+    m = max(m, maskAt(uv + vec2(-px.x,  0.0), bg));
+    m = max(m, maskAt(uv + vec2( 0.0,  px.y), bg));
+    m = max(m, maskAt(uv + vec2( 0.0, -px.y), bg));
+
+    m = max(m, maskAt(uv + vec2( px.x,  px.y) * 0.7071, bg));
+    m = max(m, maskAt(uv + vec2(-px.x,  px.y) * 0.7071, bg));
+    m = max(m, maskAt(uv + vec2( px.x, -px.y) * 0.7071, bg));
+    m = max(m, maskAt(uv + vec2(-px.x, -px.y) * 0.7071, bg));
+
+    return clamp(m - center, 0.0, 1.0);
   }
 
   void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor) {
     vec3 bg = detectBackground();
+
     vec3 src = texture2D(inputBuffer, uv).rgb;
-    float luma = getLuma(src);
-    float edge = getEdge(uv);
-    float objectMask = getObjectMask(uv, bg);
+    vec3 smoothSrc = softSample(uv);
+
+    float objectMask = maskAt(uv, bg);
+    float outlineOutside = outerOutline(uv, bg, 2.5);
+
+    float bgLuma = getLuma(bg);
+    vec3 outlineColor = bgLuma > 0.55
+      ? vec3(0.12, 0.10, 0.09)
+      : vec3(0.92, 0.88, 0.80);
 
     if (objectMask < 0.01) {
-      outputColor = vec4(bg, 1.0);
+      vec3 bgOut = mix(bg, outlineColor, outlineOutside * 0.85);
+      outputColor = vec4(bgOut, 1.0);
       return;
     }
 
-    // --- Select clay color based on position ---
-    // Use gl_FragCoord or uv with a time-based offset if time is available
-    // Since time might not be available, use a static variation based on uv
-    float colorIndex = smoothNoise(uv * 0.3) * 4.99;
-    int idx = int(colorIndex);
-    idx = clamp(idx, 0, 4);
-    vec3 baseClayColor = clayColors[idx];
-    
-    float colorVar = smoothNoise(uv * 8.0 + 3.0) * 0.08 - 0.04;
-    baseClayColor += vec3(colorVar);
+    float luma = getLuma(src);
+    float smoothLuma = getLuma(smoothSrc);
 
-    float softLuma = pow(luma, 0.85);
-    softLuma = mix(softLuma, 0.5, 0.15);
-    
-    float ao = 1.0 - edge * 0.25;
-    softLuma *= ao;
+    // Preserve the original model color strongly.
+    // The smoothing only makes it feel molded and clay-like.
+    vec3 baseColor = mix(src, smoothSrc, 0.48);
 
-    float thickness = objectMask;
-    float sss = subsurfaceScattering(uv, thickness);
-    vec3 sssColor = baseClayColor * 1.3 * sss;
+    // Slight pastel play-dough compression while keeping hue.
+    baseColor = mix(vec3(getLuma(baseColor)), baseColor, 0.92);
+    baseColor = pow(baseColor, vec3(0.88));
+    baseColor = mix(baseColor, clamp(baseColor * 1.08, 0.0, 1.0), 0.35);
 
-    float finger = fingerprintPattern(uv);
-    float fingerDetail = smoothstep(0.4, 0.6, finger);
-    
-    vec2 bumpUV = uv * 40.0;
-    float surfaceBump = noise(bumpUV) * 0.5 + noise(bumpUV * 2.0 + 5.0) * 0.25;
-    surfaceBump = surfaceBump * 0.5 + 0.5;
-    
-    float surfaceDetail = mix(surfaceBump, fingerDetail, 0.6);
-    surfaceDetail = surfaceDetail * 0.5 + 0.5;
-
-    vec3 lightDir = normalize(vec3(-0.3, 0.5, 0.8));
-    vec3 viewDir = vec3(0.0, 0.0, 1.0);
-    
     vec2 px = 1.0 / resolution;
-    float hL = surfaceDetail;
-    float hR = noise((uv + vec2(px.x, 0.0)) * 40.0) * 0.5 + noise((uv + vec2(px.x, 0.0)) * 80.0 + 5.0) * 0.25;
-    float hU = noise((uv + vec2(0.0, px.y)) * 40.0) * 0.5 + noise((uv + vec2(0.0, px.y)) * 80.0 + 5.0) * 0.25;
-    vec3 fakeNormal = normalize(vec3(hL - hR, hU - hL, 1.5));
-    
-    float diff = max(dot(fakeNormal, lightDir), 0.0);
-    diff = pow(diff, 0.7);
-    
-    vec3 halfVec = normalize(lightDir + viewDir);
-    float spec = pow(max(dot(fakeNormal, halfVec), 0.0), 8.0) * 0.15;
-    spec *= smoothstep(0.3, 1.0, luma);
 
-    vec3 clayColor = baseClayColor * (0.5 + diff * 0.5);
-    clayColor += sssColor;
-    clayColor += vec3(spec) * baseClayColor * 0.3;
+    float hC = clayHeight(uv);
+    float hX = clayHeight(uv + vec2(px.x * 2.0, 0.0));
+    float hY = clayHeight(uv + vec2(0.0, px.y * 2.0));
 
-    float textureShadow = (surfaceDetail - 0.5) * 0.08;
-    clayColor += vec3(textureShadow);
+    vec3 bumpNormal = normalize(vec3((hC - hX) * 4.2, (hC - hY) * 4.2, 1.0));
 
-    float edgeSoft = smoothstep(0.0, 0.15, objectMask);
-    edgeSoft = pow(edgeSoft, 0.7);
-    clayColor *= edgeSoft;
+    vec2 grad = lumaGradient(uv);
+    vec3 formNormal = normalize(vec3(-grad * 5.5, 1.0));
 
-    vec3 creaseDark = vec3(0.15, 0.12, 0.10);
-    float crease = edge * objectMask * 0.5;
-    clayColor = mix(clayColor, clayColor * creaseDark, crease);
+    vec3 N = normalize(formNormal + bumpNormal * 0.52);
 
-    float drySpot = smoothNoise(uv * 60.0 + 15.0);
-    drySpot = smoothstep(0.7, 0.9, drySpot) * 0.03;
-    clayColor += vec3(drySpot);
+    vec3 lightDir = normalize(vec3(-0.42, 0.65, 0.85));
+    vec3 fillDir = normalize(vec3(0.45, -0.35, 0.65));
+    vec3 viewDir = vec3(0.0, 0.0, 1.0);
+    vec3 halfDir = normalize(lightDir + viewDir);
 
-    vec3 shadowTint = vec3(1.05, 0.95, 0.85);
-    vec3 highlightTint = vec3(1.0, 1.02, 1.05);
-    float shadeBlend = smoothstep(0.2, 0.8, luma);
-    clayColor = mix(clayColor * shadowTint, clayColor * highlightTint, shadeBlend);
+    float diffuse = clamp(dot(N, lightDir) * 0.5 + 0.5, 0.0, 1.0);
+    diffuse = pow(diffuse, 0.82);
 
-    clayColor = mix(vec3(getLuma(clayColor)), clayColor, 0.75);
+    // Cartoon clay shading: soft stepped bands, not realistic harsh lighting.
+    float toonShade =
+      diffuse < 0.36 ? 0.62 :
+      diffuse < 0.62 ? 0.82 :
+      diffuse < 0.82 ? 1.00 :
+                       1.12;
 
-    vec3 gray = vec3(getLuma(clayColor));
-    clayColor = mix(gray, clayColor, 1.15);
+    // Blend banding with smooth shading so it stays soft like play-dough.
+    float softShade = mix(diffuse, toonShade, 0.45);
 
+    float fill = clamp(dot(N, fillDir) * 0.5 + 0.5, 0.0, 1.0) * 0.22;
+
+    vec3 clayColor = baseColor;
+    clayColor *= 0.58 + softShade * 0.48 + fill;
+
+    // Warm waxy play-dough subsurface feel.
+    vec3 warmScatter = vec3(1.0, 0.78, 0.58);
+    float scatter = pow(clamp(dot(N, lightDir) * 0.5 + 0.5, 0.0, 1.0), 2.0);
+    clayColor += warmScatter * scatter * 0.07 * smoothLuma;
+
+    // Fingerprint / handmade clay ridges.
+    vec2 warp = vec2(
+      noise(uv * 38.0 + 2.0),
+      noise(uv * 38.0 + 9.0)
+    ) - 0.5;
+
+    vec2 ridgeUV = uv + warp * 0.010;
+
+    float ridgeA = sin(ridgeUV.x * resolution.x * 0.36 + noise(ridgeUV * 72.0) * 7.0);
+    float ridgeB = sin(ridgeUV.y * resolution.y * 0.30 + noise(ridgeUV * 61.0 + 4.0) * 6.0);
+    float ridges = (ridgeA * 0.55 + ridgeB * 0.45) * 0.5 + 0.5;
+
+    float fingerprint = (smoothstep(0.42, 0.80, ridges) - 0.5);
+    clayColor += fingerprint * 0.035 * (0.45 + smoothLuma * 0.55);
+
+    // Fine matte clay grain.
+    float grain =
+      (noise(uv * resolution * 0.115) - 0.5) * 0.026 +
+      (noise(uv * resolution * 0.040 + 8.0) - 0.5) * 0.020;
+
+    clayColor += grain;
+
+    float edge = edgeAt(uv);
+
+    // Cartoon inner crease lines.
+    vec3 creaseColor = baseColor * 0.48;
+    clayColor = mix(clayColor, creaseColor, edge * 0.42);
+
+    // Soft dark contact/crease shadow, like molded clay seams.
+    float clayCrease = smoothstep(0.42, 0.78, 1.0 - hC);
+    clayColor *= mix(1.0, 0.88, clayCrease * 0.20);
+
+    // Broad waxy highlight, not shiny plastic.
+    float spec = pow(clamp(dot(N, halfDir), 0.0, 1.0), 10.0);
+    clayColor += vec3(1.0, 0.92, 0.82) * spec * 0.13;
+
+    // Rounded cartoon rim, helps toy/claymation feel.
+    float rim = pow(1.0 - clamp(N.z, 0.0, 1.0), 2.1);
+    clayColor += baseColor * rim * 0.12;
+
+    // Dark outline just inside model edge for the cartoon look.
+    float innerLine = smoothstep(0.10, 0.45, edge) * objectMask;
+    vec3 innerOutlineColor = baseColor * 0.38;
+    clayColor = mix(clayColor, innerOutlineColor, innerLine * 0.42);
+
+    // Keep saturation/color identity from the original model.
+    clayColor = mix(vec3(getLuma(clayColor)), clayColor, 0.94);
+
+    // Matte play-dough final curve.
+    clayColor = pow(clayColor, vec3(0.96));
     clayColor = clamp(clayColor, 0.0, 1.0);
-    clayColor = pow(clayColor, vec3(0.92));
 
-    vec3 finalColor = mix(bg, clayColor, objectMask);
+    // Strictly apply to the model only.
+    float refractedMask = objectMask;
+    float finalMask = objectMask * refractedMask;
+
+    vec3 finalColor = mix(bg, clayColor, finalMask);
 
     outputColor = vec4(finalColor, 1.0);
   }

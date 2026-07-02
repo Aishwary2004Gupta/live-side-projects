@@ -1,376 +1,207 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Crowd Canvas</title>
-
-  <style>
-    * {
-      box-sizing: border-box;
-    }
-
-    html,
-    body {
-      width: 100%;
-      height: 100%;
-      margin: 0;
-      overflow: hidden;
-      font-family: Arial, Helvetica, sans-serif;
-      background: #fff;
-      color: #000;
-    }
-
-    .page {
-      position: relative;
-      width: 100vw;
-      height: 100vh;
-      overflow: hidden;
-      background: #fff;
-    }
-
-    .heading {
-      position: absolute;
-      top: 5.5rem;
-      left: 50%;
-      transform: translateX(-50%);
-      display: grid;
-      place-items: center;
-      gap: 1.5rem;
-      text-align: center;
-      z-index: 2;
-    }
-
-    .heading span {
-      position: relative;
-      max-width: 12ch;
-      font-size: 12px;
-      line-height: 1.1;
-      text-transform: uppercase;
-      letter-spacing: 0.04em;
-      opacity: 0.4;
-    }
-
-    .heading span::after {
-      content: "";
-      position: absolute;
-      top: 100%;
-      left: 50%;
-      width: 1px;
-      height: 4rem;
-      background: linear-gradient(to bottom, #fff, #000);
-    }
-
-    .canvas-wrap {
-      position: absolute;
-      inset: 0;
-      width: 100vw;
-      height: 100%;
-    }
-
-    #crowdCanvas {
-      position: absolute;
-      left: 0;
-      bottom: 0;
-      width: 100%;
-      height: 90vh;
-      display: block;
-      pointer-events: none;
-    }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Coded Crowd Canvas</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <style>
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #fff; }
+        .container { position: relative; width: 100%; height: 100vh; }
+        .header {
+            position: absolute; top: 60px; left: 50%; transform: translateX(-50%);
+            text-align: center; opacity: 0.4; font-family: sans-serif; font-size: 12px;
+            text-transform: uppercase; letter-spacing: 2px; z-index: 10;
+        }
+        .header::after {
+            content: ''; position: absolute; left: 50%; top: 20px;
+            width: 1px; height: 60px; background: linear-gradient(to bottom, #fff, #000);
+        }
+        canvas { display: block; width: 100%; height: 90vh; position: absolute; bottom: 0; }
+    </style>
 </head>
-
 <body>
-  <main class="page">
-    <div class="heading">
-      <span>Croud Canvas</span>
-    </div>
 
-    <div class="canvas-wrap">
-      <canvas
-        id="crowdCanvas"
-        data-src="images/peeps/all-peeps.png"
-        data-rows="15"
-        data-cols="7"
-      ></canvas>
-    </div>
-  </main>
+<div class="container">
+    <div class="header">Coded Crowd</div>
+    <canvas id="crowdCanvas"></canvas>
+</div>
 
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<script>
+/**
+ * 1. GENERATE PROCEDURAL SPRITE SHEET
+ * Instead of loading an image, we draw 100 unique stick-figure "peeps"
+ * to a hidden canvas to act as our texture atlas.
+ */
+const createProceduralSpriteSheet = (rows, cols, size) => {
+    const canvas = document.createElement('canvas');
+    canvas.width = rows * size;
+    canvas.height = cols * size;
+    const ctx = canvas.getContext('2d');
 
-  <script>
-    const canvas = document.getElementById("crowdCanvas");
-    const ctx = canvas.getContext("2d");
+    const colors = ['#222', '#333', '#444', '#555', '#111'];
 
-    const config = {
-      src: canvas.dataset.src,
-      rows: Number(canvas.dataset.rows) || 15,
-      cols: Number(canvas.dataset.cols) || 7,
-    };
+    for (let i = 0; i < rows * cols; i++) {
+        const x = (i % rows) * size + size / 2;
+        const y = Math.floor(i / rows) * size + size / 2;
+        const color = colors[i % colors.length];
+        
+        ctx.strokeStyle = color;
+        ctx.fillStyle = color;
+        ctx.lineWidth = 2.5;
+        ctx.lineCap = 'round';
 
-    const stage = {
-      width: 0,
-      height: 0,
-    };
+        // Draw a procedurally generated "Peep"
+        // Head
+        ctx.beginPath();
+        ctx.arc(x, y - 25, 8, 0, Math.PI * 2);
+        ctx.stroke();
+        
+        // Random Hairstyle/Hat
+        if(i % 3 === 0) { // Bun
+             ctx.beginPath(); ctx.arc(x, y - 34, 3, 0, Math.PI * 2); ctx.fill();
+        } else if (i % 3 === 1) { // Cap
+            ctx.fillRect(x - 8, y - 33, 16, 3);
+        }
 
-    let dpr = window.devicePixelRatio || 1;
+        // Body
+        ctx.beginPath();
+        ctx.moveTo(x, y - 17);
+        ctx.lineTo(x, y + 5);
+        ctx.stroke();
 
+        // Arms (Random poses)
+        const armWave = Math.sin(i) * 10;
+        ctx.beginPath();
+        ctx.moveTo(x, y - 10);
+        ctx.lineTo(x - 12, y + armWave);
+        ctx.moveTo(x, y - 10);
+        ctx.lineTo(x + 12, y - armWave);
+        ctx.stroke();
+
+        // Legs
+        ctx.beginPath();
+        ctx.moveTo(x, y + 5);
+        ctx.lineTo(x - 7, y + 25);
+        ctx.moveTo(x, y + 5);
+        ctx.lineTo(x + 7, y + 25);
+        ctx.stroke();
+    }
+    return canvas;
+};
+
+/**
+ * 2. MAIN LOGIC (Adapted from your React code)
+ */
+const initCrowd = () => {
+    const canvas = document.getElementById('crowdCanvas');
+    const ctx = canvas.getContext('2d');
+    const config = { rows: 10, cols: 5, size: 100 };
+    
+    // Create the "coded" image
+    const spriteSheet = createProceduralSpriteSheet(config.rows, config.cols, config.size);
+    
+    const stage = { width: 0, height: 0 };
     const allPeeps = [];
     const availablePeeps = [];
     const crowd = [];
 
+    // Helper Utils
     const randomRange = (min, max) => min + Math.random() * (max - min);
+    const removeRandom = (arr) => arr.splice(Math.floor(Math.random() * arr.length), 1)[0];
 
-    const randomIndex = (array) => {
-      return randomRange(0, array.length) | 0;
-    };
-
-    const removeFromArray = (array, i) => {
-      return array.splice(i, 1)[0];
-    };
-
-    const removeItemFromArray = (array, item) => {
-      const index = array.indexOf(item);
-      if (index !== -1) {
-        return removeFromArray(array, index);
-      }
-    };
-
-    const removeRandomFromArray = (array) => {
-      return removeFromArray(array, randomIndex(array));
-    };
-
-    const getRandomFromArray = (array) => {
-      return array[randomIndex(array)];
-    };
-
-    class Peep {
-      constructor({ image, rect }) {
-        this.image = image;
-        this.rect = [];
-        this.width = 0;
-        this.height = 0;
-        this.x = 0;
-        this.y = 0;
-        this.anchorY = 0;
-        this.scaleX = 1;
-        this.walk = null;
-
-        this.setRect(rect);
-      }
-
-      setRect(rect) {
-        this.rect = rect;
-        this.width = rect[2];
-        this.height = rect[3];
-      }
-
-      render(ctx) {
-        ctx.save();
-
-        ctx.translate(this.x, this.y);
-        ctx.scale(this.scaleX, 1);
-
-        ctx.drawImage(
-          this.image,
-          this.rect[0],
-          this.rect[1],
-          this.rect[2],
-          this.rect[3],
-          0,
-          0,
-          this.width,
-          this.height
-        );
-
-        ctx.restore();
-      }
-    }
-
-    const resetPeep = ({ stage, peep }) => {
-      const direction = Math.random() > 0.5 ? 1 : -1;
-
-      const offsetY =
-        100 - 250 * gsap.parseEase("power2.in")(Math.random());
-
-      const startY = stage.height - peep.height + offsetY;
-
-      let startX;
-      let endX;
-
-      if (direction === 1) {
-        startX = -peep.width;
-        endX = stage.width;
-        peep.scaleX = 1;
-      } else {
-        startX = stage.width + peep.width;
-        endX = 0;
-        peep.scaleX = -1;
-      }
-
-      peep.x = startX;
-      peep.y = startY;
-      peep.anchorY = startY;
-
-      return {
-        startX,
-        startY,
-        endX,
-      };
-    };
-
-    const normalWalk = ({ peep, props }) => {
-      const { startY, endX } = props;
-
-      const xDuration = 10;
-      const yDuration = 0.25;
-
-      const tl = gsap.timeline();
-
-      tl.timeScale(randomRange(0.5, 1.5));
-
-      tl.to(
-        peep,
-        {
-          duration: xDuration,
-          x: endX,
-          ease: "none",
-        },
-        0
-      );
-
-      tl.to(
-        peep,
-        {
-          duration: yDuration,
-          repeat: xDuration / yDuration,
-          yoyo: true,
-          y: startY - 10,
-          ease: "power1.inOut",
-        },
-        0
-      );
-
-      return tl;
-    };
-
-    const walks = [normalWalk];
-
-    const img = new Image();
-
-    function createPeeps() {
-      const { rows, cols } = config;
-      const width = img.naturalWidth;
-      const height = img.naturalHeight;
-
-      const total = rows * cols;
-      const rectWidth = width / rows;
-      const rectHeight = height / cols;
-
-      for (let i = 0; i < total; i++) {
-        allPeeps.push(
-          new Peep({
-            image: img,
-            rect: [
-              (i % rows) * rectWidth,
-              ((i / rows) | 0) * rectHeight,
-              rectWidth,
-              rectHeight,
-            ],
-          })
-        );
-      }
-    }
-
-    function addPeepToCrowd() {
-      if (!availablePeeps.length) return null;
-
-      const peep = removeRandomFromArray(availablePeeps);
-
-      const walk = getRandomFromArray(walks)({
-        peep,
-        props: resetPeep({
-          peep,
-          stage,
-        }),
-      }).eventCallback("onComplete", () => {
-        removePeepFromCrowd(peep);
-        addPeepToCrowd();
-      });
-
-      peep.walk = walk;
-
-      crowd.push(peep);
-      crowd.sort((a, b) => a.anchorY - b.anchorY);
-
-      return peep;
-    }
-
-    function removePeepFromCrowd(peep) {
-      removeItemFromArray(crowd, peep);
-      availablePeeps.push(peep);
-    }
-
-    function initCrowd() {
-      while (availablePeeps.length) {
-        const peep = addPeepToCrowd();
-
-        if (peep && peep.walk) {
-          peep.walk.progress(Math.random());
+    const createPeep = (rect) => ({
+        rect,
+        x: 0, y: 0, anchorY: 0, scaleX: 1, walk: null,
+        render(ctx) {
+            ctx.save();
+            ctx.translate(this.x, this.y);
+            ctx.scale(this.scaleX, 1);
+            ctx.drawImage(spriteSheet, ...this.rect, -50, -50, 100, 100);
+            ctx.restore();
         }
-      }
+    });
+
+    // Populate the peeps collection
+    for (let i = 0; i < config.rows * config.cols; i++) {
+        allPeeps.push(createPeep([
+            (i % config.rows) * config.size,
+            Math.floor(i / config.rows) * config.size,
+            config.size, config.size
+        ]));
     }
 
-    function render() {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
+    const resetPeep = (peep) => {
+        const dir = Math.random() > 0.5 ? 1 : -1;
+        const offsetY = 100 - 250 * Math.pow(Math.random(), 2);
+        const startY = stage.height - 50 + offsetY;
+        let startX = dir === 1 ? -60 : stage.width + 60;
+        let endX = dir === 1 ? stage.width + 60 : -60;
+        
+        peep.x = startX;
+        peep.y = startY;
+        peep.anchorY = startY;
+        peep.scaleX = dir;
 
-      ctx.save();
-      ctx.scale(dpr, dpr);
-
-      crowd.forEach((peep) => {
-        peep.render(ctx);
-      });
-
-      ctx.restore();
-    }
-
-    function resize() {
-      dpr = window.devicePixelRatio || 1;
-
-      stage.width = canvas.clientWidth;
-      stage.height = canvas.clientHeight;
-
-      canvas.width = stage.width * dpr;
-      canvas.height = stage.height * dpr;
-
-      crowd.forEach((peep) => {
-        if (peep.walk) peep.walk.kill();
-      });
-
-      crowd.length = 0;
-      availablePeeps.length = 0;
-      availablePeeps.push(...allPeeps);
-
-      initCrowd();
-      render();
-    }
-
-    function init() {
-      createPeeps();
-      resize();
-      gsap.ticker.add(render);
-    }
-
-    img.onload = init;
-
-    img.onerror = () => {
-      console.error("Could not load sprite image:", config.src);
-      console.log("Place your image at images/peeps/all-peeps.png or change data-src.");
+        return { startX, endX, startY };
     };
 
-    img.src = config.src;
+    const startWalk = (peep) => {
+        const props = resetPeep(peep);
+        const tl = gsap.timeline({
+            onComplete: () => {
+                crowd.splice(crowd.indexOf(peep), 1);
+                availablePeeps.push(peep);
+                spawn();
+            }
+        });
 
-    window.addEventListener("resize", resize);
-  </script>
+        tl.timeScale(randomRange(0.6, 1.4));
+        tl.to(peep, { duration: 10, x: props.endX, ease: "none" }, 0);
+        tl.to(peep, { duration: 0.25, y: props.startY - 10, repeat: 40, yoyo: true, ease: "sine.inOut" }, 0);
+        
+        peep.walk = tl;
+    };
+
+    const spawn = () => {
+        if (!availablePeeps.length) return;
+        const peep = removeRandom(availablePeeps);
+        crowd.push(peep);
+        startWalk(peep);
+        crowd.sort((a, b) => a.anchorY - b.anchorY);
+    };
+
+    const resize = () => {
+        stage.width = canvas.clientWidth;
+        stage.height = canvas.clientHeight;
+        canvas.width = stage.width * devicePixelRatio;
+        canvas.height = stage.height * devicePixelRatio;
+        
+        crowd.forEach(p => p.walk && p.walk.kill());
+        crowd.length = 0;
+        availablePeeps.length = 0;
+        availablePeeps.push(...allPeeps);
+        
+        for(let i=0; i<allPeeps.length; i++) {
+            spawn();
+            crowd[crowd.length-1].walk.progress(Math.random());
+        }
+    };
+
+    gsap.ticker.add(() => {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.save();
+        ctx.scale(devicePixelRatio, devicePixelRatio);
+        crowd.forEach(p => p.render(ctx));
+        ctx.restore();
+    });
+
+    window.addEventListener('resize', resize);
+    resize();
+};
+
+initCrowd();
+</script>
+
 </body>
 </html>

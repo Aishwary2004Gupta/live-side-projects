@@ -1,673 +1,448 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Crowd Canvas — Open Peeps Style</title>
-  <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    html, body {
-      width: 100%; height: 100%;
-      overflow: hidden;
-      font-family: Arial, Helvetica, sans-serif;
-      background: #fff;
-    }
-    .page {
-      position: relative;
-      width: 100vw; height: 100vh;
-      overflow: hidden; background: #fff;
-    }
-    .heading {
-      position: absolute; top: 5.5rem; left: 50%;
-      transform: translateX(-50%);
-      display: grid; place-items: center; gap: 1.5rem;
-      text-align: center; z-index: 2;
-    }
-    .heading span {
-      position: relative; max-width: 12ch;
-      font-size: 12px; line-height: 1.1;
-      text-transform: uppercase; letter-spacing: 0.04em; opacity: 0.4;
-    }
-    .heading span::after {
-      content: ""; position: absolute; top: 100%; left: 50%;
-      width: 1px; height: 4rem;
-      background: linear-gradient(to bottom, #fff, #000);
-    }
-    #crowdCanvas {
-      position: absolute; left: 0; bottom: 0;
-      width: 100%; height: 90vh;
-      display: block; pointer-events: none;
-    }
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Enhanced Procedural Crowd</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #f7f9fc; overflow: hidden; height: 100vh; font-family: system-ui, -apple-system, sans-serif; }
+  
+  .header {
+    position: absolute; top: 50px; left: 50%; transform: translateX(-50%);
+    z-index: 100; text-align: center; opacity: 0.6; pointer-events: none;
+  }
+  .header span {
+    font-size: 12px; letter-spacing: 3px; text-transform: uppercase; color: #333;
+  }
+  .header::after {
+    content: ''; position: absolute; bottom: -40px; left: 50%; width: 1px; height: 50px;
+    background: linear-gradient(to bottom, rgba(0,0,0,0.2), rgba(0,0,0,0));
+    transform: translateX(-50%);
+  }
+
+  canvas { 
+    position: absolute; bottom: 0; left: 0; width: 100%; height: 92vh; 
+    display: block; image-rendering: pixelated; /* Keeps lines crisp */
+  }
+  
+  /* Floor gradient for realism */
+  .floor {
+    position: absolute; bottom: 0; width: 100%; height: 50px;
+    background: linear-gradient(to bottom, rgba(0,0,0,0.1), transparent);
+    pointer-events: none;
+  }
+</style>
 </head>
 <body>
-  <main class="page">
-    <div class="heading"><span>Crowd Canvas</span></div>
-    <canvas id="crowdCanvas"></canvas>
-  </main>
 
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
-  <script>
-  (function() {
-    /* ── helpers ── */
-    const rr = (a,b) => a + Math.random()*(b-a);
-    const ri = (a,b) => (rr(a,b))|0;
-    const pick = a => a[(Math.random()*a.length)|0];
-    const ch = p => Math.random()<p;
-    const removeAt = (a,i) => a.splice(i,1)[0];
-    const removeRandom = a => removeAt(a,(Math.random()*a.length)|0);
+<div class="header"><span>Infinite Crowd Canvas</span></div>
+<div class="floor"></div>
+<canvas id="crowdCanvas"></canvas>
 
-    /* ── constants ── */
-    const INK   = "#1a1a1a";
-    const WHITE = "#ffffff";
-    const LIGHT = "#f0f0f0";
-    const MID   = "#d0d0d0";
-    const FILLS = [INK, WHITE, LIGHT]; // black shirt, white shirt, light grey shirt
+<script>
+/**
+ * -----------------------------------------------------------
+ * PART 1: ENHANCED PROCEDURAL CHARACTER GENERATOR
+ * Generates high-fidelity "Open Peeps" style characters using code.
+ * -----------------------------------------------------------
+ */
+const INK = '#111111';
+const R   = (min, max) => min + Math.random() * (max - min);
+const P   = arr => arr[Math.floor(Math.random() * arr.length)];
+const C   = p => Math.random() < p;
 
-    const W = 130, H = 200, S = 2; // sprite size & supersampling
+function drawPeep(ctx, size) {
+  const cx = size / 2, cy = size * 0.7; // Center Y for torso/head alignment
+  ctx.lineWidth = 3.5;
+  ctx.lineCap = 'round';
+  ctx.strokeStyle = INK;
+  ctx.fillStyle = INK;
+  ctx.beginPath(); ctx.setLineDash([]); // Reset dashes
 
-    /* ── draw one peep ── */
-    function drawPeep() {
-      const c = document.createElement("canvas");
-      c.width = W*S; c.height = H*S;
-      const g = c.getContext("2d");
-      g.scale(S,S);
-      g.lineCap = "round"; g.lineJoin = "round";
+  // --- Identity Variables ---
+  const skinTone = C(0.9) ? '#fff' : '#eee'; // Mostly white, rarely off-white
+  const hairstyle = P(['afro', 'bobs', 'hijab', 'short', 'long', 'curly', 'mohawk', 'puffs', 'messy']);
+  const gender = C(0.5) ? 'male' : 'female'; // Slight influence on beard/beards
+  
+  // Face Dimensions
+  const headR = size * 0.22;
+  const headY = cy - (size * 0.15);
 
-      const lw = 2.4;          // ink line width
-      const cx = 65;           // center x
-      const headRx = rr(18,24);
-      const headRy = rr(22,28);
-      const headCy = 60;
-      const headTop = headCy - headRy;
-      const shoulderY = headCy + headRy + rr(6,14);
-      const bodyW = rr(50,72);
-      const bodyL = cx - bodyW/2;
-      const bodyR = cx + bodyW/2;
-      const shirtFill = pick(FILLS);
-      const isDark = shirtFill === INK;
+  // --- Torso/Shirt (Drawn First/Bottom Layer) ---
+  const shoulderW = size * 0.75;
+  const shirtType = P(['solid_black', 'solid_white', 'striped', 'polka', 'vneck']);
+  const neckRect = () => {
+    ctx.fillStyle = skinTone;
+    ctx.fillRect(cx - 8, cy - 2, 16, 14);
+  };
 
-      // direction: 3/4 profile facing right
-      const faceOff = headRx * 0.15; // slight rightward offset for features
+  const drawTorso = () => {
+    ctx.beginPath();
+    ctx.moveTo(cx - shoulderW/2, size);
+    ctx.lineTo(cx - shoulderW/2, cy + 10);
+    ctx.bezierCurveTo(cx - shoulderW/2 + 20, cy, cx - 10, cy, cx - 10, cy);
+    ctx.lineTo(cx + 10, cy);
+    ctx.bezierCurveTo(cx + 20, cy, cx + shoulderW/2, cy, cx + shoulderW/2, cy + 10);
+    ctx.lineTo(cx + shoulderW/2, size);
+    ctx.closePath();
 
-      // ─── random traits ───
-      const hairStyle = pick([
-        "short","buzz","fringe","long","afro","curly",
-        "bun","ponytail","bangs","spiky","wavy",
-        "cap","beanie","headband","hoodie","bald"
-      ]);
-      const hasGlasses  = ch(0.35);
-      const glassStyle  = pick(["round","square","sunglasses"]);
-      const hasBeard    = ch(0.25);
-      const beardStyle  = pick(["full","goatee","stubble","mustache"]);
-      const hasMustache = hasBeard && (beardStyle==="mustache" || beardStyle==="full" || ch(0.3));
-      const hasStripes  = !isDark && ch(0.2);
-      const hasCollar   = ch(0.35);
-      const hasTie      = hasCollar && ch(0.2);
-      const earSide     = ch(0.5); // show ear on left/visible side
-
-      /* ─── helpers ─── */
-      const stroke = (fn) => { g.strokeStyle=INK; g.lineWidth=lw; g.beginPath(); fn(); g.stroke(); };
-      const fill   = (color, fn) => { g.fillStyle=color; g.beginPath(); fn(); g.fill(); };
-      const fillStroke = (color, fn) => {
-        g.fillStyle=color; g.strokeStyle=INK; g.lineWidth=lw;
-        g.beginPath(); fn(); g.fill(); g.stroke();
-      };
-
-      /* ═══════════════════════════════════
-         LONG HAIR / AFRO behind head
-      ═══════════════════════════════════ */
-      if (hairStyle === "long") {
-        fill(INK, ()=>{
-          g.ellipse(cx+faceOff, headCy+headRy*0.4, headRx+10, headRy*1.9, 0, 0, Math.PI*2);
-        });
+    if(shirtType === 'solid_black') {
+      ctx.fillStyle = INK; ctx.fill(); 
+    } else {
+      ctx.fillStyle = '#fff'; ctx.fill(); ctx.stroke();
+      
+      // Patterns
+      ctx.save(); ctx.clip(); ctx.fillStyle = INK;
+      if (shirtType === 'striped') {
+        for(let y = cy + 15; y < size; y+=12) ctx.fillRect(cx - shoulderW/2, y, shoulderW, 4);
+      } else if (shirtType === 'polka') {
+        for(let i=0; i<10; i++) ctx.arc(R(cx-shoulderW/2, cx+shoulderW/2), R(cy+15, size), 3, 0, Math.PI*2);
+      } else if (shirtType === 'vneck') {
+         ctx.beginPath(); ctx.moveTo(cx, cy+10); ctx.lineTo(cx-15, cy+25); ctx.lineTo(cx+15, cy+25); ctx.fill();
       }
-      if (hairStyle === "afro") {
-        fillStroke(INK, ()=>{
-          g.ellipse(cx+faceOff, headCy-headRy*0.35, headRx*1.55, headRy*1.35, 0, 0, Math.PI*2);
-        });
-      }
-      if (hairStyle === "curly") {
-        // draw curly mass behind
-        fill(INK, ()=>{
-          g.ellipse(cx+faceOff, headCy-headRy*0.1, headRx+8, headRy+6, 0, 0, Math.PI*2);
-        });
-        // add curly bumps
-        for (let a = 0; a < Math.PI*2; a += 0.45) {
-          const r = headRx + 6 + rr(2,6);
-          fill(INK, ()=>{
-            g.arc(cx+faceOff+Math.cos(a)*r, headCy-headRy*0.1+Math.sin(a)*r, rr(3,6), 0, Math.PI*2);
-          });
-        }
-      }
-      if (hairStyle === "hoodie") {
-        // hoodie behind
-        fill(INK, ()=>{
-          g.moveTo(bodyL-4, shoulderY+10);
-          g.quadraticCurveTo(bodyL-8, headTop-10, cx, headTop-14);
-          g.quadraticCurveTo(bodyR+8, headTop-10, bodyR+4, shoulderY+10);
-          g.closePath();
-        });
-      }
-
-      /* ═══════════════════════════════════
-         BODY / SHIRT
-      ═══════════════════════════════════ */
-      const rad = 16;
-      fillStroke(shirtFill, ()=>{
-        g.moveTo(bodyL, H);
-        g.lineTo(bodyL, shoulderY+rad);
-        g.quadraticCurveTo(bodyL, shoulderY, bodyL+rad, shoulderY);
-        g.lineTo(bodyR-rad, shoulderY);
-        g.quadraticCurveTo(bodyR, shoulderY, bodyR, shoulderY+rad);
-        g.lineTo(bodyR, H);
-        g.closePath();
-      });
-
-      // stripes
-      if (hasStripes) {
-        g.save();
-        g.beginPath();
-        g.moveTo(bodyL, H); g.lineTo(bodyL, shoulderY+rad);
-        g.quadraticCurveTo(bodyL, shoulderY, bodyL+rad, shoulderY);
-        g.lineTo(bodyR-rad, shoulderY);
-        g.quadraticCurveTo(bodyR, shoulderY, bodyR, shoulderY+rad);
-        g.lineTo(bodyR, H); g.closePath(); g.clip();
-        g.strokeStyle = INK; g.lineWidth = 2;
-        for (let y = shoulderY+14; y < H; y += 12) {
-          g.beginPath(); g.moveTo(bodyL-5, y); g.lineTo(bodyR+5, y); g.stroke();
-        }
-        g.restore();
-        // re-draw outline
-        stroke(()=>{
-          g.moveTo(bodyL, H); g.lineTo(bodyL, shoulderY+rad);
-          g.quadraticCurveTo(bodyL, shoulderY, bodyL+rad, shoulderY);
-          g.lineTo(bodyR-rad, shoulderY);
-          g.quadraticCurveTo(bodyR, shoulderY, bodyR, shoulderY+rad);
-          g.lineTo(bodyR, H);
-        });
-      }
-
-      // collar
-      if (hasCollar) {
-        stroke(()=>{
-          g.moveTo(cx-10, shoulderY);
-          g.lineTo(cx-3, shoulderY+14);
-          g.lineTo(cx, shoulderY+4);
-          g.lineTo(cx+3, shoulderY+14);
-          g.lineTo(cx+10, shoulderY);
-        });
-      }
-      // tie
-      if (hasTie) {
-        fillStroke(INK, ()=>{
-          g.moveTo(cx-4, shoulderY+12);
-          g.lineTo(cx, shoulderY+50);
-          g.lineTo(cx+4, shoulderY+12);
-          g.closePath();
-        });
-      }
-
-      /* ═══════════════════════════════════
-         NECK
-      ═══════════════════════════════════ */
-      fillStroke(WHITE, ()=>{
-        g.rect(cx-8, headCy+headRy-10, 16, shoulderY - (headCy+headRy) + 12);
-      });
-
-      /* ═══════════════════════════════════
-         HEAD
-      ═══════════════════════════════════ */
-      fillStroke(WHITE, ()=>{
-        g.ellipse(cx+faceOff, headCy, headRx, headRy, 0, 0, Math.PI*2);
-      });
-
-      /* ═══════════════════════════════════
-         EAR (left side, visible)
-      ═══════════════════════════════════ */
-      if (earSide && hairStyle !== "afro" && hairStyle !== "curly" && hairStyle !== "hoodie") {
-        fillStroke(WHITE, ()=>{
-          g.ellipse(cx - headRx + 2, headCy + headRy*0.05, 5, 7, 0, 0, Math.PI*2);
-        });
-        // inner ear line
-        stroke(()=>{
-          g.arc(cx - headRx + 2, headCy + headRy*0.05, 3, Math.PI*0.3, Math.PI*1.5);
-        });
-      }
-
-      /* ═══════════════════════════════════
-         HAIR STYLES (on top of head)
-      ═══════════════════════════════════ */
-      const hairClip = (ratio) => {
-        // fill top portion of head with ink
-        g.save();
-        g.beginPath();
-        g.ellipse(cx+faceOff, headCy, headRx+0.5, headRy+0.5, 0, 0, Math.PI*2);
-        g.clip();
-        fill(INK, ()=>{
-          g.rect(cx+faceOff-headRx-5, headTop-5, headRx*2+10, headRy*ratio+5);
-        });
-        g.restore();
-      };
-
-      const hairDome = (extra) => {
-        fillStroke(INK, ()=>{
-          g.ellipse(cx+faceOff, headCy, headRx+extra, headRy+extra, 0, Math.PI, Math.PI*2);
-        });
-      };
-
-      if (hairStyle === "short") {
-        hairClip(rr(0.42, 0.55));
-        hairDome(3);
-      }
-      if (hairStyle === "buzz") {
-        hairClip(rr(0.3, 0.42));
-        hairDome(2);
-        // buzz lines
-        g.save();
-        g.beginPath();
-        g.ellipse(cx+faceOff, headCy, headRx+2, headRy+2, 0, Math.PI, Math.PI*2);
-        g.clip();
-        g.strokeStyle = WHITE; g.lineWidth = 0.8;
-        for (let i = 0; i < 6; i++) {
-          const a = Math.PI + (Math.PI * (i+0.5))/6;
-          const r1 = headRy*0.7, r2 = headRy+2;
-          g.beginPath();
-          g.moveTo(cx+faceOff+Math.cos(a)*r1, headCy+Math.sin(a)*r1);
-          g.lineTo(cx+faceOff+Math.cos(a)*r2, headCy+Math.sin(a)*r2);
-          g.stroke();
-        }
-        g.restore();
-      }
-      if (hairStyle === "fringe") {
-        hairClip(rr(0.6, 0.85));
-        hairDome(3);
-        // fringe swoosh over forehead
-        fill(INK, ()=>{
-          g.moveTo(cx+faceOff+headRx, headTop+headRy*0.3);
-          g.quadraticCurveTo(cx+faceOff+headRx*0.5, headTop-8, cx+faceOff-headRx*0.3, headTop+headRy*0.15);
-          g.quadraticCurveTo(cx+faceOff-headRx*0.8, headTop+headRy*0.5, cx+faceOff-headRx, headTop+headRy*0.3);
-          g.lineTo(cx+faceOff-headRx-3, headTop+headRy*0.7);
-          g.quadraticCurveTo(cx+faceOff, headTop+headRy*0.2, cx+faceOff+headRx+3, headTop+headRy*0.15);
-          g.closePath();
-        });
-      }
-      if (hairStyle === "bangs") {
-        hairClip(0.5);
-        hairDome(3);
-        // straight bangs across forehead
-        fill(INK, ()=>{
-          g.rect(cx+faceOff-headRx-2, headTop-2, headRx*2+4, headRy*0.55);
-        });
-        stroke(()=>{
-          g.moveTo(cx+faceOff-headRx-2, headTop+headRy*0.5);
-          g.lineTo(cx+faceOff+headRx+2, headTop+headRy*0.5);
-        });
-      }
-      if (hairStyle === "long") {
-        hairClip(0.55);
-        hairDome(3);
-      }
-      if (hairStyle === "afro") {
-        hairClip(0.45);
-      }
-      if (hairStyle === "curly") {
-        hairClip(0.45);
-      }
-      if (hairStyle === "wavy") {
-        hairClip(rr(0.45, 0.6));
-        hairDome(3);
-        // wavy lines on top
-        g.save();
-        g.beginPath();
-        g.ellipse(cx+faceOff, headCy, headRx+3, headRy+3, 0, Math.PI, Math.PI*2);
-        g.clip();
-        g.strokeStyle = WHITE; g.lineWidth = 1.2;
-        for (let i = 0; i < 5; i++) {
-          g.beginPath();
-          const sy = headTop + 2 + i*5;
-          g.moveTo(cx+faceOff-headRx, sy);
-          for (let x = cx+faceOff-headRx; x < cx+faceOff+headRx; x += 8) {
-            g.quadraticCurveTo(x+2, sy-3, x+4, sy);
-            g.quadraticCurveTo(x+6, sy+3, x+8, sy);
-          }
-          g.stroke();
-        }
-        g.restore();
-      }
-      if (hairStyle === "spiky") {
-        hairClip(0.35);
-        // spikes
-        const n = ri(4,7);
-        for (let i = 0; i < n; i++) {
-          const a = Math.PI + (Math.PI*(i+0.5))/n;
-          const bx = cx+faceOff+Math.cos(a)*(headRx+2);
-          const by = headCy+Math.sin(a)*(headRy+2);
-          const len = rr(10,18);
-          fillStroke(INK, ()=>{
-            g.moveTo(bx-4, by+2);
-            g.lineTo(bx+Math.cos(a)*len, by+Math.sin(a)*len);
-            g.lineTo(bx+4, by+2);
-            g.closePath();
-          });
-        }
-      }
-      if (hairStyle === "bun") {
-        hairClip(0.5);
-        hairDome(3);
-        fillStroke(INK, ()=>{
-          g.arc(cx+faceOff, headTop-4, rr(7,11), 0, Math.PI*2);
-        });
-      }
-      if (hairStyle === "ponytail") {
-        hairClip(0.5);
-        hairDome(3);
-        // ponytail going left (behind)
-        fill(INK, ()=>{
-          g.moveTo(cx+faceOff-headRx, headCy-headRy*0.3);
-          g.quadraticCurveTo(cx+faceOff-headRx-20, headCy, cx+faceOff-headRx-10, headCy+headRy);
-          g.quadraticCurveTo(cx+faceOff-headRx-5, headCy+headRy*0.5, cx+faceOff-headRx, headCy+headRy*0.1);
-          g.closePath();
-        });
-        stroke(()=>{
-          g.moveTo(cx+faceOff-headRx, headCy-headRy*0.3);
-          g.quadraticCurveTo(cx+faceOff-headRx-20, headCy, cx+faceOff-headRx-10, headCy+headRy);
-        });
-      }
-      if (hairStyle === "cap") {
-        fillStroke(INK, ()=>{
-          g.ellipse(cx+faceOff, headCy-headRy*0.4, headRx+3, headRy*0.75, 0, Math.PI, Math.PI*2);
-        });
-        // brim
-        fillStroke(INK, ()=>{
-          g.moveTo(cx+faceOff-headRx-3, headCy-headRy*0.42);
-          g.lineTo(cx+faceOff+headRx+16, headCy-headRy*0.42);
-          g.lineTo(cx+faceOff+headRx+14, headCy-headRy*0.34);
-          g.lineTo(cx+faceOff-headRx-3, headCy-headRy*0.34);
-          g.closePath();
-        });
-      }
-      if (hairStyle === "beanie") {
-        fillStroke(INK, ()=>{
-          g.ellipse(cx+faceOff, headCy-headRy*0.3, headRx+3, headRy*0.85, 0, Math.PI, Math.PI*2);
-        });
-        // band
-        fillStroke(INK, ()=>{
-          g.rect(cx+faceOff-headRx-3, headCy-headRy*0.38, headRx*2+6, 8);
-        });
-        // lines on beanie
-        g.strokeStyle = WHITE; g.lineWidth = 1;
-        for (let i = 0; i < 4; i++) {
-          const a = Math.PI + (Math.PI*(i+0.5))/4;
-          g.beginPath();
-          g.moveTo(cx+faceOff+Math.cos(a)*(headRx*0.3), headCy+Math.sin(a)*(headRy*0.3));
-          g.lineTo(cx+faceOff+Math.cos(a)*(headRx+2), headCy+Math.sin(a)*(headRy*0.82));
-          g.stroke();
-        }
-      }
-      if (hairStyle === "headband") {
-        hairClip(rr(0.45,0.6));
-        hairDome(3);
-        // headband
-        stroke(()=>{
-          g.ellipse(cx+faceOff, headCy, headRx+1, headRy+1, 0, Math.PI*1.05, Math.PI*1.95);
-        });
-        g.lineWidth = 3.5; g.strokeStyle = INK;
-        g.beginPath();
-        g.ellipse(cx+faceOff, headCy-headRy*0.15, headRx+2, headRy*0.1, 0, Math.PI*1.1, Math.PI*1.9);
-        g.stroke();
-      }
-
-      /* ═══════════════════════════════════
-         BEARD
-      ═══════════════════════════════════ */
-      if (hasBeard && beardStyle !== "mustache") {
-        g.save();
-        g.beginPath();
-        g.ellipse(cx+faceOff, headCy, headRx+2, headRy+2, 0, 0, Math.PI*2);
-        g.clip();
-
-        if (beardStyle === "full") {
-          fill(INK, ()=>{
-            g.rect(cx+faceOff-headRx-5, headCy+headRy*0.15, headRx*2+10, headRy);
-          });
-        } else if (beardStyle === "goatee") {
-          fill(INK, ()=>{
-            g.ellipse(cx+faceOff+headRx*0.3, headCy+headRy*0.55, 8, 12, 0, 0, Math.PI*2);
-          });
-        } else if (beardStyle === "stubble") {
-          g.fillStyle = "rgba(0,0,0,0.3)";
-          for (let i = 0; i < 60; i++) {
-            const sx = cx+faceOff + rr(-headRx*0.8, headRx*0.9);
-            const sy = headCy + rr(headRy*0.2, headRy*0.9);
-            g.fillRect(sx, sy, 1.2, 1.2);
-          }
-        }
-        g.restore();
-      }
-
-      /* ═══════════════════════════════════
-         FACE FEATURES (3/4 profile facing right)
-      ═══════════════════════════════════ */
-      const eyeX = cx + faceOff + headRx*0.3;
-      const eyeY = headCy - headRy*0.08;
-
-      // eye
-      fill(INK, ()=>{
-        g.ellipse(eyeX, eyeY, 2.5, 2.8, 0, 0, Math.PI*2);
-      });
-      // pupil highlight
-      fill(WHITE, ()=>{
-        g.arc(eyeX+0.8, eyeY-0.8, 0.9, 0, Math.PI*2);
-      });
-
-      // second eye (slightly behind, smaller for 3/4 view)
-      if (ch(0.5)) {
-        fill(INK, ()=>{
-          g.ellipse(cx+faceOff-headRx*0.15, eyeY, 1.8, 2.2, 0, 0, Math.PI*2);
-        });
-      }
-
-      // eyebrow
-      g.strokeStyle = INK; g.lineWidth = 2.5;
-      g.beginPath();
-      g.moveTo(eyeX-5, eyeY-8);
-      g.quadraticCurveTo(eyeX, eyeY-11, eyeX+6, eyeY-9);
-      g.stroke();
-
-      // nose
-      stroke(()=>{
-        g.moveTo(cx+faceOff+headRx*0.5, headCy-headRy*0.05);
-        g.quadraticCurveTo(cx+faceOff+headRx-1, headCy+headRy*0.15, cx+faceOff+headRx*0.5, headCy+headRy*0.25);
-      });
-      // nostril dot
-      fill(INK, ()=>{
-        g.arc(cx+faceOff+headRx*0.52, headCy+headRy*0.22, 1.2, 0, Math.PI*2);
-      });
-
-      // mouth
-      g.strokeStyle = INK; g.lineWidth = 2;
-      const mouthY = headCy + headRy*0.42;
-      const mouthType = pick(["smile","neutral","open","smirk"]);
-      if (mouthType === "smile") {
-        stroke(()=>{ g.arc(eyeX-2, mouthY-2, 5, Math.PI*0.1, Math.PI*0.7); });
-      } else if (mouthType === "neutral") {
-        stroke(()=>{ g.moveTo(eyeX-5, mouthY); g.lineTo(eyeX+3, mouthY); });
-      } else if (mouthType === "open") {
-        fillStroke(INK, ()=>{ g.ellipse(eyeX-1, mouthY, 4, 3, 0, 0, Math.PI*2); });
-      } else {
-        stroke(()=>{
-          g.moveTo(eyeX-4, mouthY+1);
-          g.quadraticCurveTo(eyeX, mouthY-3, eyeX+4, mouthY);
-        });
-      }
-
-      // mustache
-      if (hasMustache) {
-        fill(INK, ()=>{
-          g.moveTo(eyeX-7, mouthY-4);
-          g.quadraticCurveTo(eyeX-4, mouthY-8, eyeX, mouthY-4);
-          g.quadraticCurveTo(eyeX+4, mouthY-8, eyeX+7, mouthY-4);
-          g.quadraticCurveTo(eyeX+3, mouthY-1, eyeX, mouthY-2);
-          g.quadraticCurveTo(eyeX-3, mouthY-1, eyeX-7, mouthY-4);
-        });
-      }
-
-      /* ═══════════════════════════════════
-         GLASSES
-      ═══════════════════════════════════ */
-      if (hasGlasses) {
-        g.strokeStyle = INK; g.lineWidth = 2.2;
-        if (glassStyle === "round") {
-          g.beginPath();
-          g.arc(eyeX, eyeY, 8, 0, Math.PI*2);
-          g.stroke();
-          // bridge
-          g.beginPath();
-          g.moveTo(eyeX-8, eyeY-1);
-          g.lineTo(cx+faceOff-headRx*0.3, eyeY-1);
-          g.stroke();
-          // temple
-          g.beginPath();
-          g.moveTo(eyeX-8, eyeY-2);
-          g.lineTo(cx-headRx+2, eyeY-2);
-          g.stroke();
-        } else if (glassStyle === "square") {
-          g.strokeRect(eyeX-8, eyeY-7, 16, 14);
-          g.beginPath();
-          g.moveTo(eyeX-8, eyeY);
-          g.lineTo(cx-headRx+2, eyeY);
-          g.stroke();
-        } else { // sunglasses
-          fillStroke(INK, ()=>{
-            g.ellipse(eyeX, eyeY, 9, 7, 0, 0, Math.PI*2);
-          });
-          g.strokeStyle = INK; g.lineWidth = 2.5;
-          g.beginPath();
-          g.moveTo(eyeX-9, eyeY);
-          g.lineTo(cx-headRx+1, eyeY);
-          g.stroke();
-        }
-      }
-
-      // chin line (subtle)
-      if (ch(0.3) && !hasBeard) {
-        stroke(()=>{
-          g.arc(cx+faceOff+headRx*0.2, headCy+headRy-4, 8, Math.PI*0.15, Math.PI*0.55);
-        });
-      }
-
-      /* ═══════════════════════════════════
-         HEAD OUTLINE (redraw for clean edge)
-      ═══════════════════════════════════ */
-      g.strokeStyle = INK; g.lineWidth = lw;
-      g.beginPath();
-      g.ellipse(cx+faceOff, headCy, headRx, headRy, 0, 0, Math.PI*2);
-      g.stroke();
-
-      return c;
-    }
-
-    /* ════════════════════════════════════════
-       PEEP CLASS
-    ════════════════════════════════════════ */
-    class Peep {
-      constructor(sprite) {
-        this.image = sprite;
-        const s = rr(0.55, 1.1);
-        this.width = W * s;
-        this.height = H * s;
-        this.x = 0; this.y = 0;
-        this.anchorY = 0; this.scaleX = 1;
-        this.walk = null;
-      }
-      render(ctx) {
-        ctx.save();
-        ctx.translate(this.x, this.y);
-        ctx.scale(this.scaleX, 1);
-        ctx.drawImage(this.image, 0,0,this.image.width,this.image.height, 0,0,this.width,this.height);
-        ctx.restore();
-      }
-    }
-
-    /* ════════════════════════════════════════
-       CROWD ENGINE
-    ════════════════════════════════════════ */
-    const canvas = document.getElementById("crowdCanvas");
-    const ctx = canvas.getContext("2d");
-    const COUNT = 110;
-
-    const stage = { width:0, height:0 };
-    let dpr = window.devicePixelRatio || 1;
-
-    const allPeeps = [], availablePeeps = [], crowd = [];
-
-    const resetPeep = ({stage, peep}) => {
-      const dir = Math.random()>0.5 ? 1 : -1;
-      const offsetY = 100 - 250*gsap.parseEase("power2.in")(Math.random());
-      const startY = stage.height - peep.height + offsetY;
-      let startX, endX;
-      if (dir===1) { startX=-peep.width; endX=stage.width; peep.scaleX=1; }
-      else { startX=stage.width+peep.width; endX=0; peep.scaleX=-1; }
-      peep.x=startX; peep.y=startY; peep.anchorY=startY;
-      return {startX, startY, endX};
-    };
-
-    const normalWalk = ({peep, props}) => {
-      const {startY, endX} = props;
-      const xD=10, yD=0.25;
-      const tl = gsap.timeline();
-      tl.timeScale(rr(0.5,1.5));
-      tl.to(peep, {duration:xD, x:endX, ease:"none"}, 0);
-      tl.to(peep, {duration:yD, repeat:xD/yD, yoyo:true, y:startY-10, ease:"power1.inOut"}, 0);
-      return tl;
-    };
-
-    function addPeep() {
-      if (!availablePeeps.length) return null;
-      const peep = removeRandom(availablePeeps);
-      const walk = normalWalk({peep, props:resetPeep({peep,stage})})
-        .eventCallback("onComplete", ()=>{ removePeep(peep); addPeep(); });
-      peep.walk = walk;
-      crowd.push(peep);
-      crowd.sort((a,b)=>a.anchorY-b.anchorY);
-      return peep;
-    }
-    function removePeep(peep) {
-      const i = crowd.indexOf(peep);
-      if (i!==-1) crowd.splice(i,1);
-      availablePeeps.push(peep);
-    }
-    function initCrowd() {
-      while (availablePeeps.length) {
-        const p = addPeep();
-        if (p&&p.walk) p.walk.progress(Math.random());
-      }
-    }
-    function render() {
-      ctx.clearRect(0,0,canvas.width,canvas.height);
-      ctx.save(); ctx.scale(dpr,dpr);
-      crowd.forEach(p=>p.render(ctx));
       ctx.restore();
     }
-    function resize() {
-      dpr = window.devicePixelRatio||1;
-      stage.width = canvas.clientWidth;
-      stage.height = canvas.clientHeight;
-      canvas.width = stage.width*dpr;
-      canvas.height = stage.height*dpr;
-      crowd.forEach(p=>p.walk&&p.walk.kill());
-      crowd.length=0; availablePeeps.length=0;
-      availablePeeps.push(...allPeeps);
-      initCrowd(); render();
-    }
+  };
 
-    // create sprites
-    for (let i=0; i<COUNT; i++) allPeeps.push(new Peep(drawPeep()));
-    resize();
-    gsap.ticker.add(render);
-    window.addEventListener("resize", resize);
-  })();
-  </script>
+  drawTorso();
+  neckRect();
+
+  // --- Hair Back (Behind Head) ---
+  const drawHairBack = () => {
+    switch(hairstyle) {
+      case 'afro':
+        ctx.beginPath(); ctx.arc(cx, headY - headR*0.2, headR*1.4, 0, Math.PI*2); ctx.fill();
+        break;
+      case 'long':
+        ctx.beginPath(); 
+        ctx.roundRect(cx - headR*1.2, headY - headR, headR*2.4, headR*3.2, [10,10,20,20]); 
+        ctx.fill();
+        break;
+      case 'hijab':
+        ctx.beginPath(); ctx.roundRect(cx - headR*1.3, headY - headR*1.2, headR*2.6, size - (headY-headR*1.2), [15,15,0,0]); ctx.fill();
+        break;
+    }
+  };
+
+  // --- Head Shape ---
+  ctx.beginPath();
+  ctx.ellipse(cx, headY, headR*0.95, headR, 0, 0, Math.PI*2);
+  ctx.fillStyle = skinTone; ctx.fill(); ctx.stroke();
+
+  // --- Facial Features ---
+  const eyeY = headY - 2;
+  const eyeX = headR * 0.45;
+  const mouthY = headY + 18;
+
+  // Ears (if not hijab)
+  if(hairstyle !== 'hijab') {
+    [-1, 1].forEach(s => {
+       ctx.beginPath(); ctx.arc(cx + s*headR*0.9, headY + 5, headR*0.2, 0, Math.PI*2);
+       ctx.fillStyle = skinTone; ctx.fill(); ctx.stroke();
+    });
+  }
+
+  // Eyes / Eyebrows
+  const expression = P(['smile', 'neutral', 'surprised', 'winking', 'grin']);
+  const hasGlasses = C(0.35);
+  const hasBeard = (gender === 'male') && C(0.3);
+  const hasMustache = !hasBeard && C(0.25);
+
+  // Draw Glasses frame first or eyes depending on type
+  [-1, 1].forEach(s => {
+    // Eyes
+    if (expression === 'winking' && s === -1) {
+        ctx.beginPath(); ctx.moveTo(cx + s*(eyeX-4), eyeY+2); ctx.quadraticCurveTo(cx + s*eyeX, eyeY-2, cx + s*(eyeX+4), eyeY+2); ctx.stroke();
+    } else {
+        ctx.beginPath(); ctx.arc(cx + s*eyeX, eyeY, 3.5, 0, Math.PI*2); ctx.fill();
+    }
+    
+    // Glasses Over-Eye
+    if (hasGlasses) {
+      ctx.beginPath(); 
+      if(hasGlasses && C(0.3)) { // Round glasses
+         ctx.arc(cx + s*eyeX, eyeY, headR*0.22, 0, Math.PI*2);
+      } else { // Square glasses
+         ctx.rect(cx + s*eyeX - 8, eyeY - 8, 16, 16);
+      }
+      ctx.stroke();
+      if(s===1 && s===1) ctx.beginPath(); ctx.moveTo(cx-eyeX+8, eyeY-5); ctx.lineTo(cx+eyeX-8, eyeY-5); ctx.stroke(); // Bridge
+    }
+  });
+
+  // Eyebrows
+  [-1, 1].forEach(s => {
+    let arcStart = Math.PI * 0.2; 
+    let arcEnd = Math.PI * 0.8;
+    if (expression === 'surprised') { arcStart = 0; arcEnd = Math.PI; }
+    else if (expression === 'sad') { arcStart = Math.PI; arcEnd = 0; } 
+    
+    ctx.beginPath();
+    ctx.arc(cx + s*eyeX, eyeY - 10, 6, arcStart, arcEnd);
+    ctx.stroke();
+  });
+
+  // Nose
+  ctx.beginPath();
+  ctx.moveTo(cx - 2, eyeY + 8);
+  ctx.quadraticCurveTo(cx + 6, eyeY + 14, cx - 2, eyeY + 14);
+  ctx.stroke();
+
+  // Mouth
+  ctx.beginPath();
+  if (expression === 'smile' || expression === 'grin') {
+     ctx.arc(cx, mouthY - 5, 8, 0.1, Math.PI * 0.9); ctx.stroke();
+  } else if (expression === 'surprised') {
+     ctx.arc(cx, mouthY, 5, 0, Math.PI*2); ctx.stroke();
+  } else if (expression === 'neutral') {
+     ctx.moveTo(cx - 6, mouthY); ctx.lineTo(cx + 6, mouthY); ctx.stroke();
+  } else if (expression === 'winking') {
+     ctx.arc(cx, mouthY, 5, 0.2, Math.PI*0.8); ctx.stroke();
+  }
+
+  // Mustache / Beard
+  if (hasMustache) {
+    ctx.beginPath(); ctx.arc(cx, mouthY - 10, 10, 0.2, Math.PI*0.8, false); ctx.stroke();
+  }
+  if (hasBeard) {
+     ctx.beginPath();
+     ctx.arc(cx, headY + 20, 18, Math.PI*0.2, Math.PI*0.8); // Jawline
+     ctx.arc(cx, headY + 35, 12, Math.PI*1.0, Math.PI*0.0); // Chin
+     ctx.closePath(); ctx.fill();
+  }
+
+  // --- Hair Front (On Top of Head) ---
+  const drawHairFront = () => {
+    ctx.fillStyle = INK;
+    // Generic hair base over forehead
+    ctx.beginPath(); ctx.arc(cx, headY, headR, Math.PI, 0, true); ctx.fill();
+
+    switch(hairstyle) {
+      case 'bobs':
+        ctx.beginPath(); ctx.roundRect(cx - headR*1.1, headY - headR*0.5, headR*2.2, headR*1.2, [10,10,0,0]); ctx.fill(); break;
+      case 'short':
+        ctx.beginPath(); ctx.arc(cx, headY - headR*0.2, headR*1.1, 0, Math.PI, true); ctx.fill(); break;
+      case 'curly':
+         ctx.beginPath(); ctx.arc(cx - 10, headY - headR*0.8, 12, 0, Math.PI*2); ctx.fill();
+         ctx.beginPath(); ctx.arc(cx + 10, headY - headR*0.8, 12, 0, Math.PI*2); ctx.fill();
+         ctx.beginPath(); ctx.arc(cx, headY - headR*1.2, 14, 0, Math.PI*2); ctx.fill();
+         break;
+      case 'puffs':
+        ctx.beginPath(); ctx.arc(cx - 18, headY - headR*0.5, 10, 0, Math.PI*2); ctx.fill();
+        ctx.beginPath(); ctx.arc(cx + 18, headY - headR*0.5, 10, 0, Math.PI*2); ctx.fill();
+        ctx.beginPath(); ctx.arc(cx, headY - headR*0.3, 15, Math.PI, 0); ctx.fill();
+        break;
+      case 'messy':
+          for(let i=0; i<5; i++) {
+              ctx.beginPath(); 
+              ctx.arc(cx + R(-15, 15), headY + R(-10, -30), R(8, 12), 0, Math.PI*2); 
+              ctx.fill();
+          }
+          break;
+      case 'mohawk':
+          ctx.beginPath(); ctx.moveTo(cx - 8, headY - headR*0.5); 
+          ctx.lineTo(cx - 4, headY - headR*1.5); 
+          ctx.lineTo(cx, headY - headR*0.5); 
+          ctx.lineTo(cx + 4, headY - headR*1.5); 
+          ctx.lineTo(cx + 8, headY - headR*0.5); 
+          ctx.fill();
+          break;
+    }
+  };
+
+  if (hairstyle !== 'hijab') drawHairFront();
+}
+
+
+/**
+ * -----------------------------------------------------------
+ * PART 2: BULK SPRITE SHEET GENERATION
+ * Creates a grid of 200 high-resolution characters.
+ * -----------------------------------------------------------
+ */
+const COLS = 10;
+const ROWS = 20; // 200 Unique Characters
+const CHAR_SIZE = 150;
+const RES_SCALE = 2; // Retina support generation
+
+const sheetCanvas = document.createElement('canvas');
+sheetCanvas.width = COLS * CHAR_SIZE * RES_SCALE;
+sheetCanvas.height = ROWS * CHAR_SIZE * RES_SCALE;
+const sCtx = sheetCanvas.getContext('2d');
+
+for(let i = 0; i < COLS * ROWS; i++) {
+    const x = (i % COLS) * CHAR_SIZE;
+    const y = Math.floor(i / COLS) * CHAR_SIZE;
+    
+    sCtx.save();
+    sCtx.scale(RES_SCALE, RES_SCALE);
+    sCtx.translate(x * RES_SCALE, y * RES_SCALE);
+    
+    // Clip region to keep peeps neat
+    sCtx.beginPath(); sCtx.rect(0, 0, CHAR_SIZE, CHAR_SIZE); sCtx.clip();
+    
+    drawPeep(sCtx, CHAR_SIZE);
+    
+    sCtx.restore();
+}
+
+
+/**
+ * -----------------------------------------------------------
+ * PART 3: THE CROWD ENGINE
+ * Manages rendering, animation, and depth sorting.
+ * -----------------------------------------------------------
+ */
+const canvas = document.getElementById('crowdCanvas');
+const mainCtx = canvas.getContext('2d');
+let stageWidth = 0, stageHeight = 0;
+
+// Lists to manage state
+const allChars = [];
+const activeCrowd = [];
+const pool = [];
+
+// Pre-populate the sprite data array
+for(let i = 0; i < COLS * ROWS; i++) {
+    allChars.push({
+        sx: (i % COLS) * CHAR_SIZE,
+        sy: Math.floor(i / COLS) * CHAR_SIZE,
+        w: CHAR_SIZE, h: CHAR_SIZE,
+        x: 0, y: 0, 
+        anchorY: 0,
+        scaleX: 1,
+        scale: 1,
+        walkTl: null,
+        
+        render: function(ctx) {
+            ctx.save();
+            ctx.translate(this.x, this.y);
+            ctx.scale(this.scaleX * this.scale, this.scale);
+            // Draw from our generated sprite sheet
+            ctx.drawImage(sheetCanvas, 
+                this.sx * RES_SCALE, this.sy * RES_SCALE, 
+                this.w * RES_SCALE, this.h * RES_SCALE, 
+                -this.w/2, 0, this.w, this.h
+            );
+            ctx.restore();
+        }
+    });
+}
+
+// Utility Functions
+const rand = (min, max) => min + Math.random() * (max - min);
+const pickOne = (arr) => arr[Math.floor(Math.random() * arr.length)];
+const removeFrom = (arr, item) => {
+    const idx = arr.indexOf(item);
+    if(idx > -1) arr.splice(idx, 1);
+    return item;
+};
+
+const spawnPeep = () => {
+    if(pool.length === 0) return;
+    
+    const char = pool.pop();
+    activeCrowd.push(char);
+    startWalking(char);
+    
+    // Sort by Y-position for depth (Painter's Algorithm)
+    activeCrowd.sort((a, b) => a.anchorY - b.anchorY);
+};
+
+const startWalking = (char) => {
+    // Reset Logic
+    const dir = Math.random() > 0.5 ? 1 : -1;
+    
+    // Depth Logic: Randomize scale based on vertical position
+    // Power function makes most people closer to normal size, fewer tiny far-away ones
+    const depthVal = Math.pow(Math.random(), 2); 
+    const yPosOffset = 150 - 500 * depthVal; // Start lower if smaller
+    
+    char.scale = 0.5 + 0.6 * depthVal; // 0.5x to 1.1x scale
+    char.anchorY = stageHeight - char.h * 0.8 * char.scale + yPosOffset;
+    char.y = char.anchorY;
+    char.scaleX = dir;
+
+    // Start X positions (Off-screen)
+    const startX = dir === 1 ? -char.w : stageWidth + char.w;
+    const endX   = dir === 1 ? stageWidth + char.w : -char.w;
+
+    char.x = startX;
+
+    // Create Timeline
+    const tl = gsap.timeline({
+        onComplete: () => {
+            // Finished crossing? Send back to pool.
+            removeFrom(activeCrowd, char);
+            pool.push(char);
+            
+            // Keep the crowd full!
+            spawnPeep();
+        }
+    });
+
+    tl.timeScale(rand(0.8, 1.6)); // Walking speed variation
+
+    // Move Across
+    tl.to(char, {
+        duration: 15 + Math.random() * 10, // Long duration
+        x: endX,
+        ease: "none"
+    }, 0);
+
+    // Bob up and down (Walking cycle)
+    tl.to(char, {
+        duration: 0.25,
+        y: char.y - 12, // Bob height
+        repeat: (15 * 4), // Approximate repeats to match duration
+        yoyo: true,
+        ease: "sine.inOut",
+        overwrite: "auto"
+    }, 0);
+
+    char.walkTl = tl;
+};
+
+const renderLoop = () => {
+    // Clear Screen
+    mainCtx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    // Scale Context for High DPI
+    mainCtx.save();
+    mainCtx.scale(window.devicePixelRatio, window.devicePixelRatio);
+    
+    // Draw Everyone
+    activeCrowd.forEach(p => p.render(mainCtx));
+    
+    mainCtx.restore();
+};
+
+const resizeHandler = () => {
+    stageWidth = canvas.clientWidth;
+    stageHeight = canvas.clientHeight;
+    
+    // Resize actual canvas buffer
+    canvas.width = stageWidth * window.devicePixelRatio;
+    canvas.height = stageHeight * window.devicePixelRatio;
+
+    // Kill old animations
+    activeCrowd.forEach(p => { if(p.walkTl) p.walkTl.kill(); });
+    
+    // Reset everyone to pool
+    pool.push(...activeCrowd);
+    activeCrowd.length = 0;
+
+    // Respawn fresh crowd with random starts
+    for(let i=0; i < 25; i++) spawnPeep().walkTl.progress(Math.random());
+};
+
+// Initialize
+window.addEventListener('resize', resizeHandler);
+gsap.ticker.add(renderLoop);
+resizeHandler(); // Trigger initial setup
+
+</script>
 </body>
 </html>

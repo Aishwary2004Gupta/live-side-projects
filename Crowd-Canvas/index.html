@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Crowd Canvas</title>
+  <!-- GSAP for professional-grade animation (timelines, timeScale, yoyo, etc.) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      background: white;
+      color: black;
+      overflow: hidden;
+      height: 100vh;
+      width: 100vw;
+    }
+
+    .container {
+      position: relative;
+      height: 100%;
+      width: 100%;
+      background: white;
+    }
+
+    /* Header styling matching the original Tailwind classes */
+    .header {
+      position: absolute;
+      top: 88px; /* equivalent to top-22 */
+      left: 50%;
+      transform: translateX(-50%);
+      text-align: center;
+      display: grid;
+      gap: 1.5rem; /* gap-6 */
+      justify-items: center;
+      z-index: 10;
+    }
+
+    .header span {
+      position: relative;
+      font-size: 0.75rem; /* text-xs */
+      text-transform: uppercase;
+      line-height: 1.25; /* leading-tight */
+      opacity: 0.4; /* opacity-40 */
+      max-width: 12ch; /* max-w-[12ch] */
+      letter-spacing: 0.05em;
+    }
+
+    /* Decorative gradient line below text */
+    .header span::after {
+      content: '';
+      position: absolute;
+      left: 50%;
+      top: 100%;
+      margin-top: 0.5rem;
+      height: 4rem; /* h-16 */
+      width: 1px;
+      background: linear-gradient(to bottom, white, black);
+      transform: translateX(-50%);
+    }
+
+    /* Canvas container: absolute bottom, 90vh height, full width */
+    .canvas-wrapper {
+      position: absolute;
+      bottom: 0;
+      height: 90vh;
+      width: 100%;
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+      /* Ensure crisp rendering on high-DPI displays */
+      image-rendering: pixelated; 
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <span>Croud Canvas</span>
+    </div>
+    <div class="canvas-wrapper">
+      <canvas id="crowdCanvas"></canvas>
+    </div>
+  </div>
+
+  <script>
+    /**
+     * Crowd Canvas — Vanilla JS Implementation
+     * 
+     * Adapted from React/TypeScript/GSAP implementation.
+     * Inspired by https://codepen.io/zadvorsky/pen/xxwbBQV
+     * Illustration by https://www.openpeeps.com/
+     * 
+     * Note: Replace config.src with the path to your sprite sheet.
+     * The sprite sheet should be a grid of characters (rows × cols).
+     */
+
+    document.addEventListener('DOMContentLoaded', () => {
+      const canvas = document.getElementById('crowdCanvas');
+      if (!canvas) return;
+      
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+
+      // Configuration
+      const config = {
+        // IMPORTANT: Replace with your actual sprite sheet path
+        // Original uses: "/images/peeps/all-peeps.png"
+        src: 'https://placehold.co/600x400/eeeeee/999999?text=Sprite+Sheet+(15x7+Grid)', 
+        rows: 15,
+        cols: 7
+      };
+
+      // UTILITIES
+      const randomRange = (min, max) => min + Math.random() * (max - min);
+      const randomIndex = (array) => (randomRange(0, array.length) | 0);
+      const removeFromArray = (array, i) => array.splice(i, 1)[0];
+      const removeItemFromArray = (array, item) => removeFromArray(array, array.indexOf(item));
+      const removeRandomFromArray = (array) => removeFromArray(array, randomIndex(array));
+      const getRandomFromArray = (array) => array[randomIndex(array) | 0];
+
+      // ANIMATION FACTORIES
+      
+      // Reset peep position off-screen with random depth (Y position)
+      const resetPeep = ({ stage, peep }) => {
+        const direction = Math.random() > 0.5 ? 1 : -1;
+        // Approximating gsap.parseEase("power2.in")(Math.random()) -> t*t distribution
+        const easeValue = Math.pow(Math.random(), 2);
+        const offsetY = 100 - 250 * easeValue;
+        const startY = stage.height - peep.height + offsetY;
+        let startX, endX;
+
+        if (direction === 1) {
+          startX = -peep.width;
+          endX = stage.width;
+          peep.scaleX = 1; // Facing right
+        } else {
+          startX = stage.width + peep.width;
+          endX = 0;
+          peep.scaleX = -1; // Facing left (mirrored)
+        }
+
+        peep.x = startX;
+        peep.y = startY;
+        peep.anchorY = startY;
+
+        return { startX, startY, endX };
+      };
+
+      // Standard walking animation with horizontal movement and vertical bobbing
+      const normalWalk = ({ peep, props }) => {
+        const { startX, startY, endX } = props;
+        const xDuration = 10;
+        const yDuration = 0.25;
+
+        const tl = gsap.timeline();
+        tl.timeScale(randomRange(0.5, 1.5)); // Random speed variation
+
+        // Horizontal movement (constant speed)
+        tl.to(peep, {
+          duration: xDuration,
+          x: endX,
+          ease: "none"
+        }, 0);
+
+        // Vertical bobbing (walking gait)
+        tl.to(peep, {
+          duration: yDuration,
+          repeat: xDuration / yDuration,
+          yoyo: true,
+          y: startY - 10, // Bob up by 10px
+          ease: "sine.inOut"
+        }, 0);
+
+        return tl;
+      };
+
+      const walks = [normalWalk];
+
+      // PEEP FACTORY
+      const createPeep = ({ image, rect }) => {
+        const peep = {
+          image,
+          rect: [],
+          width: 0,
+          height: 0,
+          drawArgs: [],
+          x: 0,
+          y: 0,
+          anchorY: 0,
+          scaleX: 1,
+          walk: null,
+          
+          setRect(rect) {
+            this.rect = rect;
+            this.width = rect[2];
+            this.height = rect[3];
+            this.drawArgs = [this.image, ...rect, 0, 0, this.width, this.height];
+          },
+          
+          render(ctx) {
+            ctx.save();
+            ctx.translate(this.x, this.y);
+            ctx.scale(this.scaleX, 1);
+            ctx.drawImage(
+              this.image,
+              this.rect[0],
+              this.rect[1],
+              this.rect[2],
+              this.rect[3],
+              0,
+              0,
+              this.width,
+              this.height
+            );
+            ctx.restore();
+          }
+        };
+
+        peep.setRect(rect);
+        return peep;
+      };
+
+      // STATE MANAGEMENT
+      const img = new Image();
+      const stage = {
+        width: 0,
+        height: 0
+      };
+
+      const allPeeps = [];
+      const availablePeeps = [];
+      const crowd = [];
+
+      // Parse sprite sheet into individual peeps
+      const createPeeps = () => {
+        const { rows, cols } = config;
+        const { naturalWidth: width, naturalHeight: height } = img;
+        const total = rows * cols;
+        const rectWidth = width / rows;
+        const rectHeight = height / cols;
+
+        for (let i = 0; i < total; i++) {
+          allPeeps.push(
+            createPeep({
+              image: img,
+              rect: [
+                (i % rows) * rectWidth,
+                ((i / rows) | 0) * rectHeight,
+                rectWidth,
+                rectHeight
+              ]
+            })
+          );
+        }
+      };
+
+      // Initialize crowd by activating all available peeps
+      const initCrowd = () => {
+        while (availablePeeps.length) {
+          // Random progress so they don't all start at the same position
+          addPeepToCrowd().walk.progress(Math.random());
+        }
+      };
+
+      // Add a peep to the active crowd
+      const addPeepToCrowd = () => {
+        const peep = removeRandomFromArray(availablePeeps);
+        
+        const walk = getRandomFromArray(walks)({
+          peep,
+          props: resetPeep({ peep, stage })
+        }).eventCallback("onComplete", () => {
+          // When walk finishes, recycle the peep
+          removePeepFromCrowd(peep);
+          addPeepToCrowd();
+        });
+
+        peep.walk = walk;
+        crowd.push(peep);
+        
+        // Sort by Y position for depth rendering (painter's algorithm)
+        crowd.sort((a, b) => a.anchorY - b.anchorY);
+
+        return peep;
+      };
+
+      const removePeepFromCrowd = (peep) => {
+        removeItemFromArray(crowd, peep);
+        availablePeeps.push(peep);
+      };
+
+      // RENDER LOOP
+      const render = () => {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.save();
+        // Scale for high-DPI displays (Retina)
+        ctx.scale(devicePixelRatio, devicePixelRatio);
+
+        // Draw all peeps in depth order
+        crowd.forEach((peep) => {
+          peep.render(ctx);
+        });
+
+        ctx.restore();
+      };
+
+      // Handle resize and reset
+      const resize = () => {
+        stage.width = canvas.clientWidth;
+        stage.height = canvas.clientHeight;
+        canvas.width = stage.width * devicePixelRatio;
+        canvas.height = stage.height * devicePixelRatio;
+
+        // Kill existing animations
+        crowd.forEach((peep) => {
+          if (peep.walk) peep.walk.kill();
+        });
+
+        // Reset arrays
+        crowd.length = 0;
+        availablePeeps.length = 0;
+        availablePeeps.push(...allPeeps);
+
+        // Restart
+        initCrowd();
+      };
+
+      const init = () => {
+        createPeeps();
+        resize();
+        gsap.ticker.add(render);
+      };
+
+      // Initialize when image loads
+      img.onload = init;
+      img.src = config.src;
+
+      // Handle window resize
+      const handleResize = () => resize();
+      window.addEventListener("resize", handleResize);
+
+      // Cleanup
+      window.addEventListener("beforeunload", () => {
+        window.removeEventListener("resize", handleResize);
+        gsap.ticker.remove(render);
+        crowd.forEach((peep) => {
+          if (peep.walk) peep.walk.kill();
+        });
+      });
+    });
+  </script>
+</body>
+</html>

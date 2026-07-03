@@ -1,1438 +1,256 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Crowd Canvas — Open Peeps Style</title>
-    <style>
-      * {
-        box-sizing: border-box;
-        margin: 0;
-        padding: 0;
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Crowd Canvas</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: #fff;
+      overflow: hidden;
+      height: 100vh;
+      width: 100vw;
+    }
+    .container {
+      position: relative;
+      height: 100vh;
+      width: 100%;
+    }
+    .header {
+      position: absolute;
+      top: 88px;
+      left: 50%;
+      transform: translateX(-50%);
+      text-align: center;
+      z-index: 10;
+    }
+    .header span {
+      position: relative;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      opacity: 0.4;
+      max-width: 12ch;
+      display: inline-block;
+    }
+    .header span::after {
+      content: '';
+      position: absolute;
+      left: 50%;
+      top: 100%;
+      height: 64px;
+      width: 1px;
+      background: linear-gradient(to bottom, #fff, #000);
+      transform: translateX(-50%);
+    }
+    canvas {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      width: 100%;
+      height: 90vh;
+      display: block;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <span>Crowd Canvas</span>
+    </div>
+    <canvas id="crowdCanvas"></canvas>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+  <script>
+    const canvas = document.getElementById('crowdCanvas');
+    const ctx = canvas.getContext('2d');
+
+    // === CONFIG (same as original) ===
+    const config = {
+      src: 'https://raw.githubusercontent.com/zadvorsky/open-peeps/main/sprites/all-peeps.png', // Public sprite sheet
+      rows: 15,
+      cols: 7
+    };
+
+    let img = new Image();
+    let stage = { width: 0, height: 0 };
+    let allPeeps = [];
+    let availablePeeps = [];
+    let crowd = [];
+    let dpr = window.devicePixelRatio || 1;
+
+    // UTILS
+    const randomRange = (min, max) => min + Math.random() * (max - min);
+    const randomIndex = (array) => (randomRange(0, array.length) | 0);
+    const removeFromArray = (array, i) => array.splice(i, 1)[0];
+    const removeItemFromArray = (array, item) => removeFromArray(array, array.indexOf(item));
+    const removeRandomFromArray = (array) => removeFromArray(array, randomIndex(array));
+    const getRandomFromArray = (array) => array[randomIndex(array) | 0];
+
+    // Reset peep position
+    function resetPeep({ stage, peep }) {
+      const direction = Math.random() > 0.5 ? 1 : -1;
+      const offsetY = 100 - 250 * gsap.parseEase("power2.in")(Math.random());
+      const startY = stage.height - peep.height + offsetY;
+      let startX, endX;
+
+      if (direction === 1) {
+        startX = -peep.width;
+        endX = stage.width;
+        peep.scaleX = 1;
+      } else {
+        startX = stage.width + peep.width;
+        endX = 0;
+        peep.scaleX = -1;
       }
-      html,
-      body {
-        width: 100%;
-        height: 100%;
-        overflow: hidden;
-        font-family: Arial, Helvetica, sans-serif;
-        background: #fff;
-      }
-      .page {
-        position: relative;
-        width: 100vw;
-        height: 100vh;
-        overflow: hidden;
-        background: #fff;
-      }
-      .heading {
-        position: absolute;
-        top: 5.5rem;
-        left: 50%;
-        transform: translateX(-50%);
-        display: grid;
-        place-items: center;
-        gap: 1.5rem;
-        text-align: center;
-        z-index: 2;
-      }
-      .heading span {
-        position: relative;
-        max-width: 12ch;
-        font-size: 12px;
-        line-height: 1.1;
-        text-transform: uppercase;
-        letter-spacing: 0.04em;
-        opacity: 0.4;
-      }
-      .heading span::after {
-        content: "";
-        position: absolute;
-        top: 100%;
-        left: 50%;
-        width: 1px;
-        height: 4rem;
-        background: linear-gradient(to bottom, #fff, #000);
-      }
-      #crowdCanvas {
-        position: absolute;
-        left: 0;
-        bottom: 0;
-        width: 100%;
-        height: 90vh;
-        display: block;
-        pointer-events: none;
-      }
-    </style>
-  </head>
-  <body>
-    <main class="page">
-      <div class="heading"><span>Crowd Canvas</span></div>
-      <canvas id="crowdCanvas"></canvas>
-    </main>
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
-    <script>
-      (function () {
-        const rr = (a, b) => a + Math.random() * (b - a);
-        const ri = (a, b) => rr(a, b) | 0;
-        const pick = (a) => a[(Math.random() * a.length) | 0];
-        const ch = (p) => Math.random() < p;
-        const removeAt = (a, i) => a.splice(i, 1)[0];
-        const removeRandom = (a) => removeAt(a, (Math.random() * a.length) | 0);
+      peep.x = startX;
+      peep.y = startY;
+      peep.anchorY = startY;
 
-        const INK = "#1a1a1a";
-        const WHITE = "#ffffff";
-        const LIGHT = "#f0f0f0";
-        const FILLS = [INK, WHITE, LIGHT, LIGHT]; // weighted toward light shirts
+      return { startX, startY, endX };
+    }
 
-        const W = 140,
-          H = 220,
-          S = 2;
+    // Walking animation
+    function normalWalk({ peep, props }) {
+      const { startX, startY, endX } = props;
+      const xDuration = 10;
+      const yDuration = 0.25;
 
-        function drawPeep() {
-          const c = document.createElement("canvas");
-          c.width = W * S;
-          c.height = H * S;
-          const g = c.getContext("2d");
-          g.scale(S, S);
-          g.lineCap = "round";
-          g.lineJoin = "round";
+      const tl = gsap.timeline();
+      tl.timeScale(randomRange(0.5, 1.5));
+      
+      tl.to(peep, {
+        duration: xDuration,
+        x: endX,
+        ease: "none"
+      }, 0);
+      
+      tl.to(peep, {
+        duration: yDuration,
+        repeat: xDuration / yDuration,
+        yoyo: true,
+        y: startY - 10,
+        ease: "sine.inOut"
+      }, 0);
 
-          const lw = 2.6;
-          const cx = 70;
-          const headRx = rr(19, 26);
-          const headRy = rr(23, 30);
-          const headCy = 62;
-          const headTop = headCy - headRy;
-          const shoulderY = headCy + headRy + rr(6, 16);
-          const bodyW = rr(52, 76);
-          const bodyL = cx - bodyW / 2;
-          const bodyR = cx + bodyW / 2;
-          const shirtFill = pick(FILLS);
-          const isDark = shirtFill === INK;
+      return tl;
+    }
 
-          const faceOff = headRx * 0.12;
-
-          const hairStyle = pick([
-            "short",
-            "buzz",
-            "fringe",
-            "long",
-            "afro",
-            "curly",
-            "curly",
-            "curly",
-            "bun",
-            "ponytail",
-            "bangs",
-            "spiky",
-            "wavy",
-            "pompadour",
-            "cap",
-            "beanie",
-            "headband",
-            "hoodie",
-            "bald",
-            "hijab",
-            "braids",
-            "mohawk",
-            "mullet",
-            "sidepart",
-          ]);
-          const hasGlasses = ch(0.38);
-          const glassStyle = pick([
-            "round",
-            "round",
-            "square",
-            "sunglasses",
-            "cat",
-          ]);
-          const hasBeard = ch(0.28);
-          const beardStyle = pick([
-            "full",
-            "goatee",
-            "stubble",
-            "mustache",
-            "chinstrap",
-          ]);
-          const hasMustache =
-            hasBeard &&
-            (beardStyle === "mustache" || beardStyle === "full" || ch(0.35));
-          const hasStripes = !isDark && ch(0.22);
-          const hasDots = !isDark && ch(0.12);
-          const hasCollar = ch(0.38);
-          const hasTie = hasCollar && ch(0.18);
-          const hasHoodie = hairStyle === "hoodie" || (!hasCollar && ch(0.15));
-          const hasPhone = ch(0.18);
-          const hasHeadphones = ch(0.12);
-          const hasScarf = ch(0.1) && !hasCollar;
-          const faceShape = pick(["oval", "round", "square", "long"]);
-          const eyeStyle = pick(["open", "open", "open", "closed", "wink"]);
-          const mouthType = pick([
-            "smile",
-            "smile",
-            "neutral",
-            "open",
-            "smirk",
-            "teeth",
-          ]);
-          const earSide = ch(0.5);
-
-          const stroke = (fn) => {
-            g.strokeStyle = INK;
-            g.lineWidth = lw;
-            g.beginPath();
-            fn();
-            g.stroke();
-          };
-          const fill = (color, fn) => {
-            g.fillStyle = color;
-            g.beginPath();
-            fn();
-            g.fill();
-          };
-          const fillStroke = (color, fn) => {
-            g.fillStyle = color;
-            g.strokeStyle = INK;
-            g.lineWidth = lw;
-            g.beginPath();
-            fn();
-            g.fill();
-            g.stroke();
-          };
-
-          // ─── HIJAB (behind everything) ───
-          if (hairStyle === "hijab") {
-            fillStroke(INK, () => {
-              g.moveTo(bodyL - 6, shoulderY + 15);
-              g.quadraticCurveTo(bodyL - 12, headTop - 20, cx, headTop - 18);
-              g.quadraticCurveTo(
-                bodyR + 12,
-                headTop - 20,
-                bodyR + 6,
-                shoulderY + 15,
-              );
-              g.lineTo(bodyR + 6, shoulderY + 30);
-              g.quadraticCurveTo(bodyR, shoulderY + 10, bodyR, shoulderY);
-              g.lineTo(bodyL, shoulderY);
-              g.quadraticCurveTo(
-                bodyL,
-                shoulderY + 10,
-                bodyL - 6,
-                shoulderY + 30,
-              );
-              g.closePath();
-            });
-            // face opening
-            fill(WHITE, () => {
-              g.ellipse(
-                cx + faceOff,
-                headCy,
-                headRx * 0.85,
-                headRy * 0.9,
-                0,
-                0,
-                Math.PI * 2,
-              );
-            });
-            stroke(() => {
-              g.ellipse(
-                cx + faceOff,
-                headCy,
-                headRx * 0.85,
-                headRy * 0.9,
-                0,
-                0,
-                Math.PI * 2,
-              );
-            });
-          }
-
-          // ─── LONG HAIR / AFRO / CURLY behind head ───
-          if (hairStyle === "long") {
-            fill(INK, () => {
-              g.ellipse(
-                cx + faceOff,
-                headCy + headRy * 0.5,
-                headRx + 12,
-                headRy * 2,
-                0,
-                0,
-                Math.PI * 2,
-              );
-            });
-          }
-          if (hairStyle === "afro") {
-            fillStroke(INK, () => {
-              g.ellipse(
-                cx + faceOff,
-                headCy - headRy * 0.3,
-                headRx * 1.6,
-                headRy * 1.4,
-                0,
-                0,
-                Math.PI * 2,
-              );
-            });
-          }
-          if (hairStyle === "curly") {
-            fill(INK, () => {
-              g.ellipse(
-                cx + faceOff,
-                headCy - headRy * 0.1,
-                headRx + 10,
-                headRy + 8,
-                0,
-                0,
-                Math.PI * 2,
-              );
-            });
-            for (let a = 0; a < Math.PI * 2; a += 0.4) {
-              const r = headRx + 8 + rr(2, 7);
-              fill(INK, () => {
-                g.arc(
-                  cx + faceOff + Math.cos(a) * r,
-                  headCy - headRy * 0.1 + Math.sin(a) * r,
-                  rr(3, 7),
-                  0,
-                  Math.PI * 2,
-                );
-              });
-            }
-          }
-          if (hairStyle === "hoodie") {
-            fill(INK, () => {
-              g.moveTo(bodyL - 4, shoulderY + 12);
-              g.quadraticCurveTo(bodyL - 10, headTop - 12, cx, headTop - 16);
-              g.quadraticCurveTo(
-                bodyR + 10,
-                headTop - 12,
-                bodyR + 4,
-                shoulderY + 12,
-              );
-              g.closePath();
-            });
-          }
-          if (hairStyle === "braids") {
-            fill(INK, () => {
-              g.ellipse(
-                cx + faceOff,
-                headCy - headRy * 0.2,
-                headRx + 6,
-                headRy + 4,
-                0,
-                0,
-                Math.PI * 2,
-              );
-            });
-            // braid strands
-            for (let i = 0; i < 5; i++) {
-              const bx = cx + faceOff - headRx * 0.6 + i * ((headRx * 1.2) / 4);
-              fillStroke(INK, () => {
-                g.moveTo(bx, headTop + headRy * 0.3);
-                g.quadraticCurveTo(
-                  bx + rr(-8, 8),
-                  headCy + headRy * 0.5,
-                  bx + rr(-10, 10),
-                  headCy + headRy * 1.2,
-                );
-                g.lineWidth = 3;
-              });
-            }
-          }
-
-          // ─── BODY / SHIRT ───
-          const rad = 16;
-          if (hasHoodie) {
-            fillStroke(shirtFill, () => {
-              g.moveTo(bodyL - 2, H);
-              g.lineTo(bodyL - 2, shoulderY + rad + 4);
-              g.quadraticCurveTo(
-                bodyL - 2,
-                shoulderY + 2,
-                bodyL + rad - 2,
-                shoulderY + 2,
-              );
-              g.lineTo(bodyR - rad + 2, shoulderY + 2);
-              g.quadraticCurveTo(
-                bodyR + 2,
-                shoulderY + 2,
-                bodyR + 2,
-                shoulderY + rad + 4,
-              );
-              g.lineTo(bodyR + 2, H);
-              g.closePath();
-            });
-            // hood opening
-            stroke(() => {
-              g.moveTo(cx - 14, shoulderY + 2);
-              g.quadraticCurveTo(cx, shoulderY + 18, cx + 14, shoulderY + 2);
-            });
-          } else {
-            fillStroke(shirtFill, () => {
-              g.moveTo(bodyL, H);
-              g.lineTo(bodyL, shoulderY + rad);
-              g.quadraticCurveTo(bodyL, shoulderY, bodyL + rad, shoulderY);
-              g.lineTo(bodyR - rad, shoulderY);
-              g.quadraticCurveTo(bodyR, shoulderY, bodyR, shoulderY + rad);
-              g.lineTo(bodyR, H);
-              g.closePath();
-            });
-          }
-
-          // stripes
-          if (hasStripes) {
-            g.save();
-            g.beginPath();
-            g.moveTo(bodyL, H);
-            g.lineTo(bodyL, shoulderY + rad);
-            g.quadraticCurveTo(bodyL, shoulderY, bodyL + rad, shoulderY);
-            g.lineTo(bodyR - rad, shoulderY);
-            g.quadraticCurveTo(bodyR, shoulderY, bodyR, shoulderY + rad);
-            g.lineTo(bodyR, H);
-            g.closePath();
-            g.clip();
-            g.strokeStyle = INK;
-            g.lineWidth = 2.2;
-            for (let y = shoulderY + 14; y < H; y += 11) {
-              g.beginPath();
-              g.moveTo(bodyL - 5, y);
-              g.lineTo(bodyR + 5, y);
-              g.stroke();
-            }
-            g.restore();
-            stroke(() => {
-              g.moveTo(bodyL, H);
-              g.lineTo(bodyL, shoulderY + rad);
-              g.quadraticCurveTo(bodyL, shoulderY, bodyL + rad, shoulderY);
-              g.lineTo(bodyR - rad, shoulderY);
-              g.quadraticCurveTo(bodyR, shoulderY, bodyR, shoulderY + rad);
-              g.lineTo(bodyR, H);
-            });
-          }
-
-          // dots pattern
-          if (hasDots) {
-            g.save();
-            g.beginPath();
-            g.moveTo(bodyL, H);
-            g.lineTo(bodyL, shoulderY + rad);
-            g.quadraticCurveTo(bodyL, shoulderY, bodyL + rad, shoulderY);
-            g.lineTo(bodyR - rad, shoulderY);
-            g.quadraticCurveTo(bodyR, shoulderY, bodyR, shoulderY + rad);
-            g.lineTo(bodyR, H);
-            g.closePath();
-            g.clip();
-            g.fillStyle = INK;
-            for (let i = 0; i < 40; i++) {
-              g.beginPath();
-              g.arc(
-                rr(bodyL, bodyR),
-                rr(shoulderY + 5, H - 5),
-                rr(1.5, 3),
-                0,
-                Math.PI * 2,
-              );
-              g.fill();
-            }
-            g.restore();
-            stroke(() => {
-              g.moveTo(bodyL, H);
-              g.lineTo(bodyL, shoulderY + rad);
-              g.quadraticCurveTo(bodyL, shoulderY, bodyL + rad, shoulderY);
-              g.lineTo(bodyR - rad, shoulderY);
-              g.quadraticCurveTo(bodyR, shoulderY, bodyR, shoulderY + rad);
-              g.lineTo(bodyR, H);
-            });
-          }
-
-          // collar
-          if (hasCollar && !hasHoodie) {
-            stroke(() => {
-              g.moveTo(cx - 12, shoulderY);
-              g.lineTo(cx - 3, shoulderY + 16);
-              g.lineTo(cx, shoulderY + 5);
-              g.lineTo(cx + 3, shoulderY + 16);
-              g.lineTo(cx + 12, shoulderY);
-            });
-          }
-          // tie
-          if (hasTie) {
-            fillStroke(INK, () => {
-              g.moveTo(cx - 5, shoulderY + 14);
-              g.lineTo(cx, shoulderY + 55);
-              g.lineTo(cx + 5, shoulderY + 14);
-              g.closePath();
-            });
-          }
-
-          // scarf
-          if (hasScarf) {
-            fillStroke(INK, () => {
-              g.moveTo(cx - 18, shoulderY - 2);
-              g.quadraticCurveTo(cx, shoulderY + 12, cx + 18, shoulderY - 2);
-              g.quadraticCurveTo(
-                cx + 22,
-                shoulderY + 8,
-                cx + 16,
-                shoulderY + 18,
-              );
-              g.quadraticCurveTo(cx, shoulderY + 22, cx - 16, shoulderY + 18);
-              g.quadraticCurveTo(
-                cx - 22,
-                shoulderY + 8,
-                cx - 18,
-                shoulderY - 2,
-              );
-            });
-            // scarf tail
-            fillStroke(INK, () => {
-              g.moveTo(cx + 10, shoulderY + 14);
-              g.quadraticCurveTo(
-                cx + 14,
-                shoulderY + 40,
-                cx + 8,
-                shoulderY + 55,
-              );
-              g.lineTo(cx + 16, shoulderY + 55);
-              g.quadraticCurveTo(
-                cx + 22,
-                shoulderY + 40,
-                cx + 18,
-                shoulderY + 14,
-              );
-              g.closePath();
-            });
-          }
-
-          // ─── NECK ───
-          if (hairStyle !== "hijab") {
-            fillStroke(WHITE, () => {
-              g.rect(
-                cx - 9,
-                headCy + headRy - 12,
-                18,
-                shoulderY - (headCy + headRy) + 14,
-              );
-            });
-          }
-
-          // ─── HEAD ───
-          if (hairStyle !== "hijab") {
-            // face shape variation
-            fillStroke(WHITE, () => {
-              if (faceShape === "round") {
-                g.ellipse(
-                  cx + faceOff,
-                  headCy,
-                  headRx,
-                  headRy,
-                  0,
-                  0,
-                  Math.PI * 2,
-                );
-              } else if (faceShape === "square") {
-                const r = 6;
-                g.moveTo(cx + faceOff - headRx + r, headCy - headRy);
-                g.lineTo(cx + faceOff + headRx - r, headCy - headRy);
-                g.quadraticCurveTo(
-                  cx + faceOff + headRx,
-                  headCy - headRy,
-                  cx + faceOff + headRx,
-                  headCy - headRy + r,
-                );
-                g.lineTo(cx + faceOff + headRx, headCy + headRy - r);
-                g.quadraticCurveTo(
-                  cx + faceOff + headRx,
-                  headCy + headRy,
-                  cx + faceOff + headRx - r,
-                  headCy + headRy,
-                );
-                g.lineTo(cx + faceOff - headRx + r, headCy + headRy);
-                g.quadraticCurveTo(
-                  cx + faceOff - headRx,
-                  headCy + headRy,
-                  cx + faceOff - headRx,
-                  headCy + headRy - r,
-                );
-                g.lineTo(cx + faceOff - headRx, headCy - headRy + r);
-                g.quadraticCurveTo(
-                  cx + faceOff - headRx,
-                  headCy - headRy,
-                  cx + faceOff - headRx + r,
-                  headCy - headRy,
-                );
-              } else if (faceShape === "long") {
-                g.ellipse(
-                  cx + faceOff,
-                  headCy,
-                  headRx * 0.85,
-                  headRy * 1.15,
-                  0,
-                  0,
-                  Math.PI * 2,
-                );
-              } else {
-                g.ellipse(
-                  cx + faceOff,
-                  headCy,
-                  headRx,
-                  headRy,
-                  0,
-                  0,
-                  Math.PI * 2,
-                );
-              }
-            });
-          }
-
-          // ─── EAR ───
-          if (
-            earSide &&
-            hairStyle !== "afro" &&
-            hairStyle !== "curly" &&
-            hairStyle !== "hoodie" &&
-            hairStyle !== "hijab"
-          ) {
-            fillStroke(WHITE, () => {
-              g.ellipse(
-                cx - headRx + 2,
-                headCy + headRy * 0.05,
-                5.5,
-                7.5,
-                0,
-                0,
-                Math.PI * 2,
-              );
-            });
-            stroke(() => {
-              g.arc(
-                cx - headRx + 2,
-                headCy + headRy * 0.05,
-                3.2,
-                Math.PI * 0.3,
-                Math.PI * 1.5,
-              );
-            });
-          }
-
-          // ─── HAIR STYLES ───
-          const hairClip = (ratio) => {
-            g.save();
-            g.beginPath();
-            g.ellipse(
-              cx + faceOff,
-              headCy,
-              headRx + 0.5,
-              headRy + 0.5,
-              0,
-              0,
-              Math.PI * 2,
-            );
-            g.clip();
-            fill(INK, () => {
-              g.rect(
-                cx + faceOff - headRx - 5,
-                headTop - 5,
-                headRx * 2 + 10,
-                headRy * ratio + 5,
-              );
-            });
-            g.restore();
-          };
-          const hairDome = (extra) => {
-            fillStroke(INK, () => {
-              g.ellipse(
-                cx + faceOff,
-                headCy,
-                headRx + extra,
-                headRy + extra,
-                0,
-                Math.PI,
-                Math.PI * 2,
-              );
-            });
-          };
-
-          if (hairStyle === "short") {
-            hairClip(rr(0.42, 0.55));
-            hairDome(3);
-          }
-          if (hairStyle === "buzz") {
-            hairClip(rr(0.3, 0.42));
-            hairDome(2);
-            g.save();
-            g.beginPath();
-            g.ellipse(
-              cx + faceOff,
-              headCy,
-              headRx + 2,
-              headRy + 2,
-              0,
-              Math.PI,
-              Math.PI * 2,
-            );
-            g.clip();
-            g.strokeStyle = WHITE;
-            g.lineWidth = 0.9;
-            for (let i = 0; i < 7; i++) {
-              const a = Math.PI + (Math.PI * (i + 0.5)) / 7;
-              g.beginPath();
-              g.moveTo(
-                cx + faceOff + Math.cos(a) * headRy * 0.7,
-                headCy + Math.sin(a) * headRy * 0.7,
-              );
-              g.lineTo(
-                cx + faceOff + Math.cos(a) * (headRy + 2),
-                headCy + Math.sin(a) * (headRy + 2),
-              );
-              g.stroke();
-            }
-            g.restore();
-          }
-          if (hairStyle === "fringe") {
-            hairClip(rr(0.6, 0.85));
-            hairDome(3);
-            fill(INK, () => {
-              g.moveTo(cx + faceOff + headRx, headTop + headRy * 0.3);
-              g.quadraticCurveTo(
-                cx + faceOff + headRx * 0.5,
-                headTop - 10,
-                cx + faceOff - headRx * 0.3,
-                headTop + headRy * 0.15,
-              );
-              g.quadraticCurveTo(
-                cx + faceOff - headRx * 0.8,
-                headTop + headRy * 0.5,
-                cx + faceOff - headRx,
-                headTop + headRy * 0.3,
-              );
-              g.lineTo(cx + faceOff - headRx - 3, headTop + headRy * 0.7);
-              g.quadraticCurveTo(
-                cx + faceOff,
-                headTop + headRy * 0.2,
-                cx + faceOff + headRx + 3,
-                headTop + headRy * 0.15,
-              );
-              g.closePath();
-            });
-          }
-          if (hairStyle === "bangs") {
-            hairClip(0.5);
-            hairDome(3);
-            fill(INK, () => {
-              g.rect(
-                cx + faceOff - headRx - 2,
-                headTop - 2,
-                headRx * 2 + 4,
-                headRy * 0.55,
-              );
-            });
-            stroke(() => {
-              g.moveTo(cx + faceOff - headRx - 2, headTop + headRy * 0.5);
-              g.lineTo(cx + faceOff + headRx + 2, headTop + headRy * 0.5);
-            });
-          }
-          if (hairStyle === "long") {
-            hairClip(0.55);
-            hairDome(3);
-          }
-          if (hairStyle === "afro") {
-            hairClip(0.45);
-          }
-          if (hairStyle === "curly") {
-            hairClip(0.45);
-          }
-          if (hairStyle === "wavy") {
-            hairClip(rr(0.45, 0.6));
-            hairDome(3);
-            g.save();
-            g.beginPath();
-            g.ellipse(
-              cx + faceOff,
-              headCy,
-              headRx + 3,
-              headRy + 3,
-              0,
-              Math.PI,
-              Math.PI * 2,
-            );
-            g.clip();
-            g.strokeStyle = WHITE;
-            g.lineWidth = 1.3;
-            for (let i = 0; i < 6; i++) {
-              g.beginPath();
-              const sy = headTop + 2 + i * 5;
-              g.moveTo(cx + faceOff - headRx, sy);
-              for (
-                let x = cx + faceOff - headRx;
-                x < cx + faceOff + headRx;
-                x += 8
-              ) {
-                g.quadraticCurveTo(x + 2, sy - 3, x + 4, sy);
-                g.quadraticCurveTo(x + 6, sy + 3, x + 8, sy);
-              }
-              g.stroke();
-            }
-            g.restore();
-          }
-          if (hairStyle === "spiky") {
-            hairClip(0.35);
-            const n = ri(5, 8);
-            for (let i = 0; i < n; i++) {
-              const a = Math.PI + (Math.PI * (i + 0.5)) / n;
-              const bx = cx + faceOff + Math.cos(a) * (headRx + 2);
-              const by = headCy + Math.sin(a) * (headRy + 2);
-              const len = rr(10, 20);
-              fillStroke(INK, () => {
-                g.moveTo(bx - 4, by + 2);
-                g.lineTo(bx + Math.cos(a) * len, by + Math.sin(a) * len);
-                g.lineTo(bx + 4, by + 2);
-                g.closePath();
-              });
-            }
-          }
-          if (hairStyle === "pompadour") {
-            hairClip(0.4);
-            fillStroke(INK, () => {
-              g.moveTo(cx + faceOff - headRx, headTop + headRy * 0.3);
-              g.quadraticCurveTo(
-                cx + faceOff,
-                headTop - headRy * 0.8,
-                cx + faceOff + headRx * 0.5,
-                headTop - headRy * 0.5,
-              );
-              g.quadraticCurveTo(
-                cx + faceOff + headRx + 5,
-                headTop,
-                cx + faceOff + headRx,
-                headTop + headRy * 0.3,
-              );
-              g.closePath();
-            });
-          }
-          if (hairStyle === "mullet") {
-            hairClip(0.5);
-            hairDome(3);
-            // long back
-            fill(INK, () => {
-              g.moveTo(cx + faceOff - headRx, headCy + headRy * 0.2);
-              g.quadraticCurveTo(
-                cx + faceOff - headRx - 15,
-                headCy + headRy,
-                cx + faceOff - headRx - 8,
-                headCy + headRy * 1.8,
-              );
-              g.quadraticCurveTo(
-                cx + faceOff - headRx,
-                headCy + headRy * 1.2,
-                cx + faceOff - headRx + 2,
-                headCy + headRy * 0.5,
-              );
-              g.closePath();
-            });
-          }
-          if (hairStyle === "sidepart") {
-            hairClip(0.5);
-            hairDome(3);
-            stroke(() => {
-              g.moveTo(cx + faceOff - headRx * 0.5, headTop + 2);
-              g.quadraticCurveTo(
-                cx + faceOff,
-                headTop + headRy * 0.3,
-                cx + faceOff + headRx * 0.8,
-                headTop + headRy * 0.1,
-              );
-            });
-          }
-          if (hairStyle === "mohawk") {
-            // sides shaved
-            hairClip(0.3);
-            // mohawk strip
-            fillStroke(INK, () => {
-              g.moveTo(cx + faceOff - 8, headTop + headRy * 0.2);
-              for (let i = 0; i < 6; i++) {
-                const mx = cx + faceOff - 8 + i * 3;
-                const my = headTop - rr(5, 15);
-                g.lineTo(mx + 1.5, my);
-                g.lineTo(mx + 3, headTop + headRy * 0.2);
-              }
-              g.closePath();
-            });
-          }
-          if (hairStyle === "bun") {
-            hairClip(0.5);
-            hairDome(3);
-            fillStroke(INK, () => {
-              g.arc(cx + faceOff, headTop - 5, rr(8, 12), 0, Math.PI * 2);
-            });
-          }
-          if (hairStyle === "ponytail") {
-            hairClip(0.5);
-            hairDome(3);
-            fill(INK, () => {
-              g.moveTo(cx + faceOff - headRx, headCy - headRy * 0.3);
-              g.quadraticCurveTo(
-                cx + faceOff - headRx - 22,
-                headCy,
-                cx + faceOff - headRx - 12,
-                headCy + headRy * 1.2,
-              );
-              g.quadraticCurveTo(
-                cx + faceOff - headRx - 5,
-                headCy + headRy * 0.5,
-                cx + faceOff - headRx,
-                headCy + headRy * 0.1,
-              );
-              g.closePath();
-            });
-            stroke(() => {
-              g.moveTo(cx + faceOff - headRx, headCy - headRy * 0.3);
-              g.quadraticCurveTo(
-                cx + faceOff - headRx - 22,
-                headCy,
-                cx + faceOff - headRx - 12,
-                headCy + headRy * 1.2,
-              );
-            });
-          }
-          if (hairStyle === "cap") {
-            fillStroke(INK, () => {
-              g.ellipse(
-                cx + faceOff,
-                headCy - headRy * 0.4,
-                headRx + 3,
-                headRy * 0.75,
-                0,
-                Math.PI,
-                Math.PI * 2,
-              );
-            });
-            fillStroke(INK, () => {
-              g.moveTo(cx + faceOff - headRx - 3, headCy - headRy * 0.42);
-              g.lineTo(cx + faceOff + headRx + 18, headCy - headRy * 0.42);
-              g.lineTo(cx + faceOff + headRx + 16, headCy - headRy * 0.34);
-              g.lineTo(cx + faceOff - headRx - 3, headCy - headRy * 0.34);
-              g.closePath();
-            });
-          }
-          if (hairStyle === "beanie") {
-            fillStroke(INK, () => {
-              g.ellipse(
-                cx + faceOff,
-                headCy - headRy * 0.3,
-                headRx + 3,
-                headRy * 0.85,
-                0,
-                Math.PI,
-                Math.PI * 2,
-              );
-            });
-            fillStroke(INK, () => {
-              g.rect(
-                cx + faceOff - headRx - 3,
-                headCy - headRy * 0.38,
-                headRx * 2 + 6,
-                9,
-              );
-            });
-            g.strokeStyle = WHITE;
-            g.lineWidth = 1.2;
-            for (let i = 0; i < 5; i++) {
-              const a = Math.PI + (Math.PI * (i + 0.5)) / 5;
-              g.beginPath();
-              g.moveTo(
-                cx + faceOff + Math.cos(a) * (headRx * 0.3),
-                headCy + Math.sin(a) * (headRy * 0.3),
-              );
-              g.lineTo(
-                cx + faceOff + Math.cos(a) * (headRx + 2),
-                headCy + Math.sin(a) * (headRy * 0.82),
-              );
-              g.stroke();
-            }
-          }
-          if (hairStyle === "headband") {
-            hairClip(rr(0.45, 0.6));
-            hairDome(3);
-            g.lineWidth = 4;
-            g.strokeStyle = INK;
-            g.beginPath();
-            g.ellipse(
-              cx + faceOff,
-              headCy - headRy * 0.15,
-              headRx + 2,
-              headRy * 0.12,
-              0,
-              Math.PI * 1.1,
-              Math.PI * 1.9,
-            );
-            g.stroke();
-          }
-
-          // ─── BEARD ───
-          if (hasBeard && beardStyle !== "mustache" && hairStyle !== "hijab") {
-            g.save();
-            g.beginPath();
-            g.ellipse(
-              cx + faceOff,
-              headCy,
-              headRx + 2,
-              headRy + 2,
-              0,
-              0,
-              Math.PI * 2,
-            );
-            g.clip();
-            if (beardStyle === "full") {
-              fill(INK, () => {
-                g.rect(
-                  cx + faceOff - headRx - 5,
-                  headCy + headRy * 0.15,
-                  headRx * 2 + 10,
-                  headRy,
-                );
-              });
-            } else if (beardStyle === "goatee") {
-              fill(INK, () => {
-                g.ellipse(
-                  cx + faceOff + headRx * 0.3,
-                  headCy + headRy * 0.55,
-                  9,
-                  13,
-                  0,
-                  0,
-                  Math.PI * 2,
-                );
-              });
-            } else if (beardStyle === "chinstrap") {
-              stroke(() => {
-                g.moveTo(cx + faceOff - headRx * 0.5, headCy + headRy * 0.3);
-                g.quadraticCurveTo(
-                  cx + faceOff,
-                  headCy + headRy * 0.9,
-                  cx + faceOff + headRx * 0.7,
-                  headCy + headRy * 0.3,
-                );
-              });
-            } else if (beardStyle === "stubble") {
-              g.fillStyle = "rgba(0,0,0,0.35)";
-              for (let i = 0; i < 70; i++) {
-                g.fillRect(
-                  cx + faceOff + rr(-headRx * 0.8, headRx * 0.9),
-                  headCy + rr(headRy * 0.2, headRy * 0.9),
-                  1.3,
-                  1.3,
-                );
-              }
-            }
-            g.restore();
-          }
-
-          // ─── FACE FEATURES ───
-          if (hairStyle !== "hijab") {
-            const eyeX = cx + faceOff + headRx * 0.32;
-            const eyeY = headCy - headRy * 0.06;
-
-            if (eyeStyle === "open") {
-              fill(INK, () => {
-                g.ellipse(eyeX, eyeY, 2.8, 3.2, 0, 0, Math.PI * 2);
-              });
-              fill(WHITE, () => {
-                g.arc(eyeX + 0.9, eyeY - 0.9, 1, 0, Math.PI * 2);
-              });
-            } else if (eyeStyle === "closed") {
-              stroke(() => {
-                g.arc(eyeX, eyeY + 1, 3, Math.PI * 1.1, Math.PI * 1.9);
-              });
-            } else if (eyeStyle === "wink") {
-              stroke(() => {
-                g.moveTo(eyeX - 3, eyeY + 1);
-                g.quadraticCurveTo(eyeX, eyeY - 2, eyeX + 3, eyeY + 1);
-              });
-            }
-
-            // second eye
-            if (ch(0.55)) {
-              fill(INK, () => {
-                g.ellipse(
-                  cx + faceOff - headRx * 0.12,
-                  eyeY,
-                  2,
-                  2.4,
-                  0,
-                  0,
-                  Math.PI * 2,
-                );
-              });
-            }
-
-            // eyebrow
-            g.strokeStyle = INK;
-            g.lineWidth = 2.8;
-            g.beginPath();
-            g.moveTo(eyeX - 6, eyeY - 9);
-            g.quadraticCurveTo(eyeX, eyeY - 13, eyeX + 7, eyeY - 10);
-            g.stroke();
-
-            // nose
-            stroke(() => {
-              g.moveTo(cx + faceOff + headRx * 0.5, headCy - headRy * 0.05);
-              g.quadraticCurveTo(
-                cx + faceOff + headRx - 1,
-                headCy + headRy * 0.18,
-                cx + faceOff + headRx * 0.48,
-                headCy + headRy * 0.28,
-              );
-            });
-            fill(INK, () => {
-              g.arc(
-                cx + faceOff + headRx * 0.5,
-                headCy + headRy * 0.25,
-                1.4,
-                0,
-                Math.PI * 2,
-              );
-            });
-
-            // mouth
-            g.strokeStyle = INK;
-            g.lineWidth = 2.2;
-            const mouthY = headCy + headRy * 0.44;
-            if (mouthType === "smile") {
-              stroke(() => {
-                g.arc(eyeX - 2, mouthY - 2, 6, Math.PI * 0.1, Math.PI * 0.7);
-              });
-            } else if (mouthType === "neutral") {
-              stroke(() => {
-                g.moveTo(eyeX - 6, mouthY);
-                g.lineTo(eyeX + 4, mouthY);
-              });
-            } else if (mouthType === "open") {
-              fillStroke(INK, () => {
-                g.ellipse(eyeX - 1, mouthY, 5, 3.5, 0, 0, Math.PI * 2);
-              });
-            } else if (mouthType === "smirk") {
-              stroke(() => {
-                g.moveTo(eyeX - 5, mouthY + 2);
-                g.quadraticCurveTo(eyeX, mouthY - 4, eyeX + 5, mouthY);
-              });
-            } else if (mouthType === "teeth") {
-              fillStroke(WHITE, () => {
-                g.moveTo(eyeX - 6, mouthY - 2);
-                g.quadraticCurveTo(eyeX - 1, mouthY + 4, eyeX + 5, mouthY - 2);
-                g.quadraticCurveTo(eyeX - 1, mouthY - 6, eyeX - 6, mouthY - 2);
-              });
-              stroke(() => {
-                g.moveTo(eyeX - 6, mouthY - 2);
-                g.quadraticCurveTo(eyeX - 1, mouthY + 4, eyeX + 5, mouthY - 2);
-              });
-            }
-
-            // mustache
-            if (hasMustache) {
-              fill(INK, () => {
-                g.moveTo(eyeX - 8, mouthY - 5);
-                g.quadraticCurveTo(eyeX - 4, mouthY - 10, eyeX, mouthY - 5);
-                g.quadraticCurveTo(eyeX + 5, mouthY - 10, eyeX + 8, mouthY - 5);
-                g.quadraticCurveTo(eyeX + 3, mouthY - 1, eyeX, mouthY - 2);
-                g.quadraticCurveTo(eyeX - 3, mouthY - 1, eyeX - 8, mouthY - 5);
-              });
-            }
-
-            // glasses
-            if (hasGlasses) {
-              g.strokeStyle = INK;
-              g.lineWidth = 2.4;
-              if (glassStyle === "round") {
-                g.beginPath();
-                g.arc(eyeX, eyeY, 9, 0, Math.PI * 2);
-                g.stroke();
-                g.beginPath();
-                g.moveTo(eyeX - 9, eyeY - 1);
-                g.lineTo(cx + faceOff - headRx * 0.25, eyeY - 1);
-                g.stroke();
-                g.beginPath();
-                g.moveTo(eyeX - 9, eyeY - 2);
-                g.lineTo(cx - headRx + 2, eyeY - 2);
-                g.stroke();
-              } else if (glassStyle === "square") {
-                g.strokeRect(eyeX - 9, eyeY - 8, 18, 16);
-                g.beginPath();
-                g.moveTo(eyeX - 9, eyeY);
-                g.lineTo(cx - headRx + 2, eyeY);
-                g.stroke();
-              } else if (glassStyle === "sunglasses") {
-                fillStroke(INK, () => {
-                  g.ellipse(eyeX, eyeY, 10, 8, 0, 0, Math.PI * 2);
-                });
-                g.lineWidth = 2.8;
-                g.beginPath();
-                g.moveTo(eyeX - 10, eyeY);
-                g.lineTo(cx - headRx + 1, eyeY);
-                g.stroke();
-              } else if (glassStyle === "cat") {
-                fillStroke(WHITE, () => {
-                  g.moveTo(eyeX - 9, eyeY + 2);
-                  g.quadraticCurveTo(eyeX - 9, eyeY - 8, eyeX, eyeY - 8);
-                  g.quadraticCurveTo(eyeX + 9, eyeY - 8, eyeX + 9, eyeY + 2);
-                  g.quadraticCurveTo(eyeX, eyeY + 6, eyeX - 9, eyeY + 2);
-                });
-                g.beginPath();
-                g.moveTo(eyeX - 9, eyeY - 2);
-                g.lineTo(cx - headRx + 2, eyeY - 2);
-                g.stroke();
-              }
-            }
-
-            // head outline redraw
-            g.strokeStyle = INK;
-            g.lineWidth = lw;
-            g.beginPath();
-            if (faceShape === "square") {
-              const r = 6;
-              g.moveTo(cx + faceOff - headRx + r, headCy - headRy);
-              g.lineTo(cx + faceOff + headRx - r, headCy - headRy);
-              g.quadraticCurveTo(
-                cx + faceOff + headRx,
-                headCy - headRy,
-                cx + faceOff + headRx,
-                headCy - headRy + r,
-              );
-              g.lineTo(cx + faceOff + headRx, headCy + headRy - r);
-              g.quadraticCurveTo(
-                cx + faceOff + headRx,
-                headCy + headRy,
-                cx + faceOff + headRx - r,
-                headCy + headRy,
-              );
-              g.lineTo(cx + faceOff - headRx + r, headCy + headRy);
-              g.quadraticCurveTo(
-                cx + faceOff - headRx,
-                headCy + headRy,
-                cx + faceOff - headRx,
-                headCy + headRy - r,
-              );
-              g.lineTo(cx + faceOff - headRx, headCy - headRy + r);
-              g.quadraticCurveTo(
-                cx + faceOff - headRx,
-                headCy - headRy,
-                cx + faceOff - headRx + r,
-                headCy - headRy,
-              );
-            } else if (faceShape === "long") {
-              g.ellipse(
-                cx + faceOff,
-                headCy,
-                headRx * 0.85,
-                headRy * 1.15,
-                0,
-                0,
-                Math.PI * 2,
-              );
-            } else {
-              g.ellipse(
-                cx + faceOff,
-                headCy,
-                headRx,
-                headRy,
-                0,
-                0,
-                Math.PI * 2,
-              );
-            }
-            g.stroke();
-          }
-
-          // ─── HEADPHONES ───
-          if (hasHeadphones && hairStyle !== "hijab") {
-            g.strokeStyle = INK;
-            g.lineWidth = 4;
-            g.beginPath();
-            g.ellipse(
-              cx + faceOff,
-              headCy,
-              headRx + 6,
-              headRy + 6,
-              0,
-              Math.PI * 1.05,
-              Math.PI * 1.95,
-            );
-            g.stroke();
-            fillStroke(INK, () => {
-              g.roundRect(
-                cx + faceOff - headRx * 0.3 - 7,
-                headCy - 5,
-                14,
-                18,
-                5,
-              );
-            });
-          }
-
-          // ─── PHONE IN HAND ───
-          if (hasPhone) {
-            const phoneX = cx + bodyW * 0.3;
-            const phoneY = shoulderY + 30;
-            fillStroke(INK, () => {
-              g.roundRect(phoneX, phoneY, 18, 30, 3);
-            });
-            // screen
-            fill(WHITE, () => {
-              g.roundRect(phoneX + 2, phoneY + 3, 14, 22, 2);
-            });
-            // hand
-            fillStroke(WHITE, () => {
-              g.ellipse(phoneX + 9, phoneY + 32, 10, 8, 0, 0, Math.PI * 2);
-            });
-          }
-
-          return c;
-        }
-
-        /* ════════════════════════════════════════
-       PEEP CLASS
-    ════════════════════════════════════════ */
-        class Peep {
-          constructor(sprite) {
-            this.image = sprite;
-            const s = rr(0.5, 1.15);
-            this.width = W * s;
-            this.height = H * s;
-            this.x = 0;
-            this.y = 0;
-            this.anchorY = 0;
-            this.scaleX = 1;
-            this.walk = null;
-          }
-          render(ctx) {
-            ctx.save();
-            ctx.translate(this.x, this.y);
-            ctx.scale(this.scaleX, 1);
-            ctx.drawImage(
-              this.image,
-              0,
-              0,
-              this.image.width,
-              this.image.height,
-              0,
-              0,
-              this.width,
-              this.height,
-            );
-            ctx.restore();
-          }
-        }
-
-        /* ════════════════════════════════════════
-       CROWD ENGINE
-    ════════════════════════════════════════ */
-        const canvas = document.getElementById("crowdCanvas");
-        const ctx = canvas.getContext("2d");
-        const COUNT = 220;
-
-        const stage = { width: 0, height: 0 };
-        let dpr = window.devicePixelRatio || 1;
-
-        const allPeeps = [],
-          availablePeeps = [],
-          crowd = [];
-
-        const resetPeep = ({ stage, peep }) => {
-          const dir = Math.random() > 0.5 ? 1 : -1;
-          const offsetY =
-            100 - 250 * gsap.parseEase("power2.in")(Math.random());
-          const startY = stage.height - peep.height + offsetY;
-          let startX, endX;
-          if (dir === 1) {
-            startX = -peep.width;
-            endX = stage.width;
-            peep.scaleX = 1;
-          } else {
-            startX = stage.width + peep.width;
-            endX = 0;
-            peep.scaleX = -1;
-          }
-          peep.x = startX;
-          peep.y = startY;
-          peep.anchorY = startY;
-          return { startX, startY, endX };
-        };
-
-        const normalWalk = ({ peep, props }) => {
-          const { startY, endX } = props;
-          const xD = 10,
-            yD = 0.25;
-          const tl = gsap.timeline();
-          tl.timeScale(rr(0.5, 1.5));
-          tl.to(peep, { duration: xD, x: endX, ease: "none" }, 0);
-          tl.to(
-            peep,
-            {
-              duration: yD,
-              repeat: xD / yD,
-              yoyo: true,
-              y: startY - 10,
-              ease: "power1.inOut",
-            },
-            0,
-          );
-          return tl;
-        };
-
-        function addPeep() {
-          if (!availablePeeps.length) return null;
-          const peep = removeRandom(availablePeeps);
-          const walk = normalWalk({
-            peep,
-            props: resetPeep({ peep, stage }),
-          }).eventCallback("onComplete", () => {
-            removePeep(peep);
-            addPeep();
-          });
-          peep.walk = walk;
-          crowd.push(peep);
-          crowd.sort((a, b) => a.anchorY - b.anchorY);
-          return peep;
-        }
-        function removePeep(peep) {
-          const i = crowd.indexOf(peep);
-          if (i !== -1) crowd.splice(i, 1);
-          availablePeeps.push(peep);
-        }
-        function initCrowd() {
-          while (availablePeeps.length) {
-            const p = addPeep();
-            if (p && p.walk) p.walk.progress(Math.random());
-          }
-        }
-        function render() {
-          ctx.clearRect(0, 0, canvas.width, canvas.height);
+    // Create peep from sprite sheet
+    function createPeep({ image, rect }) {
+      return {
+        image,
+        rect,
+        width: rect[2],
+        height: rect[3],
+        x: 0,
+        y: 0,
+        anchorY: 0,
+        scaleX: 1,
+        walk: null,
+        render(ctx) {
           ctx.save();
-          ctx.scale(dpr, dpr);
-          crowd.forEach((p) => p.render(ctx));
+          ctx.translate(this.x, this.y);
+          ctx.scale(this.scaleX, 1);
+          ctx.drawImage(
+            this.image,
+            this.rect[0], this.rect[1], this.rect[2], this.rect[3],
+            0, 0, this.width, this.height
+          );
           ctx.restore();
         }
-        function resize() {
-          dpr = window.devicePixelRatio || 1;
-          stage.width = canvas.clientWidth;
-          stage.height = canvas.clientHeight;
-          canvas.width = stage.width * dpr;
-          canvas.height = stage.height * dpr;
-          crowd.forEach((p) => p.walk && p.walk.kill());
-          crowd.length = 0;
-          availablePeeps.length = 0;
-          availablePeeps.push(...allPeeps);
-          initCrowd();
-          render();
-        }
+      };
+    }
 
-        for (let i = 0; i < COUNT; i++) allPeeps.push(new Peep(drawPeep()));
-        resize();
-        gsap.ticker.add(render);
-        window.addEventListener("resize", resize);
-      })();
-    </script>
-  </body>
+    // Create all peeps from sprite sheet
+    function createPeeps() {
+      const { rows, cols } = config;
+      const { naturalWidth: width, naturalHeight: height } = img;
+      const total = rows * cols;
+      const rectWidth = width / rows;
+      const rectHeight = height / cols;
+
+      for (let i = 0; i < total; i++) {
+        allPeeps.push(
+          createPeep({
+            image: img,
+            rect: [
+              (i % rows) * rectWidth,
+              ((i / rows) | 0) * rectHeight,
+              rectWidth,
+              rectHeight
+            ]
+          })
+        );
+      }
+    }
+
+    function addPeepToCrowd() {
+      const peep = removeRandomFromArray(availablePeeps);
+      const walk = normalWalk({
+        peep,
+        props: resetPeep({ peep, stage })
+      }).eventCallback("onComplete", () => {
+        removePeepFromCrowd(peep);
+        addPeepToCrowd();
+      });
+
+      peep.walk = walk;
+      crowd.push(peep);
+      crowd.sort((a, b) => a.anchorY - b.anchorY);
+      return peep;
+    }
+
+    function removePeepFromCrowd(peep) {
+      removeItemFromArray(crowd, peep);
+      availablePeeps.push(peep);
+    }
+
+    function initCrowd() {
+      while (availablePeeps.length) {
+        addPeepToCrowd().walk.progress(Math.random());
+      }
+    }
+
+    function render() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.save();
+      ctx.scale(dpr, dpr);
+      crowd.forEach(peep => peep.render(ctx));
+      ctx.restore();
+    }
+
+    function resize() {
+      stage.width = canvas.clientWidth;
+      stage.height = canvas.clientHeight;
+      canvas.width = stage.width * dpr;
+      canvas.height = stage.height * dpr;
+
+      crowd.forEach(peep => {
+        if (peep.walk) peep.walk.kill();
+      });
+
+      crowd.length = 0;
+      availablePeeps.length = 0;
+      availablePeeps.push(...allPeeps);
+
+      initCrowd();
+    }
+
+    function init() {
+      createPeeps();
+      resize();
+      gsap.ticker.add(render);
+    }
+
+    // Load sprite sheet
+    img.onload = init;
+    img.src = config.src;
+
+    window.addEventListener('resize', resize);
+  </script>
+</body>
 </html>

@@ -1,4 +1,4 @@
-<script>
+
       // ==================== CROWD CANVAS ====================
       const canvas = document.getElementById("crowdCanvas");
       const ctx = canvas.getContext("2d");
@@ -203,4 +203,3 @@
 
       // Handle resize
       window.addEventListener("resize", resize);
-    </script>

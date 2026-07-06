@@ -7,10 +7,10 @@ const savedTheme = localStorage.getItem("theme") || "light";
 htmlEl.setAttribute("data-theme", savedTheme);
 
 themeToggle.addEventListener("click", () => {
-  const current = htmlEl.getAttribute("data-theme");
-  const next = current === "dark" ? "light" : "dark";
-  htmlEl.setAttribute("data-theme", next);
-  localStorage.setItem("theme", next);
+    const current = htmlEl.getAttribute("data-theme");
+    const next = current === "dark" ? "light" : "dark";
+    htmlEl.setAttribute("data-theme", next);
+    localStorage.setItem("theme", next);
 });
 
 // ==================== CROWD CANVAS ====================

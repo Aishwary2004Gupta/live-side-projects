@@ -10,56 +10,28 @@ class SignatureAnim {
     }
 
     this.text = options.text ?? "Signature";
-    this.color = options.color ?? "#ffffff";
+    this.color = options.color ?? "#111111";
     this.fontSize = options.fontSize ?? 96;
-    this.duration = options.duration ?? 1.5;
+    this.duration = options.duration ?? 1.4;
     this.delay = options.delay ?? 0;
-    this.letterDelay = options.letterDelay ?? 0.16;
-    this.inView = options.inView ?? false;
-    this.once = options.once ?? true;
+    this.letterDelay = options.letterDelay ?? 0.14;
 
     this.fontUrl =
       options.fontUrl ??
       "https://cdn.jsdelivr.net/gh/google/fonts@main/ofl/sacramento/Sacramento-Regular.ttf";
 
     this.font = null;
-    this.hasPlayed = false;
-    this.observer = null;
-    this.maskId = `signature-reveal-${SignatureAnim.uid()}`;
+    this.maskId = `signature-reveal-${Math.random().toString(36).slice(2)}`;
 
     this.init();
   }
 
-  static uid() {
-    if (window.crypto && typeof window.crypto.randomUUID === "function") {
-      return window.crypto.randomUUID().replace(/-/g, "");
-    }
-
-    return Math.random().toString(36).slice(2);
-  }
-
-  static escapeAttr(value) {
-    return String(value).replace(/[&<>"']/g, (char) => {
-      return {
-        "&": "&amp;",
-        "<": "&lt;",
-        ">": "&gt;",
-        '"': "&quot;",
-        "'": "&#39;",
-      }[char];
-    });
-  }
-
   static async loadFont(url) {
-    if (!window.opentype || typeof window.opentype.parse !== "function") {
-      throw new Error(
-        "opentype.js is not loaded. Make sure the opentype CDN script is above script.js."
-      );
+    if (!window.opentype) {
+      throw new Error("opentype.js failed to load from CDN.");
     }
 
-    const response = await fetch(url, {
-      mode: "cors",
-    });
+    const response = await fetch(url, { mode: "cors" });
 
     if (!response.ok) {
       throw new Error(
@@ -68,8 +40,6 @@ class SignatureAnim {
     }
 
     const buffer = await response.arrayBuffer();
-
-    // Correct modern way. This avoids the deprecated opentype.load() warning.
     const font = window.opentype.parse(buffer);
 
     if (!font || typeof font.charToGlyph !== "function") {
@@ -80,28 +50,18 @@ class SignatureAnim {
   }
 
   async init() {
-    this.container.innerHTML = `
-      <div class="signature-loading">
-        Loading signature...
-      </div>
-    `;
+    this.container.innerHTML = `<div class="signature-loading">Loading...</div>`;
 
     try {
       this.font = await SignatureAnim.loadFont(this.fontUrl);
       this.render();
-
-      if (this.inView) {
-        this.observeInView();
-      } else {
-        this.play();
-      }
+      this.play();
     } catch (error) {
-      console.error("Signature component font load error:", error);
-
+      console.error("Font load error:", error);
       this.container.innerHTML = `
         <div class="signature-error">
-          Failed to load font.<br>
-          Try Live Server or use a local .ttf/.otf font.
+          Failed to load font.<br />
+          Please use a local server and a valid font URL.
         </div>
       `;
     }
@@ -118,22 +78,17 @@ class SignatureAnim {
     const height = fontSize * 2.8;
 
     let x = horizontalPadding;
-
     const items = [];
     const chars = Array.from(String(this.text ?? ""));
 
     for (let i = 0; i < chars.length; i++) {
       const char = chars[i];
-
       const glyph = font.charToGlyph(char);
       const glyphPath = glyph.getPath(x, baseline, fontSize);
       const d = glyphPath.toPathData(3);
 
       if (d && d.trim().length > 0) {
-        items.push({
-          d,
-          delayIndex: i,
-        });
+        items.push({ d, delayIndex: i });
       }
 
       const advanceWidth = Number.isFinite(glyph.advanceWidth)
@@ -152,7 +107,7 @@ class SignatureAnim {
 
     return {
       items,
-      width: Math.ceil(Math.max(x + horizontalPadding, fontSize * 2)),
+      width: Math.ceil(x + horizontalPadding),
       height: Math.ceil(height),
     };
   }
@@ -162,26 +117,23 @@ class SignatureAnim {
 
     const { items, width, height } = this.buildPaths();
 
-    const safeColor = SignatureAnim.escapeAttr(this.color);
-    const safeLabel = SignatureAnim.escapeAttr(`${this.text} signature`);
-
-    const outlineStrokeWidth = Math.max(1.5, this.fontSize * 0.025);
+    const safeColor = String(this.color).replace(/"/g, "&quot;");
     const maskStrokeWidth = this.fontSize * 0.22;
+    const outlineStrokeWidth = Math.max(1.5, this.fontSize * 0.025);
 
     const maskPaths = items
       .map(
         (item, i) => `
           <path
             class="signature-mask-path"
-            data-path-index="${i}"
             data-delay-index="${item.delayIndex}"
             d="${item.d}"
             stroke="white"
             stroke-width="${maskStrokeWidth}"
             fill="none"
-            vector-effect="non-scaling-stroke"
             stroke-linecap="round"
             stroke-linejoin="round"
+            vector-effect="non-scaling-stroke"
             opacity="0"
           ></path>
         `
@@ -193,15 +145,14 @@ class SignatureAnim {
         (item, i) => `
           <path
             class="signature-stroke-path"
-            data-path-index="${i}"
             data-delay-index="${item.delayIndex}"
             d="${item.d}"
             stroke="${safeColor}"
             stroke-width="${outlineStrokeWidth}"
             fill="none"
-            vector-effect="non-scaling-stroke"
             stroke-linecap="round"
             stroke-linejoin="round"
+            vector-effect="non-scaling-stroke"
             opacity="0"
           ></path>
         `
@@ -214,14 +165,13 @@ class SignatureAnim {
 
     this.container.innerHTML = `
       <svg
-        class="signature-svg"
         width="${width}"
         height="${height}"
         viewBox="0 0 ${width} ${height}"
         fill="none"
         xmlns="http://www.w3.org/2000/svg"
         role="img"
-        aria-label="${safeLabel}"
+        aria-label="Signature: ${String(this.text).replace(/"/g, "")}"
       >
         <defs>
           <mask
@@ -248,20 +198,17 @@ class SignatureAnim {
   }
 
   getPathPairs() {
-    const maskPaths = Array.from(
-      this.container.querySelectorAll(".signature-mask-path")
-    );
-
     const strokePaths = Array.from(
       this.container.querySelectorAll(".signature-stroke-path")
     );
 
-    return strokePaths
-      .map((stroke, i) => ({
-        stroke,
-        mask: maskPaths[i],
-      }))
-      .filter((pair) => pair.stroke && pair.mask);
+    return strokePaths.map((stroke) => {
+      const index = stroke.dataset.delayIndex;
+      const mask = this.container.querySelector(
+        `.signature-mask-path[data-delay-index="${index}"]`
+      );
+      return { stroke, mask };
+    });
   }
 
   resetDrawState() {
@@ -276,20 +223,17 @@ class SignatureAnim {
         length = 1;
       }
 
-      if (!Number.isFinite(length) || length <= 0) {
-        length = 1;
-      }
+      if (!Number.isFinite(length) || length <= 0) length = 1;
 
       [stroke, mask].forEach((path) => {
         path.style.transition = "none";
         path.style.strokeDasharray = `${length}`;
         path.style.strokeDashoffset = `${length}`;
         path.style.opacity = "0";
-        path.dataset.length = String(length);
       });
     });
 
-    // Forces the browser to apply the reset before replaying.
+    // Force a reflow so the next animation actually starts.
     void this.container.offsetHeight;
   }
 
@@ -297,7 +241,6 @@ class SignatureAnim {
     if (!this.font) return;
 
     const pairs = this.getPathPairs();
-
     if (!pairs.length) return;
 
     this.resetDrawState();
@@ -333,8 +276,6 @@ class SignatureAnim {
         });
       });
     });
-
-    this.hasPlayed = true;
   }
 
   replay() {
@@ -344,46 +285,9 @@ class SignatureAnim {
 
   setText(text) {
     this.text = String(text ?? "");
-
     if (!this.font) return;
-
     this.render();
     this.play();
-  }
-
-  observeInView() {
-    if (!("IntersectionObserver" in window)) {
-      this.play();
-      return;
-    }
-
-    if (this.observer) {
-      this.observer.disconnect();
-    }
-
-    this.observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) {
-            if (!this.once || !this.hasPlayed) {
-              this.play();
-            }
-
-            if (this.once && this.observer) {
-              this.observer.disconnect();
-            }
-          } else if (!this.once) {
-            this.hasPlayed = false;
-            this.resetDrawState();
-          }
-        });
-      },
-      {
-        threshold: 0.35,
-      }
-    );
-
-    this.observer.observe(this.container);
   }
 }
 
@@ -392,18 +296,13 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const signature = new SignatureAnim("signature-container", {
     text: input.value,
-    color: "#ffffff",
-    fontSize: 100,
+    color: "#111111",
+    fontSize: 96,
     duration: 1.4,
     delay: 0.1,
-    letterDelay: 0.13,
-
-    // CORS-friendly Google font URL.
+    letterDelay: 0.14,
     fontUrl:
       "https://cdn.jsdelivr.net/gh/google/fonts@main/ofl/sacramento/Sacramento-Regular.ttf",
-
-    // If you download a local font, use this instead:
-    // fontUrl: "./fonts/Sacramento-Regular.ttf",
   });
 
   document.getElementById("replay-btn").addEventListener("click", () => {

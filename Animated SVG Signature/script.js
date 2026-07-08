@@ -8,7 +8,9 @@ class SignatureAnim {
     this.fontSize = options.fontSize || 64; // Scaled up slightly for vanilla demo
     this.duration = options.duration || 1.5;
     this.delay = options.delay || 0;
-    this.fontUrl = options.fontUrl || "https://www.componentry.fun/LastoriaBoldRegular.otf";
+    this.fontUrl =
+  options.fontUrl ||
+  "https://raw.githubusercontent.com/google/fonts/main/ofl/sacramento/Sacramento-Regular.ttf";
     
     this.maskId = `signature-reveal-${Math.random().toString(36).substr(2, 9)}`;
     this.font = null;

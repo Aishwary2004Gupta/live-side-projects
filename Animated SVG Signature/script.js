@@ -1,321 +1,167 @@
 class SignatureAnim {
-  constructor(container, options = {}) {
-    this.container =
-      typeof container === "string"
-        ? document.getElementById(container)
-        : container;
-
-    if (!this.container) {
-      throw new Error("Signature container was not found.");
-    }
-
-    this.text = options.text ?? "Signature";
-    this.color = options.color ?? "#111111";
-    this.fontSize = options.fontSize ?? 96;
-    this.duration = options.duration ?? 1.4;
-    this.delay = options.delay ?? 0;
-    this.letterDelay = options.letterDelay ?? 0.14;
-
-    this.fontUrl =
-      options.fontUrl ??
-      "https://cdn.jsdelivr.net/gh/google/fonts@main/ofl/sacramento/Sacramento-Regular.ttf";
-
+  constructor(containerId, options = {}) {
+    this.container = document.getElementById(containerId);
+    
+    // Default Props mapped from the React component
+    this.text = options.text || "Signature";
+    this.color = options.color || "white";
+    this.fontSize = options.fontSize || 64; // Scaled up slightly for vanilla demo
+    this.duration = options.duration || 1.5;
+    this.delay = options.delay || 0;
+    this.fontUrl = options.fontUrl || "https://raw.githubusercontent.com/Aishwary2004Gupta/models/cloud/fonts/Sacramento-Regular.ttf";
+    
+    this.maskId = `signature-reveal-${Math.random().toString(36).substr(2, 9)}`;
     this.font = null;
-    this.maskId = `signature-reveal-${Math.random().toString(36).slice(2)}`;
-
+    
     this.init();
   }
 
-  static async loadFont(url) {
-    if (!window.opentype) {
-      throw new Error("opentype.js failed to load from CDN.");
-    }
-
-    const response = await fetch(url, { mode: "cors" });
-
-    if (!response.ok) {
-      throw new Error(
-        `Font request failed: ${response.status} ${response.statusText} - ${url}`
-      );
-    }
-
-    const buffer = await response.arrayBuffer();
-    const font = window.opentype.parse(buffer);
-
-    if (!font || typeof font.charToGlyph !== "function") {
-      throw new Error("The downloaded file is not a valid TTF/OTF font.");
-    }
-
-    return font;
-  }
-
   async init() {
-    this.container.innerHTML = `<div class="signature-loading">Loading...</div>`;
-
     try {
-      this.font = await SignatureAnim.loadFont(this.fontUrl);
+      // 1. Load Font using Opentype.js
+      this.font = await opentype.load(this.fontUrl);
       this.render();
-      this.play();
     } catch (error) {
-      console.error("Font load error:", error);
-      this.container.innerHTML = `
-        <div class="signature-error">
-          Failed to load font.<br />
-          Please use a local server and a valid font URL.
-        </div>
-      `;
+      console.error("Signature component font load error:", error);
+      this.container.innerHTML = `<p style="color:red">Failed to load font.</p>`;
     }
-  }
-
-  buildPaths() {
-    const font = this.font;
-    const fontSize = Number(this.fontSize) || 96;
-    const unitsPerEm = font.unitsPerEm || 1000;
-    const scale = fontSize / unitsPerEm;
-
-    const horizontalPadding = fontSize * 0.15;
-    const baseline = fontSize * 1.8;
-    const height = fontSize * 2.8;
-
-    let x = horizontalPadding;
-    const items = [];
-    const chars = Array.from(String(this.text ?? ""));
-
-    for (let i = 0; i < chars.length; i++) {
-      const char = chars[i];
-      const glyph = font.charToGlyph(char);
-      const glyphPath = glyph.getPath(x, baseline, fontSize);
-      const d = glyphPath.toPathData(3);
-
-      if (d && d.trim().length > 0) {
-        items.push({ d, delayIndex: i });
-      }
-
-      const advanceWidth = Number.isFinite(glyph.advanceWidth)
-        ? glyph.advanceWidth
-        : unitsPerEm * 0.5;
-
-      let kerning = 0;
-
-      if (typeof font.getKerningValue === "function" && chars[i + 1]) {
-        const nextGlyph = font.charToGlyph(chars[i + 1]);
-        kerning = font.getKerningValue(glyph, nextGlyph) || 0;
-      }
-
-      x += (advanceWidth + kerning) * scale;
-    }
-
-    return {
-      items,
-      width: Math.ceil(x + horizontalPadding),
-      height: Math.ceil(height),
-    };
   }
 
   render() {
-    if (!this.font) return;
+    // 2. Setup Math & Calculations
+    const height = this.fontSize * 3;
+    const horizontalPadding = this.fontSize * 0.1;
+    const topMargin = this.fontSize * 1.5;
+    const baseline = topMargin;
 
-    const { items, width, height } = this.buildPaths();
+    let x = horizontalPadding;
+    const pathsData = [];
 
-    const safeColor = String(this.color).replace(/"/g, "&quot;");
-    const maskStrokeWidth = this.fontSize * 0.22;
-    const outlineStrokeWidth = Math.max(1.5, this.fontSize * 0.025);
+    // 3. Generate Paths per character
+    for (const char of this.text) {
+      const glyph = this.font.charToGlyph(char);
+      const path = glyph.getPath(x, baseline, this.fontSize);
+      pathsData.push(path.toPathData(3));
 
-    const maskPaths = items
-      .map(
-        (item, i) => `
-          <path
-            class="signature-mask-path"
-            data-delay-index="${item.delayIndex}"
-            d="${item.d}"
-            stroke="white"
-            stroke-width="${maskStrokeWidth}"
-            fill="none"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            vector-effect="non-scaling-stroke"
-            opacity="0"
-          ></path>
-        `
-      )
-      .join("");
+      const advanceWidth = glyph.advanceWidth ?? this.font.unitsPerEm;
+      x += advanceWidth * (this.fontSize / this.font.unitsPerEm);
+    }
 
-    const strokePaths = items
-      .map(
-        (item, i) => `
-          <path
-            class="signature-stroke-path"
-            data-delay-index="${item.delayIndex}"
-            d="${item.d}"
-            stroke="${safeColor}"
-            stroke-width="${outlineStrokeWidth}"
-            fill="none"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            vector-effect="non-scaling-stroke"
-            opacity="0"
-          ></path>
-        `
-      )
-      .join("");
+    const width = x + horizontalPadding;
 
-    const fillPaths = items
-      .map((item) => `<path d="${item.d}" fill="${safeColor}"></path>`)
-      .join("");
-
-    this.container.innerHTML = `
-      <svg
-        width="${width}"
-        height="${height}"
-        viewBox="0 0 ${width} ${height}"
-        fill="none"
-        xmlns="http://www.w3.org/2000/svg"
-        role="img"
-        aria-label="Signature: ${String(this.text).replace(/"/g, "")}"
-      >
+    // 4. Construct SVG HTML exactly like the React component
+    // We inject as a string, then grab the elements to animate them.
+    const svgHTML = `
+      <svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" fill="none" xmlns="http://www.w3.org/2000/svg">
         <defs>
-          <mask
-            id="${this.maskId}"
-            maskUnits="userSpaceOnUse"
-            x="0"
-            y="0"
-            width="${width}"
-            height="${height}"
-          >
-            ${maskPaths}
+          <mask id="${this.maskId}" maskUnits="userSpaceOnUse">
+            ${pathsData.map((d, i) => `
+              <path 
+                class="mask-path" 
+                data-index="${i}"
+                d="${d}" 
+                stroke="white" 
+                stroke-width="${this.fontSize * 0.22}" 
+                fill="none" 
+                vector-effect="non-scaling-stroke" 
+                stroke-linecap="round" 
+                stroke-linejoin="round"
+                opacity="0"
+              />
+            `).join('')}
           </mask>
         </defs>
 
-        ${strokePaths}
+        ${pathsData.map((d, i) => `
+          <path 
+            class="stroke-path" 
+            data-index="${i}"
+            d="${d}" 
+            stroke="${this.color}" 
+            stroke-width="2" 
+            fill="none" 
+            vector-effect="non-scaling-stroke" 
+            stroke-linecap="butt" 
+            stroke-linejoin="round"
+            opacity="0"
+          />
+        `).join('')}
 
         <g mask="url(#${this.maskId})">
-          ${fillPaths}
+          ${pathsData.map(d => `<path d="${d}" fill="${this.color}" />`).join('')}
         </g>
       </svg>
     `;
 
-    this.resetDrawState();
+    this.container.innerHTML = svgHTML;
+
+    // 5. Trigger the animation
+    this.animatePaths();
   }
 
-  getPathPairs() {
-    const strokePaths = Array.from(
-      this.container.querySelectorAll(".signature-stroke-path")
-    );
+  animatePaths() {
+    const maskPaths = this.container.querySelectorAll('.mask-path');
+    const strokePaths = this.container.querySelectorAll('.stroke-path');
 
-    return strokePaths.map((stroke) => {
-      const index = stroke.dataset.delayIndex;
-      const mask = this.container.querySelector(
-        `.signature-mask-path[data-delay-index="${index}"]`
-      );
-      return { stroke, mask };
+    // Iterate over paths and animate them using Web Animations API (WAAPI)
+    maskPaths.forEach((maskPath, i) => {
+      const strokePath = strokePaths[i];
+      
+      // Calculate length to recreate Framer Motion's pathLength: [0, 1]
+      const length = maskPath.getTotalLength();
+      
+      // Initial Setup
+      const setupStyles = (el) => {
+        el.style.strokeDasharray = length;
+        el.style.strokeDashoffset = length;
+      };
+      
+      setupStyles(maskPath);
+      setupStyles(strokePath);
+
+      // Animation timings
+      const charDelay = (this.delay + i * 0.2) * 1000;
+      const animDuration = this.duration * 1000;
+
+      // Recreating Framer Motion's exact keyframes
+      const keyframes = [
+        { strokeDashoffset: length, opacity: 0 },
+        { strokeDashoffset: length, opacity: 1, offset: 0.01 }, // Quick fade in
+        { strokeDashoffset: 0, opacity: 1 }
+      ];
+
+      const animOptions = {
+        duration: animDuration,
+        delay: charDelay,
+        fill: 'forwards',
+        easing: 'ease-in-out'
+      };
+
+      maskPath.animate(keyframes, animOptions);
+      strokePath.animate(keyframes, animOptions);
     });
   }
-
-  resetDrawState() {
-    const pairs = this.getPathPairs();
-
-    pairs.forEach(({ stroke, mask }) => {
-      let length = 1;
-
-      try {
-        length = stroke.getTotalLength();
-      } catch {
-        length = 1;
-      }
-
-      if (!Number.isFinite(length) || length <= 0) length = 1;
-
-      [stroke, mask].forEach((path) => {
-        path.style.transition = "none";
-        path.style.strokeDasharray = `${length}`;
-        path.style.strokeDashoffset = `${length}`;
-        path.style.opacity = "0";
-      });
-    });
-
-    // Force a reflow so the next animation actually starts.
-    void this.container.offsetHeight;
-  }
-
-  play() {
-    if (!this.font) return;
-
-    const pairs = this.getPathPairs();
-    if (!pairs.length) return;
-
-    this.resetDrawState();
-
-    const reducedMotion =
-      window.matchMedia &&
-      window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-
-    const duration = Math.max(0, Number(this.duration) || 0);
-    const baseDelay = Math.max(0, Number(this.delay) || 0);
-    const letterDelay = Math.max(0, Number(this.letterDelay) || 0);
-
-    requestAnimationFrame(() => {
-      pairs.forEach(({ stroke, mask }) => {
-        const delayIndex = Number(stroke.dataset.delayIndex || 0);
-        const pathDelay = baseDelay + delayIndex * letterDelay;
-
-        [stroke, mask].forEach((path) => {
-          if (reducedMotion || duration === 0) {
-            path.style.transition = "none";
-            path.style.strokeDashoffset = "0";
-            path.style.opacity = "1";
-            return;
-          }
-
-          path.style.transition = [
-            `stroke-dashoffset ${duration}s ease-in-out ${pathDelay}s`,
-            `opacity 0.01s linear ${pathDelay + 0.01}s`,
-          ].join(", ");
-
-          path.style.strokeDashoffset = "0";
-          path.style.opacity = "1";
-        });
-      });
-    });
-  }
-
+  
+  // Re-run the animation
   replay() {
-    if (!this.font) return;
-    this.play();
-  }
-
-  setText(text) {
-    this.text = String(text ?? "");
-    if (!this.font) return;
-    this.render();
-    this.play();
+      if(this.font) {
+          this.render();
+      }
   }
 }
 
-document.addEventListener("DOMContentLoaded", () => {
-  const input = document.getElementById("signature-text");
-
-  const signature = new SignatureAnim("signature-container", {
-    text: input.value,
-    color: "#111111",
-    fontSize: 96,
-    duration: 1.4,
-    delay: 0.1,
-    letterDelay: 0.14,
-    fontUrl:
-      "https://cdn.jsdelivr.net/gh/google/fonts@main/ofl/sacramento/Sacramento-Regular.ttf",
+// Initialize on page load
+document.addEventListener('DOMContentLoaded', () => {
+  const signature = new SignatureAnim('signature-container', {
+    text: "John Doe",       // The text to draw
+    color: "#ffffff",       // Path/Fill color
+    fontSize: 64,           // Font size
+    duration: 1.5,          // Draw speed in seconds
+    delay: 0                // Start delay
   });
 
-  document.getElementById("replay-btn").addEventListener("click", () => {
+  // Attach Replay Button logic
+  document.getElementById('replay-btn').addEventListener('click', () => {
     signature.replay();
-  });
-
-  document.getElementById("update-btn").addEventListener("click", () => {
-    signature.setText(input.value.trim() || "Signature");
-  });
-
-  input.addEventListener("keydown", (event) => {
-    if (event.key === "Enter") {
-      signature.setText(input.value.trim() || "Signature");
-    }
   });
 });

@@ -314,8 +314,6 @@ document.addEventListener("DOMContentLoaded", () => {
     // Use your local font file
     fontUrl: "./LastoriaBoldRegular.otf",
 
-    // If you put it inside a fonts folder, use this instead:
-    // fontUrl: "./fonts/LastoriaBoldRegular.otf",
   });
 
   document.getElementById("replay-btn").addEventListener("click", () => {

@@ -12,51 +12,38 @@ class SignatureAnim {
     this.text = options.text ?? "Signature";
     this.color = options.color ?? "#111111";
     this.fontSize = options.fontSize ?? 96;
-    this.duration = options.duration ?? 1.5;
+    this.duration = options.duration ?? 1.4;
     this.delay = options.delay ?? 0;
-    this.letterDelay = options.letterDelay ?? 0.16;
+    this.letterDelay = options.letterDelay ?? 0.14;
 
-    // Local project font
-    this.fontUrl = options.fontUrl ?? "./LastoriaBoldRegular.otf";
+    this.fontUrl =
+      options.fontUrl ??
+      "https://cdn.jsdelivr.net/gh/google/fonts@main/ofl/sacramento/Sacramento-Regular.ttf";
 
     this.font = null;
-    this.maskId = `signature-reveal-${SignatureAnim.uid()}`;
+    this.maskId = `signature-reveal-${Math.random().toString(36).slice(2)}`;
 
     this.init();
   }
 
-  static uid() {
-    return Math.random().toString(36).slice(2);
-  }
-
-  static escapeAttr(value) {
-    return String(value).replace(/[&<>"']/g, (char) => {
-      return {
-        "&": "&amp;",
-        "<": "&lt;",
-        ">": "&gt;",
-        '"': "&quot;",
-        "'": "&#39;",
-      }[char];
-    });
-  }
-
   static async loadFont(url) {
-    if (!window.opentype || typeof window.opentype.parse !== "function") {
-      throw new Error("opentype.js is not loaded.");
+    if (!window.opentype) {
+      throw new Error("opentype.js failed to load from CDN.");
     }
 
     const response = await fetch(url, { mode: "cors" });
 
     if (!response.ok) {
-      throw new Error(`Font request failed: ${response.status} for ${url}`);
+      throw new Error(
+        `Font request failed: ${response.status} ${response.statusText} - ${url}`
+      );
     }
 
     const buffer = await response.arrayBuffer();
     const font = window.opentype.parse(buffer);
 
     if (!font || typeof font.charToGlyph !== "function") {
-      throw new Error("Invalid font file.");
+      throw new Error("The downloaded file is not a valid TTF/OTF font.");
     }
 
     return font;
@@ -65,39 +52,19 @@ class SignatureAnim {
   async init() {
     this.container.innerHTML = `<div class="signature-loading">Loading...</div>`;
 
-    // Try common local paths
-    const candidates = [
-      this.fontUrl,
-      "./LastoriaBoldRegular.otf",
-      "./fonts/LastoriaBoldRegular.otf",
-      "/LastoriaBoldRegular.otf",
-      "/fonts/LastoriaBoldRegular.otf",
-    ];
-
-    // Remove duplicates while keeping order
-    const uniqueUrls = [...new Set(candidates)];
-
-    let lastError = null;
-
-    for (const url of uniqueUrls) {
-      try {
-        this.font = await SignatureAnim.loadFont(url);
-        this.fontUrl = url;
-        this.render();
-        this.play();
-        return;
-      } catch (error) {
-        lastError = error;
-      }
+    try {
+      this.font = await SignatureAnim.loadFont(this.fontUrl);
+      this.render();
+      this.play();
+    } catch (error) {
+      console.error("Font load error:", error);
+      this.container.innerHTML = `
+        <div class="signature-error">
+          Failed to load font.<br />
+          Please use a local server and a valid font URL.
+        </div>
+      `;
     }
-
-    console.error("Signature font load error:", lastError);
-    this.container.innerHTML = `
-      <div class="signature-error">
-        Failed to load LastoriaBoldRegular.otf<br>
-        Make sure the file path is correct and you are using Live Server.
-      </div>
-    `;
   }
 
   buildPaths() {
@@ -129,6 +96,7 @@ class SignatureAnim {
         : unitsPerEm * 0.5;
 
       let kerning = 0;
+
       if (typeof font.getKerningValue === "function" && chars[i + 1]) {
         const nextGlyph = font.charToGlyph(chars[i + 1]);
         kerning = font.getKerningValue(glyph, nextGlyph) || 0;
@@ -139,7 +107,7 @@ class SignatureAnim {
 
     return {
       items,
-      width: Math.ceil(Math.max(x + horizontalPadding, fontSize * 2)),
+      width: Math.ceil(x + horizontalPadding),
       height: Math.ceil(height),
     };
   }
@@ -148,46 +116,46 @@ class SignatureAnim {
     if (!this.font) return;
 
     const { items, width, height } = this.buildPaths();
-    const safeColor = SignatureAnim.escapeAttr(this.color);
 
-    const outlineStrokeWidth = Math.max(1.5, this.fontSize * 0.025);
+    const safeColor = String(this.color).replace(/"/g, "&quot;");
     const maskStrokeWidth = this.fontSize * 0.22;
+    const outlineStrokeWidth = Math.max(1.5, this.fontSize * 0.025);
 
     const maskPaths = items
       .map(
-        (item) => `
-        <path
-          class="signature-mask-path"
-          data-delay-index="${item.delayIndex}"
-          d="${item.d}"
-          stroke="white"
-          stroke-width="${maskStrokeWidth}"
-          fill="none"
-          vector-effect="non-scaling-stroke"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-          opacity="0"
-        ></path>
-      `
+        (item, i) => `
+          <path
+            class="signature-mask-path"
+            data-delay-index="${item.delayIndex}"
+            d="${item.d}"
+            stroke="white"
+            stroke-width="${maskStrokeWidth}"
+            fill="none"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            vector-effect="non-scaling-stroke"
+            opacity="0"
+          ></path>
+        `
       )
       .join("");
 
     const strokePaths = items
       .map(
-        (item) => `
-        <path
-          class="signature-stroke-path"
-          data-delay-index="${item.delayIndex}"
-          d="${item.d}"
-          stroke="${safeColor}"
-          stroke-width="${outlineStrokeWidth}"
-          fill="none"
-          vector-effect="non-scaling-stroke"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-          opacity="0"
-        ></path>
-      `
+        (item, i) => `
+          <path
+            class="signature-stroke-path"
+            data-delay-index="${item.delayIndex}"
+            d="${item.d}"
+            stroke="${safeColor}"
+            stroke-width="${outlineStrokeWidth}"
+            fill="none"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            vector-effect="non-scaling-stroke"
+            opacity="0"
+          ></path>
+        `
       )
       .join("");
 
@@ -197,17 +165,23 @@ class SignatureAnim {
 
     this.container.innerHTML = `
       <svg
-        class="signature-svg"
         width="${width}"
         height="${height}"
         viewBox="0 0 ${width} ${height}"
         fill="none"
         xmlns="http://www.w3.org/2000/svg"
         role="img"
-        aria-label="${SignatureAnim.escapeAttr(this.text)} signature"
+        aria-label="Signature: ${String(this.text).replace(/"/g, "")}"
       >
         <defs>
-          <mask id="${this.maskId}" maskUnits="userSpaceOnUse">
+          <mask
+            id="${this.maskId}"
+            maskUnits="userSpaceOnUse"
+            x="0"
+            y="0"
+            width="${width}"
+            height="${height}"
+          >
             ${maskPaths}
           </mask>
         </defs>
@@ -224,21 +198,25 @@ class SignatureAnim {
   }
 
   getPathPairs() {
-    const maskPaths = Array.from(
-      this.container.querySelectorAll(".signature-mask-path")
-    );
     const strokePaths = Array.from(
       this.container.querySelectorAll(".signature-stroke-path")
     );
 
-    return strokePaths
-      .map((stroke, i) => ({ stroke, mask: maskPaths[i] }))
-      .filter((pair) => pair.stroke && pair.mask);
+    return strokePaths.map((stroke) => {
+      const index = stroke.dataset.delayIndex;
+      const mask = this.container.querySelector(
+        `.signature-mask-path[data-delay-index="${index}"]`
+      );
+      return { stroke, mask };
+    });
   }
 
   resetDrawState() {
-    this.getPathPairs().forEach(({ stroke, mask }) => {
+    const pairs = this.getPathPairs();
+
+    pairs.forEach(({ stroke, mask }) => {
       let length = 1;
+
       try {
         length = stroke.getTotalLength();
       } catch {
@@ -255,6 +233,7 @@ class SignatureAnim {
       });
     });
 
+    // Force a reflow so the next animation actually starts.
     void this.container.offsetHeight;
   }
 
@@ -266,6 +245,10 @@ class SignatureAnim {
 
     this.resetDrawState();
 
+    const reducedMotion =
+      window.matchMedia &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
     const duration = Math.max(0, Number(this.duration) || 0);
     const baseDelay = Math.max(0, Number(this.delay) || 0);
     const letterDelay = Math.max(0, Number(this.letterDelay) || 0);
@@ -276,6 +259,13 @@ class SignatureAnim {
         const pathDelay = baseDelay + delayIndex * letterDelay;
 
         [stroke, mask].forEach((path) => {
+          if (reducedMotion || duration === 0) {
+            path.style.transition = "none";
+            path.style.strokeDashoffset = "0";
+            path.style.opacity = "1";
+            return;
+          }
+
           path.style.transition = [
             `stroke-dashoffset ${duration}s ease-in-out ${pathDelay}s`,
             `opacity 0.01s linear ${pathDelay + 0.01}s`,
@@ -289,6 +279,7 @@ class SignatureAnim {
   }
 
   replay() {
+    if (!this.font) return;
     this.play();
   }
 
@@ -306,16 +297,12 @@ document.addEventListener("DOMContentLoaded", () => {
   const signature = new SignatureAnim("signature-container", {
     text: input.value,
     color: "#111111",
-    fontSize: 100,
+    fontSize: 96,
     duration: 1.4,
-    delay: 0.05,
-    letterDelay: 0.13,
-
-    // Use your local font file
-    fontUrl: "./LastoriaBoldRegular.otf",
-
-    // If you put it inside a fonts folder, use this instead:
-    // fontUrl: "./fonts/LastoriaBoldRegular.otf",
+    delay: 0.1,
+    letterDelay: 0.14,
+    fontUrl:
+      "https://cdn.jsdelivr.net/gh/google/fonts@main/ofl/sacramento/Sacramento-Regular.ttf",
   });
 
   document.getElementById("replay-btn").addEventListener("click", () => {

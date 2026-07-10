@@ -33,7 +33,7 @@ class SignatureAnim {
   }
 
   static escapeAttr(v) {
-    return String(v).replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
+    return String(v).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   }
 
   static async loadFont(url) {
@@ -84,8 +84,8 @@ class SignatureAnim {
 
       const advance = Number.isFinite(glyph.advanceWidth) ? glyph.advanceWidth : unitsPerEm * 0.5;
       let kerning = 0;
-      if (font.getKerningValue && chars[i+1]) {
-        kerning = font.getKerningValue(glyph, font.charToGlyph(chars[i+1])) || 0;
+      if (font.getKerningValue && chars[i + 1]) {
+        kerning = font.getKerningValue(glyph, font.charToGlyph(chars[i + 1])) || 0;
       }
       x += (advance + kerning) * scale;
     }
@@ -121,7 +121,7 @@ class SignatureAnim {
   resetDrawState() {
     this.getPathPairs().forEach(({ stroke, mask }) => {
       let len = 1;
-      try { len = stroke.getTotalLength(); } catch {}
+      try { len = stroke.getTotalLength(); } catch { }
       if (!Number.isFinite(len) || len <= 0) len = 1;
       [stroke, mask].forEach(p => {
         p.style.transition = "none";

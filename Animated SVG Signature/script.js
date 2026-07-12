@@ -11,12 +11,10 @@ class SignatureAnim {
 
     this.text = options.text ?? "Signature";
     this.color = options.color ?? "#111111";
-    this.fontSize = options.fontSize ?? 100; // Slightly larger default
+    this.fontSize = options.fontSize ?? 100;
     this.duration = options.duration ?? 1.5;
     this.delay = options.delay ?? 0;
     this.letterDelay = options.letterDelay ?? 0.16;
-
-    // Local project font
     this.fontUrl = options.fontUrl ?? "./LastoriaBoldRegular.otf";
 
     this.font = null;
@@ -65,7 +63,6 @@ class SignatureAnim {
   async init() {
     this.container.innerHTML = `<div class="signature-loading">Loading...</div>`;
 
-    // Try common local paths
     const candidates = [
       this.fontUrl,
       "./LastoriaBoldRegular.otf",
@@ -74,9 +71,7 @@ class SignatureAnim {
       "/fonts/LastoriaBoldRegular.otf",
     ];
 
-    // Remove duplicates while keeping order
     const uniqueUrls = [...new Set(candidates)];
-
     let lastError = null;
 
     for (const url of uniqueUrls) {
@@ -298,21 +293,54 @@ class SignatureAnim {
     this.render();
     this.play();
   }
+
+  setColor(color) {
+    this.color = color;
+    if (!this.font) return;
+    this.render();
+    this.play();
+  }
 }
 
+// ---- Dark Mode Toggle ----
+function getPreferredTheme() {
+  const stored = localStorage.getItem("theme");
+  if (stored) return stored;
+  return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+}
+
+function applyTheme(theme) {
+  if (theme === "dark") {
+    document.body.classList.add("dark");
+  } else {
+    document.body.classList.remove("dark");
+  }
+  localStorage.setItem("theme", theme);
+}
+
+// ---- Init ----
 document.addEventListener("DOMContentLoaded", () => {
   const input = document.getElementById("signature-text");
+  const toggle = document.getElementById("theme-toggle");
+
+  // Apply saved theme
+  let currentTheme = getPreferredTheme();
+  applyTheme(currentTheme);
 
   const signature = new SignatureAnim("signature-container", {
     text: input.value,
-    color: "#111111",
+    color: currentTheme === "dark" ? "#ffffff" : "#111111",
     fontSize: 100,
     duration: 1.4,
     delay: 0.05,
     letterDelay: 0.13,
-
-    // Use your local font file
     fontUrl: "./LastoriaBoldRegular.otf",
+  });
+
+  toggle.addEventListener("click", () => {
+    currentTheme = currentTheme === "dark" ? "light" : "dark";
+    applyTheme(currentTheme);
+    signature.setColor(currentTheme === "dark" ? "#ffffff" : "#111111");
   });
 
   document.getElementById("replay-btn").addEventListener("click", () => {

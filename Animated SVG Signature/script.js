@@ -10,7 +10,7 @@ class SignatureAnim {
     }
 
     this.text = options.text ?? "Signature";
-    this.color = options.color ?? "#111111";
+    this.color = options.color ?? "var(--signature-color)";
     this.fontSize = options.fontSize ?? 100;
     this.duration = options.duration ?? 1.5;
     this.delay = options.delay ?? 0;
@@ -293,54 +293,68 @@ class SignatureAnim {
     this.render();
     this.play();
   }
+}
 
-  setColor(color) {
-    this.color = color;
-    if (!this.font) return;
-    this.render();
-    this.play();
+// Theme toggle functionality
+function setupThemeToggle() {
+  const themeToggle = document.getElementById('theme-toggle');
+  const themeIcon = document.getElementById('theme-icon');
+
+  // Check for saved theme preference or use preferred color scheme
+  const savedTheme = localStorage.getItem('theme') ||
+    (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+
+  // Apply the saved theme
+  document.documentElement.setAttribute('data-theme', savedTheme);
+
+  // Update icon based on current theme
+  updateThemeIcon(savedTheme);
+
+  // Toggle theme on button click
+  themeToggle.addEventListener('click', () => {
+    const currentTheme = document.documentElement.getAttribute('data-theme');
+    const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', newTheme);
+    localStorage.setItem('theme', newTheme);
+    updateThemeIcon(newTheme);
+  });
+
+  function updateThemeIcon(theme) {
+    if (theme === 'dark') {
+      // Moon icon for dark mode
+      themeIcon.innerHTML = `
+        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+      `;
+    } else {
+      // Sun icon for light mode
+      themeIcon.innerHTML = `
+        <circle cx="12" cy="12" r="5"></circle>
+        <line x1="12" y1="1" x2="12" y2="3"></line>
+        <line x1="12" y1="21" x2="12" y2="23"></line>
+        <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+        <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+        <line x1="1" y1="12" x2="3" y2="12"></line>
+        <line x1="21" y1="12" x2="23" y2="12"></line>
+        <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+        <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+      `;
+    }
   }
 }
 
-// ---- Dark Mode Toggle ----
-function getPreferredTheme() {
-  const stored = localStorage.getItem("theme");
-  if (stored) return stored;
-  return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
-}
-
-function applyTheme(theme) {
-  if (theme === "dark") {
-    document.body.classList.add("dark");
-  } else {
-    document.body.classList.remove("dark");
-  }
-  localStorage.setItem("theme", theme);
-}
-
-// ---- Init ----
 document.addEventListener("DOMContentLoaded", () => {
-  const input = document.getElementById("signature-text");
-  const toggle = document.getElementById("theme-toggle");
+  setupThemeToggle();
 
-  // Apply saved theme
-  let currentTheme = getPreferredTheme();
-  applyTheme(currentTheme);
+  const input = document.getElementById("signature-text");
 
   const signature = new SignatureAnim("signature-container", {
     text: input.value,
-    color: currentTheme === "dark" ? "#ffffff" : "#111111",
+    color: "var(--signature-color)",
     fontSize: 100,
     duration: 1.4,
     delay: 0.05,
     letterDelay: 0.13,
     fontUrl: "./LastoriaBoldRegular.otf",
-  });
-
-  toggle.addEventListener("click", () => {
-    currentTheme = currentTheme === "dark" ? "light" : "dark";
-    applyTheme(currentTheme);
-    signature.setColor(currentTheme === "dark" ? "#ffffff" : "#111111");
   });
 
   document.getElementById("replay-btn").addEventListener("click", () => {

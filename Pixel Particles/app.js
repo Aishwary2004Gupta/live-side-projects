@@ -3,8 +3,6 @@ var camera, scene, renderer;
 var controls;
 
 var shaderUniforms, shaderAttributes;
-
-var particles = [];
 var particleSystem;
 
 var imageWidth = 640;
@@ -13,9 +11,6 @@ var imageData = null;
 
 var animationTime = 0;
 var animationDelta = 0.03;
-
-init();
-// tick();
 
 function init() {
   createScene();
@@ -32,7 +27,7 @@ function createScene() {
 
   camera = new THREE.PerspectiveCamera(20, window.innerWidth / window.innerHeight, 1, 10000);
   camera.position.z = 3000;
-  camera.lookAt(scene.position)
+  camera.lookAt(scene.position);
 
   renderer = new THREE.WebGLRenderer({
     antialias: true
@@ -45,14 +40,11 @@ function createScene() {
 
 function createControls() {
   controls = new THREE.TrackballControls(camera);
-
   controls.rotateSpeed = 1.0;
   controls.zoomSpeed = 1.2;
   controls.panSpeed = 0.8;
-
   controls.noZoom = false;
   controls.noPan = true;
-
   controls.staticMoving = true;
   controls.dynamicDampingFactor = 0.3;
 }
@@ -64,32 +56,32 @@ function createPixelData() {
   
   image.crossOrigin = "Anonymous";
   image.onload = function() {
-    image.width = canvas.width = imageWidth;
-    image.height = canvas.height = imageHeight;
+    canvas.width = imageWidth;
+    canvas.height = imageHeight;
     
-    context.fillStyle = context.createPattern(image, 'no-repeat');
-    context.fillRect(0, 0, imageWidth, imageHeight);
-    //context.drawImage(image, 0, 0, imageWidth, imageHeight);
+    // FIXED: Use drawImage instead of fillPattern
+    context.drawImage(image, 0, 0, imageWidth, imageHeight);
     
     imageData = context.getImageData(0, 0, imageWidth, imageHeight).data;
-
-    createPaticles();
+    
+    createParticles(); // FIXED: Typo was "createPaticles"
     tick();
+  };
+  
+  image.onerror = function() {
+    console.error("Failed to load image. Check CORS policy.");
   };
   
   image.src = "https://s3-us-west-2.amazonaws.com/s.cdpn.io/175711/tree_star.jpg";
 }
 
-function createPaticles() {
-  var colors = [];
+function createParticles() {
   var weights = [0.2126, 0.7152, 0.0722];
   var c = 0;
-
-  var geometry, material;
   var x, y;
   var zRange = 400;
 
-  geometry = new THREE.Geometry();
+  var geometry = new THREE.Geometry();
   geometry.dynamic = false;
 
   x = imageWidth * -0.5;
@@ -114,19 +106,15 @@ function createPaticles() {
     uniforms: shaderUniforms,
     vertexShader: document.getElementById("vertexShader").textContent,
     fragmentShader: document.getElementById("fragmentShader").textContent
-  })
+  });
 
   for (var i = 0; i < imageHeight; i++) {
     for (var j = 0; j < imageWidth; j++) {
       var color = new THREE.Color();
-
       color.setRGB(imageData[c] / 255, imageData[c + 1] / 255, imageData[c + 2] / 255);
       shaderAttributes.vertexColor.value.push(color);
 
-      var weight = color.r * weights[0] +
-        color.g * weights[1] +
-        color.b * weights[2];
-
+      var weight = color.r * weights[0] + color.g * weights[1] + color.b * weights[2];
       var vertex = new THREE.Vector3();
 
       vertex.x = x;
@@ -138,28 +126,25 @@ function createPaticles() {
       c += 4;
       x++;
     }
-
     x = imageWidth * -0.5;
     y--;
   }
-  console.log(geometry.vertices.length)
+  
+  console.log("Particles created:", geometry.vertices.length);
+  
   particleSystem = new THREE.ParticleSystem(geometry, shaderMaterial);
-
   scene.add(particleSystem);
 }
 
 function tick() {
   requestAnimationFrame(tick);
-
   update();
   render();
 }
 
 function update() {
   shaderUniforms.amplitude.value = Math.sin(animationTime);
-
   animationTime += animationDelta;
-
   controls.update();
 }
 
@@ -170,6 +155,12 @@ function render() {
 function onWindowResize() {
   camera.aspect = window.innerWidth / window.innerHeight;
   camera.updateProjectionMatrix();
-
   renderer.setSize(window.innerWidth, window.innerHeight);
+}
+
+// Start when DOM is ready
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', init);
+} else {
+  init();
 }

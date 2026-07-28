@@ -197,7 +197,7 @@ class PlaneSmooth {
   getSpeed() {
     this.speed = Math.sqrt(
       (this.mouse.prev.x - this.mouse.current.x) ** 2 +
-        (this.mouse.prev.y - this.mouse.current.y) ** 2
+      (this.mouse.prev.y - this.mouse.current.y) ** 2
     );
     this.mouse.targetSpeed -= 0.1 * (this.mouse.targetSpeed - this.speed);
     this.mouse.follow.x -= 0.1 * (this.mouse.follow.x - this.mouse.current.x);
@@ -299,13 +299,13 @@ class WaveLoader {
     this.startTime = performance.now();
     this.duration = 3000; // 3 seconds
     this.isComplete = false;
-    
+
     // Wave parameters (matches shader uniforms feel)
     this.amplitude = 30;        // How high letters bounce (px)
     this.frequency = 2.5;       // Wave density across letters
     this.speed = 3;             // Wave traveling speed
     this.rotationAmp = 8;       // Rotation in degrees
-    
+
     this.animate = this.animate.bind(this);
     requestAnimationFrame(this.animate);
   }
@@ -323,19 +323,19 @@ class WaveLoader {
     // Formula: y = amplitude * sin(letterIndex * frequency - time * speed)
     // This creates a wave that travels across the text
     const totalLetters = this.letters.length;
-    
+
     this.letters.forEach((letter, i) => {
       // Normalized position of letter (0 to 1) - like UV coordinate
       const uv = i / (totalLetters - 1);
-      
+
       // Sine wave displacement (mimics deformationCurve in vertex shader)
       const wave = Math.sin(uv * Math.PI * this.frequency - elapsed * this.speed);
       const wave2 = Math.sin(uv * Math.PI * this.frequency - elapsed * this.speed + Math.PI / 4);
-      
+
       const y = wave * this.amplitude;
       const rotation = wave2 * this.rotationAmp;
       const scale = 1 + Math.abs(wave) * 0.1;
-      
+
       letter.style.transform = `translateY(${y}px) rotate(${rotation}deg) scale(${scale})`;
     });
 

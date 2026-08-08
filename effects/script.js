@@ -922,7 +922,7 @@ const MODELS = {
         rotation: { x: 0, y: Math.PI + 0.6, z: 0 },
         position: { x: 0, y: 0, z: 0 },
     },
-    try: {
+    carpet: {
         url: "https://raw.githubusercontent.com/Aishwary2004Gupta/models/cloud/carpet.glb",
         scale: 0.15,
         rotation: { x: -1.5, y: 0, z: 6 },

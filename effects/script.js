@@ -925,7 +925,7 @@ const MODELS = {
     try: {
         url: "https://raw.githubusercontent.com/Aishwary2004Gupta/models/cloud/carpet.glb",
         scale: 0.2,
-        rotation: { x: -7.9, y: 0, z: 0 },
+        rotation: { x: -1, y: 0, z: 6 },
         position: { x: 0, y: 0, z: 0 },
     },
 };

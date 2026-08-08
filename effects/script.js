@@ -929,10 +929,10 @@ const MODELS = {
         position: { x: 0, y: 0, z: 0 },
     },
     try: {
-        url: "https://raw.githubusercontent.com/Aishwary2004Gupta/models/cloud/carpet.glb",
-        scale: 0.15,
-        rotation: { x: -1.5, y: 0, z: 6 },
-        position: { x: 0, y: 0, z: 0 },
+        url: "https://raw.githubusercontent.com/Aishwary2004Gupta/models/cloud/cannonbolt.glb",
+        scale: 0.02,
+        rotation: { x: 0, y: Math.PI, z: 0 },
+        position: { x: 0, y: -0.8, z: 0 },
     },
 };
 

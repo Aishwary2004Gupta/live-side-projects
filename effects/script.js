@@ -846,13 +846,13 @@ const MODELS = {
     },
     money_bag: {
         url: "https://raw.githubusercontent.com/Aishwary2004Gupta/models/cloud/money_bag.glb",
-        scale: 0.009, 
+        scale: 0.009,
         rotation: { x: 0, y: 0, z: 0 },
         position: { x: 0, y: -0.8, z: 0 },
     },
     canon_800d: {
         url: "https://raw.githubusercontent.com/Aishwary2004Gupta/models/cloud/canon_800d.glb",
-        scale: 17, 
+        scale: 17,
         rotation: { x: 0, y: Math.PI - 1.6, z: -0.07 },
         position: { x: 0, y: 0, z: 0 },
     },

@@ -1,270 +1,298 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Page-Flip Book — GSAP</title>
-  <script src="https://cdn.jsdelivr.net/npm/gsap@3/dist/gsap.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/gsap@3/dist/CustomEase.min.js"></script>
-  <style>
-    body {
-      margin: 0;
-      min-height: 100vh;
-      display: grid;
-      place-content: center;
-      gap: 20px;
-      background: #e6e9ed;
-      font-family: system-ui, sans-serif;
-    }
-
-    h1 {
-      margin: 0;
-      text-align: center;
-      font: 500 2.4rem Georgia, serif;
-    }
-
-    .stage {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-    }
-
-    .caption {
-      margin: 0;
-      text-align: center;
-      font-size: 12px;
-      letter-spacing: .15em;
-      text-transform: uppercase;
-      color: #8a8d97;
-    }
-
-    .arrow {
-      border: 0;
-      background: none;
-      font-size: 36px;
-      color: #aaa;
-      cursor: pointer;
-    }
-
-    .arrow:hover {
-      color: #111;
-    }
-
-    .book {
-      position: relative;
-      width: min(720px, 80vw);
-      aspect-ratio: 16 / 9;
-      perspective: 2600px;
-      cursor: pointer;
-    }
-
-    .book::before {
-      content: "";
-      position: absolute;
-      inset: 9% 19% 3% 21%;
-      border-radius: 18px;
-      background: rgba(20, 22, 30, .15);
-      filter: blur(28px);
-    }
-
-    .book * {
-      pointer-events: none;
-    }
-
-    .page,
-    .turn {
-      display: contents;
-    }
-
-    .half,
-    .face {
-      position: absolute;
-      top: 0;
-      bottom: 0;
-      left: 0;
-      overflow: hidden;
-    }
-
-    .half {
-      width: 50%;
-    }
-
-    .half.right {
-      left: 50%;
-    }
-
-    .half img,
-    .face img {
-      display: block;
-      width: 200%;
-      height: 100%;
-      object-fit: cover;
-      user-select: none;
-    }
-
-    img.right {
-      margin-left: -100%;
-    }
-
-    .flap {
-      position: absolute;
-      top: 0;
-      bottom: 0;
-      left: 0;
-      width: 50%;
-      transform-style: preserve-3d;
-      will-change: transform;
-    }
-
-    .flap.next {
-      left: 50%;
-    }
-
-    .face {
-      width: 100%;
-      backface-visibility: hidden;
-    }
-
-    .face.back {
-      transform: rotateY(180deg);
-    }
-
-    .book.blur-light img {
-      filter: url(#motion-blur-light);
-    }
-
-    .book.blur-heavy img {
-      filter: url(#motion-blur-heavy);
-    }
-  </style>
-</head>
-
-<body>
-
-  <h1>Sketchbook</h1>
-
-  <svg width="0" height="0" aria-hidden="true">
-    <filter id="motion-blur-light"><feGaussianBlur stdDeviation="5 0" /></filter>
-    <filter id="motion-blur-heavy"><feGaussianBlur stdDeviation="14 0" /></filter>
-  </svg>
-
-  <div class="stage">
-    <button class="arrow" id="prevButton">‹</button>
-    <div class="book" id="book">
-      <div class="page" id="page"></div>
-    </div>
-    <button class="arrow" id="nextButton">›</button>
-  </div>
-
-  <p class="caption" id="caption"></p>
-
-  <script>
-    const pages = [
-      { src: "https://raw.githubusercontent.com/Hank-D-Tank/x-book/refs/heads/main/images/castle.png", title: "Kyoto Performing Arts Hall" },
-      { src: "https://raw.githubusercontent.com/Hank-D-Tank/x-book/refs/heads/main/images/kyoto-performing-arts.png", title: "Kyoto Garden Museum" },
-      { src: "https://raw.githubusercontent.com/Hank-D-Tank/x-book/refs/heads/main/images/kyoto.png", title: "Western Castle" },
-      { src: "https://raw.githubusercontent.com/Hank-D-Tank/x-book/refs/heads/main/images/osaka.png", title: "Taipei Night Market" },
-      { src: "https://raw.githubusercontent.com/Hank-D-Tank/x-book/refs/heads/main/images/taipei-market.png", title: "Osaka Castle" },
-      { src: "https://raw.githubusercontent.com/Hank-D-Tank/x-book/refs/heads/main/images/tokyo-museum.png", title: "Tokyo National Museum" },
-      
-    ];
-
-    gsap.registerPlugin(CustomEase);
-    CustomEase.create("pageTurn", ".42,.05,.25,1");
-
-    let currentPage = 0;
-    let flipTween = null;
-    let introPlaying = false;
-
-    const halfImage = (pageIndex, side) =>
-      `<img src="${pages[pageIndex].src}" class="${side}">`;
-
-    function showPage(pageIndex) {
-      currentPage = pageIndex;
-      page.innerHTML = `
-        <div class="half left">${halfImage(pageIndex, "left")}</div>
-        <div class="half right">${halfImage(pageIndex, "right")}</div>`;
-    }
-
-    function setCaption(title) {
-      caption.textContent = title;
-      gsap.fromTo(caption, { opacity: 0 }, { opacity: 1, duration: 0.4, overwrite: "auto" });
-    }
-
-    function turn(direction, duration = 0.85, ease = "pageTurn", onDone) {
-      if (flipTween && flipTween.isActive()) {
-        flipTween.progress(1);
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Page-Flip Book — GSAP</title>
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3/dist/gsap.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3/dist/CustomEase.min.js"></script>
+    <style>
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: grid;
+        place-content: center;
+        gap: 20px;
+        background: #e6e9ed;
+        font-family: system-ui, sans-serif;
       }
 
-      const goingNext = direction === "next";
-      const targetPage = (currentPage + (goingNext ? 1 : -1) + pages.length) % pages.length;
+      h1 {
+        margin: 0;
+        text-align: center;
+        font:
+          500 2.4rem Georgia,
+          serif;
+      }
 
-      const liftSide = goingNext ? "right" : "left";
-      const landSide = goingNext ? "left" : "right";
+      .stage {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
 
-      book.insertAdjacentHTML("beforeend", `
+      .caption {
+        margin: 0;
+        text-align: center;
+        font-size: 12px;
+        letter-spacing: 0.15em;
+        text-transform: uppercase;
+        color: #8a8d97;
+      }
+
+      .arrow {
+        border: 0;
+        background: none;
+        font-size: 36px;
+        color: #aaa;
+        cursor: pointer;
+      }
+
+      .arrow:hover {
+        color: #111;
+      }
+
+      .book {
+        position: relative;
+        width: min(720px, 80vw);
+        aspect-ratio: 16 / 9;
+        perspective: 2600px;
+        cursor: pointer;
+      }
+
+      .book::before {
+        content: "";
+        position: absolute;
+        inset: 9% 19% 3% 21%;
+        border-radius: 18px;
+        background: rgba(20, 22, 30, 0.15);
+        filter: blur(28px);
+      }
+
+      .book * {
+        pointer-events: none;
+      }
+
+      .page,
+      .turn {
+        display: contents;
+      }
+
+      .half,
+      .face {
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        left: 0;
+        overflow: hidden;
+      }
+
+      .half {
+        width: 50%;
+      }
+
+      .half.right {
+        left: 50%;
+      }
+
+      .half img,
+      .face img {
+        display: block;
+        width: 200%;
+        height: 100%;
+        object-fit: cover;
+        user-select: none;
+      }
+
+      img.right {
+        margin-left: -100%;
+      }
+
+      .flap {
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        left: 0;
+        width: 50%;
+        transform-style: preserve-3d;
+        will-change: transform;
+      }
+
+      .flap.next {
+        left: 50%;
+      }
+
+      .face {
+        width: 100%;
+        backface-visibility: hidden;
+      }
+
+      .face.back {
+        transform: rotateY(180deg);
+      }
+
+      .book.blur-light img {
+        filter: url(#motion-blur-light);
+      }
+
+      .book.blur-heavy img {
+        filter: url(#motion-blur-heavy);
+      }
+    </style>
+  </head>
+
+  <body>
+    <h1>Sketchbook</h1>
+
+    <svg width="0" height="0" aria-hidden="true">
+      <filter id="motion-blur-light">
+        <feGaussianBlur stdDeviation="5 0" />
+      </filter>
+      <filter id="motion-blur-heavy">
+        <feGaussianBlur stdDeviation="14 0" />
+      </filter>
+    </svg>
+
+    <div class="stage">
+      <button class="arrow" id="prevButton">‹</button>
+      <div class="book" id="book">
+        <div class="page" id="page"></div>
+      </div>
+      <button class="arrow" id="nextButton">›</button>
+    </div>
+
+    <p class="caption" id="caption"></p>
+
+    <script>
+      const pages = [
+        {
+          src: "https://raw.githubusercontent.com/Hank-D-Tank/x-book/refs/heads/main/images/castle.png",
+          title: "Kyoto Performing Arts Hall",
+        },
+        {
+          src: "https://raw.githubusercontent.com/Hank-D-Tank/x-book/refs/heads/main/images/kyoto-performing-arts.png",
+          title: "Kyoto Garden Museum",
+        },
+        {
+          src: "https://raw.githubusercontent.com/Hank-D-Tank/x-book/refs/heads/main/images/kyoto.png",
+          title: "Western Castle",
+        },
+        {
+          src: "https://raw.githubusercontent.com/Hank-D-Tank/x-book/refs/heads/main/images/osaka.png",
+          title: "Taipei Night Market",
+        },
+        {
+          src: "https://raw.githubusercontent.com/Hank-D-Tank/x-book/refs/heads/main/images/taipei-market.png",
+          title: "Osaka Castle",
+        },
+        {
+          src: "https://raw.githubusercontent.com/Hank-D-Tank/x-book/refs/heads/main/images/tokyo-museum.png",
+          title: "Tokyo National Museum",
+        },
+      ];
+
+      gsap.registerPlugin(CustomEase);
+      CustomEase.create("pageTurn", ".42,.05,.25,1");
+
+      let currentPage = 0;
+      let flipTween = null;
+      let introPlaying = false;
+
+      const halfImage = (pageIndex, side) =>
+        `<img src="${pages[pageIndex].src}" class="${side}">`;
+
+      function showPage(pageIndex) {
+        currentPage = pageIndex;
+        page.innerHTML = `
+        <div class="half left">${halfImage(pageIndex, "left")}</div>
+        <div class="half right">${halfImage(pageIndex, "right")}</div>`;
+      }
+
+      function setCaption(title) {
+        caption.textContent = title;
+        gsap.fromTo(
+          caption,
+          { opacity: 0 },
+          { opacity: 1, duration: 0.4, overwrite: "auto" },
+        );
+      }
+
+      function turn(direction, duration = 0.85, ease = "pageTurn", onDone) {
+        if (flipTween && flipTween.isActive()) {
+          flipTween.progress(1);
+        }
+
+        const goingNext = direction === "next";
+        const targetPage =
+          (currentPage + (goingNext ? 1 : -1) + pages.length) % pages.length;
+
+        const liftSide = goingNext ? "right" : "left";
+        const landSide = goingNext ? "left" : "right";
+
+        book.insertAdjacentHTML(
+          "beforeend",
+          `
         <div class="turn">
           <div class="half ${liftSide}">${halfImage(targetPage, liftSide)}</div>
           <div class="flap ${goingNext ? "next" : "prev"}">
             <div class="face">${halfImage(currentPage, liftSide)}</div>
             <div class="face back">${halfImage(targetPage, landSide)}</div>
           </div>
-        </div>`);
+        </div>`,
+        );
 
-      setCaption(pages[targetPage].title);
+        setCaption(pages[targetPage].title);
 
-      flipTween = gsap.to(book.querySelector(".flap"), {
-        rotationY: goingNext ? -180 : 180,
-        transformOrigin: goingNext ? "left center" : "right center",
-        duration: duration,
-        ease: ease,
-        onComplete() {
-          showPage(targetPage);
-          book.querySelector(".turn").remove();
-          if (onDone) onDone();
-        }
-      });
-    }
-
-    function riffle(step = 0) {
-      if (!introPlaying || step >= pages.length) {
-        introPlaying = false;
-        book.classList.remove("blur-light", "blur-heavy");
-        return;
+        flipTween = gsap.to(book.querySelector(".flap"), {
+          rotationY: goingNext ? -180 : 180,
+          transformOrigin: goingNext ? "left center" : "right center",
+          duration: duration,
+          ease: ease,
+          onComplete() {
+            showPage(targetPage);
+            book.querySelector(".turn").remove();
+            if (onDone) onDone();
+          },
+        });
       }
 
-      const bell = Math.sin(Math.PI * step / (pages.length - 1));
-      book.classList.toggle("blur-light", bell > 0.25 && bell <= 0.6);
-      book.classList.toggle("blur-heavy", bell > 0.6);
+      function riffle(step = 0) {
+        if (!introPlaying || step >= pages.length) {
+          introPlaying = false;
+          book.classList.remove("blur-light", "blur-heavy");
+          return;
+        }
 
-      turn("next", 0.2 - 0.15 * bell, "none", () => riffle(step + 1));
-    }
+        const bell = Math.sin((Math.PI * step) / (pages.length - 1));
+        book.classList.toggle("blur-light", bell > 0.25 && bell <= 0.6);
+        book.classList.toggle("blur-heavy", bell > 0.6);
 
-    function navigate(direction) {
-      introPlaying = false;
-      turn(direction);
-    }
+        turn("next", 0.2 - 0.15 * bell, "none", () => riffle(step + 1));
+      }
 
-    nextButton.onclick = () => navigate("next");
-    prevButton.onclick = () => navigate("prev");
+      function navigate(direction) {
+        introPlaying = false;
+        turn(direction);
+      }
 
-    book.onclick = event =>
-      navigate(event.offsetX < book.offsetWidth / 2 ? "prev" : "next");
+      nextButton.onclick = () => navigate("next");
+      prevButton.onclick = () => navigate("prev");
 
-    addEventListener("keydown", event => {
-      if (event.key === "ArrowRight") navigate("next");
-      if (event.key === "ArrowLeft") navigate("prev");
-    });
+      book.onclick = (event) =>
+        navigate(event.offsetX < book.offsetWidth / 2 ? "prev" : "next");
 
-    showPage(0);
-    setCaption(pages[0].title);
+      addEventListener("keydown", (event) => {
+        if (event.key === "ArrowRight") navigate("next");
+        if (event.key === "ArrowLeft") navigate("prev");
+      });
 
-    gsap.delayedCall(0.2, () => {
-      introPlaying = true;
-      riffle();
-    });
-  </script>
-</body>
+      showPage(0);
+      setCaption(pages[0].title);
 
+      gsap.delayedCall(0.2, () => {
+        introPlaying = true;
+        riffle();
+      });
+    </script>
+  </body>
 </html>

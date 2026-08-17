@@ -118,18 +118,6 @@
         width: 50%;
         transform-style: preserve-3d;
         will-change: transform;
-        box-shadow: -8px 0 15px rgba(0, 0, 0, 0.2), inset -2px 0 8px rgba(0, 0, 0, 0.1);
-      }
-      
-      .flap::before {
-        content: "";
-        position: absolute;
-        top: 0;
-        bottom: 0;
-        right: -8px;
-        width: 8px;
-        background: linear-gradient(to right, rgba(0, 0, 0, 0.1), transparent);
-        border-radius: 4px;
       }
 
       .flap.next {
@@ -347,91 +335,11 @@
         turn(direction);
       }
 
-      let isMouseControlling = false;
-      let mouseStartX = 0;
-      let mouseDirection = null;
-
-      book.addEventListener("mousedown", (event) => {
-        isMouseControlling = true;
-        mouseStartX = event.clientX;
-        mouseDirection = null;
-        
-        if (flipTween && flipTween.isActive()) {
-          flipTween.pause();
-        }
-      });
-
-      book.addEventListener("mousemove", (event) => {
-        if (!isMouseControlling) return;
-        
-        const deltaX = event.clientX - mouseStartX;
-        const threshold = 20;
-        
-        if (Math.abs(deltaX) > threshold) {
-          if (!mouseDirection) {
-            mouseDirection = deltaX > 0 ? "prev" : "next";
-            
-            const goingNext = mouseDirection === "next";
-            const targetPage = (currentPage + (goingNext ? 1 : -1) + pages.length) % pages.length;
-            const liftSide = goingNext ? "right" : "left";
-            const landSide = goingNext ? "left" : "right";
-            
-            book.insertAdjacentHTML(
-              "beforeend",
-              `
-              <div class="turn">
-                <div class="half ${liftSide}">${halfImage(targetPage, liftSide)}</div>
-                <div class="flap ${goingNext ? "next" : "prev"}">
-                  <div class="face">${halfImage(currentPage, liftSide)}</div>
-                  <div class="face back">${halfImage(targetPage, landSide)}</div>
-                </div>
-              </div>`,
-            );
-            setCaption(pages[targetPage].title);
-          }
-          
-          const maxDelta = 150;
-          const progress = Math.max(0, Math.min(1, Math.abs(deltaX) / maxDelta));
-          const goingNext = mouseDirection === "next";
-          const rotation = goingNext ? -180 * progress : 180 * progress;
-          
-          const flap = book.querySelector(".flap");
-          if (flap) {
-            gsap.set(flap, {
-              rotationY: rotation,
-              transformOrigin: goingNext ? "left center" : "right center",
-            });
-          }
-        }
-      });
-
-      book.addEventListener("mouseup", (event) => {
-        isMouseControlling = false;
-        
-        if (mouseDirection && flipTween) {
-          const flap = book.querySelector(".flap");
-          if (flap) {
-            const currentRotation = gsap.getProperty(flap, "rotationY");
-            const isComplete = Math.abs(currentRotation) > 90;
-            
-            if (isComplete) {
-              flipTween.play();
-            } else {
-              flipTween.reverse();
-            }
-          }
-        }
-        mouseDirection = null;
-      });
-
       nextButton.onclick = () => navigate("next");
       prevButton.onclick = () => navigate("prev");
 
-      book.onclick = (event) => {
-        if (!isMouseControlling) {
-          navigate(event.offsetX < book.offsetWidth / 2 ? "prev" : "next");
-        }
-      };
+      book.onclick = (event) =>
+        navigate(event.offsetX < book.offsetWidth / 2 ? "prev" : "next");
 
       addEventListener("keydown", (event) => {
         if (event.key === "ArrowRight") navigate("next");

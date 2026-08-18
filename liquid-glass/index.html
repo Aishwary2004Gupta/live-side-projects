@@ -1,697 +1,447 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Liquid Glass</title>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Liquid Glass</title>
+<style>
+  *,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
 
-  <style>
-    * {
-      box-sizing: border-box;
-    }
+  html,body{
+    width:100%;height:100%;
+    overflow-x:hidden;
+    background:#5227ff;
+    font-family:'Segoe UI',system-ui,-apple-system,sans-serif;
+    cursor:none;
+  }
 
-    html {
-      scroll-behavior: smooth;
-    }
+  /* ── custom cursor ── */
+  .cursor{
+    position:fixed;width:12px;height:12px;
+    background:#fff;border-radius:50%;
+    pointer-events:none;z-index:9999;
+    transform:translate(-50%,-50%);
+    mix-blend-mode:difference;
+  }
 
-    body {
-      margin: 0;
-      min-height: 260vh;
-      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      color: white;
-      background: #080a24;
-      overflow-x: hidden;
-    }
+  /* ── scrollable content ── */
+  .content{
+    position:relative;z-index:1;
+    min-height:300vh;
+  }
 
-    body::before {
-      content: "";
-      position: fixed;
-      inset: -20%;
-      z-index: -3;
-      background:
-        radial-gradient(circle at 15% 20%, #ff4fd8 0 14%, transparent 32%),
-        radial-gradient(circle at 78% 12%, #46e6ff 0 12%, transparent 30%),
-        radial-gradient(circle at 50% 70%, #5227ff 0 20%, transparent 42%),
-        radial-gradient(circle at 88% 82%, #ffb86b 0 10%, transparent 30%),
-        linear-gradient(135deg, #07091f, #11194f 45%, #130922);
-      filter: saturate(1.2);
-    }
+  .section{
+    display:flex;align-items:center;justify-content:center;
+    min-height:100vh;position:relative;overflow:hidden;
+  }
 
-    body::after {
-      content: "";
-      position: fixed;
-      inset: 0;
-      z-index: -2;
-      pointer-events: none;
-      background:
-        linear-gradient(rgba(255,255,255,0.035) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(255,255,255,0.035) 1px, transparent 1px);
-      background-size: 44px 44px;
-      mask-image: linear-gradient(to bottom, black, transparent 88%);
-    }
+  .section h1{
+    font-size:clamp(3rem,8vw,7rem);
+    font-weight:900;color:#fff;
+    letter-spacing:-.05em;
+    text-align:center;
+    user-select:none;
+    z-index:1;
+  }
 
-    .svg-filters {
-      position: absolute;
-      width: 0;
-      height: 0;
-      pointer-events: none;
-    }
+  .section .sub{
+    position:absolute;bottom:10%;left:50%;transform:translateX(-50%);
+    color:rgba(255,255,255,.45);font-size:1rem;letter-spacing:.15em;
+    text-transform:uppercase;
+  }
 
-    /* Mode buttons */
-    .mode-switch {
-      position: fixed;
-      top: 18px;
-      left: 50%;
-      transform: translateX(-50%);
-      z-index: 50;
-      display: flex;
-      gap: 8px;
-      padding: 8px;
-      border: 1px solid rgba(255,255,255,0.18);
-      border-radius: 999px;
-      background: rgba(255,255,255,0.08);
-      backdrop-filter: blur(18px) saturate(180%);
-      -webkit-backdrop-filter: blur(18px) saturate(180%);
-      box-shadow: 0 18px 50px rgba(0,0,0,0.25);
-    }
+  .img-card{
+    position:absolute;border-radius:18px;overflow:hidden;
+    box-shadow:0 25px 60px rgba(0,0,0,.35);
+    transition:transform .4s ease;
+  }
+  .img-card img{width:100%;height:100%;object-fit:cover;display:block}
 
-    .mode-switch button {
-      border: 0;
-      border-radius: 999px;
-      padding: 10px 16px;
-      color: white;
-      font: 800 13px/1 system-ui, sans-serif;
-      letter-spacing: 0.02em;
-      background: transparent;
-      cursor: pointer;
-      opacity: 0.75;
-      transition: 0.25s ease;
-    }
+  .s1 .img-card:nth-child(2){width:280px;height:380px;top:12%;left:8%}
+  .s1 .img-card:nth-child(3){width:220px;height:300px;top:55%;right:10%}
 
-    .mode-switch button:hover,
-    .mode-switch button.active {
-      opacity: 1;
-      background: rgba(255,255,255,0.18);
-    }
+  .s2 .img-card:nth-child(2){width:320px;height:220px;top:15%;right:12%}
+  .s2 .img-card:nth-child(3){width:200px;height:280px;bottom:12%;left:15%}
 
-    /* Page demo content */
-    .demo {
-      width: min(1120px, calc(100% - 36px));
-      margin: 0 auto;
-      padding: 16vh 0 22vh;
-    }
+  .s3 .img-card:nth-child(2){width:260px;height:350px;top:10%;left:12%}
+  .s3 .img-card:nth-child(3){width:300px;height:200px;bottom:10%;right:8%}
 
-    .hero {
-      min-height: 82vh;
-      display: grid;
-      place-items: center;
-      text-align: center;
-    }
+  /* ── nav bar ── */
+  .nav{
+    position:fixed;bottom:0;left:0;right:0;z-index:100;
+    display:flex;justify-content:center;gap:2.5rem;
+    padding:1.2rem 0 1.6rem;
+    background:linear-gradient(transparent,rgba(0,0,0,.25));
+  }
+  .nav a{
+    color:#fff;text-decoration:none;font-weight:700;font-size:.95rem;
+    letter-spacing:.08em;text-transform:uppercase;
+    opacity:.7;transition:opacity .25s;
+  }
+  .nav a:hover{opacity:1}
 
-    .hero-inner {
-      max-width: 980px;
-    }
+  /* ═══════════════════════════════════════
+     THE LIQUID GLASS LENS
+     ═══════════════════════════════════════ */
+  .glass-lens{
+    position:fixed;
+    width:280px;height:280px;
+    pointer-events:none;
+    z-index:50;
+    transform:translate(-50%,-50%);
+    /* will-change for perf */
+    will-change:transform;
+  }
 
-    .kicker {
-      display: inline-flex;
-      padding: 8px 14px;
-      border-radius: 999px;
-      border: 1px solid rgba(255,255,255,0.22);
-      background: rgba(255,255,255,0.08);
-      backdrop-filter: blur(12px);
-      -webkit-backdrop-filter: blur(12px);
-      font-size: 13px;
-      font-weight: 800;
-      text-transform: uppercase;
-      letter-spacing: 0.16em;
-      color: rgba(255,255,255,0.78);
-    }
+  /* the visible glass shape */
+  .glass-lens .lens-body{
+    position:absolute;inset:0;
+    border-radius:50%;
+    /* backdrop filter for the "glass" feel */
+    backdrop-filter:blur(12px) brightness(1.08) saturate(1.3);
+    -webkit-backdrop-filter:blur(12px) brightness(1.08) saturate(1.3);
+    /* subtle inner shadow for depth */
+    box-shadow:
+      inset 0 0 40px rgba(255,255,255,.12),
+      inset 0 -8px 24px rgba(0,0,0,.15),
+      0 8px 40px rgba(0,0,0,.25),
+      0 0 0 1px rgba(255,255,255,.18);
+    /* the SVG displacement is applied via filter on a child */
+    overflow:hidden;
+  }
 
-    h1 {
-      margin: 28px 0 22px;
-      font-size: clamp(4.2rem, 15vw, 12.5rem);
-      line-height: 0.78;
-      letter-spacing: -0.09em;
-      text-wrap: balance;
-    }
+  /* chromatic aberration layers */
+  .glass-lens .lens-body::before,
+  .glass-lens .lens-body::after{
+    content:'';position:absolute;inset:0;border-radius:50%;
+  }
+  .glass-lens .lens-body::before{
+    background:radial-gradient(ellipse at 30% 30%,rgba(255,0,0,.06),transparent 70%);
+    transform:translate(2px,-1px);
+  }
+  .glass-lens .lens-body::after{
+    background:radial-gradient(ellipse at 70% 70%,rgba(0,0,255,.06),transparent 70%);
+    transform:translate(-2px,1px);
+  }
 
-    .hero p {
-      max-width: 640px;
-      margin: 0 auto;
-      color: rgba(255,255,255,0.72);
-      font-size: clamp(1rem, 2vw, 1.25rem);
-      line-height: 1.7;
-    }
+  /* specular highlight */
+  .glass-lens .highlight{
+    position:absolute;
+    width:40%;height:25%;
+    top:12%;left:22%;
+    background:radial-gradient(ellipse,rgba(255,255,255,.35),transparent 70%);
+    border-radius:50%;
+    transform:rotate(-20deg);
+    pointer-events:none;
+  }
 
-    .gallery {
-      display: grid;
-      grid-template-columns: repeat(12, 1fr);
-      gap: 22px;
-      margin-top: 8vh;
-    }
+  /* liquid ripple ring */
+  .glass-lens .ripple{
+    position:absolute;inset:-4px;
+    border-radius:50%;
+    border:1.5px solid rgba(255,255,255,.12);
+    animation:ripplePulse 3s ease-in-out infinite;
+  }
+  @keyframes ripplePulse{
+    0%,100%{transform:scale(1);opacity:.5}
+    50%{transform:scale(1.03);opacity:.2}
+  }
 
-    .card {
-      position: relative;
-      grid-column: span 4;
-      min-height: 360px;
-      overflow: hidden;
-      border-radius: 34px;
-      padding: 28px;
-      display: flex;
-      align-items: flex-end;
-      isolation: isolate;
-      background:
-        linear-gradient(to top, rgba(0,0,0,0.7), transparent 55%),
-        var(--img);
-      background-size: cover;
-      background-position: center;
-      box-shadow: 0 30px 90px rgba(0,0,0,0.35);
-    }
+  /* the SVG filter target – a transparent overlay that gets displaced */
+  .glass-lens .displacement-layer{
+    position:absolute;inset:0;border-radius:50%;
+    /* this is where the SVG filter distorts the backdrop */
+    filter:url(#liquid-distort);
+    backdrop-filter:blur(2px);
+    -webkit-backdrop-filter:blur(2px);
+    background:transparent;
+  }
 
-    .card.big {
-      grid-column: span 7;
-      min-height: 540px;
-    }
+  /* ── bar mode ── */
+  .glass-lens.bar-mode{
+    width:100%;height:80px;
+    bottom:0;top:auto;left:0;right:0;
+    transform:translateY(0);
+  }
+  .glass-lens.bar-mode .lens-body{
+    border-radius:40px;
+  }
+  .glass-lens.bar-mode .highlight{
+    width:60%;height:40%;top:15%;left:20%;
+  }
 
-    .card.tall {
-      grid-column: span 5;
-      min-height: 540px;
-    }
+  /* ── cube mode ── */
+  .glass-lens.cube-mode{
+    width:220px;height:220px;
+  }
+  .glass-lens.cube-mode .lens-body{
+    border-radius:24px;
+  }
 
-    .card.wide {
-      grid-column: span 8;
-    }
+  /* ── SVG (hidden) ── */
+  .svg-defs{
+    position:absolute;width:0;height:0;overflow:hidden;
+  }
 
-    .card.small {
-      grid-column: span 4;
-    }
+  /* ── scroll hint ── */
+  .scroll-hint{
+    position:fixed;bottom:5rem;left:50%;transform:translateX(-50%);
+    z-index:90;color:rgba(255,255,255,.4);font-size:.8rem;
+    letter-spacing:.2em;text-transform:uppercase;
+    animation:bob 2s ease-in-out infinite;
+    pointer-events:none;
+  }
+  @keyframes bob{
+    0%,100%{transform:translateX(-50%) translateY(0)}
+    50%{transform:translateX(-50%) translateY(8px)}
+  }
 
-    .card::before {
-      content: "";
-      position: absolute;
-      inset: 0;
-      z-index: -1;
-      background:
-        radial-gradient(circle at 20% 10%, rgba(255,255,255,0.32), transparent 28%),
-        linear-gradient(135deg, rgba(255,255,255,0.1), transparent);
-    }
-
-    .card span {
-      font-size: 12px;
-      font-weight: 900;
-      color: rgba(255,255,255,0.58);
-      letter-spacing: 0.18em;
-    }
-
-    .card h2 {
-      margin: 8px 0 0;
-      font-size: clamp(1.8rem, 4vw, 3.7rem);
-      line-height: 0.95;
-      letter-spacing: -0.055em;
-    }
-
-    .contact {
-      margin-top: 18vh;
-      padding: clamp(32px, 7vw, 82px);
-      border-radius: 40px;
-      background: rgba(255,255,255,0.075);
-      border: 1px solid rgba(255,255,255,0.14);
-      backdrop-filter: blur(18px);
-      -webkit-backdrop-filter: blur(18px);
-      box-shadow: 0 30px 90px rgba(0,0,0,0.3);
-    }
-
-    .contact h2 {
-      margin: 0 0 16px;
-      font-size: clamp(2.6rem, 7vw, 7rem);
-      line-height: 0.9;
-      letter-spacing: -0.07em;
-    }
-
-    .contact p {
-      max-width: 680px;
-      color: rgba(255,255,255,0.72);
-      line-height: 1.8;
-      font-size: 1.1rem;
-    }
-
-    /* Liquid glass object */
-    .liquid-glass {
-      --x: 50vw;
-      --y: 45vh;
-      --mx: 50%;
-      --my: 50%;
-      --tilt-x: 0deg;
-      --tilt-y: 0deg;
-
-      position: fixed;
-      left: var(--x);
-      top: var(--y);
-      z-index: 30;
-
-      width: 190px;
-      height: 190px;
-      border-radius: 999px;
-
-      transform:
-        translate(-50%, -50%)
-        perspective(900px)
-        rotateX(var(--tilt-y))
-        rotateY(var(--tilt-x));
-
-      overflow: hidden;
-      isolation: isolate;
-      pointer-events: none;
-
-      background:
-        linear-gradient(135deg, rgba(255,255,255,0.26), rgba(255,255,255,0.04)),
-        rgba(255,255,255,0.045);
-
-      border: 1px solid rgba(255,255,255,0.5);
-
-      box-shadow:
-        0 28px 80px rgba(0,0,0,0.34),
-        inset 0 0 0 1px rgba(255,255,255,0.2),
-        inset 16px 18px 42px rgba(255,255,255,0.12),
-        inset -20px -24px 44px rgba(4,8,32,0.34);
-
-      backdrop-filter: blur(10px) saturate(190%) contrast(115%);
-      -webkit-backdrop-filter: blur(10px) saturate(190%) contrast(115%);
-
-      transition:
-        width 0.55s cubic-bezier(.2,.8,.2,1),
-        height 0.55s cubic-bezier(.2,.8,.2,1),
-        border-radius 0.55s cubic-bezier(.2,.8,.2,1);
-
-      will-change: left, top, transform;
-    }
-
-    body[data-mode="lens"] .liquid-glass {
-      width: 190px;
-      height: 190px;
-      border-radius: 999px;
-    }
-
-    body[data-mode="cube"] .liquid-glass {
-      width: 180px;
-      height: 180px;
-      border-radius: 34px;
-    }
-
-    body[data-mode="bar"] .liquid-glass {
-      width: min(720px, calc(100vw - 28px));
-      height: 76px;
-      border-radius: 999px;
-      pointer-events: auto;
-    }
-
-    .ripples {
-      position: absolute;
-      inset: -45%;
-      z-index: 1;
-      pointer-events: none;
-
-      background:
-        radial-gradient(circle at var(--mx) var(--my), rgba(255,255,255,0.95) 0 2%, transparent 16%),
-        radial-gradient(circle at 25% 25%, rgba(255,255,255,0.35), transparent 28%),
-        radial-gradient(circle at 78% 72%, rgba(255,255,255,0.22), transparent 32%),
-        conic-gradient(
-          from 120deg,
-          rgba(255,255,255,0.0),
-          rgba(255,255,255,0.42),
-          rgba(0,225,255,0.18),
-          rgba(255,0,200,0.18),
-          rgba(255,255,255,0.0)
-        );
-
-      filter: url(#liquid-distortion);
-      opacity: 0.65;
-      mix-blend-mode: screen;
-      animation: floatRipples 8s ease-in-out infinite alternate;
-    }
-
-    .chroma {
-      position: absolute;
-      inset: -4px;
-      z-index: 2;
-      border-radius: inherit;
-      pointer-events: none;
-      background:
-        radial-gradient(circle at 20% 20%, rgba(0,238,255,0.22), transparent 28%),
-        radial-gradient(circle at 82% 78%, rgba(255,0,190,0.2), transparent 30%);
-      mix-blend-mode: screen;
-      filter: blur(1.2px);
-    }
-
-    .edge {
-      position: absolute;
-      inset: 0;
-      z-index: 3;
-      border-radius: inherit;
-      pointer-events: none;
-
-      background:
-        radial-gradient(circle at var(--mx) var(--my), rgba(255,255,255,0.38), transparent 26%),
-        linear-gradient(135deg, rgba(255,255,255,0.88), transparent 18% 72%, rgba(255,255,255,0.34));
-
-      box-shadow:
-        inset 2px 2px 4px rgba(255,255,255,0.85),
-        inset -2px -2px 8px rgba(255,255,255,0.16),
-        inset -22px -20px 48px rgba(0,8,30,0.32);
-    }
-
-    .liquid-nav {
-      position: absolute;
-      inset: 0;
-      z-index: 10;
-      display: none;
-      align-items: center;
-      justify-content: center;
-      gap: clamp(18px, 5vw, 46px);
-      padding: 0 28px;
-    }
-
-    body[data-mode="bar"] .liquid-nav {
-      display: flex;
-    }
-
-    .liquid-nav a {
-      color: white;
-      text-decoration: none;
-      font-weight: 900;
-      font-size: 14px;
-      letter-spacing: 0.04em;
-      text-shadow: 0 4px 18px rgba(0,0,0,0.45);
-      opacity: 0.86;
-      transition: 0.25s ease;
-      white-space: nowrap;
-    }
-
-    .liquid-nav a:hover {
-      opacity: 1;
-      transform: translateY(-1px);
-    }
-
-    @keyframes floatRipples {
-      from {
-        transform: translate3d(-2%, -1%, 0) rotate(0deg) scale(1);
-      }
-      to {
-        transform: translate3d(2%, 1%, 0) rotate(8deg) scale(1.05);
-      }
-    }
-
-    @supports not ((backdrop-filter: blur(10px))) {
-      .liquid-glass {
-        background: rgba(255,255,255,0.18);
-      }
-    }
-
-    @media (max-width: 760px) {
-      .mode-switch {
-        top: 12px;
-        width: calc(100vw - 24px);
-        justify-content: center;
-      }
-
-      .mode-switch button {
-        padding: 9px 13px;
-      }
-
-      .gallery {
-        grid-template-columns: 1fr;
-      }
-
-      .card,
-      .card.big,
-      .card.tall,
-      .card.wide,
-      .card.small {
-        grid-column: 1;
-        min-height: 320px;
-      }
-
-      body[data-mode="lens"] .liquid-glass {
-        width: 150px;
-        height: 150px;
-      }
-
-      body[data-mode="cube"] .liquid-glass {
-        width: 145px;
-        height: 145px;
-      }
-    }
-  </style>
+  /* ── mode switcher (demo) ── */
+  .mode-switch{
+    position:fixed;top:1.2rem;right:1.2rem;z-index:200;
+    display:flex;gap:.5rem;
+  }
+  .mode-switch button{
+    background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);
+    color:#fff;padding:.4rem .9rem;border-radius:8px;
+    font-size:.75rem;cursor:pointer;letter-spacing:.05em;
+    transition:background .2s;
+  }
+  .mode-switch button:hover{background:rgba(255,255,255,.2)}
+  .mode-switch button.active{background:rgba(255,255,255,.25);border-color:rgba(255,255,255,.5)}
+</style>
 </head>
+<body>
 
-<body data-mode="lens">
-  <!-- SVG filter used by the glass ripples -->
-  <svg class="svg-filters" aria-hidden="true" focusable="false">
-    <defs>
-      <filter
-        id="liquid-distortion"
-        x="-40%"
-        y="-40%"
-        width="180%"
-        height="180%"
-        color-interpolation-filters="sRGB"
-      >
-        <feTurbulence
-          id="liquid-noise"
-          type="fractalNoise"
-          baseFrequency="0.016 0.032"
-          numOctaves="3"
-          seed="8"
-          result="noise"
-        />
+<!-- ═══ SVG FILTERS (the "liquid" distortion) ═══ -->
+<svg class="svg-defs" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <filter id="liquid-distort" x="-20%" y="-20%" width="140%" height="140%">
+      <feTurbulence
+        id="turb"
+        type="fractalNoise"
+        baseFrequency="0.015 0.015"
+        numOctaves="3"
+        seed="2"
+        result="noise"
+      />
+      <feDisplacementMap
+        in="SourceGraphic"
+        in2="noise"
+        scale="28"
+        xChannelSelector="R"
+        yChannelSelector="G"
+      />
+    </filter>
 
-        <feGaussianBlur
-          in="noise"
-          stdDeviation="1.6"
-          result="softNoise"
-        />
+    <filter id="liquid-distort-strong" x="-20%" y="-20%" width="140%" height="140%">
+      <feTurbulence
+        id="turb2"
+        type="fractalNoise"
+        baseFrequency="0.02 0.02"
+        numOctaves="4"
+        seed="5"
+        result="noise"
+      />
+      <feDisplacementMap
+        in="SourceGraphic"
+        in2="noise"
+        scale="40"
+        xChannelSelector="R"
+        yChannelSelector="G"
+      />
+    </filter>
+  </defs>
+</svg>
 
-        <feDisplacementMap
-          id="liquid-displace"
-          in="SourceGraphic"
-          in2="softNoise"
-          scale="32"
-          xChannelSelector="R"
-          yChannelSelector="G"
-          result="displaced"
-        />
+<!-- custom cursor -->
+<div class="cursor" id="cursor"></div>
 
-        <feColorMatrix
-          in="displaced"
-          type="matrix"
-          values="
-            1.15 0    0    0 0
-            0    1.08 0    0 0
-            0    0    1.25 0 0
-            0    0    0    .72 0
-          "
-        />
-      </filter>
-    </defs>
-  </svg>
+<!-- mode switcher -->
+<div class="mode-switch">
+  <button class="active" data-mode="lens">Lens</button>
+  <button data-mode="bar">Bar</button>
+  <button data-mode="cube">Cube</button>
+</div>
 
-  <div class="mode-switch" role="group" aria-label="Glass mode">
-    <button type="button" class="active" data-mode-button="lens">Lens</button>
-    <button type="button" data-mode-button="cube">Cube</button>
-    <button type="button" data-mode-button="bar">Bar</button>
+<!-- scroll hint -->
+<div class="scroll-hint" id="scrollHint">Scroll ↓</div>
+
+<!-- ═══ SCROLLABLE CONTENT ═══ -->
+<div class="content" id="content">
+
+  <div class="section s1">
+    <div class="img-card" style="width:280px;height:380px;top:12%;left:8%">
+      <img src="https://images.unsplash.com/photo-1595001354022-29103be3b73a?q=80&w=600&auto=format&fit=crop" alt="" />
+    </div>
+    <div class="img-card" style="width:220px;height:300px;top:55%;right:10%">
+      <img src="https://images.unsplash.com/photo-1478436127897-769e1b3f0f36?q=80&w=600&auto=format&fit=crop" alt="" />
+    </div>
+    <h1>React Bits</h1>
+    <span class="sub">Move your mouse · Scroll down</span>
   </div>
 
-  <div class="liquid-glass" id="glass">
-    <span class="ripples"></span>
-    <span class="chroma"></span>
-    <span class="edge"></span>
-
-    <nav class="liquid-nav" aria-label="Glass navigation">
-      <a href="#home">Home</a>
-      <a href="#work">Work</a>
-      <a href="#contact">Contact</a>
-    </nav>
+  <div class="section s2">
+    <div class="img-card" style="width:320px;height:220px;top:15%;right:12%">
+      <img src="https://images.unsplash.com/photo-1513682121497-80211f36a7d3?q=80&w=600&auto=format&fit=crop" alt="" />
+    </div>
+    <div class="img-card" style="width:200px;height:280px;bottom:12%;left:15%">
+      <img src="https://images.unsplash.com/photo-1516205651411-aef33a44f7c2?q=80&w=600&auto=format&fit=crop" alt="" />
+    </div>
+    <h1>Fluid Glass</h1>
+    <span class="sub">Pure CSS · SVG · JS</span>
   </div>
 
-  <main class="demo" id="home">
-    <section class="hero">
-      <div class="hero-inner">
-        <span class="kicker">Pure HTML CSS JS</span>
-        <h1>Liquid Glass</h1>
-        <p>
-          Move your pointer around the page. The glass follows the cursor,
-          bends light with SVG ripples, and uses backdrop blur to create a
-          fluid refraction-like effect.
-        </p>
-      </div>
-    </section>
+  <div class="section s3">
+    <div class="img-card" style="width:260px;height:350px;top:10%;left:12%">
+      <img src="https://images.unsplash.com/photo-1505069190533-da1c9af13346?q=80&w=600&auto=format&fit=crop" alt="" />
+    </div>
+    <div class="img-card" style="width:300px;height:200px;bottom:10%;right:8%">
+      <img src="https://images.unsplash.com/photo-1595001354022-29103be3b73a?q=80&w=600&auto=format&fit=crop" alt="" />
+    </div>
+    <h1>Refraction</h1>
+    <span class="sub">No WebGL required</span>
+  </div>
 
-    <section class="gallery" id="work">
-      <article
-        class="card big"
-        style="--img: url('https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=1300&q=80')"
-      >
-        <div>
-          <span>01</span>
-          <h2>Prismatic surfaces</h2>
-        </div>
-      </article>
+</div>
 
-      <article
-        class="card tall"
-        style="--img: url('https://images.unsplash.com/photo-1519608487953-e999c86e7455?auto=format&fit=crop&w=1000&q=80')"
-      >
-        <div>
-          <span>02</span>
-          <h2>Soft distortions</h2>
-        </div>
-      </article>
+<!-- ═══ THE GLASS LENS ═══ -->
+<div class="glass-lens" id="glassLens">
+  <div class="lens-body">
+    <div class="displacement-layer"></div>
+    <div class="highlight"></div>
+  </div>
+  <div class="ripple"></div>
+</div>
 
-      <article
-        class="card small"
-        style="--img: url('https://images.unsplash.com/photo-1493246507139-91e8fad9978e?auto=format&fit=crop&w=1000&q=80')"
-      >
-        <div>
-          <span>03</span>
-          <h2>Blurred depth</h2>
-        </div>
-      </article>
+<!-- ═══ NAV ══ -->
+<nav class="nav">
+  <a href="#">Home</a>
+  <a href="#">About</a>
+  <a href="#">Contact</a>
+</nav>
 
-      <article
-        class="card wide"
-        style="--img: url('https://images.unsplash.com/photo-1500534314209-a25ddb2bd429?auto=format&fit=crop&w=1300&q=80')"
-      >
-        <div>
-          <span>04</span>
-          <h2>Glass motion</h2>
-        </div>
-      </article>
-    </section>
+<script>
+(() => {
+  /* ── refs ── */
+  const lens     = document.getElementById('glassLens');
+  const cursor   = document.getElementById('cursor');
+  const scrollHint = document.getElementById('scrollHint');
+  const turb     = document.getElementById('turb');
+  const turb2    = document.getElementById('turb2');
 
-    <section class="contact" id="contact">
-      <h2>No Three.js required</h2>
-      <p>
-        This version does not need GLB models or WebGL. It is a lightweight
-        CSS/SVG simulation of liquid glass using backdrop filters, specular
-        highlights, chromatic color edges, and animated turbulence.
-      </p>
-    </section>
-  </main>
+  /* ── state ─ */
+  let mode        = 'lens';   // lens | bar | cube
+  let mouseX      = innerWidth / 2;
+  let mouseY      = innerHeight / 2;
+  let lensX       = mouseX;
+  let lensY       = mouseY;
+  let lensVX      = 0;
+  let lensVY      = 0;
+  let prevX       = mouseX;
+  let prevY       = mouseY;
+  let time        = 0;
+  let scrollY     = 0;
 
-  <script>
-    const body = document.body;
-    const glass = document.getElementById("glass");
-    const buttons = document.querySelectorAll("[data-mode-button]");
-    const noise = document.getElementById("liquid-noise");
-    const displace = document.getElementById("liquid-displace");
+  /* ── mouse tracking ── */
+  window.addEventListener('mousemove', e => {
+    mouseX = e.clientX;
+    mouseY = e.clientY;
+  });
 
-    let mode = "lens";
+  /* ── touch support ── */
+  window.addEventListener('touchmove', e => {
+    mouseX = e.touches[0].clientX;
+    mouseY = e.touches[0].clientY;
+  }, { passive: true });
 
-    const pointer = {
-      x: window.innerWidth / 2,
-      y: window.innerHeight / 2
-    };
+  /* ── scroll tracking ── */
+  window.addEventListener('scroll', () => {
+    scrollY = window.scrollY;
+    // fade out scroll hint
+    const opacity = Math.max(0, 1 - scrollY / 200);
+    scrollHint.style.opacity = opacity;
+  }, { passive: true });
 
-    const current = {
-      x: pointer.x,
-      y: pointer.y
-    };
-
-    const clamp = (value, min, max) => {
-      return Math.min(Math.max(value, min), max);
-    };
-
-    function setMode(nextMode) {
-      mode = nextMode;
-      body.dataset.mode = mode;
-
-      buttons.forEach((button) => {
-        const active = button.dataset.modeButton === mode;
-        button.classList.toggle("active", active);
-        button.setAttribute("aria-pressed", active ? "true" : "false");
-      });
-    }
-
-    buttons.forEach((button) => {
-      button.addEventListener("click", () => {
-        setMode(button.dataset.modeButton);
-      });
+  /* ── mode switcher ── */
+  document.querySelectorAll('.mode-switch button').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.mode-switch button').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      mode = btn.dataset.mode;
+      lens.className = 'glass-lens' + (mode === 'bar' ? ' bar-mode' : mode === 'cube' ? ' cube-mode' : '');
     });
+  });
 
-    window.addEventListener(
-      "pointermove",
-      (event) => {
-        pointer.x = event.clientX;
-        pointer.y = event.clientY;
-      },
-      { passive: true }
-    );
+  /* ── lerp helper ── */
+  function lerp(a, b, t) { return a + (b - a) * t; }
 
-    function getTarget() {
-      if (mode === "bar") {
-        return {
-          x: window.innerWidth / 2,
-          y: window.innerHeight - 56
-        };
-      }
+  /* ── main loop ── */
+  function tick() {
+    time += 0.016;
 
-      return pointer;
+    /* smooth follow */
+    const ease = mode === 'bar' ? 0.06 : 0.08;
+    const targetX = mode === 'bar' ? mouseX : mouseX;
+    const targetY = mode === 'bar'
+      ? innerHeight - 40          // lock to bottom
+      : mouseY;
+
+    prevX = lensX;
+    prevY = lensY;
+    lensX = lerp(lensX, targetX, ease);
+    lensY = lerp(lensY, targetY, ease);
+
+    lensVX = lensX - prevX;
+    lensVY = lensY - prevY;
+
+    /* position the lens */
+    if (mode === 'bar') {
+      lens.style.left = lensX + 'px';
+      lens.style.top  = '';
+      lens.style.transform = 'translate(-50%, 0)';
+    } else {
+      lens.style.left = lensX + 'px';
+      lens.style.top  = lensY + 'px';
+      lens.style.transform = 'translate(-50%, -50%)';
     }
 
-    function animate(time) {
-      const target = getTarget();
-      const ease = mode === "bar" ? 0.12 : 0.17;
+    /* subtle 3D tilt based on velocity */
+    const tiltX = lensVY * -0.8;
+    const tiltY = lensVX *  0.8;
+    const body = lens.querySelector('.lens-body');
+    body.style.transform =
+      `perspective(600px) rotateX(${tiltX}deg) rotateY(${tiltY}deg)`;
 
-      current.x += (target.x - current.x) * ease;
-      current.y += (target.y - current.y) * ease;
+    /* animate the SVG turbulence for the "liquid" feel */
+    const bf1 = 0.012 + Math.sin(time * 0.7) * 0.004;
+    const bf2 = 0.012 + Math.cos(time * 0.5) * 0.004;
+    const seed = Math.floor(time * 2) % 100;
 
-      glass.style.setProperty("--x", `${current.x}px`);
-      glass.style.setProperty("--y", `${current.y}px`);
-
-      const rect = glass.getBoundingClientRect();
-
-      const mx = clamp(((pointer.x - rect.left) / rect.width) * 100, 0, 100);
-      const my = clamp(((pointer.y - rect.top) / rect.height) * 100, 0, 100);
-
-      glass.style.setProperty("--mx", `${mx.toFixed(2)}%`);
-      glass.style.setProperty("--my", `${my.toFixed(2)}%`);
-
-      const tiltX =
-        mode === "bar"
-          ? 0
-          : ((pointer.x / window.innerWidth) - 0.5) * 12;
-
-      const tiltY =
-        mode === "bar"
-          ? 0
-          : -((pointer.y / window.innerHeight) - 0.5) * 12;
-
-      glass.style.setProperty("--tilt-x", `${tiltX.toFixed(2)}deg`);
-      glass.style.setProperty("--tilt-y", `${tiltY.toFixed(2)}deg`);
-
-      const seconds = time * 0.001;
-
-      const baseX = mode === "bar" ? 0.012 : 0.016;
-      const baseY = mode === "bar" ? 0.022 : 0.034;
-
-      const freqX = baseX + Math.sin(seconds * 0.75) * 0.004;
-      const freqY = baseY + Math.cos(seconds * 0.55) * 0.006;
-
-      noise.setAttribute(
-        "baseFrequency",
-        `${freqX.toFixed(4)} ${freqY.toFixed(4)}`
-      );
-
-      const baseScale = mode === "bar" ? 15 : mode === "cube" ? 24 : 32;
-      const scale = baseScale + Math.sin(seconds * 1.35) * 4;
-
-      displace.setAttribute("scale", scale.toFixed(1));
-
-      requestAnimationFrame(animate);
+    if (turb) {
+      turb.setAttribute('baseFrequency', `${bf1} ${bf2}`);
+      turb.setAttribute('seed', seed);
+    }
+    if (turb2) {
+      turb2.setAttribute('baseFrequency', `${bf1 * 1.3} ${bf2 * 1.3}`);
+      turb2.setAttribute('seed', seed + 50);
     }
 
-    setMode("lens");
-    requestAnimationFrame(animate);
-  </script>
+    /* displacement scale reacts to speed */
+    const speed = Math.sqrt(lensVX ** 2 + lensVY ** 2);
+    const dispScale = 22 + Math.min(speed * 3, 30);
+    const dispEl = document.querySelector('#liquid-distort feDisplacementMap');
+    if (dispEl) dispEl.setAttribute('scale', dispScale);
+
+    /* custom cursor */
+    cursor.style.left = mouseX + 'px';
+    cursor.style.top  = mouseY + 'px';
+
+    requestAnimationFrame(tick);
+  }
+
+  tick();
+})();
+</script>
 </body>
 </html>

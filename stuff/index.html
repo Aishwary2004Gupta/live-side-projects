@@ -1,25 +1,589 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Draggable Stickers</title>
-    <link rel="stylesheet" href="styles.css" />
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Draggable Stickers</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --bg: #ebe5d6;
+    --fg: #1a1a1a;
+    --accent: #1a1a1a;
+  }
+
+  html { overflow-x: hidden; }
+
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: var(--bg);
+    color: var(--fg);
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+    overflow-x: hidden;
+  }
+
+  .scene {
+    position: relative;
+    width: 100%;
+    min-height: 100vh;
+    overflow: hidden;
+    background:
+      radial-gradient(ellipse 80% 50% at 50% 0%, rgba(108, 92, 231, 0.10), transparent 60%),
+      radial-gradient(ellipse 60% 40% at 15% 100%, rgba(231, 76, 60, 0.08), transparent 60%),
+      radial-gradient(ellipse 60% 40% at 85% 100%, rgba(39, 174, 96, 0.08), transparent 60%),
+      var(--bg);
+  }
+
+  .scene::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image:
+      repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.012) 2px, rgba(0,0,0,0.012) 3px);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .constraints {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 1;
+  }
+
+  .sticker-container {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    min-height: 100vh;
+  }
+
+  .reset-button-wrap {
+    position: absolute;
+    top: 2rem;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 100;
+    transition: opacity 0.3s ease, transform 0.3s ease;
+  }
+
+  .reset-button-wrap.hidden {
+    opacity: 0;
+    pointer-events: none;
+    transform: translateX(-50%) translateY(-8px);
+  }
+
+  .reset-button {
+    background: var(--accent);
+    color: white;
+    border: none;
+    padding: 0.7rem 1.4rem;
+    border-radius: 9999px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    letter-spacing: 0.02em;
+    font-family: inherit;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .reset-button:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 24px rgba(0,0,0,0.2);
+  }
+
+  .reset-button:active:not(:disabled) {
+    transform: translateY(0);
+  }
+
+  .reset-button:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+
+  .reset-button svg {
+    width: 14px;
+    height: 14px;
+  }
+
+  .sticker-anchor {
+    position: absolute;
+    top: 6rem;
+    left: 50%;
+    width: 0;
+    height: 0;
+  }
+
+  .sticker {
+    position: absolute;
+    top: 0;
+    left: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: grab;
+    transform-origin: center center;
+    will-change: transform;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
+    touch-action: none;
+    z-index: 1;
+    line-height: 0;
+  }
+
+  .sticker.dragging { cursor: grabbing; }
+
+  .sticker svg.sticker-art {
+    width: 100px;
+    height: 100px;
+    filter: drop-shadow(0 8px 14px rgba(0,0,0,0.18));
+    pointer-events: none;
+    display: block;
+  }
+
+  @media (max-width: 768px) {
+    .sticker svg.sticker-art { width: 70px; height: 70px; }
+  }
+
+  @media (min-width: 768px) and (max-width: 1024px) {
+    .sticker svg.sticker-art { width: 75px; height: 75px; }
+  }
+
+  .hint {
+    position: fixed;
+    bottom: 1.5rem;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 0.72rem;
+    color: rgba(0,0,0,0.4);
+    z-index: 100;
+    pointer-events: none;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    font-weight: 500;
+  }
+
+  .hint span { display: inline-block; margin: 0 0.4rem; opacity: 0.5; }
+</style>
 </head>
 <body>
-    <div class="draggable-stickers">
-        <!-- This div is only used for drag constraints -->
-        <div class="constraints-area" id="constraints-area"></div>
-
-        <!-- Container for the stickers -->
-        <div class="stickers-container" id="stickers-container"></div>
-
-        <!-- Reset button (hidden until all stickers are free) -->
-        <div class="reset-button-wrapper" id="reset-wrapper">
-            <button class="reset-button" id="reset-btn" disabled>Reset Stickers</button>
-        </div>
+<div class="scene">
+  <div class="constraints" id="constraints"></div>
+  <div class="sticker-container" id="container" style="--rotation-seed: 0.5; --position-seed: 0.5; --items: 11;">
+    <div class="reset-button-wrap hidden" id="resetWrap">
+      <button class="reset-button" id="resetBtn" disabled>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M3 12a9 9 0 1 0 3-6.7L3 8"/>
+          <path d="M3 3v5h5"/>
+        </svg>
+        Reset Stickers
+      </button>
     </div>
+    <div class="sticker-anchor" id="stickerAnchor"></div>
+  </div>
+</div>
+<div class="hint">Drag<span>·</span>Drop<span>·</span>Reset</div>
 
-    <script src="script.js"></script>
+<script>
+// ===== Sticker SVGs (recreated from the sticker pack) =====
+const stickerSVGs = [
+  // Stamp1 - APPROVED
+  `<svg class="sticker-art" viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
+    <circle cx="60" cy="60" r="52" fill="#E74C3C" stroke="white" stroke-width="5"/>
+    <circle cx="60" cy="60" r="42" fill="none" stroke="white" stroke-width="1.5"/>
+    <text x="60" y="55" text-anchor="middle" font-size="20" font-weight="900" fill="white" font-family="Arial, sans-serif">100%</text>
+    <text x="60" y="74" text-anchor="middle" font-size="11" font-weight="800" fill="white" font-family="Arial, sans-serif" letter-spacing="2">APPROVED</text>
+    <text x="60" y="88" text-anchor="middle" font-size="7" font-weight="600" fill="white" font-family="Arial, sans-serif" letter-spacing="1.5" opacity="0.85">★ OFFICIAL ★</text>
+  </svg>`,
+
+  // Zet
+  `<svg class="sticker-art" viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
+    <rect x="18" y="18" width="84" height="84" rx="18" fill="#2C3E50" stroke="white" stroke-width="5"/>
+    <text x="60" y="88" text-anchor="middle" font-size="64" font-weight="900" fill="#F1C40F" font-family="Georgia, Times, serif" font-style="italic">Z</text>
+    <circle cx="92" cy="28" r="7" fill="#E74C3C" stroke="white" stroke-width="2"/>
+  </svg>`,
+
+  // CmdKey
+  `<svg class="sticker-art" viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
+    <rect x="14" y="20" width="92" height="86" rx="16" fill="#BDC3C7"/>
+    <rect x="14" y="14" width="92" height="86" rx="16" fill="#ECF0F1" stroke="white" stroke-width="5"/>
+    <g stroke="#2C3E50" stroke-width="6" fill="none" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M 42 42 L 78 42 L 78 78 L 42 78 Z"/>
+      <path d="M 42 42 L 42 30 Q 42 18 30 18 Q 18 18 18 30 L 18 42 Q 18 54 30 54 L 42 54"/>
+      <path d="M 78 42 L 78 30 Q 78 18 90 18 Q 102 18 102 30 L 102 42 Q 102 54 90 54 L 78 54"/>
+      <path d="M 42 78 L 42 90 Q 42 102 30 102 Q 18 102 18 90 L 18 78 Q 18 66 30 66 L 42 66"/>
+      <path d="M 78 78 L 78 90 Q 78 102 90 102 Q 102 102 102 90 L 102 78 Q 102 66 90 66 L 78 66"/>
+    </g>
+  </svg>`,
+
+  // OptionKey
+  `<svg class="sticker-art" viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
+    <rect x="14" y="20" width="92" height="86" rx="16" fill="#BDC3C7"/>
+    <rect x="14" y="14" width="92" height="86" rx="16" fill="#ECF0F1" stroke="white" stroke-width="5"/>
+    <path d="M 25 85 L 70 30 L 95 30 M 25 85 L 50 85"
+          stroke="#2C3E50" stroke-width="6" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  </svg>`,
+
+  // Battery
+  `<svg class="sticker-art" viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
+    <rect x="14" y="35" width="78" height="55" rx="10" fill="#2C3E50" stroke="white" stroke-width="5"/>
+    <rect x="94" y="50" width="10" height="25" rx="3" fill="#2C3E50" stroke="white" stroke-width="5"/>
+    <rect x="21" y="42" width="58" height="41" rx="4" fill="#27AE60"/>
+    <path d="M 38 60 L 50 72 L 66 50" stroke="white" stroke-width="5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  </svg>`,
+
+  // Copyright
+  `<svg class="sticker-art" viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
+    <circle cx="60" cy="60" r="52" fill="#8E44AD" stroke="white" stroke-width="5"/>
+    <circle cx="60" cy="60" r="38" fill="none" stroke="white" stroke-width="3.5"/>
+    <path d="M 72 52 Q 66 47 60 47 Q 48 47 48 60 Q 48 73 60 73 Q 66 73 72 68"
+          stroke="white" stroke-width="5" fill="none" stroke-linecap="round"/>
+  </svg>`,
+
+  // Buka
+  `<svg class="sticker-art" viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
+    <path d="M 18 32 Q 18 22 28 22 L 92 22 Q 102 22 102 32 L 102 70 Q 102 80 92 80 L 55 80 L 38 95 L 41 80 L 28 80 Q 18 80 18 70 Z"
+          fill="#F39C12" stroke="white" stroke-width="5" stroke-linejoin="round"/>
+    <text x="60" y="58" text-anchor="middle" font-size="22" font-weight="900" fill="white" font-family="Arial, sans-serif" letter-spacing="1">BUKA!</text>
+  </svg>`,
+
+  // v60
+  `<svg class="sticker-art" viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
+    <path d="M 22 32 L 98 32 L 73 92 L 47 92 Z" fill="#5D4E37" stroke="white" stroke-width="5" stroke-linejoin="round"/>
+    <ellipse cx="60" cy="37" rx="34" ry="6" fill="#3D2E1F" stroke="white" stroke-width="2.5"/>
+    <g stroke="white" stroke-width="1.5" opacity="0.35">
+      <line x1="38" y1="37" x2="48" y2="87"/>
+      <line x1="60" y1="37" x2="60" y2="87"/>
+      <line x1="82" y1="37" x2="72" y2="87"/>
+    </g>
+    <circle cx="60" cy="100" r="4" fill="#3D2E1F"/>
+  </svg>`,
+
+  // FigmaExport
+  `<svg class="sticker-art" viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
+    <rect x="15" y="15" width="90" height="90" rx="14" fill="#1E1E1E" stroke="white" stroke-width="5"/>
+    <g stroke="white" stroke-width="5" fill="none" stroke-linecap="round" stroke-linejoin="round">
+      <line x1="60" y1="32" x2="60" y2="72"/>
+      <polyline points="45,47 60,32 75,47"/>
+      <line x1="35" y1="88" x2="85" y2="88"/>
+    </g>
+  </svg>`,
+
+  // Stamp2 - DRAFT
+  `<svg class="sticker-art" viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
+    <g transform="rotate(-10 60 60)">
+      <rect x="10" y="42" width="100" height="36" rx="4" fill="#3498DB" stroke="white" stroke-width="5"/>
+      <text x="60" y="68" text-anchor="middle" font-size="22" font-weight="900" fill="white" font-family="Arial, sans-serif" letter-spacing="4">DRAFT</text>
+    </g>
+  </svg>`,
+
+  // LoremIpsum
+  `<svg class="sticker-art" viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
+    <rect x="14" y="20" width="92" height="80" rx="6" fill="white" stroke="#2C3E50" stroke-width="4"/>
+    <line x1="24" y1="36" x2="96" y2="36" stroke="#2C3E50" stroke-width="3" stroke-linecap="round"/>
+    <line x1="24" y1="50" x2="86" y2="50" stroke="#3498DB" stroke-width="2.5" stroke-linecap="round"/>
+    <line x1="24" y1="62" x2="92" y2="62" stroke="#3498DB" stroke-width="2.5" stroke-linecap="round"/>
+    <line x1="24" y1="74" x2="74" y2="74" stroke="#3498DB" stroke-width="2.5" stroke-linecap="round"/>
+    <line x1="24" y1="86" x2="82" y2="86" stroke="#3498DB" stroke-width="2.5" stroke-linecap="round"/>
+  </svg>`
+];
+
+// ===== Utilities =====
+function lerp(a, b, t) { return a + (b - a) * t; }
+function randInt(min, max) { return Math.floor(Math.random() * (max - min + 1)) + min; }
+
+function getResponsive() {
+  const isSm = window.matchMedia('(max-width: 768px)').matches;
+  const isMd = window.matchMedia('(min-width: 768px) and (max-width: 1024px)').matches;
+  return { isSm, isMd };
+}
+
+// ===== State =====
+const stickerAnchor = document.getElementById('stickerAnchor');
+const resetBtn = document.getElementById('resetBtn');
+const resetWrap = document.getElementById('resetWrap');
+
+let stickerElements = [];
+let stickerStates = [];
+let zCounter = 1;
+let initialStates = [];
+
+// ===== Compute initial positions (mirrors the React useMemo logic) =====
+function computeInitialPositions() {
+  const { isSm, isMd } = getResponsive();
+  const len = stickerSVGs.length;
+  const positions = [];
+
+  for (let i = 0; i < len; i++) {
+    const isInFirstHalf = i < Math.floor(len / 2);
+    const t = i / (len - 1);
+    const isOdd = i & 1;
+
+    let initialX, initialY;
+    if (isSm) {
+      initialX = Math.sin(lerp(-1, 1, t)) * 150 * -1;
+      initialY = (isOdd ? -1 : 1) * randInt(20, 50);
+    } else {
+      initialX = Math.abs(Math.sin(lerp(-1, 1, t))) * (isMd ? 150 : randInt(300, 500)) * (isInFirstHalf ? -1 : 1);
+      initialY = (isOdd ? -1 : 1) * randInt(20, 50);
+    }
+
+    const initRotate = Math.random() * (Math.sign(Math.sin(Math.random() * 100)) * 30);
+    const initScale = isSm ? 0.7 : isMd ? 0.75 : 1.25;
+
+    positions.push({ x: initialX, y: initialY, rotate: initRotate, scale: initScale });
+  }
+
+  return positions;
+}
+
+// ===== Spring animation (replaces framer-motion's spring) =====
+function animateSticker(idx, targetX, targetY, targetScale, targetRotate, options = {}) {
+  const state = stickerStates[idx];
+  if (state.animation) state.animation.cancelled = true;
+
+  const animation = { cancelled: false };
+  state.animation = animation;
+
+  const stiffness = options.stiffness ?? 80;
+  const damping = options.damping ?? 14;
+
+  let vx = state.velocityX || 0;
+  let vy = state.velocityY || 0;
+  let vs = 0;
+  let vr = 0;
+
+  let lastTime = performance.now();
+
+  function step(now) {
+    if (animation.cancelled) return;
+    const dt = Math.min((now - lastTime) / 1000, 0.05);
+    lastTime = now;
+
+    // Spring physics: F = -kx - cv
+    const fx = -stiffness * (state.currentX - targetX) - damping * vx;
+    vx += fx * dt;
+    state.currentX += vx * dt;
+
+    const fy = -stiffness * (state.currentY - targetY) - damping * vy;
+    vy += fy * dt;
+    state.currentY += vy * dt;
+
+    const fs = -stiffness * (state.currentScale - targetScale) - damping * vs;
+    vs += fs * dt;
+    state.currentScale += vs * dt;
+
+    const fr = -stiffness * (state.currentRotate - targetRotate) - damping * vr;
+    vr += fr * dt;
+    state.currentRotate += vr * dt;
+
+    applyTransform(idx);
+
+    const settled = Math.abs(vx) < 0.5 && Math.abs(vy) < 0.5 && Math.abs(vs) < 0.005 && Math.abs(vr) < 0.1
+                  && Math.abs(state.currentX - targetX) < 0.5
+                  && Math.abs(state.currentY - targetY) < 0.5
+                  && Math.abs(state.currentScale - targetScale) < 0.005
+                  && Math.abs(state.currentRotate - targetRotate) < 0.1;
+
+    if (settled) {
+      state.currentX = targetX;
+      state.currentY = targetY;
+      state.currentScale = targetScale;
+      state.currentRotate = targetRotate;
+      state.velocityX = 0;
+      state.velocityY = 0;
+      applyTransform(idx);
+      state.animation = null;
+      if (options.onComplete) options.onComplete();
+      return;
+    }
+
+    requestAnimationFrame(step);
+  }
+
+  requestAnimationFrame(step);
+}
+
+function applyTransform(idx) {
+  const state = stickerStates[idx];
+  const el = stickerElements[idx];
+  el.style.transform = `translate(${state.currentX}px, ${state.currentY}px) rotate(${state.currentRotate}deg) scale(${state.currentScale})`;
+}
+
+// ===== Setup stickers =====
+function createStickers() {
+  initialStates = computeInitialPositions();
+
+  stickerSVGs.forEach((svg, i) => {
+    const el = document.createElement('div');
+    el.className = 'sticker';
+    el.innerHTML = svg;
+    el.dataset.index = i;
+
+    const init = initialStates[i];
+
+    stickerStates.push({
+      x: init.x,
+      y: init.y,
+      currentX: 0,
+      currentY: 0,
+      rotate: init.rotate,
+      currentRotate: 0,
+      scale: init.scale,
+      currentScale: 1,
+      z: 1,
+      dragging: false,
+      animation: null,
+      velocityX: 0,
+      velocityY: 0
+    });
+
+    el.style.opacity = '0';
+    el.style.transform = `translate(0px, 0px) rotate(0deg) scale(1)`;
+
+    stickerAnchor.appendChild(el);
+    stickerElements.push(el);
+
+    setupDrag(el, i);
+  });
+
+  // Stagger entrance — each sticker gets its own random bounce like the original
+  stickerElements.forEach((el, i) => {
+    setTimeout(() => {
+      el.style.transition = 'opacity 0.5s ease';
+      el.style.opacity = '1';
+      setTimeout(() => { el.style.transition = ''; }, 500);
+
+      const init = initialStates[i];
+      const bounce = Math.random();
+      const damping = 9 + (1 - bounce) * 8;
+      const stiffness = 65 + Math.random() * 25;
+
+      animateSticker(i, init.x, init.y, init.scale, init.rotate, {
+        stiffness,
+        damping
+      });
+    }, i * 70);
+  });
+}
+
+// ===== Drag handling (replaces framer-motion's drag) =====
+function setupDrag(el, idx) {
+  let startX, startY, initialElX, initialElY;
+  let isDragging = false;
+  let pointerId = null;
+
+  el.addEventListener('pointerdown', (e) => {
+    e.preventDefault();
+    isDragging = true;
+    pointerId = e.pointerId;
+    try { el.setPointerCapture(e.pointerId); } catch {}
+
+    startX = e.clientX;
+    startY = e.clientY;
+
+    const state = stickerStates[idx];
+    initialElX = state.currentX;
+    initialElY = state.currentY;
+
+    // Cancel any in-flight animation
+    if (state.animation) {
+      state.animation.cancelled = true;
+      state.animation = null;
+    }
+
+    // Bring to front (mirrors z-index management)
+    zCounter++;
+    state.z = zCounter;
+    el.style.zIndex = zCounter;
+
+    state.dragging = true;
+    state.velocityX = 0;
+    state.velocityY = 0;
+
+    hideResetButton();
+
+    // whileDrag: scale up + rotate to 0
+    state.currentScale = state.scale * 1.2;
+    state.currentRotate = 0;
+    applyTransform(idx);
+
+    el.classList.add('dragging');
+  });
+
+  el.addEventListener('pointermove', (e) => {
+    if (!isDragging || e.pointerId !== pointerId) return;
+
+    const dx = e.clientX - startX;
+    const dy = e.clientY - startY;
+
+    const state = stickerStates[idx];
+    state.currentX = initialElX + dx;
+    state.currentY = initialElY + dy;
+
+    applyTransform(idx);
+  });
+
+  const endDrag = (e) => {
+    if (!isDragging) return;
+    if (e && e.pointerId !== undefined && e.pointerId !== pointerId) return;
+    isDragging = false;
+    pointerId = null;
+    if (e) { try { el.releasePointerCapture(e.pointerId); } catch {} }
+
+    const state = stickerStates[idx];
+    state.dragging = false;
+    el.classList.remove('dragging');
+
+    // Animate scale back to initial (handleDragEnd equivalent)
+    animateSticker(idx, state.currentX, state.currentY, state.scale, 0, {
+      onComplete: () => {
+        // onDragTransitionEnd: if nothing is dragging anymore, enable reset
+        const anyActive = stickerStates.some(s => s.dragging || s.animation);
+        if (!anyActive) {
+          showResetButton();
+        }
+      }
+    });
+  };
+
+  el.addEventListener('pointerup', endDrag);
+  el.addEventListener('pointercancel', endDrag);
+  el.addEventListener('dragstart', (e) => e.preventDefault());
+}
+
+// ===== Reset button =====
+function hideResetButton() {
+  resetWrap.classList.add('hidden');
+  resetBtn.disabled = true;
+}
+
+function showResetButton() {
+  resetWrap.classList.remove('hidden');
+  resetBtn.disabled = false;
+}
+
+function handleReset() {
+  // Animate every sticker back to its initial variant
+  stickerStates.forEach((state, i) => {
+    const init = initialStates[i];
+    animateSticker(i, init.x, init.y, init.scale, init.rotate, {
+      stiffness: 80,
+      damping: 12
+    });
+  });
+}
+
+resetBtn.addEventListener('click', handleReset);
+
+// ===== Initialize =====
+createStickers();
+</script>
 </body>
 </html>

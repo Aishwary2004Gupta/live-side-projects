@@ -8,15 +8,17 @@
   * { margin: 0; padding: 0; box-sizing: border-box; }
 
   :root {
-    --bg: #ebe5d6;
+    --bg: #f2ede4;
     --fg: #1a1a1a;
-    --accent: #1a1a1a;
+    --shadow-sm: 0 2px 8px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.06);
+    --shadow-md: 0 4px 16px rgba(0,0,0,0.12), 0 2px 4px rgba(0,0,0,0.08);
+    --shadow-lg: 0 12px 32px rgba(0,0,0,0.18), 0 4px 8px rgba(0,0,0,0.1);
   }
 
   html { overflow-x: hidden; }
 
   body {
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', sans-serif;
     background: var(--bg);
     color: var(--fg);
     min-height: 100vh;
@@ -29,21 +31,19 @@
     width: 100%;
     min-height: 100vh;
     overflow: hidden;
-    background:
-      radial-gradient(ellipse 80% 50% at 50% 0%, rgba(108, 92, 231, 0.10), transparent 60%),
-      radial-gradient(ellipse 60% 40% at 15% 100%, rgba(231, 76, 60, 0.08), transparent 60%),
-      radial-gradient(ellipse 60% 40% at 85% 100%, rgba(39, 174, 96, 0.08), transparent 60%),
-      var(--bg);
+    background: var(--bg);
   }
 
-  .scene::before {
+  /* Subtle grain overlay */
+  .scene::after {
     content: '';
     position: absolute;
     inset: 0;
-    background-image:
-      repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.012) 2px, rgba(0,0,0,0.012) 3px);
     pointer-events: none;
-    z-index: 0;
+    z-index: 999;
+    opacity: 0.03;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    background-size: 256px 256px;
   }
 
   .constraints {
@@ -60,70 +60,74 @@
     min-height: 100vh;
   }
 
-  .reset-button-wrap {
+  /* Reset button */
+  .reset-wrap {
     position: absolute;
-    top: 2rem;
+    top: 1.5rem;
     left: 50%;
     transform: translateX(-50%);
-    z-index: 100;
-    transition: opacity 0.3s ease, transform 0.3s ease;
+    z-index: 200;
+    transition: opacity 0.35s cubic-bezier(0.4, 0, 0.2, 1), transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
   }
 
-  .reset-button-wrap.hidden {
+  .reset-wrap.hidden {
     opacity: 0;
     pointer-events: none;
-    transform: translateX(-50%) translateY(-8px);
+    transform: translateX(-50%) translateY(-6px);
   }
 
-  .reset-button {
-    background: var(--accent);
-    color: white;
-    border: none;
-    padding: 0.7rem 1.4rem;
-    border-radius: 9999px;
-    font-size: 0.85rem;
-    font-weight: 600;
-    cursor: pointer;
-    transition: transform 0.2s ease, box-shadow 0.2s ease;
-    letter-spacing: 0.02em;
-    font-family: inherit;
+  .reset-btn {
     display: inline-flex;
     align-items: center;
     gap: 0.5rem;
+    background: var(--fg);
+    color: #fff;
+    border: none;
+    padding: 0.65rem 1.3rem;
+    border-radius: 100px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    cursor: pointer;
+    letter-spacing: 0.01em;
+    font-family: inherit;
+    transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: var(--shadow-sm);
   }
 
-  .reset-button:hover:not(:disabled) {
-    transform: translateY(-2px);
-    box-shadow: 0 10px 24px rgba(0,0,0,0.2);
+  .reset-btn:hover:not(:disabled) {
+    transform: translateY(-1px) scale(1.02);
+    box-shadow: var(--shadow-md);
   }
 
-  .reset-button:active:not(:disabled) {
-    transform: translateY(0);
+  .reset-btn:active:not(:disabled) {
+    transform: translateY(0) scale(0.98);
   }
 
-  .reset-button:disabled {
-    opacity: 0.4;
+  .reset-btn:disabled {
+    opacity: 0.35;
     cursor: not-allowed;
   }
 
-  .reset-button svg {
-    width: 14px;
-    height: 14px;
+  .reset-btn svg {
+    width: 13px;
+    height: 13px;
   }
 
+  /* Sticker anchor point */
   .sticker-anchor {
     position: absolute;
-    top: 6rem;
+    top: 55%;
     left: 50%;
     width: 0;
     height: 0;
   }
 
+  /* Individual sticker */
   .sticker {
     position: absolute;
     top: 0;
     left: 0;
-    display: inline-flex;
+    display: flex;
     align-items: center;
     justify-content: center;
     cursor: grab;
@@ -135,455 +139,550 @@
     touch-action: none;
     z-index: 1;
     line-height: 0;
+    transition: filter 0.25s ease;
   }
 
-  .sticker.dragging { cursor: grabbing; }
+  .sticker:hover:not(.dragging) {
+    filter: brightness(1.03);
+  }
 
-  .sticker svg.sticker-art {
-    width: 100px;
-    height: 100px;
-    filter: drop-shadow(0 8px 14px rgba(0,0,0,0.18));
-    pointer-events: none;
+  .sticker.dragging {
+    cursor: grabbing;
+    filter: brightness(1.05);
+  }
+
+  .sticker-inner {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+
+  .sticker:hover:not(.dragging) .sticker-inner {
+    transform: scale(1.04);
+  }
+
+  .sticker.dragging .sticker-inner {
+    transform: scale(1.15);
+  }
+
+  /* Die-cut white border effect */
+  .sticker-art {
     display: block;
+    filter: drop-shadow(0 3px 6px rgba(0,0,0,0.15)) drop-shadow(0 1px 2px rgba(0,0,0,0.1));
+    transition: filter 0.25s ease;
   }
+
+  .sticker:hover:not(.dragging) .sticker-art {
+    filter: drop-shadow(0 6px 12px rgba(0,0,0,0.2)) drop-shadow(0 2px 4px rgba(0,0,0,0.12));
+  }
+
+  .sticker.dragging .sticker-art {
+    filter: drop-shadow(0 12px 24px rgba(0,0,0,0.25)) drop-shadow(0 4px 8px rgba(0,0,0,0.15));
+  }
+
+  /* Sizes */
+  .sticker-art { width: 110px; height: 110px; }
 
   @media (max-width: 768px) {
-    .sticker svg.sticker-art { width: 70px; height: 70px; }
+    .sticker-art { width: 72px; height: 72px; }
   }
 
   @media (min-width: 768px) and (max-width: 1024px) {
-    .sticker svg.sticker-art { width: 75px; height: 75px; }
+    .sticker-art { width: 80px; height: 80px; }
   }
 
+  /* Hint text */
   .hint {
     position: fixed;
-    bottom: 1.5rem;
+    bottom: 1.25rem;
     left: 50%;
     transform: translateX(-50%);
-    font-size: 0.72rem;
-    color: rgba(0,0,0,0.4);
-    z-index: 100;
+    font-size: 0.65rem;
+    color: rgba(0,0,0,0.3);
+    z-index: 200;
     pointer-events: none;
-    letter-spacing: 0.18em;
+    letter-spacing: 0.2em;
     text-transform: uppercase;
     font-weight: 500;
+    white-space: nowrap;
   }
 
-  .hint span { display: inline-block; margin: 0 0.4rem; opacity: 0.5; }
+  .hint span { opacity: 0.4; margin: 0 0.5rem; }
 </style>
 </head>
 <body>
 <div class="scene">
   <div class="constraints" id="constraints"></div>
-  <div class="sticker-container" id="container" style="--rotation-seed: 0.5; --position-seed: 0.5; --items: 11;">
-    <div class="reset-button-wrap hidden" id="resetWrap">
-      <button class="reset-button" id="resetBtn" disabled>
+  <div class="sticker-container" id="container">
+    <div class="reset-wrap hidden" id="resetWrap">
+      <button class="reset-btn" id="resetBtn" disabled>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
           <path d="M3 12a9 9 0 1 0 3-6.7L3 8"/>
           <path d="M3 3v5h5"/>
         </svg>
-        Reset Stickers
+        Reset
       </button>
     </div>
-    <div class="sticker-anchor" id="stickerAnchor"></div>
+    <div class="sticker-anchor" id="anchor"></div>
   </div>
 </div>
-<div class="hint">Drag<span>·</span>Drop<span>·</span>Reset</div>
+<div class="hint">Drag<span>·</span>Toss<span>·</span>Reset</div>
 
 <script>
-// ===== Sticker SVGs (recreated from the sticker pack) =====
-const stickerSVGs = [
-  // Stamp1 - APPROVED
+// ===================== STICKER SVGs =====================
+const STICKERS = [
+  // 0: Stamp1 - "100% APPROVED" red circle
   `<svg class="sticker-art" viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
-    <circle cx="60" cy="60" r="52" fill="#E74C3C" stroke="white" stroke-width="5"/>
-    <circle cx="60" cy="60" r="42" fill="none" stroke="white" stroke-width="1.5"/>
-    <text x="60" y="55" text-anchor="middle" font-size="20" font-weight="900" fill="white" font-family="Arial, sans-serif">100%</text>
-    <text x="60" y="74" text-anchor="middle" font-size="11" font-weight="800" fill="white" font-family="Arial, sans-serif" letter-spacing="2">APPROVED</text>
-    <text x="60" y="88" text-anchor="middle" font-size="7" font-weight="600" fill="white" font-family="Arial, sans-serif" letter-spacing="1.5" opacity="0.85">★ OFFICIAL ★</text>
-  </svg>`,
-
-  // Zet
-  `<svg class="sticker-art" viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
-    <rect x="18" y="18" width="84" height="84" rx="18" fill="#2C3E50" stroke="white" stroke-width="5"/>
-    <text x="60" y="88" text-anchor="middle" font-size="64" font-weight="900" fill="#F1C40F" font-family="Georgia, Times, serif" font-style="italic">Z</text>
-    <circle cx="92" cy="28" r="7" fill="#E74C3C" stroke="white" stroke-width="2"/>
-  </svg>`,
-
-  // CmdKey
-  `<svg class="sticker-art" viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
-    <rect x="14" y="20" width="92" height="86" rx="16" fill="#BDC3C7"/>
-    <rect x="14" y="14" width="92" height="86" rx="16" fill="#ECF0F1" stroke="white" stroke-width="5"/>
-    <g stroke="#2C3E50" stroke-width="6" fill="none" stroke-linecap="round" stroke-linejoin="round">
-      <path d="M 42 42 L 78 42 L 78 78 L 42 78 Z"/>
-      <path d="M 42 42 L 42 30 Q 42 18 30 18 Q 18 18 18 30 L 18 42 Q 18 54 30 54 L 42 54"/>
-      <path d="M 78 42 L 78 30 Q 78 18 90 18 Q 102 18 102 30 L 102 42 Q 102 54 90 54 L 78 54"/>
-      <path d="M 42 78 L 42 90 Q 42 102 30 102 Q 18 102 18 90 L 18 78 Q 18 66 30 66 L 42 66"/>
-      <path d="M 78 78 L 78 90 Q 78 102 90 102 Q 102 102 102 90 L 102 78 Q 102 66 90 66 L 78 66"/>
+    <circle cx="60" cy="60" r="56" fill="white"/>
+    <circle cx="60" cy="60" r="50" fill="#d94040"/>
+    <circle cx="60" cy="60" r="42" fill="none" stroke="rgba(255,255,255,0.3)" stroke-width="1.5"/>
+    <text x="60" y="52" text-anchor="middle" font-size="22" font-weight="900" fill="white" font-family="Arial Black, Arial, sans-serif">100%</text>
+    <text x="60" y="72" text-anchor="middle" font-size="11" font-weight="800" fill="white" font-family="Arial, sans-serif" letter-spacing="2.5">APPROVED</text>
+    <g fill="white" opacity="0.7">
+      <circle cx="30" cy="60" r="2"/><circle cx="90" cy="60" r="2"/>
     </g>
   </svg>`,
 
-  // OptionKey
+  // 1: Zet - "Z" letter
   `<svg class="sticker-art" viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
-    <rect x="14" y="20" width="92" height="86" rx="16" fill="#BDC3C7"/>
-    <rect x="14" y="14" width="92" height="86" rx="16" fill="#ECF0F1" stroke="white" stroke-width="5"/>
-    <path d="M 25 85 L 70 30 L 95 30 M 25 85 L 50 85"
-          stroke="#2C3E50" stroke-width="6" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+    <rect x="12" y="12" width="96" height="96" rx="20" fill="white"/>
+    <rect x="17" y="17" width="86" height="86" rx="16" fill="#2d2d2d"/>
+    <text x="60" y="86" text-anchor="middle" font-size="68" font-weight="900" fill="#f5c842" font-family="Georgia, serif" font-style="italic">Z</text>
+    <circle cx="94" cy="26" r="8" fill="#d94040"/>
+    <circle cx="94" cy="26" r="4" fill="white"/>
   </svg>`,
 
-  // Battery
+  // 2: CmdKey - ⌘
   `<svg class="sticker-art" viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
-    <rect x="14" y="35" width="78" height="55" rx="10" fill="#2C3E50" stroke="white" stroke-width="5"/>
-    <rect x="94" y="50" width="10" height="25" rx="3" fill="#2C3E50" stroke="white" stroke-width="5"/>
-    <rect x="21" y="42" width="58" height="41" rx="4" fill="#27AE60"/>
-    <path d="M 38 60 L 50 72 L 66 50" stroke="white" stroke-width="5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
-  </svg>`,
-
-  // Copyright
-  `<svg class="sticker-art" viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
-    <circle cx="60" cy="60" r="52" fill="#8E44AD" stroke="white" stroke-width="5"/>
-    <circle cx="60" cy="60" r="38" fill="none" stroke="white" stroke-width="3.5"/>
-    <path d="M 72 52 Q 66 47 60 47 Q 48 47 48 60 Q 48 73 60 73 Q 66 73 72 68"
-          stroke="white" stroke-width="5" fill="none" stroke-linecap="round"/>
-  </svg>`,
-
-  // Buka
-  `<svg class="sticker-art" viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
-    <path d="M 18 32 Q 18 22 28 22 L 92 22 Q 102 22 102 32 L 102 70 Q 102 80 92 80 L 55 80 L 38 95 L 41 80 L 28 80 Q 18 80 18 70 Z"
-          fill="#F39C12" stroke="white" stroke-width="5" stroke-linejoin="round"/>
-    <text x="60" y="58" text-anchor="middle" font-size="22" font-weight="900" fill="white" font-family="Arial, sans-serif" letter-spacing="1">BUKA!</text>
-  </svg>`,
-
-  // v60
-  `<svg class="sticker-art" viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
-    <path d="M 22 32 L 98 32 L 73 92 L 47 92 Z" fill="#5D4E37" stroke="white" stroke-width="5" stroke-linejoin="round"/>
-    <ellipse cx="60" cy="37" rx="34" ry="6" fill="#3D2E1F" stroke="white" stroke-width="2.5"/>
-    <g stroke="white" stroke-width="1.5" opacity="0.35">
-      <line x1="38" y1="37" x2="48" y2="87"/>
-      <line x1="60" y1="37" x2="60" y2="87"/>
-      <line x1="82" y1="37" x2="72" y2="87"/>
+    <rect x="10" y="10" width="100" height="100" rx="20" fill="white"/>
+    <rect x="15" y="15" width="90" height="90" rx="16" fill="#f0f0f0" stroke="#ddd" stroke-width="1"/>
+    <g stroke="#2d2d2d" stroke-width="5.5" fill="none" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="40" y="40" width="40" height="40" rx="2"/>
+      <path d="M40 40 L40 28 Q40 16 28 16 Q16 16 16 28 L16 40 Q16 52 28 52 L40 52"/>
+      <path d="M80 40 L80 28 Q80 16 92 16 Q104 16 104 28 L104 40 Q104 52 92 52 L80 52"/>
+      <path d="M40 80 L40 92 Q40 104 28 104 Q16 104 16 92 L16 80 Q16 68 28 68 L40 68"/>
+      <path d="M80 80 L80 92 Q80 104 92 104 Q104 104 104 92 L104 80 Q104 68 92 68 L80 68"/>
     </g>
-    <circle cx="60" cy="100" r="4" fill="#3D2E1F"/>
   </svg>`,
 
-  // FigmaExport
+  // 3: OptionKey - ⌥
   `<svg class="sticker-art" viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
-    <rect x="15" y="15" width="90" height="90" rx="14" fill="#1E1E1E" stroke="white" stroke-width="5"/>
+    <rect x="10" y="10" width="100" height="100" rx="20" fill="white"/>
+    <rect x="15" y="15" width="90" height="90" rx="16" fill="#f0f0f0" stroke="#ddd" stroke-width="1"/>
+    <path d="M 28 82 L 68 32 L 94 32 M 28 82 L 54 82"
+          stroke="#2d2d2d" stroke-width="6" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  </svg>`,
+
+  // 4: Battery
+  `<svg class="sticker-art" viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
+    <rect x="8" y="8" width="104" height="104" rx="20" fill="white"/>
+    <rect x="18" y="38" width="72" height="48" rx="8" fill="none" stroke="#2d2d2d" stroke-width="5"/>
+    <rect x="92" y="52" width="10" height="20" rx="3" fill="#2d2d2d"/>
+    <rect x="24" y="44" width="52" height="36" rx="4" fill="#4caf50"/>
+    <path d="M 38 62 L 48 72 L 64 50" stroke="white" stroke-width="4.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  </svg>`,
+
+  // 5: Copyright
+  `<svg class="sticker-art" viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
+    <circle cx="60" cy="60" r="56" fill="white"/>
+    <circle cx="60" cy="60" r="48" fill="#6c5ce7"/>
+    <circle cx="60" cy="60" r="36" fill="none" stroke="rgba(255,255,255,0.25)" stroke-width="2"/>
+    <path d="M 72 50 Q 64 44 56 44 Q 42 44 42 60 Q 42 76 56 76 Q 64 76 72 70"
+          stroke="white" stroke-width="5.5" fill="none" stroke-linecap="round"/>
+  </svg>`,
+
+  // 6: Buka - "BUKA!" speech bubble
+  `<svg class="sticker-art" viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
+    <path d="M 16 30 Q 16 18 28 18 L 92 18 Q 104 18 104 30 L 104 68 Q 104 80 92 80 L 52 80 L 34 98 L 38 80 L 28 80 Q 16 80 16 68 Z"
+          fill="white" stroke="none"/>
+    <path d="M 20 32 Q 20 22 30 22 L 90 22 Q 100 22 100 32 L 100 66 Q 100 76 90 76 L 54 76 L 38 92 L 42 76 L 30 76 Q 20 76 20 66 Z"
+          fill="#f5a623"/>
+    <text x="60" y="56" text-anchor="middle" font-size="20" font-weight="900" fill="white" font-family="Arial Black, Arial, sans-serif" letter-spacing="1">BUKA!</text>
+  </svg>`,
+
+  // 7: v60 - Coffee dripper
+  `<svg class="sticker-art" viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
+    <circle cx="60" cy="60" r="56" fill="white"/>
+    <path d="M 28 34 L 92 34 L 74 88 L 46 88 Z" fill="#5d4e37" stroke="#3d2e1f" stroke-width="2" stroke-linejoin="round"/>
+    <ellipse cx="60" cy="34" rx="32" ry="5" fill="#3d2e1f"/>
+    <ellipse cx="60" cy="34" rx="28" ry="4" fill="#4a3b28"/>
+    <g stroke="rgba(255,255,255,0.2)" stroke-width="1.5">
+      <line x1="42" y1="38" x2="50" y2="84"/>
+      <line x1="60" y1="38" x2="60" y2="84"/>
+      <line x1="78" y1="38" x2="70" y2="84"/>
+    </g>
+    <circle cx="60" cy="96" r="3" fill="#3d2e1f"/>
+  </svg>`,
+
+  // 8: FigmaExport - download icon
+  `<svg class="sticker-art" viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
+    <rect x="12" y="12" width="96" height="96" rx="18" fill="white"/>
+    <rect x="17" y="17" width="86" height="86" rx="14" fill="#1e1e1e"/>
     <g stroke="white" stroke-width="5" fill="none" stroke-linecap="round" stroke-linejoin="round">
-      <line x1="60" y1="32" x2="60" y2="72"/>
-      <polyline points="45,47 60,32 75,47"/>
-      <line x1="35" y1="88" x2="85" y2="88"/>
+      <line x1="60" y1="34" x2="60" y2="70"/>
+      <polyline points="44,54 60,70 76,54"/>
+      <line x1="36" y1="84" x2="84" y2="84"/>
     </g>
   </svg>`,
 
-  // Stamp2 - DRAFT
+  // 9: Stamp2 - "DRAFT"
   `<svg class="sticker-art" viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
-    <g transform="rotate(-10 60 60)">
-      <rect x="10" y="42" width="100" height="36" rx="4" fill="#3498DB" stroke="white" stroke-width="5"/>
-      <text x="60" y="68" text-anchor="middle" font-size="22" font-weight="900" fill="white" font-family="Arial, sans-serif" letter-spacing="4">DRAFT</text>
+    <rect x="8" y="8" width="104" height="104" rx="16" fill="white"/>
+    <g transform="rotate(-8 60 60)">
+      <rect x="14" y="40" width="92" height="40" rx="4" fill="#3498db" stroke="white" stroke-width="3"/>
+      <text x="60" y="67" text-anchor="middle" font-size="20" font-weight="900" fill="white" font-family="Arial, sans-serif" letter-spacing="5">DRAFT</text>
     </g>
   </svg>`,
 
-  // LoremIpsum
+  // 10: LoremIpsum - text lines
   `<svg class="sticker-art" viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
-    <rect x="14" y="20" width="92" height="80" rx="6" fill="white" stroke="#2C3E50" stroke-width="4"/>
-    <line x1="24" y1="36" x2="96" y2="36" stroke="#2C3E50" stroke-width="3" stroke-linecap="round"/>
-    <line x1="24" y1="50" x2="86" y2="50" stroke="#3498DB" stroke-width="2.5" stroke-linecap="round"/>
-    <line x1="24" y1="62" x2="92" y2="62" stroke="#3498DB" stroke-width="2.5" stroke-linecap="round"/>
-    <line x1="24" y1="74" x2="74" y2="74" stroke="#3498DB" stroke-width="2.5" stroke-linecap="round"/>
-    <line x1="24" y1="86" x2="82" y2="86" stroke="#3498DB" stroke-width="2.5" stroke-linecap="round"/>
+    <rect x="10" y="10" width="100" height="100" rx="12" fill="white"/>
+    <rect x="15" y="15" width="90" height="90" rx="8" fill="#fafafa" stroke="#e0e0e0" stroke-width="1.5"/>
+    <line x1="26" y1="34" x2="94" y2="34" stroke="#2d2d2d" stroke-width="3.5" stroke-linecap="round"/>
+    <line x1="26" y1="48" x2="82" y2="48" stroke="#3498db" stroke-width="2.5" stroke-linecap="round"/>
+    <line x1="26" y1="60" x2="90" y2="60" stroke="#3498db" stroke-width="2.5" stroke-linecap="round"/>
+    <line x1="26" y1="72" x2="72" y2="72" stroke="#3498db" stroke-width="2.5" stroke-linecap="round"/>
+    <line x1="26" y1="84" x2="86" y2="84" stroke="#3498db" stroke-width="2.5" stroke-linecap="round"/>
+    <line x1="26" y1="96" x2="60" y2="96" stroke="#3498db" stroke-width="2.5" stroke-linecap="round"/>
   </svg>`
 ];
 
-// ===== Utilities =====
+// ===================== UTILITIES =====================
 function lerp(a, b, t) { return a + (b - a) * t; }
 function randInt(min, max) { return Math.floor(Math.random() * (max - min + 1)) + min; }
+function clamp(v, min, max) { return Math.min(Math.max(v, min), max); }
 
-function getResponsive() {
-  const isSm = window.matchMedia('(max-width: 768px)').matches;
-  const isMd = window.matchMedia('(min-width: 768px) and (max-width: 1024px)').matches;
-  return { isSm, isMd };
+function getBreakpoint() {
+  const w = window.innerWidth;
+  return w <= 768 ? 'sm' : w <= 1024 ? 'md' : 'lg';
 }
 
-// ===== State =====
-const stickerAnchor = document.getElementById('stickerAnchor');
+// ===================== STATE =====================
+const anchor = document.getElementById('anchor');
 const resetBtn = document.getElementById('resetBtn');
 const resetWrap = document.getElementById('resetWrap');
 
-let stickerElements = [];
-let stickerStates = [];
+const els = [];
+const states = [];
 let zCounter = 1;
-let initialStates = [];
+let initialConfigs = [];
+let anyActive = false;
 
-// ===== Compute initial positions (mirrors the React useMemo logic) =====
-function computeInitialPositions() {
-  const { isSm, isMd } = getResponsive();
-  const len = stickerSVGs.length;
-  const positions = [];
+// ===================== INITIAL POSITIONS =====================
+function computeInitials() {
+  const bp = getBreakpoint();
+  const len = STICKERS.length;
+  const configs = [];
 
   for (let i = 0; i < len; i++) {
-    const isInFirstHalf = i < Math.floor(len / 2);
+    const firstHalf = i < Math.floor(len / 2);
     const t = i / (len - 1);
-    const isOdd = i & 1;
+    const odd = i & 1;
 
-    let initialX, initialY;
-    if (isSm) {
-      initialX = Math.sin(lerp(-1, 1, t)) * 150 * -1;
-      initialY = (isOdd ? -1 : 1) * randInt(20, 50);
+    let x, y;
+    if (bp === 'sm') {
+      x = Math.sin(lerp(-1, 1, t)) * 150 * -1;
+      y = (odd ? -1 : 1) * randInt(20, 50);
     } else {
-      initialX = Math.abs(Math.sin(lerp(-1, 1, t))) * (isMd ? 150 : randInt(300, 500)) * (isInFirstHalf ? -1 : 1);
-      initialY = (isOdd ? -1 : 1) * randInt(20, 50);
+      x = Math.abs(Math.sin(lerp(-1, 1, t))) * (bp === 'md' ? 150 : randInt(280, 480)) * (firstHalf ? -1 : 1);
+      y = (odd ? -1 : 1) * randInt(20, 50);
     }
 
-    const initRotate = Math.random() * (Math.sign(Math.sin(Math.random() * 100)) * 30);
-    const initScale = isSm ? 0.7 : isMd ? 0.75 : 1.25;
+    const rotate = Math.random() * (Math.sign(Math.sin(Math.random() * 100)) * 30);
+    const scale = bp === 'sm' ? 0.7 : bp === 'md' ? 0.75 : 1.25;
 
-    positions.push({ x: initialX, y: initialY, rotate: initRotate, scale: initScale });
+    configs.push({ x, y, rotate, scale });
   }
-
-  return positions;
+  return configs;
 }
 
-// ===== Spring animation (replaces framer-motion's spring) =====
-function animateSticker(idx, targetX, targetY, targetScale, targetRotate, options = {}) {
-  const state = stickerStates[idx];
-  if (state.animation) state.animation.cancelled = true;
+// ===================== SPRING PHYSICS =====================
+function springAnimate(idx, target, opts = {}) {
+  const s = states[idx];
+  if (s.anim) s.anim.dead = true;
 
-  const animation = { cancelled: false };
-  state.animation = animation;
+  const {
+    stiffness = 70,
+    damping = 12,
+    mass = 1,
+    onComplete
+  } = opts;
 
-  const stiffness = options.stiffness ?? 80;
-  const damping = options.damping ?? 14;
+  const anim = { dead: false };
+  s.anim = anim;
 
-  let vx = state.velocityX || 0;
-  let vy = state.velocityY || 0;
-  let vs = 0;
+  let vx = s.vx || 0;
+  let vy = s.vy || 0;
   let vr = 0;
+  let vs = 0;
+  let last = performance.now();
 
-  let lastTime = performance.now();
+  function tick(now) {
+    if (anim.dead) return;
 
-  function step(now) {
-    if (animation.cancelled) return;
-    const dt = Math.min((now - lastTime) / 1000, 0.05);
-    lastTime = now;
+    const dt = Math.min((now - last) / 1000, 0.04);
+    last = now;
 
-    // Spring physics: F = -kx - cv
-    const fx = -stiffness * (state.currentX - targetX) - damping * vx;
-    vx += fx * dt;
-    state.currentX += vx * dt;
+    // Spring: a = (-k*x - c*v) / m
+    const ax = (-stiffness * (s.x - target.x) - damping * vx) / mass;
+    vx += ax * dt;
+    s.x += vx * dt;
 
-    const fy = -stiffness * (state.currentY - targetY) - damping * vy;
-    vy += fy * dt;
-    state.currentY += vy * dt;
+    const ay = (-stiffness * (s.y - target.y) - damping * vy) / mass;
+    vy += ay * dt;
+    s.y += vy * dt;
 
-    const fs = -stiffness * (state.currentScale - targetScale) - damping * vs;
-    vs += fs * dt;
-    state.currentScale += vs * dt;
+    const ar = (-stiffness * (s.rot - target.rot) - damping * vr) / mass;
+    vr += ar * dt;
+    s.rot += vr * dt;
 
-    const fr = -stiffness * (state.currentRotate - targetRotate) - damping * vr;
-    vr += fr * dt;
-    state.currentRotate += vr * dt;
+    const as = (-stiffness * (s.scale - target.scale) - damping * vs) / mass;
+    vs += as * dt;
+    s.scale += vs * dt;
 
-    applyTransform(idx);
+    s.vx = vx;
+    s.vy = vy;
 
-    const settled = Math.abs(vx) < 0.5 && Math.abs(vy) < 0.5 && Math.abs(vs) < 0.005 && Math.abs(vr) < 0.1
-                  && Math.abs(state.currentX - targetX) < 0.5
-                  && Math.abs(state.currentY - targetY) < 0.5
-                  && Math.abs(state.currentScale - targetScale) < 0.005
-                  && Math.abs(state.currentRotate - targetRotate) < 0.1;
+    render(idx);
+
+    const settled =
+      Math.abs(vx) < 0.3 && Math.abs(vy) < 0.3 &&
+      Math.abs(s.x - target.x) < 0.3 && Math.abs(s.y - target.y) < 0.3 &&
+      Math.abs(s.scale - target.scale) < 0.003 &&
+      Math.abs(s.rot - target.rot) < 0.05;
 
     if (settled) {
-      state.currentX = targetX;
-      state.currentY = targetY;
-      state.currentScale = targetScale;
-      state.currentRotate = targetRotate;
-      state.velocityX = 0;
-      state.velocityY = 0;
-      applyTransform(idx);
-      state.animation = null;
-      if (options.onComplete) options.onComplete();
+      s.x = target.x; s.y = target.y;
+      s.rot = target.rot; s.scale = target.scale;
+      s.vx = 0; s.vy = 0;
+      render(idx);
+      s.anim = null;
+      checkAllSettled();
+      if (onComplete) onComplete();
       return;
     }
 
-    requestAnimationFrame(step);
+    requestAnimationFrame(tick);
   }
 
-  requestAnimationFrame(step);
+  requestAnimationFrame(tick);
 }
 
-function applyTransform(idx) {
-  const state = stickerStates[idx];
-  const el = stickerElements[idx];
-  el.style.transform = `translate(${state.currentX}px, ${state.currentY}px) rotate(${state.currentRotate}deg) scale(${state.currentScale})`;
+function render(idx) {
+  const s = states[idx];
+  const el = els[idx];
+  el.style.transform = `translate3d(${s.x}px, ${s.y}px, 0) rotate(${s.rot}deg) scale(${s.scale})`;
 }
 
-// ===== Setup stickers =====
-function createStickers() {
-  initialStates = computeInitialPositions();
-
-  stickerSVGs.forEach((svg, i) => {
-    const el = document.createElement('div');
-    el.className = 'sticker';
-    el.innerHTML = svg;
-    el.dataset.index = i;
-
-    const init = initialStates[i];
-
-    stickerStates.push({
-      x: init.x,
-      y: init.y,
-      currentX: 0,
-      currentY: 0,
-      rotate: init.rotate,
-      currentRotate: 0,
-      scale: init.scale,
-      currentScale: 1,
-      z: 1,
-      dragging: false,
-      animation: null,
-      velocityX: 0,
-      velocityY: 0
-    });
-
-    el.style.opacity = '0';
-    el.style.transform = `translate(0px, 0px) rotate(0deg) scale(1)`;
-
-    stickerAnchor.appendChild(el);
-    stickerElements.push(el);
-
-    setupDrag(el, i);
-  });
-
-  // Stagger entrance — each sticker gets its own random bounce like the original
-  stickerElements.forEach((el, i) => {
-    setTimeout(() => {
-      el.style.transition = 'opacity 0.5s ease';
-      el.style.opacity = '1';
-      setTimeout(() => { el.style.transition = ''; }, 500);
-
-      const init = initialStates[i];
-      const bounce = Math.random();
-      const damping = 9 + (1 - bounce) * 8;
-      const stiffness = 65 + Math.random() * 25;
-
-      animateSticker(i, init.x, init.y, init.scale, init.rotate, {
-        stiffness,
-        damping
-      });
-    }, i * 70);
-  });
-}
-
-// ===== Drag handling (replaces framer-motion's drag) =====
+// ===================== DRAG =====================
 function setupDrag(el, idx) {
-  let startX, startY, initialElX, initialElY;
-  let isDragging = false;
-  let pointerId = null;
+  let dragging = false;
+  let pid = null;
+  let startX, startY, origX, origY;
+  let lastX, lastY, lastT;
+  let velX = 0, velY = 0;
 
   el.addEventListener('pointerdown', (e) => {
+    if (e.button !== 0 && e.pointerType === 'mouse') return;
     e.preventDefault();
-    isDragging = true;
-    pointerId = e.pointerId;
-    try { el.setPointerCapture(e.pointerId); } catch {}
+    dragging = true;
+    pid = e.pointerId;
+    try { el.setPointerCapture(pid); } catch {}
 
     startX = e.clientX;
     startY = e.clientY;
+    lastX = e.clientX;
+    lastY = e.clientY;
+    lastT = performance.now();
+    velX = 0; velY = 0;
 
-    const state = stickerStates[idx];
-    initialElX = state.currentX;
-    initialElY = state.currentY;
+    const s = states[idx];
+    origX = s.x;
+    origY = s.y;
 
-    // Cancel any in-flight animation
-    if (state.animation) {
-      state.animation.cancelled = true;
-      state.animation = null;
-    }
+    // Kill animation
+    if (s.anim) { s.anim.dead = true; s.anim = null; }
 
-    // Bring to front (mirrors z-index management)
+    // Z-index
     zCounter++;
-    state.z = zCounter;
+    s.z = zCounter;
     el.style.zIndex = zCounter;
 
-    state.dragging = true;
-    state.velocityX = 0;
-    state.velocityY = 0;
-
-    hideResetButton();
-
-    // whileDrag: scale up + rotate to 0
-    state.currentScale = state.scale * 1.2;
-    state.currentRotate = 0;
-    applyTransform(idx);
-
+    s.dragging = true;
     el.classList.add('dragging');
+    hideReset();
+    markActive();
   });
 
   el.addEventListener('pointermove', (e) => {
-    if (!isDragging || e.pointerId !== pointerId) return;
+    if (!dragging || e.pointerId !== pid) return;
 
-    const dx = e.clientX - startX;
-    const dy = e.clientY - startY;
+    const now = performance.now();
+    const dt = (now - lastT) / 1000;
 
-    const state = stickerStates[idx];
-    state.currentX = initialElX + dx;
-    state.currentY = initialElY + dy;
+    if (dt > 0) {
+      velX = (e.clientX - lastX) / dt;
+      velY = (e.clientY - lastY) / dt;
+    }
 
-    applyTransform(idx);
+    lastX = e.clientX;
+    lastY = e.clientY;
+    lastT = now;
+
+    const s = states[idx];
+    s.x = origX + (e.clientX - startX);
+    s.y = origY + (e.clientY - startY);
+
+    // Velocity-based tilt (subtle, like a real sticker being pulled)
+    const tiltX = clamp(velX * 0.015, -12, 12);
+    s.rot = tiltX;
+
+    render(idx);
   });
 
-  const endDrag = (e) => {
-    if (!isDragging) return;
-    if (e && e.pointerId !== undefined && e.pointerId !== pointerId) return;
-    isDragging = false;
-    pointerId = null;
+  function endDrag(e) {
+    if (!dragging) return;
+    if (e && e.pointerId !== undefined && e.pointerId !== pid) return;
+    dragging = false;
+    pid = null;
     if (e) { try { el.releasePointerCapture(e.pointerId); } catch {} }
 
-    const state = stickerStates[idx];
-    state.dragging = false;
+    const s = states[idx];
+    s.dragging = false;
     el.classList.remove('dragging');
 
-    // Animate scale back to initial (handleDragEnd equivalent)
-    animateSticker(idx, state.currentX, state.currentY, state.scale, 0, {
+    // Momentum: use velocity to overshoot, then spring back
+    const momentumX = clamp(velX * 0.08, -80, 80);
+    const momentumY = clamp(velY * 0.08, -80, 80);
+
+    const targetX = s.x + momentumX;
+    const targetY = s.y + momentumY;
+
+    // Spring back with bounce
+    springAnimate(idx, {
+      x: targetX,
+      y: targetY,
+      rot: 0,
+      scale: s.baseScale
+    }, {
+      stiffness: 60,
+      damping: 8,
+      mass: 1.2,
       onComplete: () => {
-        // onDragTransitionEnd: if nothing is dragging anymore, enable reset
-        const anyActive = stickerStates.some(s => s.dragging || s.animation);
-        if (!anyActive) {
-          showResetButton();
-        }
+        // Settle to exact position
+        springAnimate(idx, { x: targetX, y: targetY, rot: 0, scale: s.baseScale }, {
+          stiffness: 100,
+          damping: 14,
+          onComplete: () => {
+            checkAllSettled();
+          }
+        });
       }
     });
-  };
+
+    // Give initial velocity for momentum feel
+    s.vx = velX * 0.04;
+    s.vy = velY * 0.04;
+  }
 
   el.addEventListener('pointerup', endDrag);
   el.addEventListener('pointercancel', endDrag);
   el.addEventListener('dragstart', (e) => e.preventDefault());
 }
 
-// ===== Reset button =====
-function hideResetButton() {
+// ===================== RESET =====================
+function hideReset() {
   resetWrap.classList.add('hidden');
   resetBtn.disabled = true;
 }
 
-function showResetButton() {
+function showReset() {
   resetWrap.classList.remove('hidden');
   resetBtn.disabled = false;
 }
 
-function handleReset() {
-  // Animate every sticker back to its initial variant
-  stickerStates.forEach((state, i) => {
-    const init = initialStates[i];
-    animateSticker(i, init.x, init.y, init.scale, init.rotate, {
-      stiffness: 80,
-      damping: 12
+resetBtn.addEventListener('click', () => {
+  states.forEach((s, i) => {
+    const cfg = initialConfigs[i];
+    springAnimate(i, { x: cfg.x, y: cfg.y, rot: cfg.rotate, scale: cfg.scale }, {
+      stiffness: 75,
+      damping: 11,
+      mass: 1
     });
+  });
+});
+
+// ===================== ACTIVITY TRACKING =====================
+function markActive() {
+  anyActive = true;
+}
+
+function checkAllSettled() {
+  const anyDragging = states.some(s => s.dragging);
+  const anyAnimating = states.some(s => s.anim);
+  if (!anyDragging && !anyAnimating) {
+    anyActive = false;
+    showReset();
+  }
+}
+
+// ===================== INIT =====================
+function init() {
+  initialConfigs = computeInitials();
+
+  STICKERS.forEach((svg, i) => {
+    const el = document.createElement('div');
+    el.className = 'sticker';
+    el.innerHTML = `<div class="sticker-inner">${svg}</div>`;
+
+    const cfg = initialConfigs[i];
+
+    states.push({
+      x: 0, y: 0,
+      rot: 0, scale: 1,
+      baseScale: cfg.scale,
+      z: 1,
+      dragging: false,
+      anim: null,
+      vx: 0, vy: 0
+    });
+
+    el.style.opacity = '0';
+    el.style.transform = 'translate3d(0,0,0) rotate(0deg) scale(1)';
+    anchor.appendChild(el);
+    els.push(el);
+
+    setupDrag(el, i);
+  });
+
+  // Staggered entrance
+  els.forEach((el, i) => {
+    setTimeout(() => {
+      el.style.transition = 'opacity 0.4s ease';
+      el.style.opacity = '1';
+      setTimeout(() => { el.style.transition = ''; }, 450);
+
+      const cfg = initialConfigs[i];
+      const bounce = Math.random();
+      const damp = 8 + (1 - bounce) * 10;
+
+      springAnimate(i, {
+        x: cfg.x,
+        y: cfg.y,
+        rot: cfg.rotate,
+        scale: cfg.scale
+      }, {
+        stiffness: 55 + Math.random() * 30,
+        damping: damp,
+        mass: 1 + Math.random() * 0.5
+      });
+    }, 80 + i * 65);
   });
 }
 
-resetBtn.addEventListener('click', handleReset);
-
-// ===== Initialize =====
-createStickers();
+init();
 </script>
 </body>
 </html>

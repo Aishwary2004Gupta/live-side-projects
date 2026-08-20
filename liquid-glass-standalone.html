@@ -1,203 +1,448 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-mode="dock" data-theme="system" data-debug="false" data-top="false" data-icons="false">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Liquid Glass · Sticker Canvas</title>
-  <style>
-    /* ----- reset & base (sticker floor) ----- */
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    html, body {
-      width: 100%; height: 100%;
-      background: #d8cfc2;
-      overflow: hidden;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-    }
-    #floor {
-      position: fixed; inset: 0;
-      background:
-        radial-gradient(ellipse at 50% 40%, rgba(255,255,255,0.25), rgba(0,0,0,0.08) 80%),
-        repeating-linear-gradient(90deg, #cbb79a 0px, #cbb79a 46px, #c2ad8e 46px, #c2ad8e 48px);
-      z-index: 0;
-    }
-    #sticker-container {
-      position: relative; width: 100%; height: 100%;
-      overflow: visible; perspective: 800px; z-index: 2;
-      pointer-events: none;
-    }
-    #sticker-container .sticker-instance { pointer-events: auto; }
-    .sticker-instance { position: absolute; overflow: visible; }
-    .sizing-div { position: relative; opacity: 0; pointer-events: none; user-select: none; }
-    .sticker {
-      position: absolute; width: 100%; height: 100%;
-      cursor: grab; user-select: none;
-      perspective: 800px; transform-style: preserve-3d;
-      will-change: transform; overflow: visible;
-    }
-    .sticker:active { cursor: grabbing; }
-    .inner { position: absolute; width: 100%; height: 100%; transform-style: preserve-3d; overflow: visible; }
-    .gl-canvas { display: block; pointer-events: none; position: absolute; }
+  <title>Liquid Glass</title>
 
-    /* ----- liquid glass overlay (above stickers) ----- */
+  <style>
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box;
+    }
+
+    html {
+      color-scheme: light dark;
+      background: transparent;
+    }
+
+    [data-theme='light'] {
+      color-scheme: light only;
+    }
+
+    [data-theme='dark'] {
+      color-scheme: dark only;
+    }
+
+    body {
+      margin: 0;
+      width: 100vw;
+      min-height: 100vh;
+      overflow: hidden;
+      background: transparent;
+      font-family:
+        'SF Pro Text',
+        'SF Pro Icons',
+        'AOS Icons',
+        'Helvetica Neue',
+        Helvetica,
+        Arial,
+        sans-serif,
+        system-ui;
+    }
+
     .effect {
       opacity: 0;
+      transition: opacity 0.26s ease-out;
+      height: calc(var(--height) * 1px);
+      width: calc(var(--width) * 1px);
+      border-radius: calc(var(--radius) * 1px);
       position: fixed;
-      z-index: 9999;
-      background: light-dark(hsl(0 0% 100% / var(--frost, 0)), hsl(0 0% 0% / var(--frost, 0)));
+      z-index: 999999;
+      cursor: grab;
+
+      background:
+        light-dark(
+          hsl(0 0% 100% / var(--frost, 0)),
+          hsl(0 0% 0% / var(--frost, 0))
+        );
+
       backdrop-filter: url(#filter) saturate(var(--saturation, 1));
-      box-shadow: 
-        0 0 2px 1px light-dark(color-mix(in oklch, canvasText, #0000 85%), color-mix(in oklch, canvasText, #0000 65%)) inset,
-        0 0 10px 4px light-dark(color-mix(in oklch, canvasText, #0000 90%), color-mix(in oklch, canvasText, #0000 85%)) inset,
-        0px 4px 16px rgba(17, 17, 26, 0.05), 0px 8px 24px rgba(17, 17, 26, 0.05),
+
+      box-shadow:
+        0 0 2px 1px
+          light-dark(
+            color-mix(in oklch, canvasText, #0000 85%),
+            color-mix(in oklch, canvasText, #0000 65%)
+          )
+          inset,
+        0 0 10px 4px
+          light-dark(
+            color-mix(in oklch, canvasText, #0000 90%),
+            color-mix(in oklch, canvasText, #0000 85%)
+          )
+          inset,
+        0px 4px 16px rgba(17, 17, 26, 0.05),
+        0px 8px 24px rgba(17, 17, 26, 0.05),
         0px 16px 56px rgba(17, 17, 26, 0.05),
         0px 4px 16px rgba(17, 17, 26, 0.05) inset,
         0px 8px 24px rgba(17, 17, 26, 0.05) inset,
         0px 16px 56px rgba(17, 17, 26, 0.05) inset;
-      transition: opacity 0.3s ease;
-      border-radius: calc(var(--radius) * 1px);
-      width: calc(var(--width) * 1px);
-      height: calc(var(--height) * 1px);
+    }
+
+    .effect:active {
+      cursor: grabbing;
+    }
+
+    [data-mode='dock'] .effect {
+      backdrop-filter: url(#filter) brightness(1.1) saturate(1.5);
+    }
+
+    .effect * {
       pointer-events: none;
     }
-    .effect * { pointer-events: none; }
-    .effect .nav-wrap {
-      width: 100%; height: 100%; overflow: hidden; border-radius: inherit;
-      display: flex; align-items: center; justify-content: center; padding: 0.4rem;
+
+    .nav-wrap {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      border-radius: inherit;
+    }
+
+    .effect nav {
+      width: 100%;
+      height: 100%;
+      flex-wrap: wrap;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0.4rem;
       opacity: 0;
+      overflow: hidden;
+      border-radius: inherit;
+      transition: opacity 0.26s ease-out;
     }
-    .effect .nav-wrap img { width: 60px; aspect-ratio: 1; margin: 0 4px; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.1)); }
-    [data-icons="true"] .effect .nav-wrap { opacity: 0.9; }
 
-    .filter { width: 100%; height: 100%; pointer-events: none; position: absolute; inset: 0; }
+    [data-icons='true'] .effect nav {
+      opacity: 1;
+    }
+
+    .filter {
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      position: absolute;
+      inset: 0;
+    }
+
     .displacement-debug {
-      pointer-events: none; height: 100%; width: 100%; position: absolute; inset: 0;
-      translate: 0 calc(200% + 1rem); scale: 0.8; opacity: 0;
-      transition: 0.26s ease-out; z-index: -1;
+      pointer-events: none;
+      height: 100%;
+      width: 100%;
+      position: absolute;
+      inset: 0;
+      translate: 0 calc(200% + 1rem);
+      scale: 0.8;
+      opacity: 0;
+      transition-property: translate, opacity, scale;
+      transition-duration: 0.26s;
+      transition-timing-function: ease-out;
+      z-index: -1;
     }
-    [data-debug="true"] .displacement-debug { translate: 0 calc(100% + 1rem); scale: 1; opacity: 1; }
-    .displacement-debug .label {
-      position: absolute; left: 50%; top: calc(100% + 0.2lh); transform: translateX(-50%);
-      font-size: 0.75rem; background: color-mix(in oklch, canvas, #0000 25%);
-      backdrop-filter: blur(4px); padding: 0.25rem 0.75rem; border-radius: 6px; white-space: nowrap;
-      font-family: 'Gloria Hallelujah', cursive;
-    }
-    .displacement-image { height: 100%; width: 100%; pointer-events: none; border-radius: calc(var(--radius) * 1px); }
 
-    /* tweakpane – fixed bottom-right */
-    .tp-dfwv { position: fixed !important; bottom: 20px !important; right: 20px !important; top: auto !important; left: auto !important; z-index: 9999999; width: 280px; max-height: 80vh; overflow-y: auto; }
-    body { background: transparent; }
-    #floor { z-index: 0; }
-    #sticker-container { z-index: 2; }
-    .effect { z-index: 9999; }
+    [data-debug='true'] .displacement-debug {
+      translate: 0 calc(100% + 1rem);
+      scale: 1;
+      opacity: 1;
+    }
+
+    .displacement-image {
+      height: 100%;
+      width: 100%;
+      pointer-events: none;
+      border-radius: calc(var(--radius) * 1px);
+    }
+
+    div.tp-dfwv {
+      position: fixed;
+      width: 280px;
+      bottom: 8px;
+      top: unset;
+      view-transition-name: pane;
+      z-index: 1000000;
+    }
+
+    [data-top='true'] div.tp-dfwv {
+      top: 8px;
+      bottom: unset;
+    }
   </style>
 </head>
-<body>
-  <div id="floor"></div>
-  <div id="sticker-container"></div>
 
-  <!-- liquid glass element -->
-  <div class="effect" id="glass">
+<body>
+  <div class="effect">
     <div class="nav-wrap">
-      <img src="https://assets.codepen.io/605876/finder.png" alt="finder" />
-      <img src="https://assets.codepen.io/605876/launch-control.png" alt="launch" />
-      <img src="https://assets.codepen.io/605876/safari.png" alt="safari" />
-      <img src="https://assets.codepen.io/605876/calendar.png" alt="calendar" />
+      <nav></nav>
     </div>
+
     <svg class="filter" xmlns="http://www.w3.org/2000/svg">
       <defs>
         <filter id="filter" color-interpolation-filters="sRGB">
           <feImage x="0" y="0" width="100%" height="100%" result="map"></feImage>
-          <feDisplacementMap in="SourceGraphic" in2="map" id="redchannel" xChannelSelector="R" yChannelSelector="G" result="dispRed" />
-          <feColorMatrix in="dispRed" type="matrix" values="1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 0" result="red" />
-          <feDisplacementMap in="SourceGraphic" in2="map" id="greenchannel" xChannelSelector="R" yChannelSelector="G" result="dispGreen" />
-          <feColorMatrix in="dispGreen" type="matrix" values="0 0 0 0 0 0 1 0 0 0 0 0 0 0 0 0 0 0 1 0" result="green" />
-          <feDisplacementMap in="SourceGraphic" in2="map" id="bluechannel" xChannelSelector="R" yChannelSelector="G" result="dispBlue" />
-          <feColorMatrix in="dispBlue" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 1 0 0 0 0 0 1 0" result="blue" />
+
+          <feDisplacementMap
+            in="SourceGraphic"
+            in2="map"
+            id="redchannel"
+            xChannelSelector="R"
+            yChannelSelector="G"
+            result="dispRed"
+          />
+
+          <feColorMatrix
+            in="dispRed"
+            type="matrix"
+            values="1 0 0 0 0
+                    0 0 0 0 0
+                    0 0 0 0 0
+                    0 0 0 1 0"
+            result="red"
+          />
+
+          <feDisplacementMap
+            in="SourceGraphic"
+            in2="map"
+            id="greenchannel"
+            xChannelSelector="R"
+            yChannelSelector="G"
+            result="dispGreen"
+          />
+
+          <feColorMatrix
+            in="dispGreen"
+            type="matrix"
+            values="0 0 0 0 0
+                    0 1 0 0 0
+                    0 0 0 0 0
+                    0 0 0 1 0"
+            result="green"
+          />
+
+          <feDisplacementMap
+            in="SourceGraphic"
+            in2="map"
+            id="bluechannel"
+            xChannelSelector="R"
+            yChannelSelector="G"
+            result="dispBlue"
+          />
+
+          <feColorMatrix
+            in="dispBlue"
+            type="matrix"
+            values="0 0 0 0 0
+                    0 0 0 0 0
+                    0 0 1 0 0
+                    0 0 0 1 0"
+            result="blue"
+          />
+
           <feBlend in="red" in2="green" mode="screen" result="rg" />
           <feBlend in="rg" in2="blue" mode="screen" result="output" />
+
           <feGaussianBlur in="output" stdDeviation="0.7" />
         </filter>
       </defs>
     </svg>
+
     <div class="displacement-debug"></div>
   </div>
 
-  <!-- import map for GSAP + Tweakpane -->
-  <script type="importmap">
-    {
-      "imports": {
-        "gsap": "https://esm.sh/gsap@3.13.0",
-        "tweakpane": "https://esm.sh/tweakpane@4.0.4",
-        "gsap/Draggable.js": "https://esm.sh/gsap@3.13.0/Draggable.js"
-      }
-    }
-  </script>
-
   <script type="module">
-    import gsap from 'gsap';
-    import { Pane } from 'tweakpane';
-    import Draggable from 'gsap/Draggable.js';
+    import gsap from 'https://esm.sh/gsap@3.13.0';
+    import Draggable from 'https://esm.sh/gsap@3.13.0/Draggable.js';
+    import { Pane } from 'https://esm.sh/tweakpane@4.0.4';
+
     gsap.registerPlugin(Draggable);
 
-    // ---------- GLASS CONFIG ----------
     const base = {
-      icons: false, scale: -180, radius: 16, border: 0.07, lightness: 50,
-      displace: 0, blend: 'difference', x: 'R', y: 'B', alpha: 0.93,
-      blur: 11, r: 0, g: 10, b: 20, saturation: 1,
+      icons: false,
+      scale: -180,
+      radius: 16,
+      border: 0.07,
+      lightness: 50,
+      displace: 0,
+      blend: 'difference',
+      x: 'R',
+      y: 'B',
+      alpha: 0.93,
+      blur: 11,
+      r: 0,
+      g: 10,
+      b: 20,
+      saturation: 1,
     };
-    const presets = {
-      dock: { ...base, width: 336, height: 96, displace: 0.2, icons: true, frost: 0.05 },
-      pill: { ...base, width: 200, height: 80, displace: 0, frost: 0, radius: 40 },
-      bubble: { ...base, radius: 70, width: 140, height: 140, displace: 0, frost: 0 },
-      free: { ...base, width: 140, height: 280, radius: 80, border: 0.15, alpha: 0.74, lightness: 60, blur: 10, displace: 0, scale: -300 },
-    };
-    const config = { ...presets.dock, theme: 'system', debug: false, top: false, preset: 'dock' };
 
-    const glass = document.getElementById('glass');
+    const presets = {
+      dock: {
+        ...base,
+        width: 336,
+        height: 96,
+        displace: 0.2,
+        icons: false,
+        frost: 0.05,
+      },
+      pill: {
+        ...base,
+        width: 200,
+        height: 80,
+        displace: 0,
+        frost: 0,
+        radius: 40,
+      },
+      bubble: {
+        ...base,
+        radius: 70,
+        width: 140,
+        height: 140,
+        displace: 0,
+        frost: 0,
+      },
+      free: {
+        ...base,
+        width: 140,
+        height: 280,
+        radius: 80,
+        border: 0.15,
+        alpha: 0.74,
+        lightness: 60,
+        blur: 10,
+        displace: 0,
+        scale: -300,
+        frost: 0,
+      },
+    };
+
+    const config = {
+      ...presets.dock,
+      theme: 'system',
+      debug: false,
+      top: false,
+      preset: 'dock',
+    };
+
+    const effect = document.querySelector('.effect');
     const debugPen = document.querySelector('.displacement-debug');
+
+    const ctrl = new Pane({
+      title: 'Liquid Glass Config',
+      expanded: true,
+    });
 
     const buildDisplacementImage = () => {
       const border = Math.min(config.width, config.height) * (config.border * 0.5);
-      const svgContent = `
+
+      const svg = `
         <svg class="displacement-image" viewBox="0 0 ${config.width} ${config.height}" xmlns="http://www.w3.org/2000/svg">
           <defs>
             <linearGradient id="red" x1="100%" y1="0%" x2="0%" y2="0%">
               <stop offset="0%" stop-color="#000"/>
               <stop offset="100%" stop-color="red"/>
             </linearGradient>
+
             <linearGradient id="blue" x1="0%" y1="0%" x2="0%" y2="100%">
               <stop offset="0%" stop-color="#000"/>
               <stop offset="100%" stop-color="blue"/>
             </linearGradient>
           </defs>
+
           <rect x="0" y="0" width="${config.width}" height="${config.height}" fill="black"></rect>
-          <rect x="0" y="0" width="${config.width}" height="${config.height}" rx="${config.radius}" fill="url(#red)" />
-          <rect x="0" y="0" width="${config.width}" height="${config.height}" rx="${config.radius}" fill="url(#blue)" style="mix-blend-mode: ${config.blend}" />
-          <rect x="${border}" y="${Math.min(config.width, config.height) * (config.border * 0.5)}" width="${config.width - border * 2}" height="${config.height - border * 2}" rx="${config.radius}" fill="hsl(0 0% ${config.lightness}% / ${config.alpha})" style="filter:blur(${config.blur}px)" />
+
+          <rect
+            x="0"
+            y="0"
+            width="${config.width}"
+            height="${config.height}"
+            rx="${config.radius}"
+            fill="url(#red)"
+          />
+
+          <rect
+            x="0"
+            y="0"
+            width="${config.width}"
+            height="${config.height}"
+            rx="${config.radius}"
+            fill="url(#blue)"
+            style="mix-blend-mode: ${config.blend}"
+          />
+
+          <rect
+            x="${border}"
+            y="${border}"
+            width="${config.width - border * 2}"
+            height="${config.height - border * 2}"
+            rx="${config.radius}"
+            fill="hsl(0 0% ${config.lightness}% / ${config.alpha})"
+            style="filter: blur(${config.blur}px)"
+          />
         </svg>
-        <div class="label"><span>displacement map</span></div>
       `;
-      debugPen.innerHTML = svgContent;
+
+      debugPen.innerHTML = svg;
+
       const svgEl = debugPen.querySelector('.displacement-image');
-      if (!svgEl) return;
       const serialized = new XMLSerializer().serializeToString(svgEl);
       const encoded = encodeURIComponent(serialized);
       const dataUri = `data:image/svg+xml,${encoded}`;
-      gsap.set('feImage', { attr: { href: dataUri } });
-      gsap.set('feDisplacementMap', { attr: { xChannelSelector: config.x, yChannelSelector: config.y } });
+
+      gsap.set('feImage', {
+        attr: {
+          href: dataUri,
+        },
+      });
+
+      gsap.set('feDisplacementMap', {
+        attr: {
+          xChannelSelector: config.x,
+          yChannelSelector: config.y,
+        },
+      });
     };
 
-    const updateGlass = () => {
+    const update = () => {
       buildDisplacementImage();
+
       gsap.set(document.documentElement, {
-        '--width': config.width, '--height': config.height, '--radius': config.radius,
-        '--frost': config.frost, '--saturation': config.saturation,
+        '--width': config.width,
+        '--height': config.height,
+        '--radius': config.radius,
+        '--frost': config.frost,
+        '--output-blur': config.displace,
+        '--saturation': config.saturation,
       });
-      gsap.set('feDisplacementMap', { attr: { scale: config.scale } });
-      gsap.set('#redchannel', { attr: { scale: config.scale + config.r } });
-      gsap.set('#greenchannel', { attr: { scale: config.scale + config.g } });
-      gsap.set('#bluechannel', { attr: { scale: config.scale + config.b } });
-      gsap.set('feGaussianBlur', { attr: { stdDeviation: config.displace } });
+
+      gsap.set('feDisplacementMap', {
+        attr: {
+          scale: config.scale,
+        },
+      });
+
+      gsap.set('#redchannel', {
+        attr: {
+          scale: config.scale + config.r,
+        },
+      });
+
+      gsap.set('#greenchannel', {
+        attr: {
+          scale: config.scale + config.g,
+        },
+      });
+
+      gsap.set('#bluechannel', {
+        attr: {
+          scale: config.scale + config.b,
+        },
+      });
+
+      gsap.set('feGaussianBlur', {
+        attr: {
+          stdDeviation: config.displace,
+        },
+      });
+
       document.documentElement.dataset.icons = config.icons;
       document.documentElement.dataset.mode = config.preset;
       document.documentElement.dataset.top = config.top;
@@ -205,416 +450,243 @@
       document.documentElement.dataset.theme = config.theme;
     };
 
-    // TWEAKPANE
-    const ctrl = new Pane({ title: 'Liquid Glass', expanded: true });
-    const settings = ctrl.addFolder({ title: 'settings', disabled: true, expanded: false });
+    const settings = ctrl.addFolder({
+      title: 'settings',
+      disabled: true,
+      expanded: false,
+    });
 
     ctrl.addBinding(config, 'debug');
+
     ctrl.addBinding(config, 'top');
-    ctrl.addBinding(config, 'preset', {
-      label: 'mode',
-      options: { dock: 'dock', pill: 'pill', bubble: 'bubble', free: 'free' },
-    }).on('change', () => {
-      document.documentElement.dataset.mode = config.preset;
-      settings.expanded = config.preset === 'free';
-      settings.disabled = config.preset !== 'free';
-      if (config.preset !== 'free') {
-        const values = presets[config.preset];
-        document.documentElement.dataset.icons = values.icons;
-        const morph = gsap.timeline({ onUpdate: () => ctrl.refresh() });
-        for (const [key, value] of Object.entries(values)) morph.to(config, { [key]: value }, 0);
-      }
-    });
-    ctrl.addBinding(config, 'theme', { label: 'theme', options: { system: 'system', light: 'light', dark: 'dark' } });
 
-    settings.addBinding(config, 'frost', { min: 0, max: 1, step: 0.01 });
-    settings.addBinding(config, 'saturation', { min: 0, max: 2, step: 0.1 });
-    settings.addBinding(config, 'icons');
-    settings.addBinding(config, 'width', { min: 80, max: 500, step: 1, label: 'width (px)' });
-    settings.addBinding(config, 'height', { min: 35, max: 500, step: 1, label: 'height (px)' });
-    settings.addBinding(config, 'radius', { min: 0, max: 500, step: 1, label: 'radius (px)' });
-    settings.addBinding(config, 'border', { min: 0, max: 1, step: 0.01 });
-    settings.addBinding(config, 'alpha', { min: 0, max: 1, step: 0.01 });
-    settings.addBinding(config, 'lightness', { min: 0, max: 100, step: 1 });
-    settings.addBinding(config, 'blur', { min: 0, max: 20, step: 1, label: 'input blur' });
-    settings.addBinding(config, 'displace', { min: 0, max: 12, step: 0.1, label: 'output blur' });
-    settings.addBinding(config, 'x', { label: 'channel x', options: { r: 'R', g: 'G', b: 'B' } });
-    settings.addBinding(config, 'y', { label: 'channel y', options: { r: 'R', g: 'G', b: 'B' } });
-    settings.addBinding(config, 'blend', {
-      options: { normal:'normal', multiply:'multiply', screen:'screen', overlay:'overlay', darken:'darken', lighten:'lighten', 'color-dodge':'color-dodge', 'color-burn':'color-burn', 'hard-light':'hard-light', 'soft-light':'soft-light', difference:'difference', exclusion:'exclusion', hue:'hue', saturation:'saturation', color:'color', luminosity:'luminosity', 'plus-darker':'plus-darker', 'plus-lighter':'plus-lighter' },
-      label: 'blend'
-    });
-    settings.addBinding(config, 'scale', { min: -1000, max: 1000, step: 1 });
-    const chromatic = settings.addFolder({ title: 'chromatic' });
-    chromatic.addBinding(config, 'r', { min: -100, max: 100, step: 1, label: 'red' });
-    chromatic.addBinding(config, 'g', { min: -100, max: 100, step: 1, label: 'green' });
-    chromatic.addBinding(config, 'b', { min: -100, max: 100, step: 1, label: 'blue' });
+    ctrl
+      .addBinding(config, 'preset', {
+        label: 'mode',
+        options: {
+          dock: 'dock',
+          pill: 'pill',
+          bubble: 'bubble',
+          free: 'free',
+        },
+      })
+      .on('change', () => {
+        document.documentElement.dataset.mode = config.preset;
 
-    ctrl.on('change', updateGlass);
-    updateGlass();
+        settings.expanded = config.preset === 'free';
+        settings.disabled = config.preset !== 'free';
 
-    // position glass + draggable
-    const placeGlass = () => {
-      const w = window.innerWidth, h = window.innerHeight;
-      const left = (w - config.width) / 2, top = (h - config.height) / 2;
-      gsap.set(glass, { left, top, opacity: 1 });
-    };
-    window.addEventListener('resize', placeGlass);
-    placeGlass();
-    Draggable.create(glass, { type: 'x,y', edgeResistance: 0.65 });
+        if (config.preset !== 'free') {
+          const values = presets[config.preset];
 
-    // ---------- STICKERS (full original effect) ----------
-    // We need the StickerDrag class. Since it's long, we include it here.
-    // (Copy-pasted from the original sticker code, with minor adjustments)
-    // We'll define the class and then instantiate stickers.
+          const morph = gsap.timeline({
+            onUpdate: () => {
+              ctrl.refresh();
+              update();
+            },
+          });
 
-    // ----- STICKER DRAG CLASS (from original, slightly adapted) -----
-    // Note: we keep the exact shaders and logic.
-    const COMPONENT_DEFAULTS = {
-      image: { src: "https://plus.unsplash.com/premium_photo-1782403647102-070de72f10a0?q=80&w=1234&auto=format&fit=crop" },
-      imageWidth: 600, imageHeight: 400, tilt: 45, lighting: true,
-      lightingStrength: 10, lightingColor: "#ffffff", sheenMode: "sheen",
-      elevation: 10, staticShadow: "0px 1px 2px 0px rgba(0, 0, 0, 0.30)",
-      dynamicShadow: "0px 13px 14px 0px rgba(0, 0, 0, 0.30)",
-    };
-    const RENDER_SCALE = 2, PAD_BASE = 20, MESH_GRID_SIZE = 32, DRAG_Z_INDEX_BASE = 1000;
-    let zIndexCounter = DRAG_Z_INDEX_BASE;
-    const getNextZIndex = () => ++zIndexCounter;
-    const DRAG_TILT_SENSITIVITY = 3, DRAG_MAX_TILT_DEG = 30, DRAG_TILT_SMOOTHING = 0.05;
-    const SHEEN_STRENGTH = 0.6, SHEEN_TILT_SHIFT = 0.05, SHEEN_TILT_DEADZONE = 0.035;
-    const ANIM_SPEED = 1.92, HOLO_MOTION_BUMP = 0.15, HOLO_MOTION_DECAY = 0.88;
-    const ELEVATION_INTERNAL_MAX = 0.3;
-
-    const VERTEX_SHADER = `
-attribute vec2 aPos; attribute vec2 aUV;
-uniform float uPeel; uniform float uLift; uniform float uPeelAngle;
-uniform float uPasting; uniform float uScale; uniform float uElevation;
-varying vec2 vUV; varying float vHi; varying float vSh;
-void main() {
-    vUV = aUV; vec2 p = aPos; vHi = 0.0; vSh = 0.0;
-    if (uPeel > 0.0) {
-        vec2 peelAxis = vec2(cos(uPeelAngle), sin(uPeelAngle));
-        vec2 uvCentered = aUV - vec2(0.5);
-        float proj = dot(uvCentered, peelAxis);
-        float diag = 0.5 - proj;
-        float peelLine = -0.3 + uPeel * 2.0;
-        float rampWidth = 0.6;
-        float lifted = smoothstep(peelLine - rampWidth, peelLine, diag);
-        lifted = 1.0 - lifted;
-        float scale = 1.0 + lifted * uElevation;
-        p *= scale;
-        float inRamp = smoothstep(peelLine - rampWidth, peelLine - rampWidth * 0.5, diag) *
-                       smoothstep(peelLine + 0.05, peelLine - rampWidth * 0.3, diag);
-        float curveAmount = uPasting > 0.5 ? 0.06 : 0.12;
-        p += (-peelAxis) * inRamp * curveAmount;
-        float t = smoothstep(peelLine - rampWidth, peelLine, diag);
-        vHi = inRamp * 0.75 * pow(1.0 - t, 1.2);
-        vSh = inRamp * 0.75 * pow(t, 1.2);
-    }
-    gl_Position = vec4(p * uScale, 0.0, 1.0);
-}`;
-    const FRAGMENT_SHADER = `
-precision mediump float;
-uniform sampler2D uTex; uniform vec2 uTilt; uniform float uSheenStrength;
-uniform float uSheenTiltShift; uniform float uSheenTiltDeadzone; uniform float uMaxTiltDeg;
-uniform float uEffectMode; uniform float uHoloMotion; uniform vec3 uSheenColor; uniform float uAspect;
-varying vec2 vUV; varying float vHi; varying float vSh;
-float hash(vec2 p) { return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
-vec3 overlayBlend(vec3 base, vec3 blend) { return mix(2.0 * base * blend, 1.0 - 2.0 * (1.0 - base) * (1.0 - blend), step(0.5, base)); }
-vec3 hsl2rgb(float h, float s, float l) {
-    float c = (1.0 - abs(2.0 * l - 1.0)) * s; float x = c * (1.0 - abs(mod(h * 6.0, 2.0) - 1.0)); float m = l - c * 0.5;
-    vec3 rgb; if (h < 1.0/6.0) rgb = vec3(c, x, 0.0); else if (h < 2.0/6.0) rgb = vec3(x, c, 0.0); else if (h < 3.0/6.0) rgb = vec3(0.0, c, x); else if (h < 4.0/6.0) rgb = vec3(0.0, x, c); else if (h < 5.0/6.0) rgb = vec3(x, 0.0, c); else rgb = vec3(c, 0.0, x); return rgb + m;
-}
-void main() {
-    vec4 tex = texture2D(uTex, vUV); if (tex.a < 0.01) discard;
-    vec3 c = tex.rgb * 0.95;
-    float maxTilt = max(0.001, uMaxTiltDeg);
-    float tiltMag = clamp(length(uTilt) / maxTilt, 0.0, 1.0);
-    if (uEffectMode > 1.5) {
-        vec2 aspUV = vec2(vUV.x * uAspect, vUV.y);
-        float scale = 400.0;
-        float sx = sin(aspUV.x * scale); float sy = sin(aspUV.y * scale);
-        float weave = (sx * sy) * 0.5 + 0.5;
-        float n = hash(aspUV * 800.0);
-        float pattern = mix(weave, n, 0.3);
-        c *= mix(0.45, 1.2, pattern);
-        vec2 pileDir = normalize(vec2(1.0, -1.0));
-        float alignment = dot(uTilt / maxTilt, pileDir);
-        float pileLighting = mix(0.7, 1.35, alignment * 0.5 + 0.5);
-        c *= mix(1.0, pileLighting, uSheenStrength);
-    } else {
-        float tiltGate = smoothstep(uSheenTiltDeadzone, 1.0, tiltMag);
-        float gradient = fract(vUV.x * 0.5 + vUV.y * 0.5 + uTilt.x * uSheenTiltShift + uTilt.y * uSheenTiltShift);
-        if (uEffectMode > 0.5) {
-            float holoStrength = uSheenStrength * uHoloMotion;
-            float distFromWhite = length(tex.rgb - vec3(1.0));
-            float nonWhiteMask = smoothstep(0.06, 0.22, distFromWhite);
-            vec3 rainbow = hsl2rgb(gradient, 0.8, 0.55);
-            c = mix(c, rainbow, holoStrength * nonWhiteMask * tex.a);
+          for (const [key, value] of Object.entries(values)) {
+            morph.to(config, { [key]: value, duration: 0.35, ease: 'power2.out' }, 0);
+          }
         } else {
-            float effectStrength = uSheenStrength * tiltGate;
-            float sheen = smoothstep(0.2, 0.5, gradient) * (1.0 - smoothstep(0.5, 0.8, gradient));
-            c = mix(c, uSheenColor, sheen * effectStrength * tex.a);
+          const values = presets.free;
+
+          const morph = gsap.timeline({
+            onUpdate: () => {
+              ctrl.refresh();
+              update();
+            },
+          });
+
+          for (const [key, value] of Object.entries(values)) {
+            morph.to(config, { [key]: value, duration: 0.35, ease: 'power2.out' }, 0);
+          }
         }
-    }
-    float hiW = clamp(vHi, 0.0, 1.0) * 0.55; float shW = clamp(vSh, 0.0, 1.0) * 0.60;
-    vec3 hi = overlayBlend(c, vec3(1.0)); c = mix(c, hi, hiW);
-    vec3 sh = overlayBlend(c, vec3(0.0)); c = mix(c, sh, shW);
-    c *= (1.0 - shW * 0.35);
-    c = clamp(c, 0.0, 1.0); gl_FragColor = vec4(c, tex.a);
-}`;
+      });
 
-    // helpers
-    const resolveImageSource = (input) => { if (!input) return undefined; if (typeof input === "string") return input.trim() || undefined; return input.src || input.url || (input.asset && input.asset.url) || undefined; };
-    const parseColorToRgb = (input) => {
-      if (!input) return [1,1,1]; const s = input.trim(); const m = s.match(/rgba?\(\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)/i);
-      if (m) return [+m[1]/255, +m[2]/255, +m[3]/255];
-      let h = s.replace(/^#/,""); if (h.length===3) h=h.split("").map(c=>c+c).join("");
-      if (h.length>=6) return [parseInt(h.slice(0,2),16)/255, parseInt(h.slice(2,4),16)/255, parseInt(h.slice(4,6),16)/255];
-      return [1,1,1];
-    };
-    const parseBoxShadow = (shadow) => {
-      const result = { x:0, y:0, blur:0, color:"rgba(0,0,0,0.3)" }; if (!shadow) return result;
-      const colorMatch = shadow.match(/(rgba?\([^)]+\)|#[0-9a-fA-F]{3,8}|\b[a-z]+\b(?=\s*$))/i);
-      if (colorMatch) result.color = colorMatch[0];
-      const numbers = shadow.match(/-?\d+(\.\d+)?(px)?/g);
-      if (numbers) { const vals = numbers.map(n=>parseFloat(n)); if (vals.length>=1) result.x=vals[0]; if (vals.length>=2) result.y=vals[1]; if (vals.length>=3) result.blur=vals[2]; }
-      return result;
-    };
-    const lerpShadow = (a,b,t) => {
-      const x = a.x+(b.x-a.x)*t, y=a.y+(b.y-a.y)*t, blur=a.blur+(b.blur-a.blur)*t, color=t>0.5?b.color:a.color;
-      return `drop-shadow(${x.toFixed(2)}px ${y.toFixed(2)}px ${blur.toFixed(2)}px ${color})`;
-    };
+    ctrl.addBinding(config, 'theme', {
+      label: 'theme',
+      options: {
+        system: 'system',
+        light: 'light',
+        dark: 'dark',
+      },
+    });
 
-    class StickerDrag {
-      constructor(props) {
-        this.props = { ...COMPONENT_DEFAULTS, ...props };
-        this.tiltSensitivity = DRAG_TILT_SENSITIVITY;
-        this.maxTilt = Math.max(1, this.props.tilt);
-        this.tiltSmoothing = this.props.tiltSmoothing != null ? this.props.tiltSmoothing : DRAG_TILT_SMOOTHING;
-        this.sheenStrength = this.props.lighting ? Math.max(1, Math.min(10, this.props.lightingStrength)) / 10 : 0;
-        this.sheenColor = parseColorToRgb(this.props.lightingColor);
-        this.elevation = (Math.max(1, Math.min(10, this.props.elevation)) / 10) * ELEVATION_INTERNAL_MAX;
-        this.sheenMode = this.props.sheenMode;
-        this.imageWidth = this.props.imageWidth;
-        this.imageHeight = this.props.imageHeight;
-        this.container = this.props.parent || document.getElementById("sticker-container");
-        this.container.style.position = this.container.style.position || "absolute";
-        this.container.style.overflow = "visible";
+    settings.addBinding(config, 'frost', {
+      label: 'frost',
+      min: 0,
+      max: 1,
+      step: 0.01,
+    });
 
-        this.sizingDiv = document.createElement("div"); this.sizingDiv.className = "sizing-div";
-        this.zoomProbe = document.createElement("div"); this.zoomProbe.className = "zoom-probe";
-        this.sticker = document.createElement("div"); this.sticker.className = "sticker";
-        this.inner = document.createElement("div"); this.inner.className = "inner";
-        this.canvas = document.createElement("canvas"); this.canvas.className = "gl-canvas";
-        this.inner.appendChild(this.canvas);
-        this.sticker.appendChild(this.inner);
-        this.container.appendChild(this.sizingDiv);
-        this.container.appendChild(this.zoomProbe);
-        this.container.appendChild(this.sticker);
+    settings.addBinding(config, 'saturation', {
+      min: 0,
+      max: 2,
+      step: 0.1,
+    });
 
-        this.sizingDimensions = { width: 400, height: 400 };
-        this.gl = null; this.program = null; this.texture = null; this.vbo = null; this.ibo = null; this.indexCount = 0; this.uniforms = {};
-        this.state = {
-          x:0,y:0,width:200,height:200,imageAspectRatio:null,scale:1,held:false,peeling:false,sticking:false,
-          dragStartX:0,dragStartY:0,dragOrigX:0,dragOrigY:0,peel:0,lift:0,peelAngle:-Math.PI/4,
-          dragTiltX:0,dragTiltY:0,currentTiltX:0,currentTiltY:0,prevTiltX:0,prevTiltY:0,
-          holoMotion:0,lastMoveX:0,lastMoveY:0,lastMoveT:0,texReady:false,
-        };
-        this.animationId = null; this.lastTickT = null;
-        this.parsedStaticShadow = parseBoxShadow(this.props.staticShadow);
-        this.parsedDynamicShadow = parseBoxShadow(this.props.dynamicShadow);
-        this.applyResizeTimeout = null; this.SIZING_THRESHOLD = 5; this.RESIZE_DEBOUNCE_MS = 180;
-        this.tick = this.tick.bind(this); this.draw = this.draw.bind(this); this.handleResize = this.handleResize.bind(this); this.updateShadowCSS = this.updateShadowCSS.bind(this);
-        this.init();
-      }
-      init() { this.applySizingDiv(); this.initWebGL(); this.loadImage(); this.attachEvents(); this.startResizeDetection(); }
-      applySizingDiv() { const d=this.sizingDimensions; this.sizingDiv.style.width=d.width+"px"; this.sizingDiv.style.height=d.height+"px"; this.sizingDiv.style.minWidth=d.width+"px"; this.sizingDiv.style.minHeight=d.height+"px"; }
-      initWebGL() {
-        const canvas=this.canvas, gl=canvas.getContext("webgl",{alpha:true,antialias:true,premultipliedAlpha:false});
-        if (!gl) return; this.gl=gl;
-        const compileShader=(source,type)=>{ const shader=gl.createShader(type); if(!shader)return null; gl.shaderSource(shader,source); gl.compileShader(shader); if(!gl.getShaderParameter(shader,gl.COMPILE_STATUS)){ console.error(gl.getShaderInfoLog(shader)); gl.deleteShader(shader); return null;} return shader; };
-        const vs=compileShader(VERTEX_SHADER,gl.VERTEX_SHADER), fs=compileShader(FRAGMENT_SHADER,gl.FRAGMENT_SHADER);
-        if (!vs||!fs) return;
-        const program=gl.createProgram(); if(!program) return;
-        gl.attachShader(program,vs); gl.attachShader(program,fs); gl.linkProgram(program);
-        if(!gl.getProgramParameter(program,gl.LINK_STATUS)){ console.error(gl.getProgramInfoLog(program)); return; }
-        this.program=program;
-        const uniformNames=["uPeel","uLift","uPeelAngle","uPasting","uScale","uElevation","uTilt","uSheenStrength","uSheenColor","uSheenTiltShift","uSheenTiltDeadzone","uMaxTiltDeg","uEffectMode","uHoloMotion","uTex","uAspect"];
-        for(const name of uniformNames) this.uniforms[name]=gl.getUniformLocation(program,name);
-        this.aPos=gl.getAttribLocation(program,"aPos"); this.aUV=gl.getAttribLocation(program,"aUV");
-        const N=MESH_GRID_SIZE, verts=[], inds=[];
-        for(let j=0;j<=N;j++) for(let i=0;i<=N;i++) verts.push((i/N)*2-1,(j/N)*2-1,i/N,1-j/N);
-        for(let j=0;j<N;j++) for(let i=0;i<N;i++){ const a=j*(N+1)+i; inds.push(a,a+1,a+N+1,a+1,a+N+2,a+N+1); }
-        const vbo=gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER,vbo); gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(verts),gl.STATIC_DRAW); this.vbo=vbo;
-        const ibo=gl.createBuffer(); gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,ibo); gl.bufferData(gl.ELEMENT_ARRAY_BUFFER,new Uint16Array(inds),gl.STATIC_DRAW); this.ibo=ibo; this.indexCount=inds.length;
-        gl.viewport(0,0,canvas.width,canvas.height); gl.clearColor(0,0,0,0); gl.clear(gl.COLOR_BUFFER_BIT);
-      }
-      draw() {
-        const gl=this.gl, program=this.program, texture=this.texture, state=this.state;
-        if(!gl||!program||!texture||!state.texReady) return;
-        gl.viewport(0,0,gl.canvas.width,gl.canvas.height); gl.clearColor(0,0,0,0); gl.clear(gl.COLOR_BUFFER_BIT);
-        gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA); gl.useProgram(program);
-        gl.bindBuffer(gl.ARRAY_BUFFER,this.vbo); gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,this.ibo);
-        gl.enableVertexAttribArray(this.aPos); gl.enableVertexAttribArray(this.aUV);
-        gl.vertexAttribPointer(this.aPos,2,gl.FLOAT,false,16,0); gl.vertexAttribPointer(this.aUV,2,gl.FLOAT,false,16,8);
-        const u=this.uniforms;
-        gl.uniform1f(u.uPeel,state.peel); gl.uniform1f(u.uLift,state.lift); gl.uniform1f(u.uPeelAngle,state.peelAngle);
-        gl.uniform1f(u.uPasting,state.sticking?1.0:0.0); gl.uniform1f(u.uScale,state.scale); gl.uniform1f(u.uElevation,this.elevation);
-        gl.uniform2f(u.uTilt,state.currentTiltX,state.currentTiltY); gl.uniform1f(u.uSheenStrength,this.sheenStrength);
-        gl.uniform3f(u.uSheenColor,this.sheenColor[0],this.sheenColor[1],this.sheenColor[2]);
-        gl.uniform1f(u.uSheenTiltShift,SHEEN_TILT_SHIFT); gl.uniform1f(u.uSheenTiltDeadzone,SHEEN_TILT_DEADZONE);
-        gl.uniform1f(u.uMaxTiltDeg,this.maxTilt);
-        let effectMode=0; if(this.sheenMode==="holo") effectMode=1; else if(this.sheenMode==="rug") effectMode=2;
-        gl.uniform1f(u.uEffectMode,effectMode); gl.uniform1f(u.uHoloMotion,state.holoMotion); gl.uniform1f(u.uAspect,state.width/state.height);
-        gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D,texture); gl.uniform1i(u.uTex,0);
-        gl.drawElements(gl.TRIANGLES,this.indexCount,gl.UNSIGNED_SHORT,0);
-      }
-      updateShadowCSS() { const canvas=this.canvas, state=this.state; if(!canvas)return; const tRaw=Math.max(state.lift,state.peel); const t=tRaw*tRaw*(3-2*tRaw); canvas.style.filter=lerpShadow(this.parsedStaticShadow,this.parsedDynamicShadow,t); }
-      tick(timestamp) {
-        const state=this.state;
-        if(this.lastTickT===null) this.lastTickT=timestamp;
-        const dt=Math.min((timestamp-this.lastTickT)/1000,0.1); this.lastTickT=timestamp;
-        const step=ANIM_SPEED*dt; let changed=false;
-        if(state.peeling){ if(state.peel<1||state.lift<1){ state.peel=Math.min(1,state.peel+step); state.lift=Math.min(1,state.lift+step); changed=true; } }
-        if(state.sticking){ if(state.peel>0||state.lift>0){ state.peel=Math.max(0,state.peel-step); state.lift=Math.max(0,state.lift-step); changed=true; } else { state.sticking=false; } }
-        const holoDecayActive=this.sheenMode==="holo"&&state.holoMotion>0.005;
-        if(holoDecayActive){ state.holoMotion*=HOLO_MOTION_DECAY; if(state.holoMotion<0.005) state.holoMotion=0; changed=true; }
-        if(changed) this.updateShadowCSS();
-        if(changed||state.held||holoDecayActive) this.draw();
-        if(state.held||state.peeling||state.sticking||holoDecayActive){ this.animationId=requestAnimationFrame(this.tick); } else { this.animationId=null; this.lastTickT=null; }
-      }
-      ensureTickRunning(){ if(this.animationId!==null)return; this.lastTickT=null; this.animationId=requestAnimationFrame(this.tick); }
-      handleResize() {
-        const container=this.container, canvas=this.canvas, sticker=this.sticker, gl=this.gl, state=this.state;
-        if(!container||!canvas||!sticker||!gl) return;
-        const containerWidth=container.clientWidth||200, containerHeight=container.clientHeight||200;
-        const width=this.imageWidth>0?this.imageWidth:containerWidth, height=this.imageHeight>0?this.imageHeight:containerHeight;
-        const maxDim=Math.max(width,height), elevationPad=maxDim*this.elevation*0.6, effectivePad=PAD_BASE+elevationPad;
-        const canvasWidth=width+effectivePad*2, canvasHeight=height+effectivePad*2;
-        const scaleX=width/canvasWidth, scaleY=height/canvasHeight, scale=Math.min(scaleX,scaleY);
-        const x=(containerWidth-width)/2, y=(containerHeight-height)/2;
-        canvas.width=Math.round(canvasWidth*RENDER_SCALE); canvas.height=Math.round(canvasHeight*RENDER_SCALE);
-        canvas.style.width=`${canvasWidth}px`; canvas.style.height=`${canvasHeight}px`;
-        canvas.style.position="absolute"; canvas.style.left=`${-effectivePad}px`; canvas.style.top=`${-effectivePad}px`;
-        sticker.style.width=`${width}px`; sticker.style.height=`${height}px`; sticker.style.left=`${x}px`; sticker.style.top=`${y}px`;
-        state.width=width; state.height=height; state.x=x; state.y=y; state.scale=scale;
-        gl.viewport(0,0,canvas.width,canvas.height);
-        if(state.texReady) this.draw();
-      }
-      scheduleResize(measuredW,measuredH){ if(this.applyResizeTimeout) clearTimeout(this.applyResizeTimeout); this.applyResizeTimeout=setTimeout(()=>{ this.applyResizeTimeout=null; const prev=this.sizingDimensions; const w=Math.max(1,Math.round(measuredW))||prev.width; const h=Math.max(1,Math.round(measuredH))||prev.height; const dw=Math.abs(w-prev.width), dh=Math.abs(h-prev.height); if(dw>=this.SIZING_THRESHOLD||dh>=this.SIZING_THRESHOLD){ this.sizingDimensions={width:w,height:h}; this.applySizingDiv(); } this.handleResize(); }, this.RESIZE_DEBOUNCE_MS); }
-      startResizeDetection(){ const container=this.container; if(!container)return; this.handleResize(); const ro=new ResizeObserver(()=>{ const w=container.clientWidth||container.offsetWidth||400; const h=container.clientHeight||container.offsetHeight||400; this.scheduleResize(w,h); }); ro.observe(container); this.resizeObserver=ro; }
-      loadImage() {
-        const imageSrc=resolveImageSource(this.props.image) || "https://plus.unsplash.com/premium_photo-1782403647102-070de72f10a0?q=80&w=1234&auto=format&fit=crop";
-        const gl=this.gl; if(!gl||!this.program) return;
-        const img=new Image(); img.crossOrigin="anonymous";
-        img.onload=()=>{ const state=this.state; state.imageAspectRatio=img.width/img.height; if(this.texture) gl.deleteTexture(this.texture); const texture=gl.createTexture(); if(!texture)return; gl.bindTexture(gl.TEXTURE_2D,texture); gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL,false); gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,img); gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR); this.texture=texture; state.texReady=true; this.handleResize(); this.updateShadowCSS(); this.draw(); };
-        img.onerror=()=>console.error("Failed to load image"); img.src=imageSrc;
-      }
-      settleTilt() {
-        const state=this.state, inner=this.inner;
-        const step=()=>{ state.dragTiltX*=0.9; state.dragTiltY*=0.9; state.currentTiltX=state.dragTiltX; state.currentTiltY=state.dragTiltY; if(inner){ inner.style.transform=`rotateX(${state.dragTiltX}deg) rotateY(${state.dragTiltY}deg)`; } if(Math.abs(state.dragTiltX)>0.1||Math.abs(state.dragTiltY)>0.1){ requestAnimationFrame(step); } else { state.dragTiltX=0; state.dragTiltY=0; state.currentTiltX=0; state.currentTiltY=0; state.prevTiltX=0; state.prevTiltY=0; if(inner) inner.style.transform=""; } };
-        step();
-      }
-      pointerDown(clientX,clientY) {
-        const state=this.state, container=this.container, sticker=this.sticker, inner=this.inner;
-        if(!container||!sticker||!inner) return;
-        const rect=sticker.getBoundingClientRect(); const grabOffsetX=clientX-rect.left, grabOffsetY=clientY-rect.top;
-        inner.style.transformOrigin=`${grabOffsetX}px ${grabOffsetY}px`;
-        const centerX=rect.left+rect.width/2, centerY=rect.top+rect.height/2;
-        state.peelAngle=Math.atan2(clientY-centerY,clientX-centerX);
-        state.dragStartX=clientX; state.dragStartY=clientY; state.dragOrigX=state.x; state.dragOrigY=state.y;
-        state.peel=0; state.lift=0; state.held=true; state.peeling=true; state.sticking=false;
-        state.lastMoveX=clientX; state.lastMoveY=clientY; state.lastMoveT=performance.now();
-        container.style.zIndex=`${getNextZIndex()}`;
-        this.ensureTickRunning();
-      }
-      pointerMove(clientX,clientY) {
-        const state=this.state; if(!state.held) return;
-        const sticker=this.sticker, inner=this.inner; if(!sticker||!inner) return;
-        state.x=state.dragOrigX+(clientX-state.dragStartX); state.y=state.dragOrigY+(clientY-state.dragStartY);
-        sticker.style.left=`${state.x}px`; sticker.style.top=`${state.y}px`;
-        const now=performance.now(), dt=Math.max(1,now-state.lastMoveT);
-        const velX=((clientX-state.lastMoveX)/dt)*16, velY=((clientY-state.lastMoveY)/dt)*16;
-        state.lastMoveX=clientX; state.lastMoveY=clientY; state.lastMoveT=now;
-        const targetTiltY=Math.max(-this.maxTilt,Math.min(this.maxTilt,velX*this.tiltSensitivity));
-        const targetTiltX=Math.max(-this.maxTilt,Math.min(this.maxTilt,-velY*this.tiltSensitivity));
-        state.dragTiltX+=(targetTiltX-state.dragTiltX)*this.tiltSmoothing;
-        state.dragTiltY+=(targetTiltY-state.dragTiltY)*this.tiltSmoothing;
-        state.currentTiltX=state.dragTiltX; state.currentTiltY=state.dragTiltY;
-        if(this.sheenMode==="holo"){ const tiltDelta=Math.abs(state.dragTiltX-state.prevTiltX)+Math.abs(state.dragTiltY-state.prevTiltY); state.holoMotion=Math.min(1,state.holoMotion+tiltDelta*HOLO_MOTION_BUMP); state.prevTiltX=state.dragTiltX; state.prevTiltY=state.dragTiltY; }
-        inner.style.transform=`rotateX(${state.dragTiltX}deg) rotateY(${state.dragTiltY}deg)`;
-      }
-      pointerUp() {
-        const state=this.state, inner=this.inner; if(!state.held) return;
-        state.held=false; state.peeling=false; state.sticking=true;
-        if(state.peel>=0.95&&inner){ const rect=inner.getBoundingClientRect(); const centerX=rect.left+rect.width/2, centerY=rect.top+rect.height/2; state.peelAngle=Math.atan2(-(state.lastMoveY-centerY),-(state.lastMoveX-centerX)); state.peel=1; }
-        this.settleTilt(); this.ensureTickRunning();
-      }
-      attachEvents() {
-        this.sticker.addEventListener("mousedown",(e)=>{ e.preventDefault(); this.pointerDown(e.clientX,e.clientY); });
-        window.addEventListener("mousemove",(e)=>this.pointerMove(e.clientX,e.clientY));
-        window.addEventListener("mouseup",()=>this.pointerUp());
-        this.sticker.addEventListener("touchstart",(e)=>{ e.preventDefault(); const touch=e.touches[0]; if(touch) this.pointerDown(touch.clientX,touch.clientY); }, {passive:false});
-        window.addEventListener("touchmove",(e)=>{ const touch=e.touches[0]; if(touch) this.pointerMove(touch.clientX,touch.clientY); }, {passive:false});
-        window.addEventListener("touchend",()=>this.pointerUp());
-      }
-    }
+    settings.addBinding(config, 'icons');
 
-    // ----- instantiate stickers (from notes) -----
-    const notes = [
-      { url: "https://static.vecteezy.com/system/resources/previews/045/648/580/non_2x/cute-hamster-meme-transparent-background-illustration-free-png.png", w: 448, h: 380 },
-      { url: "https://static.vecteezy.com/system/resources/previews/067/162/149/non_2x/cute-duck-meme-sticker-transparent-cute-illustration-free-png.png", w: 400, h: 300 },
-      { url: "https://static.vecteezy.com/system/resources/previews/044/873/467/non_2x/loading-cat-meme-sticker-tshirt-illustration-free-png.png", w: 400, h: 300 },
-      { url: "https://static.vecteezy.com/system/resources/previews/060/468/440/non_2x/muscle-dog-tuff-shiba-inu-dog-meme-sticker-transparent-t-shirt-cute-illustration-free-png.png", w: 420, h: 310 },
-      { url: "https://static.vecteezy.com/system/resources/previews/067/162/129/non_2x/thumb-up-frog-meme-sticker-transparent-cute-illustration-free-png.png", w: 420, h: 310 },
-      { url: "https://static.vecteezy.com/system/resources/previews/067/162/141/non_2x/working-dog-meme-sticker-transparent-cute-illustration-free-png.png", w: 460, h: 307 },
-      { url: "https://static.vecteezy.com/system/resources/previews/024/207/646/non_2x/old-retro-car-cartoon-sticker-with-ai-generative-free-png.png", w: 260, h: 107 },
-      { url: "https://static.vecteezy.com/system/resources/previews/027/183/094/non_2x/cute-baby-panda-sticker-transparent-free-png.png", w: 460, h: 460 },
-    //   { url: "https://static.vecteezy.com/system/resources/previews/024/684/305/non_2x/sticker-illustration-of-eagle-head-with-ai-generative-free-png.png", w: 200, h: 200 },
-      { url: "https://static.vecteezy.com/system/resources/previews/044/876/360/non_2x/cat-with-glasses-meme-sticker-tshirt-illustration-free-png.png", w: 400, h: 400 },
-    ];
+    settings.addBinding(config, 'width', {
+      min: 80,
+      max: 500,
+      step: 1,
+      label: 'width (px)',
+    });
 
-    const root = document.getElementById("sticker-container");
-    const columns = 4, rows = 3, margin = 70;
-    const availableWidth = Math.max(1, root.clientWidth - margin * 2);
-    const availableHeight = Math.max(1, root.clientHeight - margin * 2);
-    const cellWidth = availableWidth / columns;
-    const cellHeight = availableHeight / rows;
-    const layout = [
-      {col:0,row:0},{col:1,row:0},{col:2,row:0},{col:3,row:0},
-      {col:0,row:1},{col:1,row:1},{col:2,row:1},{col:3,row:1},
-      {col:0,row:2},{col:2,row:2},
-    ];
+    settings.addBinding(config, 'height', {
+      min: 35,
+      max: 500,
+      step: 1,
+      label: 'height (px)',
+    });
 
-    notes.forEach((note, index) => {
-      const slot = layout[index] || { col: index % columns, row: Math.floor(index / columns) };
-      const maxStickerWidth = cellWidth * 0.75;
-      const maxStickerHeight = cellHeight * 0.75;
-      const scale = Math.min(1, maxStickerWidth / note.w, maxStickerHeight / note.h);
-      const width = Math.round(note.w * scale);
-      const height = Math.round(note.h * scale);
-      const x = Math.round(margin + slot.col * cellWidth + (cellWidth - width) / 2);
-      const y = Math.round(margin + slot.row * cellHeight + (cellHeight - height) / 2);
+    settings.addBinding(config, 'radius', {
+      min: 0,
+      max: 500,
+      step: 1,
+      label: 'radius (px)',
+    });
 
-      const wrapper = document.createElement("div");
-      wrapper.className = "sticker-instance";
-      wrapper.style.left = `${x}px`;
-      wrapper.style.top = `${y}px`;
-      wrapper.style.width = `${width}px`;
-      wrapper.style.height = `${height}px`;
-      wrapper.style.overflow = "visible";
-      root.appendChild(wrapper);
+    settings.addBinding(config, 'border', {
+      min: 0,
+      max: 1,
+      step: 0.01,
+      label: 'border',
+    });
 
-      new StickerDrag({
-        image: { src: note.url },
-        imageWidth: width,
-        imageHeight: height,
-        parent: wrapper,
-        // add some variety
-        sheenMode: index % 3 === 0 ? "sheen" : (index % 3 === 1 ? "holo" : "rug"),
-        lightingStrength: 5 + (index % 6),
-        elevation: 5 + (index % 8),
+    settings.addBinding(config, 'alpha', {
+      min: 0,
+      max: 1,
+      step: 0.01,
+      label: 'alpha',
+    });
+
+    settings.addBinding(config, 'lightness', {
+      min: 0,
+      max: 100,
+      step: 1,
+      label: 'lightness',
+    });
+
+    settings.addBinding(config, 'blur', {
+      min: 0,
+      max: 20,
+      step: 1,
+      label: 'input blur',
+    });
+
+    settings.addBinding(config, 'displace', {
+      min: 0,
+      max: 12,
+      step: 0.1,
+      label: 'output blur',
+    });
+
+    settings.addBinding(config, 'x', {
+      label: 'channel x',
+      options: {
+        r: 'R',
+        g: 'G',
+        b: 'B',
+      },
+    });
+
+    settings.addBinding(config, 'y', {
+      label: 'channel y',
+      options: {
+        r: 'R',
+        g: 'G',
+        b: 'B',
+      },
+    });
+
+    settings.addBinding(config, 'blend', {
+      label: 'blend',
+      options: {
+        normal: 'normal',
+        multiply: 'multiply',
+        screen: 'screen',
+        overlay: 'overlay',
+        darken: 'darken',
+        lighten: 'lighten',
+        'color-dodge': 'color-dodge',
+        'color-burn': 'color-burn',
+        'hard-light': 'hard-light',
+        'soft-light': 'soft-light',
+        difference: 'difference',
+        exclusion: 'exclusion',
+        hue: 'hue',
+        saturation: 'saturation',
+        color: 'color',
+        luminosity: 'luminosity',
+        'plus-darker': 'plus-darker',
+        'plus-lighter': 'plus-lighter',
+      },
+    });
+
+    settings.addBinding(config, 'scale', {
+      min: -1000,
+      max: 1000,
+      step: 1,
+      label: 'scale',
+    });
+
+    const chromatic = settings.addFolder({
+      title: 'chromatic',
+    });
+
+    chromatic.addBinding(config, 'r', {
+      min: -100,
+      max: 100,
+      step: 1,
+      label: 'red',
+    });
+
+    chromatic.addBinding(config, 'g', {
+      min: -100,
+      max: 100,
+      step: 1,
+      label: 'green',
+    });
+
+    chromatic.addBinding(config, 'b', {
+      min: -100,
+      max: 100,
+      step: 1,
+      label: 'blue',
+    });
+
+    ctrl.on('change', () => {
+      update();
+    });
+
+    update();
+
+    gsap.set(effect, {
+      left: window.innerWidth * 0.5 - config.width * 0.5,
+      top: window.innerHeight * 0.5 - config.height * 0.5,
+      opacity: 1,
+    });
+
+    Draggable.create(effect, {
+      type: 'x,y',
+      inertia: false,
+    });
+
+    window.addEventListener('resize', () => {
+      const rect = effect.getBoundingClientRect();
+
+      const maxX = window.innerWidth - rect.width;
+      const maxY = window.innerHeight - rect.height;
+
+      gsap.set(effect, {
+        left: Math.min(Math.max(rect.left, 0), maxX),
+        top: Math.min(Math.max(rect.top, 0), maxY),
+        x: 0,
+        y: 0,
       });
     });
   </script>

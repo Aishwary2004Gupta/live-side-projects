@@ -37,34 +37,31 @@
     .inner { position: absolute; width: 100%; height: 100%; transform-style: preserve-3d; overflow: visible; }
     .gl-canvas { display: block; pointer-events: none; position: absolute; }
 
-    /* ══════════ THE GLASS ══════════ */
     .effect {
       opacity: 0;
       position: fixed;
       z-index: 9999;
-      background: hsl(0 0% 100% / var(--frost, 0));
-      backdrop-filter: url(#filter) saturate(var(--saturation, 1)) brightness(var(--brightness, 1));
-      -webkit-backdrop-filter: saturate(var(--saturation, 1));
-      /* thin glass edge + grounded contact shadow */
+      background: light-dark(hsl(0 0% 100% / var(--frost, 0)), hsl(0 0% 0% / var(--frost, 0)));
+      backdrop-filter: url(#filter) saturate(var(--saturation, 1));
       box-shadow:
-        0 0 0 0.5px rgba(255,255,255,0.55) inset,
-        0 1px 1px -0.5px rgba(255,255,255,0.9) inset,
-        0 -1px 1px -0.5px rgba(255,255,255,0.45) inset,
-        0 0 12px 2px rgba(255,255,255,0.10) inset,
-        0 1px 2px rgba(17,17,26,0.10),
-        0 6px 14px -4px rgba(17,17,26,0.18),
-        0 16px 34px -10px rgba(17,17,26,0.22);
+        0 0 2px 1px light-dark(color-mix(in oklch, canvasText, #0000 85%), color-mix(in oklch, canvasText, #0000 65%)) inset,
+        0 0 10px 4px light-dark(color-mix(in oklch, canvasText, #0000 90%), color-mix(in oklch, canvasText, #0000 85%)) inset,
+        0px 4px 16px rgba(17, 17, 26, 0.05), 0px 8px 24px rgba(17, 17, 26, 0.05),
+        0px 16px 56px rgba(17, 17, 26, 0.05),
+        0px 4px 16px rgba(17, 17, 26, 0.05) inset,
+        0px 8px 24px rgba(17, 17, 26, 0.05) inset,
+        0px 16px 56px rgba(17, 17, 26, 0.05) inset;
       transition: opacity 0.3s ease;
       border-radius: calc(var(--radius) * 1px);
       width: calc(var(--width) * 1px);
       height: calc(var(--height) * 1px);
       pointer-events: auto;
       cursor: grab;
-      isolation: isolate;
     }
     .effect:active { cursor: grabbing; }
-    .effect > * { pointer-events: none; }
-
+    .effect .nav-wrap { pointer-events: none; }
+    .effect .filter { pointer-events: none; }
+    .effect .displacement-debug { pointer-events: none; }
     .effect .nav-wrap {
       width: 100%; height: 100%; overflow: hidden; border-radius: inherit;
       display: flex; align-items: center; justify-content: center; padding: 0.4rem;
@@ -72,39 +69,6 @@
     }
     .effect .nav-wrap img { width: 60px; aspect-ratio: 1; margin: 0 4px; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.1)); }
     [data-icons="true"] .effect .nav-wrap { opacity: 0.9; }
-
-    /* specular sheen — the single biggest realism win */
-    .glass-gloss {
-      position: absolute; inset: 0; border-radius: inherit;
-      opacity: var(--gloss, 1);
-      background:
-        /* main top-left highlight */
-        radial-gradient(65% 40% at 30% 10%, rgba(255,255,255,0.55), rgba(255,255,255,0) 62%),
-        /* tight hot spot */
-        radial-gradient(18% 12% at 27% 16%, rgba(255,255,255,0.75), rgba(255,255,255,0) 70%),
-        /* bounce light from below */
-        radial-gradient(70% 38% at 66% 96%, rgba(255,255,255,0.28), rgba(255,255,255,0) 68%);
-      mix-blend-mode: screen;
-    }
-
-    /* refractive rim — bright top arc, dim bottom arc */
-    .glass-rim {
-      position: absolute; inset: 0; border-radius: inherit;
-      opacity: var(--gloss, 1);
-      padding: calc(var(--rim, 1.4) * 1px);
-      background: linear-gradient(
-        170deg,
-        rgba(255,255,255,0.95) 0%,
-        rgba(255,255,255,0.10) 26%,
-        rgba(255,255,255,0.00) 46%,
-        rgba(255,255,255,0.18) 68%,
-        rgba(255,255,255,0.70) 100%
-      );
-      -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
-      mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
-      -webkit-mask-composite: xor;
-      mask-composite: exclude;
-    }
 
     .filter { width: 100%; height: 100%; pointer-events: none; position: absolute; inset: 0; }
     .displacement-debug {
@@ -114,16 +78,17 @@
     }
     [data-debug="true"] .displacement-debug { translate: 0 calc(100% + 1rem); scale: 1; opacity: 1; }
     .displacement-debug .label {
-      position: absolute; left: 50%; top: calc(100% + 0.4rem); transform: translateX(-50%);
-      font-size: 0.7rem; background: rgba(255,255,255,0.7);
-      backdrop-filter: blur(4px); padding: 0.2rem 0.6rem; border-radius: 6px; white-space: nowrap;
+      position: absolute; left: 50%; top: calc(100% + 0.2lh); transform: translateX(-50%);
+      font-size: 0.75rem; background: color-mix(in oklch, canvas, #0000 25%);
+      backdrop-filter: blur(4px); padding: 0.25rem 0.75rem; border-radius: 6px; white-space: nowrap;
+      font-family: 'Gloria Hallelujah', cursive;
     }
     .displacement-image { height: 100%; width: 100%; pointer-events: none; border-radius: calc(var(--radius) * 1px); }
 
     .tp-dfwv {
       position: fixed !important; bottom: 20px !important; right: 20px !important;
       top: auto !important; left: auto !important;
-      z-index: 9999999; width: 280px; max-height: 82vh; overflow-y: auto;
+      z-index: 9999999; width: 280px; max-height: 80vh; overflow-y: auto;
     }
     body { background: transparent; }
     #floor { z-index: 0; }
@@ -131,7 +96,7 @@
     .effect { z-index: 9999; }
 
     [data-top="true"] .effect {
-      top: 14px !important;
+      top: 12px !important;
       left: 50% !important;
       transform: translateX(-50%);
     }
@@ -148,10 +113,6 @@
       <img src="https://assets.codepen.io/605876/safari.png" alt="safari" />
       <img src="https://assets.codepen.io/605876/calendar.png" alt="calendar" />
     </div>
-
-    <div class="glass-gloss"></div>
-    <div class="glass-rim"></div>
-
     <svg class="filter" xmlns="http://www.w3.org/2000/svg">
       <defs>
         <filter id="filter" color-interpolation-filters="sRGB">
@@ -164,7 +125,7 @@
           <feColorMatrix in="dispBlue" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 1 0 0 0 0 0 1 0" result="blue" />
           <feBlend in="red" in2="green" mode="screen" result="rg" />
           <feBlend in="rg" in2="blue" mode="screen" result="output" />
-          <feGaussianBlur in="output" stdDeviation="0.5" />
+          <feGaussianBlur in="output" stdDeviation="0" />
         </filter>
       </defs>
     </svg>
@@ -187,47 +148,22 @@
     import Draggable from 'gsap/Draggable.js';
     gsap.registerPlugin(Draggable);
 
-    /* ═══════════════════════════════════════════════════
-       GLASS CONFIG
-       'lens' = physically-tuned defaults (most realistic)
-       ═══════════════════════════════════════════════════ */
+    // ---------- GLASS CONFIG ----------
+    // "dock" is the most realistic (wide bar, frost, displacement, blur)
     const base = {
       icons: false, scale: -180, radius: 16, border: 0.07, lightness: 50,
       displace: 0, blend: 'difference', x: 'R', y: 'B', alpha: 0.93,
-      blur: 11, r: 0, g: 10, b: 20, saturation: 1, frost: 0,
-      brightness: 1, gloss: 1, rim: 1.4,
+      blur: 11, r: 0, g: 10, b: 20, saturation: 1,
     };
-
     const presets = {
-      /* ── REALISTIC LENS (default) ────────────────────────────────
-         • perfect circle (radius = size/2)
-         • border 0.11 → thick refracting rim like real curved glass
-         • lightness 50 → neutral centre, zero distortion in the middle
-         • alpha 0.92 → a whisper of magnification through the body
-         • blur 14 → smooth, continuous refraction ramp (no banding)
-         • scale -235 → convex/magnifying, not a fisheye caricature
-         • r/g/b 0/-9/-18 → blue bends MOST (correct Abbe dispersion)
-         • displace 0.5 → kills the displacement-map aliasing
-         • saturation 1.14 + brightness 1.03 → glass "lifts" what's behind
-         • frost 0.02 → real glass is not frosted, just a hint of body
-      ---------------------------------------------------------------- */
-      lens: {
-        ...base,
-        width: 200, height: 200, radius: 100,
-        border: 0.11, alpha: 0.92, lightness: 50,
-        blur: 14, displace: 0.5, scale: -235,
-        r: 0, g: -9, b: -18,
-        frost: 0.02, saturation: 1.14, brightness: 1.03,
-        gloss: 1, rim: 1.4, icons: false,
-      },
-      bubble: { ...base, radius: 70, width: 140, height: 140, displace: 0.3, frost: 0, blur: 10, scale: -200, gloss: 1, rim: 1.2 },
-      dock:   { ...base, width: 336, height: 96, radius: 26, displace: 0.4, icons: true, frost: 0.05, border: 0.09, blur: 9, scale: -160, gloss: 0.7, rim: 1 },
-      pill:   { ...base, width: 220, height: 78, radius: 39, displace: 0.35, frost: 0.01, border: 0.10, blur: 9, scale: -170, gloss: 0.85, rim: 1.2 },
+      dock:   { ...base, width: 336, height: 96, displace: 0.2, icons: true, frost: 0.05 },
+      pill:   { ...base, width: 200, height: 80, displace: 0, frost: 0, radius: 40 },
+      bubble: { ...base, radius: 70, width: 140, height: 140, displace: 0, frost: 0 },
       free:   { ...base, width: 140, height: 280, radius: 80, border: 0.15, alpha: 0.74, lightness: 60, blur: 10, displace: 0, scale: -300 },
     };
 
-    // ► DEFAULT = the realistic lens
-    const config = { ...presets.lens, theme: 'system', debug: false, top: false, preset: 'lens' };
+    // DEFAULT: dock (most real glass), but icons forced unchecked
+    const config = { ...presets.dock, theme: 'system', debug: false, top: false, preset: 'dock', icons: false };
 
     const glass = document.getElementById('glass');
     const debugPen = document.querySelector('.displacement-debug');
@@ -249,7 +185,7 @@
           <rect x="0" y="0" width="${config.width}" height="${config.height}" fill="black"></rect>
           <rect x="0" y="0" width="${config.width}" height="${config.height}" rx="${config.radius}" fill="url(#red)" />
           <rect x="0" y="0" width="${config.width}" height="${config.height}" rx="${config.radius}" fill="url(#blue)" style="mix-blend-mode: ${config.blend}" />
-          <rect x="${border}" y="${border}" width="${config.width - border * 2}" height="${config.height - border * 2}" rx="${Math.max(0, config.radius - border)}" fill="hsl(0 0% ${config.lightness}% / ${config.alpha})" style="filter:blur(${config.blur}px)" />
+          <rect x="${border}" y="${Math.min(config.width, config.height) * (config.border * 0.5)}" width="${config.width - border * 2}" height="${config.height - border * 2}" rx="${config.radius}" fill="hsl(0 0% ${config.lightness}% / ${config.alpha})" style="filter:blur(${config.blur}px)" />
         </svg>
         <div class="label"><span>displacement map</span></div>
       `;
@@ -257,7 +193,8 @@
       const svgEl = debugPen.querySelector('.displacement-image');
       if (!svgEl) return;
       const serialized = new XMLSerializer().serializeToString(svgEl);
-      const dataUri = `data:image/svg+xml,${encodeURIComponent(serialized)}`;
+      const encoded = encodeURIComponent(serialized);
+      const dataUri = `data:image/svg+xml,${encoded}`;
       gsap.set('feImage', { attr: { href: dataUri } });
       gsap.set('feDisplacementMap', { attr: { xChannelSelector: config.x, yChannelSelector: config.y } });
     };
@@ -270,77 +207,63 @@
         '--radius': config.radius,
         '--frost': config.frost,
         '--saturation': config.saturation,
-        '--brightness': config.brightness,
-        '--gloss': config.gloss,
-        '--rim': config.rim,
       });
       gsap.set('feDisplacementMap', { attr: { scale: config.scale } });
       gsap.set('#redchannel',   { attr: { scale: config.scale + config.r } });
       gsap.set('#greenchannel', { attr: { scale: config.scale + config.g } });
       gsap.set('#bluechannel',  { attr: { scale: config.scale + config.b } });
       gsap.set('feGaussianBlur', { attr: { stdDeviation: config.displace } });
-
       document.documentElement.dataset.icons = config.icons;
-      document.documentElement.dataset.mode  = config.preset;
-      document.documentElement.dataset.top   = config.top;
+      document.documentElement.dataset.mode = config.preset;
+      document.documentElement.dataset.top = config.top;
       document.documentElement.dataset.debug = config.debug;
       document.documentElement.dataset.theme = config.theme;
 
-      glass.style.width        = config.width + 'px';
-      glass.style.height       = config.height + 'px';
+      glass.style.width = config.width + 'px';
+      glass.style.height = config.height + 'px';
       glass.style.borderRadius = config.radius + 'px';
     };
 
-    /* ══════════ TWEAKPANE ══════════ */
-    const ctrl = new Pane({ title: 'Liquid Glass', expanded: false });
+    // TWEAKPANE — fully expanded / unlocked by default
+    const ctrl = new Pane({ title: 'Liquid Glass', expanded: true });
 
     ctrl.addBinding(config, 'debug', { label: 'debug displacement' });
-    // ctrl.addBinding(config, 'top',   { label: 'pin to top' });
-
-    const NUMERIC = ['width','height','radius','border','alpha','lightness','blur',
-                     'displace','scale','r','g','b','frost','saturation','brightness','gloss','rim'];
-
+    ctrl.addBinding(config, 'top', { label: 'pin to top' });
     ctrl.addBinding(config, 'preset', {
       label: 'mode',
-      options: { lens: 'lens', bubble: 'bubble', dock: 'dock', pill: 'pill', free: 'free' },
+      options: { dock: 'dock', pill: 'pill', bubble: 'bubble', free: 'free' },
     }).on('change', () => {
       document.documentElement.dataset.mode = config.preset;
       settings.expanded = true;
       settings.disabled = false;
       if (config.preset !== 'free') {
         const values = presets[config.preset];
-        // non-numeric props snap instantly, numeric props morph smoothly
-        for (const [k, v] of Object.entries(values)) {
-          if (!NUMERIC.includes(k)) config[k] = v;
+        document.documentElement.dataset.icons = values.icons;
+        const morph = gsap.timeline({ onUpdate: () => ctrl.refresh() });
+        for (const [key, value] of Object.entries(values)) {
+          morph.to(config, { [key]: value }, 0);
         }
-        const morph = gsap.timeline({
-          onUpdate: () => { updateGlass(); ctrl.refresh(); },
-          onComplete: () => { updateGlass(); placeGlass(); ctrl.refresh(); },
+        morph.call(() => {
+          updateGlass();
+          placeGlass();
         });
-        for (const k of NUMERIC) {
-          if (values[k] !== undefined) morph.to(config, { [k]: values[k], duration: 0.45, ease: 'power2.out' }, 0);
-        }
       }
     });
-
     ctrl.addBinding(config, 'theme', { label: 'theme', options: { system: 'system', light: 'light', dark: 'dark' } });
 
-    const settings = ctrl.addFolder({ title: 'settings', expanded: false, disabled: false });
+    const settings = ctrl.addFolder({ title: 'settings', expanded: true, disabled: false });
 
-    settings.addBinding(config, 'icons',      { label: 'show icons' });
-    settings.addBinding(config, 'gloss',      { min: 0, max: 1,   step: 0.01, label: 'specular gloss' });
-    settings.addBinding(config, 'rim',        { min: 0, max: 6,   step: 0.1,  label: 'rim width (px)' });
-    settings.addBinding(config, 'frost',      { min: 0, max: 1,   step: 0.01, label: 'frost' });
-    settings.addBinding(config, 'saturation', { min: 0, max: 2,   step: 0.01, label: 'saturation' });
-    settings.addBinding(config, 'brightness', { min: 0.5, max: 1.5, step: 0.01, label: 'brightness' });
-    settings.addBinding(config, 'width',      { min: 80, max: 500, step: 1, label: 'width (px)' });
-    settings.addBinding(config, 'height',     { min: 35, max: 500, step: 1, label: 'height (px)' });
-    settings.addBinding(config, 'radius',     { min: 0, max: 500, step: 1, label: 'radius (px)' });
-    settings.addBinding(config, 'border',     { min: 0, max: 1,   step: 0.01, label: 'edge thickness' });
-    settings.addBinding(config, 'alpha',      { min: 0, max: 1,   step: 0.01, label: 'alpha' });
-    settings.addBinding(config, 'lightness',  { min: 0, max: 100, step: 1, label: 'lightness' });
-    settings.addBinding(config, 'blur',       { min: 0, max: 30,  step: 1, label: 'input blur' });
-    settings.addBinding(config, 'displace',   { min: 0, max: 12,  step: 0.1, label: 'output blur' });
+    settings.addBinding(config, 'icons', { label: 'show icons (unchecked by default)' });
+    settings.addBinding(config, 'frost', { min: 0, max: 1, step: 0.01, label: 'frost' });
+    settings.addBinding(config, 'saturation', { min: 0, max: 2, step: 0.1, label: 'saturation' });
+    settings.addBinding(config, 'width', { min: 80, max: 500, step: 1, label: 'width (px)' });
+    settings.addBinding(config, 'height', { min: 35, max: 500, step: 1, label: 'height (px)' });
+    settings.addBinding(config, 'radius', { min: 0, max: 500, step: 1, label: 'radius (px)' });
+    settings.addBinding(config, 'border', { min: 0, max: 1, step: 0.01, label: 'border' });
+    settings.addBinding(config, 'alpha', { min: 0, max: 1, step: 0.01, label: 'alpha' });
+    settings.addBinding(config, 'lightness', { min: 0, max: 100, step: 1, label: 'lightness' });
+    settings.addBinding(config, 'blur', { min: 0, max: 20, step: 1, label: 'input blur' });
+    settings.addBinding(config, 'displace', { min: 0, max: 12, step: 0.1, label: 'output blur' });
     settings.addBinding(config, 'x', { label: 'channel x', options: { R: 'R', G: 'G', B: 'B' } });
     settings.addBinding(config, 'y', { label: 'channel y', options: { R: 'R', G: 'G', B: 'B' } });
     settings.addBinding(config, 'blend', {
@@ -354,9 +277,9 @@
       },
       label: 'blend'
     });
-    settings.addBinding(config, 'scale', { min: -1000, max: 1000, step: 1, label: 'refraction' });
+    settings.addBinding(config, 'scale', { min: -1000, max: 1000, step: 1, label: 'displace scale' });
 
-    const chromatic = settings.addFolder({ title: 'dispersion (chromatic)' });
+    const chromatic = settings.addFolder({ title: 'chromatic aberration' });
     chromatic.addBinding(config, 'r', { min: -100, max: 100, step: 1, label: 'red offset' });
     chromatic.addBinding(config, 'g', { min: -100, max: 100, step: 1, label: 'green offset' });
     chromatic.addBinding(config, 'b', { min: -100, max: 100, step: 1, label: 'blue offset' });
@@ -364,29 +287,33 @@
     ctrl.on('change', updateGlass);
     updateGlass();
 
-    /* ══════════ POSITION + DRAG ══════════ */
+    // Position glass centered + draggable
     const placeGlass = () => {
       if (config.top) return;
-      const left = (window.innerWidth  - config.width)  / 2;
-      const top  = (window.innerHeight - config.height) / 2;
+      const w = window.innerWidth, h = window.innerHeight;
+      const left = (w - config.width) / 2;
+      const top = (h - config.height) / 2;
       gsap.set(glass, { left, top, opacity: 1, x: 0, y: 0 });
     };
-    window.addEventListener('resize', () => { if (!config.top) placeGlass(); });
+    window.addEventListener('resize', () => {
+      if (!config.top) placeGlass();
+    });
     placeGlass();
 
-    Draggable.create(glass, {
+    // Make the glass movable (drag)
+    const draggable = Draggable.create(glass, {
       type: 'x,y',
       edgeResistance: 0.65,
-      onPress() {
+      onPress: () => {
         if (config.top) {
           config.top = false;
           document.documentElement.dataset.top = 'false';
           ctrl.refresh();
         }
       },
-    });
+    })[0];
 
-    /* ══════════ STICKERS ══════════ */
+    // ---------- STICKERS ----------
     const COMPONENT_DEFAULTS = {
       image: { src: "https://plus.unsplash.com/premium_photo-1782403647102-070de72f10a0?q=80&w=1234&auto=format&fit=crop" },
       imageWidth: 600, imageHeight: 400, tilt: 45, lighting: true,
@@ -397,8 +324,8 @@
     const RENDER_SCALE = 2, PAD_BASE = 20, MESH_GRID_SIZE = 32, DRAG_Z_INDEX_BASE = 1000;
     let zIndexCounter = DRAG_Z_INDEX_BASE;
     const getNextZIndex = () => ++zIndexCounter;
-    const DRAG_TILT_SENSITIVITY = 3, DRAG_TILT_SMOOTHING = 0.05;
-    const SHEEN_TILT_SHIFT = 0.05, SHEEN_TILT_DEADZONE = 0.035;
+    const DRAG_TILT_SENSITIVITY = 3, DRAG_MAX_TILT_DEG = 30, DRAG_TILT_SMOOTHING = 0.05;
+    const SHEEN_STRENGTH = 0.6, SHEEN_TILT_SHIFT = 0.05, SHEEN_TILT_DEADZONE = 0.035;
     const ANIM_SPEED = 1.92, HOLO_MOTION_BUMP = 0.15, HOLO_MOTION_DECAY = 0.88;
     const ELEVATION_INTERNAL_MAX = 0.3;
 
@@ -632,7 +559,7 @@ void main() {
         const width = this.imageWidth > 0 ? this.imageWidth : containerWidth, height = this.imageHeight > 0 ? this.imageHeight : containerHeight;
         const maxDim = Math.max(width, height), elevationPad = maxDim * this.elevation * 0.6, effectivePad = PAD_BASE + elevationPad;
         const canvasWidth = width + effectivePad * 2, canvasHeight = height + effectivePad * 2;
-        const scale = Math.min(width / canvasWidth, height / canvasHeight);
+        const scaleX = width / canvasWidth, scaleY = height / canvasHeight, scale = Math.min(scaleX, scaleY);
         const x = (containerWidth - width) / 2, y = (containerHeight - height) / 2;
         canvas.width = Math.round(canvasWidth * RENDER_SCALE); canvas.height = Math.round(canvasHeight * RENDER_SCALE);
         canvas.style.width = `${canvasWidth}px`; canvas.style.height = `${canvasHeight}px`;
@@ -649,9 +576,8 @@ void main() {
           const prev = this.sizingDimensions;
           const w = Math.max(1, Math.round(measuredW)) || prev.width;
           const h = Math.max(1, Math.round(measuredH)) || prev.height;
-          if (Math.abs(w - prev.width) >= this.SIZING_THRESHOLD || Math.abs(h - prev.height) >= this.SIZING_THRESHOLD) {
-            this.sizingDimensions = { width: w, height: h }; this.applySizingDiv();
-          }
+          const dw = Math.abs(w - prev.width), dh = Math.abs(h - prev.height);
+          if (dw >= this.SIZING_THRESHOLD || dh >= this.SIZING_THRESHOLD) { this.sizingDimensions = { width: w, height: h }; this.applySizingDiv(); }
           this.handleResize();
         }, this.RESIZE_DEBOUNCE_MS);
       }
@@ -659,12 +585,14 @@ void main() {
         const container = this.container; if (!container) return;
         this.handleResize();
         const ro = new ResizeObserver(() => {
-          this.scheduleResize(container.clientWidth || 400, container.clientHeight || 400);
+          const w = container.clientWidth || container.offsetWidth || 400;
+          const h = container.clientHeight || container.offsetHeight || 400;
+          this.scheduleResize(w, h);
         });
         ro.observe(container); this.resizeObserver = ro;
       }
       loadImage() {
-        const imageSrc = resolveImageSource(this.props.image);
+        const imageSrc = resolveImageSource(this.props.image) || "https://plus.unsplash.com/premium_photo-1782403647102-070de72f10a0?q=80&w=1234&auto=format&fit=crop";
         const gl = this.gl; if (!gl || !this.program) return;
         const img = new Image(); img.crossOrigin = "anonymous";
         img.onload = () => {
@@ -690,8 +618,8 @@ void main() {
           state.dragTiltX *= 0.9; state.dragTiltY *= 0.9;
           state.currentTiltX = state.dragTiltX; state.currentTiltY = state.dragTiltY;
           if (inner) inner.style.transform = `rotateX(${state.dragTiltX}deg) rotateY(${state.dragTiltY}deg)`;
-          if (Math.abs(state.dragTiltX) > 0.1 || Math.abs(state.dragTiltY) > 0.1) requestAnimationFrame(step);
-          else { state.dragTiltX = state.dragTiltY = state.currentTiltX = state.currentTiltY = state.prevTiltX = state.prevTiltY = 0; if (inner) inner.style.transform = ""; }
+          if (Math.abs(state.dragTiltX) > 0.1 || Math.abs(state.dragTiltY) > 0.1) { requestAnimationFrame(step); }
+          else { state.dragTiltX = 0; state.dragTiltY = 0; state.currentTiltX = 0; state.currentTiltY = 0; state.prevTiltX = 0; state.prevTiltY = 0; if (inner) inner.style.transform = ""; }
         };
         step();
       }
@@ -699,8 +627,10 @@ void main() {
         const state = this.state, container = this.container, sticker = this.sticker, inner = this.inner;
         if (!container || !sticker || !inner) return;
         const rect = sticker.getBoundingClientRect();
-        inner.style.transformOrigin = `${clientX - rect.left}px ${clientY - rect.top}px`;
-        state.peelAngle = Math.atan2(clientY - (rect.top + rect.height/2), clientX - (rect.left + rect.width/2));
+        const grabOffsetX = clientX - rect.left, grabOffsetY = clientY - rect.top;
+        inner.style.transformOrigin = `${grabOffsetX}px ${grabOffsetY}px`;
+        const centerX = rect.left + rect.width / 2, centerY = rect.top + rect.height / 2;
+        state.peelAngle = Math.atan2(clientY - centerY, clientX - centerX);
         state.dragStartX = clientX; state.dragStartY = clientY;
         state.dragOrigX = state.x; state.dragOrigY = state.y;
         state.peel = 0; state.lift = 0; state.held = true; state.peeling = true; state.sticking = false;
@@ -717,14 +647,14 @@ void main() {
         const now = performance.now(), dt = Math.max(1, now - state.lastMoveT);
         const velX = ((clientX - state.lastMoveX) / dt) * 16, velY = ((clientY - state.lastMoveY) / dt) * 16;
         state.lastMoveX = clientX; state.lastMoveY = clientY; state.lastMoveT = now;
-        const tY = Math.max(-this.maxTilt, Math.min(this.maxTilt, velX * this.tiltSensitivity));
-        const tX = Math.max(-this.maxTilt, Math.min(this.maxTilt, -velY * this.tiltSensitivity));
-        state.dragTiltX += (tX - state.dragTiltX) * this.tiltSmoothing;
-        state.dragTiltY += (tY - state.dragTiltY) * this.tiltSmoothing;
+        const targetTiltY = Math.max(-this.maxTilt, Math.min(this.maxTilt, velX * this.tiltSensitivity));
+        const targetTiltX = Math.max(-this.maxTilt, Math.min(this.maxTilt, -velY * this.tiltSensitivity));
+        state.dragTiltX += (targetTiltX - state.dragTiltX) * this.tiltSmoothing;
+        state.dragTiltY += (targetTiltY - state.dragTiltY) * this.tiltSmoothing;
         state.currentTiltX = state.dragTiltX; state.currentTiltY = state.dragTiltY;
         if (this.sheenMode === "holo") {
-          const d = Math.abs(state.dragTiltX - state.prevTiltX) + Math.abs(state.dragTiltY - state.prevTiltY);
-          state.holoMotion = Math.min(1, state.holoMotion + d * HOLO_MOTION_BUMP);
+          const tiltDelta = Math.abs(state.dragTiltX - state.prevTiltX) + Math.abs(state.dragTiltY - state.prevTiltY);
+          state.holoMotion = Math.min(1, state.holoMotion + tiltDelta * HOLO_MOTION_BUMP);
           state.prevTiltX = state.dragTiltX; state.prevTiltY = state.dragTiltY;
         }
         inner.style.transform = `rotateX(${state.dragTiltX}deg) rotateY(${state.dragTiltY}deg)`;
@@ -734,7 +664,8 @@ void main() {
         state.held = false; state.peeling = false; state.sticking = true;
         if (state.peel >= 0.95 && inner) {
           const rect = inner.getBoundingClientRect();
-          state.peelAngle = Math.atan2(-(state.lastMoveY - (rect.top + rect.height/2)), -(state.lastMoveX - (rect.left + rect.width/2)));
+          const centerX = rect.left + rect.width / 2, centerY = rect.top + rect.height / 2;
+          state.peelAngle = Math.atan2(-(state.lastMoveY - centerY), -(state.lastMoveX - centerX));
           state.peel = 1;
         }
         this.settleTilt(); this.ensureTickRunning();
@@ -749,7 +680,6 @@ void main() {
       }
     }
 
-    /* ── instantiate stickers ── */
     const notes = [
       { url: "https://static.vecteezy.com/system/resources/previews/045/648/580/non_2x/cute-hamster-meme-transparent-background-illustration-free-png.png", w: 448, h: 380 },
       { url: "https://static.vecteezy.com/system/resources/previews/067/162/149/non_2x/cute-duck-meme-sticker-transparent-cute-illustration-free-png.png", w: 400, h: 300 },
@@ -764,8 +694,10 @@ void main() {
 
     const root = document.getElementById("sticker-container");
     const columns = 4, rows = 3, margin = 70;
-    const cellWidth  = Math.max(1, root.clientWidth  - margin * 2) / columns;
-    const cellHeight = Math.max(1, root.clientHeight - margin * 2) / rows;
+    const availableWidth = Math.max(1, root.clientWidth - margin * 2);
+    const availableHeight = Math.max(1, root.clientHeight - margin * 2);
+    const cellWidth = availableWidth / columns;
+    const cellHeight = availableHeight / rows;
     const layout = [
       {col:0,row:0},{col:1,row:0},{col:2,row:0},{col:3,row:0},
       {col:0,row:1},{col:1,row:1},{col:2,row:1},{col:3,row:1},
@@ -774,19 +706,28 @@ void main() {
 
     notes.forEach((note, index) => {
       const slot = layout[index] || { col: index % columns, row: Math.floor(index / columns) };
-      const s = Math.min(1, (cellWidth * 0.75) / note.w, (cellHeight * 0.75) / note.h);
-      const width = Math.round(note.w * s), height = Math.round(note.h * s);
-      const x = Math.round(margin + slot.col * cellWidth  + (cellWidth  - width)  / 2);
+      const maxStickerWidth = cellWidth * 0.75;
+      const maxStickerHeight = cellHeight * 0.75;
+      const scale = Math.min(1, maxStickerWidth / note.w, maxStickerHeight / note.h);
+      const width = Math.round(note.w * scale);
+      const height = Math.round(note.h * scale);
+      const x = Math.round(margin + slot.col * cellWidth + (cellWidth - width) / 2);
       const y = Math.round(margin + slot.row * cellHeight + (cellHeight - height) / 2);
 
       const wrapper = document.createElement("div");
       wrapper.className = "sticker-instance";
-      Object.assign(wrapper.style, { left: `${x}px`, top: `${y}px`, width: `${width}px`, height: `${height}px`, overflow: "visible" });
+      wrapper.style.left = `${x}px`;
+      wrapper.style.top = `${y}px`;
+      wrapper.style.width = `${width}px`;
+      wrapper.style.height = `${height}px`;
+      wrapper.style.overflow = "visible";
       root.appendChild(wrapper);
 
       new StickerDrag({
         image: { src: note.url },
-        imageWidth: width, imageHeight: height, parent: wrapper,
+        imageWidth: width,
+        imageHeight: height,
+        parent: wrapper,
         sheenMode: index % 3 === 0 ? "sheen" : (index % 3 === 1 ? "holo" : "rug"),
         lightingStrength: 5 + (index % 6),
         elevation: 5 + (index % 8),

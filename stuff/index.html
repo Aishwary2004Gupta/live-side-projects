@@ -44,7 +44,7 @@
       .scene {
         position: relative;
         width: 100%;
-        min-height: 100vh;
+        height: 100vh;
         overflow: hidden;
       }
 
@@ -551,6 +551,9 @@
       function lerp(a, b, t) {
         return a + (b - a) * t;
       }
+      function randInt(min, max) {
+        return Math.floor(Math.random() * (max - min + 1)) + min;
+      }
       function clamp(v, min, max) {
         return Math.min(Math.max(v, min), max);
       }
@@ -560,77 +563,77 @@
         return w <= 768 ? "sm" : w <= 1024 ? "md" : "lg";
       }
 
-      // Full viewport bounds with small margin (no more invisible walls)
-      function bounds() {
-        const pad = 10; // tiny margin so stickers can reach near edges
-        return {
-          x: window.innerWidth / 2 - pad,
-          y: window.innerHeight / 2 - pad,
-        };
-      }
-
-      // Old positioning: sin/lerp scatter around center
+      // Original centered cluster layout
       function computeInitials() {
         const bp = getBreakpoint();
         const len = STICKERS.length;
         const configs = [];
+
         for (let i = 0; i < len; i++) {
-          const firstHalf = i < Math.floor(len / 2);
+          const isFirstHalf = i < Math.floor(len / 2);
           const t = i / (len - 1);
-          const odd = i & 1;
-          let x, y;
+          const isOdd = i & 1;
+
+          let initialX, initialY;
           if (bp === "sm") {
-            x = Math.sin(lerp(-1, 1, t)) * 150 * -1;
-            y = (odd ? -1 : 1) * randInt(20, 50);
+            initialX = Math.sin(lerp(-1, 1, t)) * 150 * -1;
+            initialY = (isOdd ? -1 : 1) * randInt(20, 50);
           } else {
-            x =
+            initialX =
               Math.abs(Math.sin(lerp(-1, 1, t))) *
-              (bp === "md" ? 150 : randInt(280, 480)) *
-              (firstHalf ? -1 : 1);
-            y = (odd ? -1 : 1) * randInt(20, 50);
+              (bp === "md" ? 150 : randInt(300, 500)) *
+              (isFirstHalf ? -1 : 1);
+            initialY = (isOdd ? -1 : 1) * randInt(20, 50);
           }
-          const rotate =
+
+          const initRotate =
             Math.random() * (Math.sign(Math.sin(Math.random() * 100)) * 30);
-          const scale = bp === "sm" ? 0.7 : bp === "md" ? 0.75 : 1.25;
-          configs.push({ x, y, rotate, scale });
+          const initScale = bp === "sm" ? 0.7 : bp === "md" ? 0.75 : 1.25;
+
+          configs.push({
+            x: initialX,
+            y: initialY,
+            rotate: initRotate,
+            scale: initScale,
+          });
         }
         return configs;
       }
 
+      // Full-viewport bounce walls — uses actual page space, not a fake center zone
+      function applyWalls(s) {
+        const half = 55; // half sticker width approx
+        const maxX = window.innerWidth / 2 - half;
+        const maxY = window.innerHeight / 2 - half;
+
+        if (s.x > maxX) {
+          s.x = maxX;
+          s.vx *= -0.48;
+        } else if (s.x < -maxX) {
+          s.x = -maxX;
+          s.vx *= -0.48;
+        }
+
+        if (s.y > maxY) {
+          s.y = maxY;
+          s.vy *= -0.48;
+        } else if (s.y < -maxY) {
+          s.y = -maxY;
+          s.vy *= -0.48;
+        }
+      }
+
       function renderSticker(idx) {
         const s = states[idx];
-        els[idx].style.transform = `translate3d(${s.x}px, ${s.y}px, 0) rotate(${s.rot}deg) scale(${s.scale})`;
+        els[idx].style.transform =
+          `translate3d(${s.x}px, ${s.y}px, 0) rotate(${s.rot}deg) scale(${s.scale})`;
       }
 
-      function applyWalls(s) {
-        const b = bounds();
-        let bounced = false;
-        if (s.x > b.x) {
-          s.x = b.x;
-          s.vx *= -0.42;
-          bounced = true;
-        } else if (s.x < -b.x) {
-          s.x = -b.x;
-          s.vx *= -0.42;
-          bounced = true;
-        }
-        if (s.y > b.y) {
-          s.y = b.y;
-          s.vy *= -0.42;
-          bounced = true;
-        } else if (s.y < -b.y) {
-          s.y = -b.y;
-          s.vy *= -0.42;
-          bounced = true;
-        }
-        if (bounced) s.vr += (Math.random() - 0.5) * 40;
-      }
-
-      // Soft spring used for reset / entrance
+      // Soft floaty spring for reset / entrance
       function springAnimate(idx, target, opts = {}) {
         const s = states[idx];
         if (s.anim) s.anim.dead = true;
-        const { stiffness = 38, damping = 9, mass = 1.4, onComplete } = opts;
+        const { stiffness = 32, damping = 10, mass = 1.5, onComplete } = opts;
         const anim = { dead: false };
         s.anim = anim;
 
@@ -647,8 +650,11 @@
 
           vx += ((-stiffness * (s.x - target.x) - damping * vx) / mass) * dt;
           vy += ((-stiffness * (s.y - target.y) - damping * vy) / mass) * dt;
-          vr += ((-stiffness * (s.rot - target.rot) - damping * vr) / mass) * dt;
-          vs += ((-stiffness * (s.scale - target.scale) - damping * vs) / mass) * dt;
+          vr +=
+            ((-stiffness * (s.rot - target.rot) - damping * vr) / mass) * dt;
+          vs +=
+            ((-stiffness * (s.scale - target.scale) - damping * vs) / mass) *
+            dt;
 
           s.x += vx * dt;
           s.y += vy * dt;
@@ -657,16 +663,37 @@
           s.vx = vx;
           s.vy = vy;
           s.vr = vr;
-          applyWalls(s);
+
+          // Full-page boundary bounce
+          const half = 55;
+          const maxX = window.innerWidth / 2 - half;
+          const maxY = window.innerHeight / 2 - half;
+
+          if (s.x > maxX) {
+            s.x = maxX;
+            s.vx *= -0.45;
+          } else if (s.x < -maxX) {
+            s.x = -maxX;
+            s.vx *= -0.45;
+          }
+
+          if (s.y > maxY) {
+            s.y = maxY;
+            s.vy *= -0.45;
+          } else if (s.y < -maxY) {
+            s.y = -maxY;
+            s.vy *= -0.45;
+          }
+
           renderSticker(idx);
 
           const settled =
-            Math.abs(vx) < 4 &&
-            Math.abs(vy) < 4 &&
-            Math.abs(s.x - target.x) < 0.6 &&
-            Math.abs(s.y - target.y) < 0.6 &&
-            Math.abs(s.scale - target.scale) < 0.004 &&
-            Math.abs(s.rot - target.rot) < 0.15;
+            Math.abs(vx) < 3 &&
+            Math.abs(vy) < 3 &&
+            Math.abs(s.x - target.x) < 0.8 &&
+            Math.abs(s.y - target.y) < 0.8 &&
+            Math.abs(s.scale - target.scale) < 0.005 &&
+            Math.abs(s.rot - target.rot) < 0.2;
 
           if (settled) {
             s.x = target.x;
@@ -687,18 +714,18 @@
         requestAnimationFrame(tick);
       }
 
-      // Inertia toss — no snap-back, just glide + slow spin settle
+      // Inertia toss after release — floaty, no snap-back
       function tossAnimate(idx) {
         const s = states[idx];
         if (s.anim) s.anim.dead = true;
         const anim = { dead: false };
         s.anim = anim;
 
-        const friction = 1.15;
-        const rotK = 7;
-        const rotD = 5.5;
-        const scaleK = 28;
-        const scaleD = 8;
+        const friction = 1.25;
+        const rotK = 8;
+        const rotD = 5;
+        const scaleK = 30;
+        const scaleD = 10;
         let last = performance.now();
 
         function tick(now) {
@@ -715,19 +742,37 @@
           s.vr += (-rotK * (s.rot - s.restRot) - rotD * s.vr) * dt;
           s.rot += s.vr * dt;
 
-          let vs = (s._vs || 0);
+          let vs = s._vs || 0;
           vs += (-scaleK * (s.scale - s.baseScale) - scaleD * vs) * dt;
           s.scale += vs * dt;
           s._vs = vs;
 
-          applyWalls(s);
+          const half = 55;
+          const maxX = window.innerWidth / 2 - half;
+          const maxY = window.innerHeight / 2 - half;
+
+          if (s.x > maxX) {
+            s.x = maxX;
+            s.vx *= -0.48;
+          } else if (s.x < -maxX) {
+            s.x = -maxX;
+            s.vx *= -0.48;
+          }
+          if (s.y > maxY) {
+            s.y = maxY;
+            s.vy *= -0.48;
+          } else if (s.y < -maxY) {
+            s.y = -maxY;
+            s.vy *= -0.48;
+          }
+
           renderSticker(idx);
 
           const still =
-            Math.hypot(s.vx, s.vy) < 8 &&
-            Math.abs(s.vr) < 0.4 &&
-            Math.abs(s.rot - s.restRot) < 0.25 &&
-            Math.abs(s.scale - s.baseScale) < 0.008;
+            Math.hypot(s.vx, s.vy) < 10 &&
+            Math.abs(s.vr) < 0.5 &&
+            Math.abs(s.rot - s.restRot) < 0.3 &&
+            Math.abs(s.scale - s.baseScale) < 0.01;
 
           if (still) {
             s.scale = s.baseScale;
@@ -802,21 +847,38 @@
           const targetX = startElX + (pointerX - startClientX);
           const targetY = startElY + (pointerY - startClientY);
 
-          // Airy spring-follow so the sticker trails the cursor
-          const k = 52;
-          const d = 9;
+          // Floaty spring-follow — trails the finger with air resistance feel
+          const k = 48;
+          const d = 9.5;
           s.vx += (-k * (s.x - targetX) - d * s.vx) * dt;
           s.vy += (-k * (s.y - targetY) - d * s.vy) * dt;
           s.x += s.vx * dt;
           s.y += s.vy * dt;
 
-          const tilt = clamp(s.vx * 0.045, -26, 26);
+          const tilt = clamp(s.vx * 0.04, -24, 24);
           s.rot += (tilt - s.rot) * (1 - Math.exp(-10 * dt));
 
-          const lift = s.baseScale * 1.08;
+          const lift = s.baseScale * 1.1;
           s.scale += (lift - s.scale) * (1 - Math.exp(-12 * dt));
 
-          applyWalls(s);
+          const half = 55;
+          const maxX = window.innerWidth / 2 - half;
+          const maxY = window.innerHeight / 2 - half;
+          if (s.x > maxX) {
+            s.x = maxX;
+            s.vx *= -0.4;
+          } else if (s.x < -maxX) {
+            s.x = -maxX;
+            s.vx *= -0.4;
+          }
+          if (s.y > maxY) {
+            s.y = maxY;
+            s.vy *= -0.4;
+          } else if (s.y < -maxY) {
+            s.y = -maxY;
+            s.vy *= -0.4;
+          }
+
           renderSticker(idx);
           requestAnimationFrame(dragLoop);
         }
@@ -833,10 +895,11 @@
           }
           s.dragging = false;
           el.classList.remove("dragging");
-          // Keep toss velocity; cap so it stays playful not ballistic
-          s.vx = clamp(s.vx, -1400, 1400);
-          s.vy = clamp(s.vy, -1400, 1400);
-          s.vr = clamp(s.vx * 0.03, -80, 80);
+          // Keep velocity for floaty toss
+          s.vx = clamp(s.vx, -1200, 1200);
+          s.vy = clamp(s.vy, -1200, 1200);
+          s.vr = clamp(s.vx * 0.035, -90, 90);
+          s.restRot = s.baseScale > 1 ? s.baseScale : 0;
           tossAnimate(idx);
         }
 
@@ -864,7 +927,7 @@
           springAnimate(
             i,
             { x: cfg.x, y: cfg.y, rot: cfg.rotate, scale: cfg.scale },
-            { stiffness: 42, damping: 10, mass: 1.3 },
+            { stiffness: 36, damping: 9, mass: 1.4 },
           );
         });
       });
@@ -898,23 +961,26 @@
           setupStickerDrag(el, i);
         });
         els.forEach((el, i) => {
-          setTimeout(() => {
-            el.style.transition = "opacity 0.45s ease";
-            el.style.opacity = "1";
-            setTimeout(() => {
-              el.style.transition = "";
-            }, 500);
-            const cfg = initialConfigs[i];
-            springAnimate(
-              i,
-              { x: cfg.x, y: cfg.y, rot: cfg.rotate, scale: cfg.scale },
-              {
-                stiffness: 28 + Math.random() * 18,
-                damping: 7 + Math.random() * 5,
-                mass: 1.2 + Math.random() * 0.6,
-              },
-            );
-          }, 70 + i * 55);
+          setTimeout(
+            () => {
+              el.style.transition = "opacity 0.45s ease";
+              el.style.opacity = "1";
+              setTimeout(() => {
+                el.style.transition = "";
+              }, 500);
+              const cfg = initialConfigs[i];
+              springAnimate(
+                i,
+                { x: cfg.x, y: cfg.y, rot: cfg.rotate, scale: cfg.scale },
+                {
+                  stiffness: 28 + Math.random() * 18,
+                  damping: 7 + Math.random() * 5,
+                  mass: 1.2 + Math.random() * 0.6,
+                },
+              );
+            },
+            70 + i * 55,
+          );
         });
       }
 
@@ -978,6 +1044,7 @@
           displace: 0,
           scale: -300,
         },
+        disabled: { ...base },
       };
 
       const config = {
@@ -991,14 +1058,19 @@
       const ctrl = new Pane({ title: "Liquid Glass Config", expanded: true });
       const debugPen = document.querySelector(".displacement-debug");
       const glassEl = document.querySelector(".effect");
-      const glassDrag = Draggable.create(".effect", { type: "x,y" })[0];
+
+      const glassDragObj = Draggable.create(".effect", {
+        type: "x,y",
+        inertia: false,
+      })[0];
 
       const setLensEnabled = (on) => {
         if (on) {
           glassEl.style.visibility = "";
-          if (glassDrag) glassDrag.enable();
+          if (glassDragObj) glassDragObj.enable();
         } else {
-          if (glassDrag) glassDrag.disable();
+          if (glassDragObj) glassDragObj.disable();
+          glassEl.style.visibility = "hidden";
         }
       };
 
@@ -1084,11 +1156,12 @@
         .on("change", () => {
           document.documentElement.dataset.mode = config.preset;
           settings.expanded = config.preset === "free";
-          settings.disabled = config.preset !== "free";
+          settings.disabled =
+            config.preset !== "free" && config.preset !== "disabled";
           setLensEnabled(config.preset !== "disabled");
           if (config.preset !== "free" && config.preset !== "disabled") {
-            const values = presets[config.preset];
-            document.documentElement.dataset.icons = values.icons;
+            const values = presets[config.preset] || presets.dock;
+            document.documentElement.dataset.icons = values.icons || false;
             const morph = gsap.timeline({
               onUpdate: () => {
                 ctrl.refresh();

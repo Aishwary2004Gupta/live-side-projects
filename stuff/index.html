@@ -587,25 +587,24 @@
           }
 
           const initRotate =
-            Math.random() *
-            (Math.sign(Math.sin(Math.random() * 100)) * 30);
+            Math.random() * (Math.sign(Math.sin(Math.random() * 100)) * 30);
           const initScale = bp === "sm" ? 0.7 : bp === "md" ? 0.75 : 1.25;
 
-          configs.push({ x: initialX, y: initialY, rotate: initRotate, scale: initScale });
+          configs.push({
+            x: initialX,
+            y: initialY,
+            rotate: initRotate,
+            scale: initScale,
+          });
         }
         return configs;
       }
 
-      function renderSticker(idx) {
-        const s = states[idx];
-        els[idx].style.transform = `translate3d(${s.x}px, ${s.y}px, 0) rotate(${s.rot}deg) scale(${s.scale})`;
-      }
-
-      // Bounce walls for FULL VIEWPORT access
-      // Anchor is at center (50%, 50%), so max bounds are 50% of viewport in each direction
+      // Full-viewport bounce walls — uses actual page space, not a fake center zone
       function applyWalls(s) {
-        const maxX = (window.innerWidth / 2) - 60;  // allow full left/right
-        const maxY = (window.innerHeight / 2) - 60; // allow full top/bottom
+        const half = 55; // half sticker width approx
+        const maxX = window.innerWidth / 2 - half;
+        const maxY = window.innerHeight / 2 - half;
 
         if (s.x > maxX) {
           s.x = maxX;
@@ -622,6 +621,12 @@
           s.y = -maxY;
           s.vy *= -0.48;
         }
+      }
+
+      function renderSticker(idx) {
+        const s = states[idx];
+        els[idx].style.transform =
+          `translate3d(${s.x}px, ${s.y}px, 0) rotate(${s.rot}deg) scale(${s.scale})`;
       }
 
       // Soft floaty spring for reset / entrance
@@ -645,8 +650,11 @@
 
           vx += ((-stiffness * (s.x - target.x) - damping * vx) / mass) * dt;
           vy += ((-stiffness * (s.y - target.y) - damping * vy) / mass) * dt;
-          vr += ((-stiffness * (s.rot - target.rot) - damping * vr) / mass) * dt;
-          vs += ((-stiffness * (s.scale - target.scale) - damping * vs) / mass) * dt;
+          vr +=
+            ((-stiffness * (s.rot - target.rot) - damping * vr) / mass) * dt;
+          vs +=
+            ((-stiffness * (s.scale - target.scale) - damping * vs) / mass) *
+            dt;
 
           s.x += vx * dt;
           s.y += vy * dt;
@@ -656,7 +664,27 @@
           s.vy = vy;
           s.vr = vr;
 
-          applyWalls(s);
+          // Full-page boundary bounce
+          const half = 55;
+          const maxX = window.innerWidth / 2 - half;
+          const maxY = window.innerHeight / 2 - half;
+
+          if (s.x > maxX) {
+            s.x = maxX;
+            s.vx *= -0.45;
+          } else if (s.x < -maxX) {
+            s.x = -maxX;
+            s.vx *= -0.45;
+          }
+
+          if (s.y > maxY) {
+            s.y = maxY;
+            s.vy *= -0.45;
+          } else if (s.y < -maxY) {
+            s.y = -maxY;
+            s.vy *= -0.45;
+          }
+
           renderSticker(idx);
 
           const settled =
@@ -714,12 +742,30 @@
           s.vr += (-rotK * (s.rot - s.restRot) - rotD * s.vr) * dt;
           s.rot += s.vr * dt;
 
-          let vs = (s._vs || 0);
+          let vs = s._vs || 0;
           vs += (-scaleK * (s.scale - s.baseScale) - scaleD * vs) * dt;
           s.scale += vs * dt;
           s._vs = vs;
 
-          applyWalls(s);
+          const half = 55;
+          const maxX = window.innerWidth / 2 - half;
+          const maxY = window.innerHeight / 2 - half;
+
+          if (s.x > maxX) {
+            s.x = maxX;
+            s.vx *= -0.48;
+          } else if (s.x < -maxX) {
+            s.x = -maxX;
+            s.vx *= -0.48;
+          }
+          if (s.y > maxY) {
+            s.y = maxY;
+            s.vy *= -0.48;
+          } else if (s.y < -maxY) {
+            s.y = -maxY;
+            s.vy *= -0.48;
+          }
+
           renderSticker(idx);
 
           const still =
@@ -815,7 +861,24 @@
           const lift = s.baseScale * 1.1;
           s.scale += (lift - s.scale) * (1 - Math.exp(-12 * dt));
 
-          applyWalls(s);
+          const half = 55;
+          const maxX = window.innerWidth / 2 - half;
+          const maxY = window.innerHeight / 2 - half;
+          if (s.x > maxX) {
+            s.x = maxX;
+            s.vx *= -0.4;
+          } else if (s.x < -maxX) {
+            s.x = -maxX;
+            s.vx *= -0.4;
+          }
+          if (s.y > maxY) {
+            s.y = maxY;
+            s.vy *= -0.4;
+          } else if (s.y < -maxY) {
+            s.y = -maxY;
+            s.vy *= -0.4;
+          }
+
           renderSticker(idx);
           requestAnimationFrame(dragLoop);
         }
@@ -898,23 +961,26 @@
           setupStickerDrag(el, i);
         });
         els.forEach((el, i) => {
-          setTimeout(() => {
-            el.style.transition = "opacity 0.45s ease";
-            el.style.opacity = "1";
-            setTimeout(() => {
-              el.style.transition = "";
-            }, 500);
-            const cfg = initialConfigs[i];
-            springAnimate(
-              i,
-              { x: cfg.x, y: cfg.y, rot: cfg.rotate, scale: cfg.scale },
-              {
-                stiffness: 28 + Math.random() * 18,
-                damping: 7 + Math.random() * 5,
-                mass: 1.2 + Math.random() * 0.6,
-              },
-            );
-          }, 70 + i * 55);
+          setTimeout(
+            () => {
+              el.style.transition = "opacity 0.45s ease";
+              el.style.opacity = "1";
+              setTimeout(() => {
+                el.style.transition = "";
+              }, 500);
+              const cfg = initialConfigs[i];
+              springAnimate(
+                i,
+                { x: cfg.x, y: cfg.y, rot: cfg.rotate, scale: cfg.scale },
+                {
+                  stiffness: 28 + Math.random() * 18,
+                  damping: 7 + Math.random() * 5,
+                  mass: 1.2 + Math.random() * 0.6,
+                },
+              );
+            },
+            70 + i * 55,
+          );
         });
       }
 
@@ -1090,7 +1156,8 @@
         .on("change", () => {
           document.documentElement.dataset.mode = config.preset;
           settings.expanded = config.preset === "free";
-          settings.disabled = config.preset !== "free" && config.preset !== "disabled";
+          settings.disabled =
+            config.preset !== "free" && config.preset !== "disabled";
           setLensEnabled(config.preset !== "disabled");
           if (config.preset !== "free" && config.preset !== "disabled") {
             const values = presets[config.preset] || presets.dock;

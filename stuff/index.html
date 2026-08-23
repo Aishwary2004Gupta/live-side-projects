@@ -1085,11 +1085,27 @@ m175 -86 c35 -25 70 -98 78 -160 7 -66 -25 -176 -70 -235 -34 -44 -122 -100
         resetBtn.disabled = false;
       }
 
+      function hasMovedFromInitial(s, cfg) {
+        return (
+          Math.abs(s.x - cfg.x) > 0.8 ||
+          Math.abs(s.y - cfg.y) > 0.8 ||
+          Math.abs(s.rot - cfg.rotate) > 0.2 ||
+          Math.abs(s.scale - cfg.scale) > 0.005
+        );
+      }
+
       function checkAllSettled() {
-        if (!states.some((s) => s.dragging || s.anim)) showReset();
+        if (states.some((s) => s.dragging || s.anim)) return;
+
+        const hasMovedSticker = states.some((s, i) =>
+          hasMovedFromInitial(s, initialConfigs[i]),
+        );
+        if (hasMovedSticker) showReset();
+        else hideReset();
       }
 
       resetBtn.addEventListener("click", () => {
+        hideReset();
         states.forEach((s, i) => {
           const cfg = initialConfigs[i];
           springAnimate(

@@ -764,27 +764,31 @@ m175 -86 c35 -25 70 -98 78 -160 7 -66 -25 -176 -70 -235 -34 -44 -122 -100
         return w <= 768 ? "sm" : w <= 1024 ? "md" : "lg";
       }
 
-      // Responsive grid layout keeps every sticker inside the viewport.
+      // Original centered-cluster layout
       function computeInitials() {
         const bp = getBreakpoint();
         const len = STICKERS.length;
         const configs = [];
-        const columns = bp === "sm" ? 3 : 4;
-        const rows = Math.ceil(len / columns);
-        const maxX = Math.max(0, window.innerWidth / 2 - (bp === "sm" ? 45 : 105));
-        const maxY = Math.max(0, window.innerHeight / 2 - (bp === "sm" ? 45 : 105));
-        const rotations = [-8, 6, -5, 8, 4, -7, 5, -4, 7, -6, 3, -3];
 
         for (let i = 0; i < len; i++) {
-          const column = i % columns;
-          const row = Math.floor(i / columns);
-          const initialX = columns === 1
-            ? 0
-            : -maxX + (2 * maxX * column) / (columns - 1);
-          const initialY = rows === 1
-            ? 0
-            : -maxY + (2 * maxY * row) / (rows - 1);
-          const initRotate = rotations[i % rotations.length];
+          const isFirstHalf = i < Math.floor(len / 2);
+          const t = i / (len - 1);
+          const isOdd = i & 1;
+
+          let initialX, initialY;
+          if (bp === "sm") {
+            initialX = Math.sin(lerp(-1, 1, t)) * 150 * -1;
+            initialY = (isOdd ? -1 : 1) * randInt(20, 50);
+          } else {
+            initialX =
+              Math.abs(Math.sin(lerp(-1, 1, t))) *
+              (bp === "md" ? 150 : randInt(300, 500)) *
+              (isFirstHalf ? -1 : 1);
+            initialY = (isOdd ? -1 : 1) * randInt(20, 50);
+          }
+
+          const initRotate =
+            Math.random() * (Math.sign(Math.sin(Math.random() * 100)) * 30);
           const initScale = bp === "sm" ? 0.7 : bp === "md" ? 0.75 : 1.25;
 
           configs.push({

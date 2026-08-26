@@ -127,38 +127,10 @@
       .face {
         width: 100%;
         backface-visibility: hidden;
-        /* The curl-clip path is mutated every frame during a turn to bow
-           the free edge of the page inward, like a bending sheet of paper. */
-        clip-path: url(#curl-clip);
       }
 
       .face.back {
         transform: rotateY(180deg);
-      }
-
-      /* Soft shading that builds up along the curling edge as the page
-         bends, and fades again as it lies flat. Driven by JS (opacity). */
-      .fold-shadow {
-        position: absolute;
-        inset: 0;
-        opacity: 0;
-        z-index: 6;
-      }
-
-      .flap.next .fold-shadow {
-        background: linear-gradient(
-          to left,
-          rgba(10, 10, 15, 0.55),
-          rgba(10, 10, 15, 0) 65%
-        );
-      }
-
-      .flap.prev .fold-shadow {
-        background: linear-gradient(
-          to right,
-          rgba(10, 10, 15, 0.55),
-          rgba(10, 10, 15, 0) 65%
-        );
       }
 
       .book.blur-light img {
@@ -175,20 +147,12 @@
     <h1>Travel Sketch Journal</h1>
 
     <svg width="0" height="0" aria-hidden="true">
-      <defs>
-        <filter id="motion-blur-light">
-          <feGaussianBlur stdDeviation="5 0" />
-        </filter>
-        <filter id="motion-blur-heavy">
-          <feGaussianBlur stdDeviation="14 0" />
-        </filter>
-        <!-- Shared clip-path applied to the turning page's front/back faces.
-             Its 'd' is rewritten every animation frame to bow the free edge
-             inward, simulating a page bending as it turns. -->
-        <clipPath id="curl-clip" clipPathUnits="objectBoundingBox">
-          <path id="curl-path" d="M0,0 L1,0 L1,1 L0,1 Z" />
-        </clipPath>
-      </defs>
+      <filter id="motion-blur-light">
+        <feGaussianBlur stdDeviation="5 0" />
+      </filter>
+      <filter id="motion-blur-heavy">
+        <feGaussianBlur stdDeviation="14 0" />
+      </filter>
     </svg>
 
     <div class="stage">
@@ -244,28 +208,8 @@
       let flipTween = null;
       let introPlaying = false;
 
-      // How far (as a fraction of the page's own width) the free edge
-      // bows inward at the peak of the curl. Tweak to taste.
-      const MAX_BEND = 0.07;
-
       const halfImage = (pageIndex, side) =>
         `<img src="${pages[pageIndex].src}" class="${side}">`;
-
-      // Builds the clip-path 'd' for the turning page. `edge` is the side
-      // of the page that is NOT attached to the spine (the side that's
-      // free to lift/bow), `bend` is 0 (flat) to MAX_BEND (fully bowed).
-      function curlPathD(edge, bend) {
-        if (edge === "right") {
-          const x = 1 - bend;
-          const xTip = 1 - bend * 1.6;
-          return `M0,0 L${x},0 Q${xTip},0.5 ${x},1 L0,1 Z`;
-        }
-        const x = bend;
-        const xTip = bend * 1.6;
-        return `M1,0 L${x},0 Q${xTip},0.5 ${x},1 L1,1 Z`;
-      }
-
-      const curlPathEl = document.getElementById("curl-path");
 
       function showPage(pageIndex) {
         currentPage = pageIndex;
@@ -294,7 +238,6 @@
 
         const liftSide = goingNext ? "right" : "left";
         const landSide = goingNext ? "left" : "right";
-        const freeEdge = goingNext ? "right" : "left";
 
         book.insertAdjacentHTML(
           "beforeend",
@@ -304,13 +247,9 @@
           <div class="flap ${goingNext ? "next" : "prev"}">
             <div class="face">${halfImage(currentPage, liftSide)}</div>
             <div class="face back">${halfImage(targetPage, landSide)}</div>
-            <div class="fold-shadow"></div>
           </div>
         </div>`,
         );
-
-        const foldShadowEl = book.querySelector(".flap .fold-shadow");
-        curlPathEl.setAttribute("d", curlPathD(freeEdge, 0));
 
         setCaption(pages[targetPage].title);
 
@@ -319,16 +258,6 @@
           transformOrigin: goingNext ? "left center" : "right center",
           duration: duration,
           ease: ease,
-          onUpdate: function () {
-            // Bend peaks when the page is mid-turn (edge-on to the
-            // viewer) and relaxes flat at both the start and end.
-            const t = this.progress();
-            const bend = MAX_BEND * Math.sin(t * Math.PI);
-            curlPathEl.setAttribute("d", curlPathD(freeEdge, bend));
-            if (foldShadowEl) {
-              foldShadowEl.style.opacity = (bend / MAX_BEND) * 0.85;
-            }
-          },
           onComplete() {
             showPage(targetPage);
             book.querySelector(".turn").remove();

@@ -935,10 +935,10 @@ const MODELS = {
         position: { x: 0.2, y: 0.3, z: 0 },
     },
     try: {
-        url: "https://raw.githubusercontent.com/Aishwary2004Gupta/models/cloud/ice_claw_mouse.glb",
-        scale: 0.002,
-        rotation: { x: -0.4, y: Math.PI-5.5, z: 0 },
-        position: { x: 0.2, y: 0.3, z: 0 },
+        url: "https://raw.githubusercontent.com/Aishwary2004Gupta/models/cloud/flower_bouquet.glb",
+        scale: 2,
+        rotation: { x: 0, y: 0, z: 0 },
+        position: { x: 0, y: 0, z: 0 },
     },
 };
 

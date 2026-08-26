@@ -928,7 +928,7 @@ const MODELS = {
         rotation: { x: -1.5, y: 0, z: 6 },
         position: { x: 0, y: 0, z: 0 },
     },
-    try: {
+    mouse: {
         url: "https://raw.githubusercontent.com/Aishwary2004Gupta/models/cloud/ice_claw_mouse.glb",
         scale: 0.002,
         rotation: { x: -0.4, y: Math.PI-5.5, z: 0 },

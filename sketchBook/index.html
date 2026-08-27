@@ -130,6 +130,7 @@
         height: 100%;
         width: calc(var(--bw, 0px) * var(--span));
         transform-style: preserve-3d;
+        will-change: transform;
         z-index: 6;
       }
       .flip-curl.next {
@@ -148,6 +149,7 @@
         height: 100%;
         width: calc(var(--bw, 0px) * var(--span) / var(--n));
         transform-style: preserve-3d;
+        will-change: transform;
       }
       .flip-curl.next .flip-strip {
         transform-origin: left center;
@@ -175,7 +177,7 @@
         top: 0;
         bottom: 0;
         left: 0;
-        right: -1.1px;
+        right: -1.6px;
         backface-visibility: hidden;
         -webkit-backface-visibility: hidden;
         background-repeat: no-repeat;
@@ -297,10 +299,11 @@
       const book = document.getElementById("book");
 
       /* ---------------------------------------------------- the curl */
-      const N = 16; // strips in the chain — more = smoother curve
+      const N = 28; // strips in the chain — more = smoother curve
       const SPAN = 0.5; // the flap covers exactly one half of the book
       const BETA = 0.55; // peak overshoot of the arc, in radians
       const DRAG_SPAN = 0.62; // fraction of the book's width = a full drag swipe
+      const EDGE_TAPER = 5; // strips over which shading eases out at the curling tip
 
       let currentPage = 0;
       let turnState = null; // {dir, from, to, t} — the flip currently in the DOM
@@ -411,13 +414,24 @@
         book.style.setProperty("--tt", (tt * D).toFixed(2) + "deg");
         book.style.setProperty("--td", (td * D).toFixed(3) + "deg");
         book.style.setProperty("--shade", Math.sin(Math.PI * t).toFixed(3));
+        const last = strips.length - 1;
         for (let i = 0; i < strips.length; i++) {
-          const l1 = Math.abs(Math.cos(tt - i * td));
-          const l2 = Math.abs(Math.cos(tt - (i + 1) * td));
+          // cos² rather than |cos| — same 0..1 range, but no cusp where the
+          // strip crosses edge-on, so the shading eases through smoothly
+          // instead of kinking.
+          const c1 = Math.cos(tt - i * td);
+          const c2 = Math.cos(tt - (i + 1) * td);
+          const l1 = c1 * c1;
+          const l2 = c2 * c2;
+          // fade the shadow out over the last few strips so the curl
+          // relaxes into flat paper instead of stopping on a hard edge
+          const distFromTip = last - i;
+          const taper =
+            distFromTip < EDGE_TAPER ? distFromTip / EDGE_TAPER : 1;
           const st = strips[i].style;
-          st.setProperty("--lit", l1.toFixed(3));
-          st.setProperty("--a1", ((1 - l1) * 0.55).toFixed(3));
-          st.setProperty("--a2", ((1 - l2) * 0.55).toFixed(3));
+          st.setProperty("--lit", Math.sqrt(l1).toFixed(3));
+          st.setProperty("--a1", ((1 - l1) * 0.55 * taper).toFixed(3));
+          st.setProperty("--a2", ((1 - l2) * 0.55 * taper).toFixed(3));
         }
       }
 

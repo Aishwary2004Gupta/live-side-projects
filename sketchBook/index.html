@@ -55,9 +55,14 @@
       .book {
         position: relative;
         width: min(720px, 80vw);
+        /* Fallback until the first page's real dimensions are known —
+           overridden in JS (applyAspect) to match each page's own image
+           so it renders with no letterboxing, and the curl strips (which
+           key off --bw) always line up with what's on screen. */
         aspect-ratio: 16 / 9;
         perspective: 2600px;
         cursor: pointer;
+        transition: aspect-ratio 0.3s ease;
       }
 
       .book::before {
@@ -78,29 +83,23 @@
         display: contents;
       }
 
-      .half,
-      .face {
+      .half {
         position: absolute;
         top: 0;
         bottom: 0;
         left: 0;
-        overflow: hidden;
-      }
-
-      .half {
         width: 50%;
+        overflow: hidden;
       }
 
       .half.right {
         left: 50%;
       }
 
-      .half img,
-      .face img {
+      .half img {
         display: block;
         width: 200%;
         height: 100%;
-        /* object-fit: cover; Original */
         object-fit: contain;
         object-position: center;
         user-select: none;
@@ -110,33 +109,122 @@
         margin-left: -100%;
       }
 
-      .flap {
+      /* ================================================================
+         The turning leaf: a chain of nested strips forming a curved arc.
+         Each strip is hinged to the one before it at a small angle
+         (--td), so the whole run of strips sweeps out a curve instead of
+         pivoting flat like a door. The chain's own rotation (--tt) runs
+         a little further than the true half-turn and back again, which
+         is what makes the page bow outward mid-flip and relax flat at
+         both ends.
+      ================================================================= */
+      .flip-curl {
+        position: absolute;
+        top: 0;
+        height: 100%;
+        width: calc(var(--bw, 0px) * var(--span));
+        transform-style: preserve-3d;
+        z-index: 6;
+      }
+      .flip-curl.next {
+        left: 50%;
+        transform-origin: left center;
+        transform: rotateY(calc(-1 * var(--tt, 0deg)));
+      }
+      .flip-curl.prev {
+        right: 50%;
+        transform-origin: right center;
+        transform: rotateY(var(--tt, 0deg));
+      }
+      .flip-strip {
+        position: absolute;
+        top: 0;
+        height: 100%;
+        width: calc(var(--bw, 0px) * var(--span) / var(--n));
+        transform-style: preserve-3d;
+      }
+      .flip-curl.next .flip-strip {
+        transform-origin: left center;
+      }
+      .flip-curl.prev .flip-strip {
+        transform-origin: right center;
+      }
+      .flip-curl.next > .flip-strip {
+        left: 0;
+      }
+      .flip-curl.prev > .flip-strip {
+        right: 0;
+        left: auto;
+      }
+      .flip-curl.next .flip-strip .flip-strip {
+        left: 100%;
+        transform: rotateY(var(--td, 0deg));
+      }
+      .flip-curl.prev .flip-strip .flip-strip {
+        right: 100%;
+        transform: rotateY(calc(-1 * var(--td, 0deg)));
+      }
+      .flip-face {
         position: absolute;
         top: 0;
         bottom: 0;
         left: 0;
-        width: 50%;
-        transform-style: preserve-3d;
-        will-change: transform;
-      }
-
-      .flap.next {
-        left: 50%;
-      }
-
-      .face {
-        width: 100%;
+        right: -1.1px;
         backface-visibility: hidden;
+        -webkit-backface-visibility: hidden;
+        background-repeat: no-repeat;
+        background-size: var(--bw, 0px) auto;
+        background-position-y: center;
       }
-
-      .face.back {
+      .flip-face.back {
         transform: rotateY(180deg);
       }
+      /* per-strip shading: darkens toward whichever edge is turning away
+         from the light, so the curve reads as a bent surface, not a flat
+         rotating card */
+      .flip-sh {
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+      }
+      .flip-curl.next .flip-face.front .flip-sh,
+      .flip-curl.prev .flip-face.back .flip-sh {
+        background: linear-gradient(
+          90deg,
+          rgba(20, 16, 10, var(--a1, 0)),
+          rgba(20, 16, 10, var(--a2, 0))
+        );
+      }
+      .flip-curl.next .flip-face.back .flip-sh,
+      .flip-curl.prev .flip-face.front .flip-sh {
+        background: linear-gradient(
+          90deg,
+          rgba(20, 16, 10, var(--a2, 0)),
+          rgba(20, 16, 10, var(--a1, 0))
+        );
+      }
+      /* a faint sheen that only shows while the leaf is actually in the
+         air (--shade) and only on strips that are catching the light
+         (--lit), so the curl looks glossy at its crest */
+      .flip-gl {
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+        background: #fffaf0;
+        opacity: calc(var(--shade, 0) * var(--lit, 1) * var(--lit, 1) * 0.18);
+      }
+      /* soften the very last strip so the curl fades into flat paper
+         instead of ending on a hard edge */
+      .flip-strip.edge .flip-sh {
+        -webkit-mask-image: linear-gradient(90deg, #000 0 30%, transparent 100%);
+        mask-image: linear-gradient(90deg, #000 0 30%, transparent 100%);
+      }
 
+      .book.blur-light .flip-face,
       .book.blur-light img {
         filter: url(#motion-blur-light);
       }
-
+      .book.blur-heavy .flip-face,
       .book.blur-heavy img {
         filter: url(#motion-blur-heavy);
       }
@@ -167,10 +255,6 @@
 
     <script>
       const pages = [
-        // {
-        //   src: "",
-        //   title: "Kyoto Performing Arts Hall",
-        // },
         {
           src: "https://www.lizsteel.com/wp-content/uploads/2013/01/LizSteel-09-Sat29_01-Bedok-Swimming-Pool.jpg",
           title: "Bedok-Swimming-Pool",
@@ -204,18 +288,136 @@
       gsap.registerPlugin(CustomEase);
       CustomEase.create("pageTurn", ".42,.05,.25,1");
 
+      const book = document.getElementById("book");
+
+      /* ---------------------------------------------------- the curl */
+      const N = 16; // strips in the chain — more = smoother curve
+      const SPAN = 0.5; // the flap covers exactly one half of the book
+      const BETA = 0.55; // peak overshoot of the arc, in radians
+
       let currentPage = 0;
       let flipTween = null;
       let introPlaying = false;
+      let strips = [];
+
+      const el = (tag, cls) => {
+        const e = document.createElement(tag);
+        if (cls) e.className = cls;
+        return e;
+      };
 
       const halfImage = (pageIndex, side) =>
         `<img src="${pages[pageIndex].src}" class="${side}">`;
+
+      /* ---------------------------------------------- book sizing ---
+         Each page's src is a full two-page spread. The book's own box is
+         resized (via aspect-ratio) to match that spread's real width:height
+         so object-fit:contain never has to letterbox it — and so --bw
+         (which the curl strips key their slicing off) always corresponds
+         to exactly the image that's on screen. */
+      function loadDimensions() {
+        return Promise.all(
+          pages.map(
+            (p) =>
+              new Promise((resolve) => {
+                const img = new Image();
+                img.onload = () => {
+                  p.w = img.naturalWidth;
+                  p.h = img.naturalHeight;
+                  resolve();
+                };
+                img.onerror = () => {
+                  p.w = 16;
+                  p.h = 9;
+                  resolve();
+                };
+                img.src = p.src;
+              }),
+          ),
+        );
+      }
+
+      function layout() {
+        book.style.setProperty("--bw", book.clientWidth + "px");
+      }
+      addEventListener("resize", layout);
+
+      function applyAspect(pageIndex) {
+        const p = pages[pageIndex];
+        if (p.w && p.h) {
+          book.style.aspectRatio = p.w + " / " + p.h;
+        }
+        layout();
+      }
+
+      // Builds the strip chain once per turn. Each strip's background is
+      // offset so that, laid flat, the whole chain reads as one continuous
+      // slice of the source spread — the offset math never needs revisiting
+      // once the animation starts.
+      function buildCurl(dir, from, to) {
+        strips = [];
+        const c = el("div", "flip-curl " + dir);
+        c.style.setProperty("--n", N);
+        c.style.setProperty("--span", SPAN);
+        let host = c;
+        for (let i = 0; i < N; i++) {
+          const s = el("div", "flip-strip");
+          const gut = "calc(var(--bw) * 0.5)";
+          const sw = "calc(var(--bw) * " + SPAN + " / " + N + ")";
+          const A = "calc(-1 * (" + gut + " + " + i + " * " + sw + "))";
+          const B = "calc(" + (i + 1) + " * " + sw + " - " + gut + ")";
+          const f = el("div", "flip-face front");
+          const b = el("div", "flip-face back");
+          const dress = (e, url, px) => {
+            e.style.backgroundImage = "url(" + url + ")";
+            e.style.backgroundPositionX = px;
+          };
+          dress(f, pages[from].src, dir === "next" ? A : B);
+          dress(b, pages[to].src, dir === "next" ? B : A);
+          f.appendChild(el("div", "flip-sh"));
+          f.appendChild(el("div", "flip-gl"));
+          b.appendChild(el("div", "flip-sh"));
+          b.appendChild(el("div", "flip-gl"));
+          s.appendChild(f);
+          s.appendChild(b);
+          if (i === N - 1) s.classList.add("edge");
+          host.appendChild(s);
+          host = s;
+          strips.push(s);
+        }
+        return c;
+      }
+
+      // Drives the curl for a given progress t (0 → 1). The chain's total
+      // rotation (tt) runs past the true half-turn by `beta` and back
+      // again, which bows the strips outward mid-flip; each strip's own
+      // hinge angle (td) is that same overshoot spread evenly across the
+      // chain. Per-strip lighting/shadow follow how face-on each strip is.
+      function applyTurn(t) {
+        const th = Math.PI * t;
+        const beta = BETA * Math.sin(Math.PI * t);
+        const D = 180 / Math.PI;
+        const tt = th + beta;
+        const td = (2 * beta) / N;
+        book.style.setProperty("--tt", (tt * D).toFixed(2) + "deg");
+        book.style.setProperty("--td", (td * D).toFixed(3) + "deg");
+        book.style.setProperty("--shade", Math.sin(Math.PI * t).toFixed(3));
+        for (let i = 0; i < strips.length; i++) {
+          const l1 = Math.abs(Math.cos(tt - i * td));
+          const l2 = Math.abs(Math.cos(tt - (i + 1) * td));
+          const st = strips[i].style;
+          st.setProperty("--lit", l1.toFixed(3));
+          st.setProperty("--a1", ((1 - l1) * 0.55).toFixed(3));
+          st.setProperty("--a2", ((1 - l2) * 0.55).toFixed(3));
+        }
+      }
 
       function showPage(pageIndex) {
         currentPage = pageIndex;
         page.innerHTML = `
         <div class="half left">${halfImage(pageIndex, "left")}</div>
         <div class="half right">${halfImage(pageIndex, "right")}</div>`;
+        applyAspect(pageIndex);
       }
 
       function setCaption(title) {
@@ -235,29 +437,31 @@
         const goingNext = direction === "next";
         const targetPage =
           (currentPage + (goingNext ? 1 : -1) + pages.length) % pages.length;
-
+        const dir = goingNext ? "next" : "prev";
         const liftSide = goingNext ? "right" : "left";
-        const landSide = goingNext ? "left" : "right";
+
+        layout();
 
         book.insertAdjacentHTML(
           "beforeend",
-          `
-        <div class="turn">
-          <div class="half ${liftSide}">${halfImage(targetPage, liftSide)}</div>
-          <div class="flap ${goingNext ? "next" : "prev"}">
-            <div class="face">${halfImage(currentPage, liftSide)}</div>
-            <div class="face back">${halfImage(targetPage, landSide)}</div>
-          </div>
-        </div>`,
+          `<div class="turn">
+            <div class="half ${liftSide}">${halfImage(targetPage, liftSide)}</div>
+          </div>`,
         );
+        const turnHost = book.querySelector(".turn");
+        turnHost.appendChild(buildCurl(dir, currentPage, targetPage));
+        applyTurn(0);
 
         setCaption(pages[targetPage].title);
 
-        flipTween = gsap.to(book.querySelector(".flap"), {
-          rotationY: goingNext ? -180 : 180,
-          transformOrigin: goingNext ? "left center" : "right center",
+        const proxy = { t: 0 };
+        flipTween = gsap.to(proxy, {
+          t: 1,
           duration: duration,
           ease: ease,
+          onUpdate() {
+            applyTurn(proxy.t);
+          },
           onComplete() {
             showPage(targetPage);
             book.querySelector(".turn").remove();
@@ -296,13 +500,17 @@
         if (event.key === "ArrowLeft") navigate("prev");
       });
 
-      showPage(0);
-      setCaption(pages[0].title);
+      (async function boot() {
+        layout();
+        await loadDimensions();
+        showPage(0);
+        setCaption(pages[0].title);
 
-      gsap.delayedCall(0.2, () => {
-        introPlaying = true;
-        riffle();
-      });
+        gsap.delayedCall(0.2, () => {
+          introPlaying = true;
+          riffle();
+        });
+      })();
     </script>
   </body>
 </html>

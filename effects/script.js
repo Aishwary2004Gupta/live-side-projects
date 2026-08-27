@@ -941,7 +941,7 @@ const MODELS = {
         position: { x: 0, y: -1, z: 0 },
     },
     try: {
-        url: "https://raw.githubusercontent.com/thebuggeddev/controller/main/public/models/first-light-controller.glb",
+        url: "https://raw.githubusercontent.com/thebuggeddev/controller/main/public/models/god-of-war-controller.glb",
         scale: 5,
         rotation: { x: 0, y: 0, z: 0 },
         position: { x: 0, y: -1, z: 0 },

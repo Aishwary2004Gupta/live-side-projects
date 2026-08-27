@@ -934,6 +934,12 @@ const MODELS = {
         rotation: { x: -0.4, y: Math.PI-5.5, z: 0 },
         position: { x: 0.2, y: 0.3, z: 0 },
     },
+    flower_bouquet: {
+        url: "https://raw.githubusercontent.com/Aishwary2004Gupta/models/cloud/flower_bouquet.glb",
+        scale: 5,
+        rotation: { x: 0, y: 0, z: 0 },
+        position: { x: 0, y: -1, z: 0 },
+    },
     try: {
         url: "https://raw.githubusercontent.com/Aishwary2004Gupta/models/cloud/flower_bouquet.glb",
         scale: 5,

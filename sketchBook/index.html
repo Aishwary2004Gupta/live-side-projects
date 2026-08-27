@@ -61,8 +61,14 @@
            key off --bw) always line up with what's on screen. */
         aspect-ratio: 16 / 9;
         perspective: 2600px;
-        cursor: pointer;
+        cursor: grab;
+        touch-action: pan-y;
         transition: aspect-ratio 0.3s ease;
+        -webkit-tap-highlight-color: transparent;
+      }
+
+      .book:active {
+        cursor: grabbing;
       }
 
       .book::before {
@@ -294,11 +300,14 @@
       const N = 16; // strips in the chain — more = smoother curve
       const SPAN = 0.5; // the flap covers exactly one half of the book
       const BETA = 0.55; // peak overshoot of the arc, in radians
+      const DRAG_SPAN = 0.62; // fraction of the book's width = a full drag swipe
 
       let currentPage = 0;
+      let turnState = null; // {dir, from, to, t} — the flip currently in the DOM
       let flipTween = null;
       let introPlaying = false;
       let strips = [];
+      let pointer = null;
 
       const el = (tag, cls) => {
         const e = document.createElement(tag);
@@ -350,7 +359,7 @@
         layout();
       }
 
-      // Builds the strip chain once per turn. Each strip's background is
+      // Builds the strip chain for one turn. Each strip's background is
       // offset so that, laid flat, the whole chain reads as one continuous
       // slice of the source spread — the offset math never needs revisiting
       // once the animation starts.
@@ -429,42 +438,102 @@
         );
       }
 
-      function turn(direction, duration = 0.85, ease = "pageTurn", onDone) {
-        if (flipTween && flipTween.isActive()) {
-          flipTween.progress(1);
-        }
-
-        const goingNext = direction === "next";
-        const targetPage =
-          (currentPage + (goingNext ? 1 : -1) + pages.length) % pages.length;
-        const dir = goingNext ? "next" : "prev";
-        const liftSide = goingNext ? "right" : "left";
-
+      /* ------------------------------------------------- turn control
+         `turnState` is the single source of truth for whatever flip is
+         currently in the DOM. Buttons/keys drive it start-to-finish with
+         a tween (see turn()); dragging instead writes turnState.t on
+         every pointermove and lets the tween only take over at the end,
+         to snap forward (commitTurn) or back (cancelTurn). */
+      function paintTurn(dir, from, to) {
         layout();
-
+        const liftSide = dir === "next" ? "right" : "left";
         book.insertAdjacentHTML(
           "beforeend",
           `<div class="turn">
-            <div class="half ${liftSide}">${halfImage(targetPage, liftSide)}</div>
+            <div class="half ${liftSide}">${halfImage(to, liftSide)}</div>
           </div>`,
         );
         const turnHost = book.querySelector(".turn");
-        turnHost.appendChild(buildCurl(dir, currentPage, targetPage));
+        turnHost.appendChild(buildCurl(dir, from, to));
         applyTurn(0);
+      }
 
-        setCaption(pages[targetPage].title);
+      function startTurn(dir) {
+        if (flipTween) {
+          flipTween.kill();
+          flipTween = null;
+        }
+        const existing = book.querySelector(".turn");
+        if (existing) existing.remove();
 
-        const proxy = { t: 0 };
-        flipTween = gsap.to(proxy, {
+        const from = currentPage;
+        const to =
+          dir === "next"
+            ? (from + 1) % pages.length
+            : (from - 1 + pages.length) % pages.length;
+        turnState = { dir, from, to, t: 0 };
+        setCaption(pages[to].title);
+        paintTurn(dir, from, to);
+      }
+
+      function commitTurn(duration = 0.3) {
+        if (!turnState) return;
+        const target = turnState;
+        flipTween = gsap.to(target, {
           t: 1,
-          duration: duration,
-          ease: ease,
+          duration,
+          ease: "pageTurn",
           onUpdate() {
-            applyTurn(proxy.t);
+            applyTurn(target.t);
           },
           onComplete() {
-            showPage(targetPage);
-            book.querySelector(".turn").remove();
+            showPage(target.to);
+            const h = book.querySelector(".turn");
+            if (h) h.remove();
+            if (turnState === target) turnState = null;
+            flipTween = null;
+          },
+        });
+      }
+
+      function cancelTurn(duration = 0.26) {
+        if (!turnState) return;
+        const target = turnState;
+        flipTween = gsap.to(target, {
+          t: 0,
+          duration,
+          ease: "pageTurn",
+          onUpdate() {
+            applyTurn(target.t);
+          },
+          onComplete() {
+            const h = book.querySelector(".turn");
+            if (h) h.remove();
+            if (turnState === target) turnState = null;
+            flipTween = null;
+            setCaption(pages[currentPage].title);
+          },
+        });
+      }
+
+      // Fully automatic flip — used by the arrow buttons, keyboard, and
+      // the intro riffle, none of which have a mouse position to follow.
+      function turn(direction, duration = 0.85, ease = "pageTurn", onDone) {
+        startTurn(direction);
+        const target = turnState;
+        flipTween = gsap.to(target, {
+          t: 1,
+          duration,
+          ease,
+          onUpdate() {
+            applyTurn(target.t);
+          },
+          onComplete() {
+            showPage(target.to);
+            const h = book.querySelector(".turn");
+            if (h) h.remove();
+            if (turnState === target) turnState = null;
+            flipTween = null;
             if (onDone) onDone();
           },
         });
@@ -492,8 +561,47 @@
       nextButton.onclick = () => navigate("next");
       prevButton.onclick = () => navigate("prev");
 
-      book.onclick = (event) =>
-        navigate(event.offsetX < book.offsetWidth / 2 ? "prev" : "next");
+      /* ---------------------------------------------- mouse/touch drag
+         Press anywhere on the book to grab that half; dragging horizontally
+         drives the curl in lockstep with the pointer. Release past the
+         halfway point (or fast enough, or as a quick tap) to complete the
+         turn — otherwise it springs back flat. */
+      book.addEventListener("pointerdown", (e) => {
+        if (e.button !== 0) return;
+        introPlaying = false;
+        const rect = book.getBoundingClientRect();
+        const dir = (e.clientX - rect.left) / rect.width > 0.5 ? "next" : "prev";
+        startTurn(dir);
+        pointer = { dir, x0: e.clientX, w: rect.width, moved: 0 };
+        book.setPointerCapture(e.pointerId);
+      });
+
+      book.addEventListener("pointermove", (e) => {
+        if (!pointer || !turnState) return;
+        const dx = e.clientX - pointer.x0;
+        pointer.moved = Math.max(pointer.moved, Math.abs(dx));
+        const raw =
+          (pointer.dir === "next" ? -dx : dx) / (pointer.w * DRAG_SPAN);
+        const t = Math.max(0, Math.min(1, raw));
+        turnState.t = t;
+        applyTurn(t);
+      });
+
+      function endDrag() {
+        if (!pointer) return;
+        const p = pointer;
+        pointer = null;
+        if (!turnState) return;
+        if (p.moved < 6) {
+          commitTurn(); // a tap — finish the flip
+          return;
+        }
+        if (turnState.t > 0.42) commitTurn();
+        else cancelTurn();
+      }
+      book.addEventListener("pointerup", endDrag);
+      book.addEventListener("pointercancel", endDrag);
+      book.addEventListener("dragstart", (e) => e.preventDefault());
 
       addEventListener("keydown", (event) => {
         if (event.key === "ArrowRight") navigate("next");

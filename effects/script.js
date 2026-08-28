@@ -940,6 +940,12 @@ const MODELS = {
         rotation: { x: 0, y: 0, z: 0 },
         position: { x: 0, y: -1, z: 0 },
     },
+    ice_cream_cone: {
+        url: "https://raw.githubusercontent.com/Aishwary2004Gupta/models/cloud/ice_cream_cone.glb",
+        scale: 1,
+        rotation: { x: 0, y: 0, z: 0 },
+        position: { x: 0, y: -1, z: 0 },
+    },
     try: {
         url: "https://raw.githubusercontent.com/Aishwary2004Gupta/models/cloud/ice_cream_cone.glb",
         scale: 1,

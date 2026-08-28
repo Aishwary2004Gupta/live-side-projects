@@ -949,7 +949,7 @@ const MODELS = {
     try: {
         url: "https://raw.githubusercontent.com/Aishwary2004Gupta/models/cloud/croissant.glb",
         scale: 0.004,
-        rotation: { x: -1, y: -0.5, z: -1 },
+        rotation: { x: 0, y: 0, z: 0 },
         position: { x: 0, y: -0.5, z: 0 },
     },
 };
@@ -1090,10 +1090,10 @@ function updateAxisHUD() {
 }
 
 function updateRotationHUD() {
-    const radiansToDegrees = 180 / Math.PI;
-    rotationX.textContent = `${(camera.rotation.x * radiansToDegrees).toFixed(1)}°`;
-    rotationY.textContent = `${(camera.rotation.y * radiansToDegrees).toFixed(1)}°`;
-    rotationZ.textContent = `${(camera.rotation.z * radiansToDegrees).toFixed(1)}°`;
+    const rotation = currentModel?.rotation;
+    rotationX.textContent = (rotation?.x ?? 0).toFixed(3);
+    rotationY.textContent = (rotation?.y ?? 0).toFixed(3);
+    rotationZ.textContent = (rotation?.z ?? 0).toFixed(3);
 }
 
 function recalcTargetWidth() {

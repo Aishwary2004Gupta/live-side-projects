@@ -1046,6 +1046,9 @@ const pixelUI = document.getElementById("pixelUI");
 const pixelInput = document.getElementById("pixelSize");
 const axisCanvas = document.getElementById("axisCanvas");
 const axisCtx = axisCanvas.getContext("2d");
+const rotationX = document.getElementById("rotationX");
+const rotationY = document.getElementById("rotationY");
+const rotationZ = document.getElementById("rotationZ");
 
 function drawAxis(v, color, label, cx, cy, scale) {
     const ex = cx + v.x * scale;
@@ -1084,6 +1087,13 @@ function updateAxisHUD() {
     drawAxis(xV, "#ff4d4d", "X", cx, cy, scale);
     drawAxis(yV, "#46ff7a", "Y", cx, cy, scale);
     drawAxis(zV, "#4da6ff", "Z", cx, cy, scale);
+}
+
+function updateRotationHUD() {
+    const radiansToDegrees = 180 / Math.PI;
+    rotationX.textContent = `${(camera.rotation.x * radiansToDegrees).toFixed(1)}°`;
+    rotationY.textContent = `${(camera.rotation.y * radiansToDegrees).toFixed(1)}°`;
+    rotationZ.textContent = `${(camera.rotation.z * radiansToDegrees).toFixed(1)}°`;
 }
 
 function recalcTargetWidth() {
@@ -1320,6 +1330,7 @@ function animate() {
     }
 
     updateAxisHUD();
+    updateRotationHUD();
 
     const current = activeEffectName();
     if (current === "ascii") {

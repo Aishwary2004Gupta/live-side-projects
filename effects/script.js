@@ -1011,6 +1011,11 @@ function loadModel(name) {
                 cfg.position?.y ?? 0,
                 cfg.position?.z ?? 0,
             );
+            m.userData.defaultRotation = {
+                x: cfg.rotation?.x ?? 0,
+                y: cfg.rotation?.y ?? 0,
+                z: cfg.rotation?.z ?? 0,
+            };
             scene.add(m);
             currentModel = m;
             controls.target.copy(handsFocusPoint);
@@ -1094,6 +1099,23 @@ function updateRotationHUD() {
     rotationX.textContent = (rotation?.x ?? 0).toFixed(3);
     rotationY.textContent = (rotation?.y ?? 0).toFixed(3);
     rotationZ.textContent = (rotation?.z ?? 0).toFixed(3);
+}
+
+function updateModelRotationFromOrbit() {
+    if (!currentModel?.userData.defaultRotation) return;
+
+    const offset = camera.position.clone().sub(controls.target);
+    const horizontalDistance = Math.hypot(offset.x, offset.z);
+    const elevation = Math.atan2(offset.y, horizontalDistance);
+    const azimuth = Math.atan2(offset.x, offset.z);
+    const orbitYaw = azimuth - Math.PI;
+    const defaultRotation = currentModel.userData.defaultRotation;
+
+    currentModel.rotation.set(
+        defaultRotation.x + elevation,
+        defaultRotation.y + orbitYaw,
+        defaultRotation.z,
+    );
 }
 
 function recalcTargetWidth() {
@@ -1329,6 +1351,7 @@ function animate() {
         updateLayout(currentLayoutWidth, currentLeftOffset);
     }
 
+    updateModelRotationFromOrbit();
     updateAxisHUD();
     updateRotationHUD();
 

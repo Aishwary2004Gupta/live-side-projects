@@ -949,7 +949,7 @@ const MODELS = {
     try: {
         url: "https://raw.githubusercontent.com/Aishwary2004Gupta/models/cloud/croissant.glb",
         scale: 0.004,
-        rotation: { x: 1.3, y: -9, z: 0 },
+        rotation: { x: -1, y: -0.5, z: -1 },
         position: { x: 0, y: -0.5, z: 0 },
     },
 };
@@ -1011,11 +1011,6 @@ function loadModel(name) {
                 cfg.position?.y ?? 0,
                 cfg.position?.z ?? 0,
             );
-            m.userData.defaultRotation = {
-                x: cfg.rotation?.x ?? 0,
-                y: cfg.rotation?.y ?? 0,
-                z: cfg.rotation?.z ?? 0,
-            };
             scene.add(m);
             currentModel = m;
             controls.target.copy(handsFocusPoint);
@@ -1051,9 +1046,6 @@ const pixelUI = document.getElementById("pixelUI");
 const pixelInput = document.getElementById("pixelSize");
 const axisCanvas = document.getElementById("axisCanvas");
 const axisCtx = axisCanvas.getContext("2d");
-const rotationX = document.getElementById("rotationX");
-const rotationY = document.getElementById("rotationY");
-const rotationZ = document.getElementById("rotationZ");
 
 function drawAxis(v, color, label, cx, cy, scale) {
     const ex = cx + v.x * scale;
@@ -1092,30 +1084,6 @@ function updateAxisHUD() {
     drawAxis(xV, "#ff4d4d", "X", cx, cy, scale);
     drawAxis(yV, "#46ff7a", "Y", cx, cy, scale);
     drawAxis(zV, "#4da6ff", "Z", cx, cy, scale);
-}
-
-function updateRotationHUD() {
-    const rotation = currentModel?.rotation;
-    rotationX.textContent = (rotation?.x ?? 0).toFixed(3);
-    rotationY.textContent = (rotation?.y ?? 0).toFixed(3);
-    rotationZ.textContent = (rotation?.z ?? 0).toFixed(3);
-}
-
-function updateModelRotationFromOrbit() {
-    if (!currentModel?.userData.defaultRotation) return;
-
-    const offset = camera.position.clone().sub(controls.target);
-    const horizontalDistance = Math.hypot(offset.x, offset.z);
-    const elevation = Math.atan2(offset.y, horizontalDistance);
-    const azimuth = Math.atan2(offset.x, offset.z);
-    const orbitYaw = azimuth - Math.PI;
-    const defaultRotation = currentModel.userData.defaultRotation;
-
-    currentModel.rotation.set(
-        defaultRotation.x + elevation,
-        defaultRotation.y + orbitYaw,
-        defaultRotation.z,
-    );
 }
 
 function recalcTargetWidth() {
@@ -1351,9 +1319,7 @@ function animate() {
         updateLayout(currentLayoutWidth, currentLeftOffset);
     }
 
-    updateModelRotationFromOrbit();
     updateAxisHUD();
-    updateRotationHUD();
 
     const current = activeEffectName();
     if (current === "ascii") {

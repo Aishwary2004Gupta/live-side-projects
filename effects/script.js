@@ -948,8 +948,8 @@ const MODELS = {
     },
     try: {
         url: "https://raw.githubusercontent.com/Aishwary2004Gupta/models/cloud/croissant.glb",
-        scale: 0.005,
-        rotation: { x: -0.5, y: 1, z: -0.4 },
+        scale: 0.004,
+        rotation: { x: -0.5, y: 0.5, z: -0.6 },
         position: { x: 0, y: -0.5, z: 0 },
     },
 };

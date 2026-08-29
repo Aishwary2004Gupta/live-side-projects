@@ -1,0 +1,547 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Omarchy Shader Lab</title>
+<style>
+  * { box-sizing: border-box; }
+  html,body { margin:0; height:100%; background:#000; color:#ddd;
+    font:12px/1.4 ui-monospace,SFMono-Regular,Menlo,monospace; overflow:hidden; }
+  #gl { position:fixed; inset:0; width:100%; height:100%; display:block; }
+  #panel { position:fixed; top:0; right:0; width:340px; height:100%; overflow-y:auto;
+    background:rgba(10,10,12,.92); border-left:1px solid #333; padding:10px 12px 40px;
+    backdrop-filter:blur(8px); }
+  #panel.hidden { display:none; }
+  h1 { font-size:12px; letter-spacing:.14em; text-transform:uppercase; color:#f0c048;
+    margin:0 0 8px; font-weight:600; }
+  .hint { color:#777; margin-bottom:12px; }
+  .grp { margin:14px 0 6px; color:#e8e8d8; border-bottom:1px solid #2a2a2a;
+    padding-bottom:3px; letter-spacing:.08em; text-transform:uppercase; font-size:10px; }
+  .row { display:grid; grid-template-columns:118px 1fr 46px; align-items:center; gap:6px; margin:3px 0; }
+  .row label { color:#999; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .row input[type=range] { width:100%; accent-color:#f0c048; height:16px; }
+  .row .val { text-align:right; color:#e8e8d8; }
+  .btns { display:flex; gap:6px; flex-wrap:wrap; margin:14px 0 6px; }
+  button { background:#1b1b1f; color:#ddd; border:1px solid #3a3a40; padding:5px 9px;
+    border-radius:3px; cursor:pointer; font:inherit; }
+  button:hover { background:#26262c; border-color:#f0c048; color:#f0c048; }
+  #hud { position:fixed; left:10px; top:8px; color:#666; pointer-events:none; }
+  #out { position:fixed; left:10px; bottom:10px; right:360px; max-height:38%; overflow:auto;
+    background:rgba(10,10,12,.95); border:1px solid #333; padding:8px; white-space:pre;
+    display:none; color:#9ad; font-size:11px; }
+</style>
+</head>
+<body>
+<canvas id="gl"></canvas>
+<div id="hud">h = panel · space = pause</div>
+<div id="panel"><h1>Omarchy Shader Lab</h1>
+  <div class="hint">h toggles panel · space pauses · scrub with Progress</div>
+  <div id="controls"></div>
+  <div class="btns">
+    <button id="copy">Copy PDEF</button>
+    <button id="copyjson">Copy JSON</button>
+    <button id="reset">Reset all</button>
+    <button id="hideout">Hide output</button>
+  </div>
+</div>
+<pre id="out"></pre>
+<script>
+// ---------------------------------------------------------------- params
+// name, min, max, default, group
+const P = [
+  ["logo_frac",      0.30, 0.98, 0.606, "Grid"],
+  ["detail",         1.00, 4.00, 1, "Grid"],
+  ["core_size",      0.70, 1.30, 1.3, "Shape"],
+  ["edge_size",      0.20, 1.20, 0.405, "Shape"],
+  ["dot_size",       0.02, 0.60, 0.02, "Shape"],
+  ["size_curve",     0.30, 3.00, 0.3, "Shape"],
+  ["core_depth",     1.00, 8.00, 8, "Shape"],
+  ["edge_noise",     0.00, 4.00, 0, "Shape"],
+  ["noise_scale",    1.00,16.00, 13.825, "Shape"],
+  ["size_variety",   0.00, 1.00, 0, "Shape"],
+  ["chunk_prob",     0.00, 1.00, 0.3, "Shape"],
+  ["ripple_amp",     0.00, 2.50, 2.5, "Ripple"],
+  ["ripple_width",   0.20, 8.00, 8, "Ripple"],
+  ["ripple_freq",    0.50, 6.00, 0.5, "Ripple"],
+  ["ripple_lead",   -3.00, 3.00, 3, "Ripple"],
+  ["ripple_chroma",  0.00, 0.80, 0.8, "Ripple"],
+  ["ripple_gloss",   0.00, 1.50, 0, "Ripple"],
+  ["scatter_reach",  0.00, 6.00, 6, "Scatter"],
+  ["scatter_amount", 0.00, 1.00, 1, "Scatter"],
+  ["outline_prob",   0.00, 1.00, 0.205, "Style"],
+  ["outline_thick",  0.05, 0.50, 0.131, "Style"],
+  ["chroma",         0.00, 0.30, 0.3, "Style"],
+  ["grow_time",      1.00,30.00, 5.00, "Timing"],
+  ["hold_time",      0.00,15.00, 2.00, "Timing"],
+  ["origin_x",       0.00, 1.00, 0.50, "Growth"],
+  ["origin_y",       0.00, 1.00, 0.50, "Growth"],
+  ["grow_jitter",    0.00, 1.00, 0.105, "Growth"],
+  ["grow_aspect",    0.20, 5.00, 1.00, "Growth"],
+  ["front_width",    0.50,40.00, 8.70, "Growth"],
+  ["pop_overshoot",  0.00, 1.00, 1, "Growth"],
+  ["fresh_color",    0.00, 1.00, 0.9, "Colour"],
+  ["fresh_len",      0.02, 0.60, 0.1679, "Colour"],
+  ["front_glow",     0.00, 2.50, 2.175, "Colour"],
+  ["edge_color",     0.00, 1.00, 0.7, "Colour"],
+  ["amber_to_red",   0.00, 1.00, 0.45, "Colour"],
+  ["blue_prob",      0.00, 0.25, 0.05, "Colour"],
+  ["cream_level",    0.20, 1.60, 1.593, "Colour"],
+  ["accent_boost",   0.20, 2.00, 1.991, "Colour"],
+  ["shimmer",        0.00, 1.00, 0.835, "Scene"],
+  ["shimmer_period", 2.00,20.00, 2, "Scene"],
+  ["diss_origin_x",  0.00, 1.00, 0.50, "Dissolve"],
+  ["diss_origin_y",  0.00, 1.00, 0.50, "Dissolve"],
+  ["diss_time",      0.20,20.00, 4.00, "Timing"],
+  ["diss_width",     0.50,40.00, 8.70, "Dissolve"],
+  ["end_pause",      0.00,15.00, 2.00, "Timing"],
+  ["show_origin",    0.00, 1.00, 0.00, "Debug"],
+  ["vignette",       0.00, 1.00, 0.4, "Scene"],
+  ["bg_density",     0.00, 1.00, 0.58, "Scene"],
+  ["bg_level",       0.00, 2.00, 0.42, "Scene"],
+];
+const vals = {};
+P.forEach(p => vals[p[0]] = p[3]);
+try {
+  const s = JSON.parse(localStorage.getItem("omarchy-lab") || "{}");
+  P.forEach(p => { if (typeof s[p[0]] === "number") vals[p[0]] = Math.max(p[1], Math.min(p[2], s[p[0]])); });
+} catch (e) {}
+let paused = false, progress = 0.55;
+
+// ---------------------------------------------------------------- shader
+const uniformDecls = P.map(p => "uniform float u_" + p[0] + ";").join("\n");
+const FRAG = `#version 300 es
+precision highp float;
+precision highp int;
+out vec4 fragColor;
+uniform vec2  iResolution;
+uniform float iTime;
+uniform float uProgress;
+uniform float uPaused;
+${uniformDecls}
+
+uniform sampler2D uSDF;      // precomputed signed distance, in logo pixels
+uniform sampler2D uBits;     // the logo bitmap itself, NEAREST-sampled (0 or 1)
+uniform vec2  uSDFSize;      // padded field size
+uniform float uSDFPad;
+
+const int LOGO_W = 81;
+const int LOGO_H = 19;
+
+const vec3 C_BG    = vec3(0.043, 0.043, 0.059);
+const vec3 C_CREAM = vec3(0.960, 0.955, 0.900);
+const vec3 C_AMBER = vec3(0.941, 0.753, 0.282);
+const vec3 C_RED   = vec3(0.941, 0.043, 0.043);
+const vec3 C_BLUE  = vec3(0.000, 0.125, 0.941);
+
+float hash21(vec2 p) {
+  uvec2 q = uvec2(ivec2(p + 2048.0)) * uvec2(1597334673u, 3812015801u);
+  uint n = (q.x ^ q.y) * 1597334673u;
+  return float(n) * (1.0 / 4294967295.0);
+}
+float vnoise(vec2 p) {
+  vec2 i = floor(p), f = fract(p);
+  f = f * f * (3.0 - 2.0 * f);
+  float a = hash21(i), b = hash21(i + vec2(1,0));
+  float c = hash21(i + vec2(0,1)), d = hash21(i + vec2(1,1));
+  return mix(mix(a,b,f.x), mix(c,d,f.x), f.y);
+}
+
+// Signed distance to the wordmark, in logo pixels: + inside, - outside.
+// Precomputed on the CPU, so this is a single texture fetch per pixel.
+// exact wordmark coverage, so the settled frame is the logo bitmap itself
+float bitsAt(vec2 logoPx) {
+  vec2 uv = (logoPx + uSDFPad) / uSDFSize;
+  if (uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0) return 0.0;
+  return texture(uBits, uv).r;
+}
+float sdfAt(vec2 logoPx) {
+  vec2 uv = (logoPx + uSDFPad) / uSDFSize;
+  if (uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0) return -99.0;
+  return texture(uSDF, uv).r * 16.0 - 8.0;
+}
+
+float squareMask(vec2 p, float size, bool hollow, float thick, float aa) {
+  vec2 q = abs(p) - vec2(size);
+  float d = max(q.x, q.y);
+  if (hollow) d = abs(d) - thick * 0.5;
+  return smoothstep(aa, -aa, d);
+}
+// Furthest corner of the logo grid from a given origin, with the growth
+// ellipse applied. Normalising birth by this (rather than by half the logo
+// diagonal) is what lets the front actually reach every cell when the origin
+// is off-centre — otherwise distant cells clamp and all pop at once.
+float cornerDist(vec2 o, vec2 dim, float aspect) {
+  float a = length(vec2(0.0   - o.x, (0.0   - o.y) * aspect));
+  float b = length(vec2(dim.x - o.x, (0.0   - o.y) * aspect));
+  float c = length(vec2(0.0   - o.x, (dim.y - o.y) * aspect));
+  float d = length(vec2(dim.x - o.x, (dim.y - o.y) * aspect));
+  return max(max(a, b), max(c, d));
+}
+float popEase(float t, float over) {
+  float c1 = 1.70158 * over * 2.2, c3 = c1 + 1.0, u = t - 1.0;
+  return 1.0 + c3*u*u*u + c1*u*u;
+}
+
+void main() {
+  vec2 res = iResolution;
+  vec2 sc = vec2(gl_FragCoord.x, res.y - gl_FragCoord.y);
+
+  float detail = max(1.0, floor(u_detail + 0.5));
+  float cellPx = max(res.x * u_logo_frac / (float(LOGO_W) * detail), 2.0);
+  vec2 gridSize = res / cellPx;
+  vec2 logoStart = floor((gridSize - vec2(float(LOGO_W), float(LOGO_H)) * detail) * 0.5);
+
+  // --- glass ripple riding the reveal front -------------------------
+  // The front is a circle of radius frontRaw*maxD (in cells) around the growth
+  // origin. A gaussian-enveloped wave at that radius displaces the sample
+  // point radially, so the pattern itself bends like it is being read through
+  // moving glass, rather than an overlay being drawn on top of it.
+  vec2 logoDim = vec2(float(LOGO_W), float(LOGO_H)) * detail;
+  vec2 originCell = vec2(u_origin_x, u_origin_y) * logoDim;
+  float maxD = cornerDist(originCell, logoDim, u_grow_aspect) + u_scatter_reach;
+  vec2 originPx = (logoStart + originCell) * cellPx;
+  vec2 dissOrigin = vec2(u_diss_origin_x, u_diss_origin_y) * logoDim;
+  float maxDD = cornerDist(dissOrigin, logoDim, u_grow_aspect) + u_scatter_reach;
+
+  // --- the loop, in absolute seconds --------------------------------
+  // Four explicit phases that sum to the loop length. Each front is scaled by
+  // (1 + its band width) so it is GUARANTEED to finish exactly at the end of
+  // its phase: growth is fully formed at grow_time, and every cell is gone at
+  // grow+hold+diss. end_pause then holds an empty screen, giving the ripple
+  // room to leave the viewport so the loop restarts on the same frame it began.
+  float popN  = max(1e-4, u_front_width / max(1.0, maxD));
+  float dissN = max(1e-4, u_diss_width  / max(1.0, maxDD));
+  float total = max(0.5, u_grow_time + u_hold_time + u_diss_time + u_end_pause);
+  float t = (uPaused > 0.5) ? uProgress * total : mod(iTime, total);
+  float frontRaw  = (t / max(0.01, u_grow_time)) * (1.0 + popN);
+  float dissFront = max(0.0, (t - u_grow_time - u_hold_time)
+                            / max(0.01, u_diss_time)) * (1.0 + dissN);
+
+  vec2 sc0 = sc;                     // before refraction, for debug markers
+  vec2 rel = sc - originPx;
+  float dPx = length(vec2(rel.x, rel.y * u_grow_aspect));   // same ellipse as the front
+  vec2 rdir = (length(rel) > 0.001) ? normalize(rel) : vec2(0.0);
+  float radPx = (frontRaw * maxD + u_ripple_lead) * cellPx;
+  float dR = (dPx - radPx) / max(0.001, u_ripple_width * cellPx);
+  float env  = exp(-dR * dR);
+  float wave = sin(dR * u_ripple_freq * 3.14159265);
+  // The ring fades once it has travelled past the farthest screen corner, and
+  // eases in with the growth so it does not pop into existence at the origin.
+  // Together these make the loop wrap seamlessly at both ends.
+  float reach = length(max(originPx, res - originPx));
+  env *= (1.0 - smoothstep(reach * 0.95, reach * 1.30, radPx))
+       * smoothstep(0.0, 0.12, t / max(0.01, u_grow_time));
+  float disp = u_ripple_amp * cellPx * env * wave;
+  sc += rdir * disp;                      // the actual refraction
+
+  // multi-scale chunks, but only outside the shape: every square that forms
+  // the wordmark comes from the same grid at the same size
+  vec2 blockf = floor(sc / (cellPx * 2.0));
+  float blockDepth = sdfAt(((blockf + 0.5) * 2.0 - logoStart) / detail) * detail;
+  float S = (blockDepth < -0.5 && hash21(blockf + 555.0) < u_chunk_prob) ? 2.0 : 1.0;
+  float cpx = cellPx * S;
+  vec2 cellf = floor(sc / cpx);
+  vec2 p = (fract(sc / cpx) - 0.5) * 2.0;
+  float aa = 2.0 / cpx;
+  vec2 lc = (cellf + 0.5) * S - logoStart;
+  vec2 logoPx = lc / detail;
+
+  float hSize = hash21(cellf + 13.0 + S * 31.0);
+  float hCol  = hash21(cellf + 401.0 + S * 31.0);
+  float hOut  = hash21(cellf + 77.0 + S * 31.0);
+  float hJit  = hash21(cellf + 907.0 + S * 31.0);
+  float hScat = hash21(cellf + 611.0 + S * 31.0);
+
+  // --- transition state first: it depends only on position, so it can gate
+  //     the noise and the settle-to-exact-logo blend below
+  float dGrow = length(vec2(lc.x - originCell.x, (lc.y - originCell.y) * u_grow_aspect));
+  float birth = mix(clamp(dGrow / maxD, 0.0, 1.0), hJit, u_grow_jitter);
+  // front_width is the transition band thickness in CELLS, so it means the
+  // same thing regardless of logo size or where the origin sits
+  float bornT = clamp((frontRaw - birth) / popN, 0.0, 1.0);
+
+  // The dissolve mirrors the growth, from its own origin
+  float dDiss = length(vec2(lc.x - dissOrigin.x, (lc.y - dissOrigin.y) * u_grow_aspect));
+  float birthD = mix(clamp(dDiss / maxDD, 0.0, 1.0), hJit, u_grow_jitter);
+  float dieT = clamp((dissFront - birthD) / dissN, 0.0, 1.0);
+  float on     = bornT * (1.0 - dieT);
+  float settle = on;                       // 1 = fully formed
+  // age measured in loop time, so colour keeps decaying through the hold
+  float fresh = exp(-max(0.0, t - birth * u_grow_time)
+                    / max(0.001, u_fresh_len * u_grow_time));
+
+  // --- depth; noise only while transitioning, so the settled edge is exact
+  float depthTrue = sdfAt(logoPx) * detail;
+  float nAmt = u_edge_noise * exp(-max(0.0, depthTrue) * 0.85) * (1.0 - settle);
+  float depth = depthTrue + (vnoise(cellf / max(1.0, u_noise_scale)) - 0.5) * 2.0 * nAmt;
+
+  float v = (depth >= 0.0)
+    ? mix(0.5, 1.0, clamp(depth / max(0.001, u_core_depth), 0.0, 1.0))
+    : mix(0.5, 0.0, clamp(-depth / max(0.001, u_scatter_reach), 0.0, 1.0));
+
+  bool present = true;
+  if (depth < 0.0) {
+    float fade = 1.0 + depth / max(0.001, u_scatter_reach);
+    present = (fade > 0.0) && (hScat < u_scatter_amount * fade * fade);
+  }
+
+  vec3 col = vec3(0.0);
+  bool drawn = false;
+
+  if (present && depthTrue > -90.0 && on > 0.001) {
+    drawn = true;
+    float core = clamp((v - 0.5) * 2.0, 0.0, 1.0);
+    float settledSize = (v >= 0.5) ? u_core_size
+      : mix(u_dot_size, u_edge_size, pow(clamp(v * 2.0, 0.0, 1.0), u_size_curve));
+    // size variety exists only during the pop-in
+    float varf = mix(mix(1.0 - u_size_variety * 0.55, 1.0 + u_size_variety * 0.35, hSize),
+                     1.0, bornT);
+    float size = settledSize * varf;
+    size *= clamp(popEase(bornT, u_pop_overshoot), 0.0, 2.0) * (1.0 - dieT);
+
+    bool hollow = (v < 0.5) && (hOut < u_outline_prob);
+
+    float band = 1.0 - core;
+    vec3 accent = mix(C_AMBER, C_RED, smoothstep(u_amber_to_red, 1.0, band));
+    if (hCol < u_blue_prob) accent = C_BLUE;
+    accent *= u_accent_boost;
+
+    // every colour term is gated by freshness: a settled cell is white
+    float tint = clamp(fresh * (u_fresh_color + band * u_edge_color), 0.0, 1.0);
+    vec3 c = mix(C_CREAM * u_cream_level, accent, tint);
+    c *= 1.0 + u_front_glow * fresh * (1.0 - dieT);
+
+    // chromatic split: the ripple refracts each channel slightly differently
+    vec2 chOff = rdir * (u_ripple_chroma * cellPx * env * wave) * (2.0 / cpx);
+    float mR = squareMask(p + chOff, size * (1.0 + u_chroma), hollow, u_outline_thick, aa);
+    float mG = squareMask(p,         size,                    hollow, u_outline_thick, aa);
+    float mB = squareMask(p - chOff, size * (1.0 - u_chroma), hollow, u_outline_thick, aa);
+
+    // Settle to the logo itself: interior cells fill completely (so there are
+    // no seams between squares) and everything outside it vanishes. At
+    // settle = 1 the frame is exactly the logo bitmap in flat cream.
+    float exact = bitsAt(logoPx);
+    mR = mix(mR, exact, settle);
+    mG = mix(mG, exact, settle);
+    mB = mix(mB, exact, settle);
+
+    col = c * vec3(mR, mG, mB) * on;
+  }
+
+  if (!drawn && u_bg_density > 0.0 && hash21(cellf + 3.0) < u_bg_density) {
+    col = C_CREAM * u_bg_level * squareMask(p, u_dot_size * mix(0.5,1.0,hSize),
+                                            hOut < u_outline_prob, u_outline_thick, aa);
+  }
+
+  // specular glint on the ripple crest: bright on the near slope, shaded on
+  // the far one, which is what sells it as a raised surface. Multiplicative,
+  // so the black between squares stays black.
+  col *= 1.0 + u_ripple_gloss * env * wave;
+
+  float sw = 0.5 + 0.5 * sin(dot(sc / res.x, vec2(1.0, 0.35)) * 5.0 - iTime * 6.2831 / u_shimmer_period);
+  col *= 1.0 + u_shimmer * pow(sw, 3.0);
+  // debug: mark the growth origin (green) and the dissolve origin (magenta)
+  if (u_show_origin > 0.5) {
+    vec2 dPx2 = (logoStart + dissOrigin) * cellPx;
+    float r = max(3.0, cellPx * 0.35);
+    if (length(sc0 - originPx) < r) col = vec3(0.0, 1.0, 0.2);
+    if (length(sc0 - dPx2)     < r) col = vec3(1.0, 0.0, 1.0);
+    if (abs(sc0.x - originPx.x) < 1.5 || abs(sc0.y - originPx.y) < 1.5) col = mix(col, vec3(0.0,1.0,0.2), 0.5);
+  }
+
+  col += C_BG;
+  vec2 q = gl_FragCoord.xy / res - 0.5;
+  col *= 1.0 - u_vignette * dot(q, q);
+  fragColor = vec4(col, 1.0);
+
+}`;
+
+const VERT = `#version 300 es
+in vec2 a; void main(){ gl_Position = vec4(a,0.0,1.0); }`;
+
+// ------------------------------------------------------------- logo SDF
+const LOGO_UINTS = [
+  917504,0,0, 3237994620,2280717855,17416, 3791646974,3354984223,50712,
+  1938700743,3877430172,116536, 1938700743,3877430172,116536,
+  1938700743,3810321308,116536, 1938700743,3776766876,116536,
+  1938700743,3759989660,116536, 4220402119,4028399583,130943,
+  4220402119,4162600927,130879, 1938700743,3759932316,114744,
+  1938700743,3776774108,116280, 1938700743,3810328540,116536,
+  1938700743,3877430172,116536, 1938700743,3877430172,116536,
+  1905144062,3825001356,65048, 1888362620,3791446916,31752,
+  0,25472,0, 0,9088,0];
+const LW = 81, LH = 19, PAD = 8;
+const bit = (x, y) => (x < 0 || x >= LW || y < 0 || y >= LH) ? 0
+  : ((LOGO_UINTS[y * 3 + (x >> 5)] >>> (x & 31)) & 1);
+function buildSDF() {
+  const W = LW + PAD * 2, H = LH + PAD * 2;
+  const data = new Uint8Array(W * H * 4);
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const lx = x - PAD, ly = y - PAD, me = bit(lx, ly);
+    let best = 64.0;                       // squared, clamped to PAD^2
+    for (let dy = -PAD; dy <= PAD; dy++) for (let dx = -PAD; dx <= PAD; dx++) {
+      if (bit(lx + dx, ly + dy) !== me) { const l2 = dx*dx + dy*dy; if (l2 < best) best = l2; }
+    }
+    let d = Math.sqrt(best);
+    d = me ? d : -d;                       // + inside the wordmark, - outside
+    const b = Math.round(Math.max(0, Math.min(255, (d + 8) / 16 * 255)));
+    const i = (y * W + x) * 4;
+    data[i] = b; data[i+1] = b; data[i+2] = b; data[i+3] = 255;
+  }
+  return { data, W, H };
+}
+function buildBits() {
+  const W = LW + PAD * 2, H = LH + PAD * 2;
+  const data = new Uint8Array(W * H * 4);
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const b = bit(x - PAD, y - PAD) ? 255 : 0, i = (y * W + x) * 4;
+    data[i] = b; data[i+1] = b; data[i+2] = b; data[i+3] = 255;
+  }
+  return { data, W, H };
+}
+
+// ---------------------------------------------------------------- webgl
+const cv = document.getElementById("gl");
+const gl = cv.getContext("webgl2", { antialias:false, powerPreference:"high-performance" });
+if (!gl) { document.body.innerHTML = "<p style='padding:20px'>WebGL2 unavailable.</p>"; throw 0; }
+function sh(type, src) {
+  const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s);
+  if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) {
+    const log = gl.getShaderInfoLog(s);
+    document.getElementById("out").style.display = "block";
+    document.getElementById("out").textContent = "SHADER ERROR\n" + log;
+    throw new Error(log);
+  }
+  return s;
+}
+const prog = gl.createProgram();
+gl.attachShader(prog, sh(gl.VERTEX_SHADER, VERT));
+gl.attachShader(prog, sh(gl.FRAGMENT_SHADER, FRAG));
+gl.linkProgram(prog); gl.useProgram(prog);
+const buf = gl.createBuffer();
+gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 3,-1, -1,3]), gl.STATIC_DRAW);
+const loc = gl.getAttribLocation(prog, "a");
+gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
+const sdf = buildSDF();
+const tex = gl.createTexture();
+gl.bindTexture(gl.TEXTURE_2D, tex);
+gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, sdf.W, sdf.H, 0, gl.RGBA, gl.UNSIGNED_BYTE, sdf.data);
+gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+
+const bits = buildBits();
+const texBits = gl.createTexture();
+gl.activeTexture(gl.TEXTURE1);
+gl.bindTexture(gl.TEXTURE_2D, texBits);
+gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, bits.W, bits.H, 0, gl.RGBA, gl.UNSIGNED_BYTE, bits.data);
+gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+gl.activeTexture(gl.TEXTURE0);
+
+const U = {};
+["iResolution","iTime","uProgress","uPaused","uSDF","uBits","uSDFSize","uSDFPad"].forEach(n => U[n] = gl.getUniformLocation(prog, n));
+gl.uniform1i(U.uSDF, 0);
+gl.uniform1i(U.uBits, 1);
+gl.uniform2f(U.uSDFSize, sdf.W, sdf.H);
+gl.uniform1f(U.uSDFPad, PAD);
+P.forEach(p => U[p[0]] = gl.getUniformLocation(prog, "u_" + p[0]));
+
+function resize() {
+  const dpr = Math.min(devicePixelRatio || 1, 1.5);
+  cv.width = Math.round(innerWidth * dpr); cv.height = Math.round(innerHeight * dpr);
+  gl.viewport(0, 0, cv.width, cv.height);
+}
+addEventListener("resize", resize); resize();
+
+// test hook: render one frame synchronously and expose the context
+window.__render = (t) => {
+  gl.uniform2f(U.iResolution, cv.width, cv.height);
+  gl.uniform1f(U.iTime, t === undefined ? 0 : t);
+  gl.uniform1f(U.uProgress, progress);
+  gl.uniform1f(U.uPaused, paused ? 1 : 0);
+  P.forEach(p => gl.uniform1f(U[p[0]], vals[p[0]]));
+  gl.drawArrays(gl.TRIANGLES, 0, 3);
+};
+window.__gl = gl; window.__cv = cv;
+let t0 = performance.now(), frames = 0, fpsT = t0, fps = 0;
+function frame(now) {
+  const t = (now - t0) / 1000;
+  gl.uniform2f(U.iResolution, cv.width, cv.height);
+  gl.uniform1f(U.iTime, t);
+  gl.uniform1f(U.uProgress, progress);
+  gl.uniform1f(U.uPaused, paused ? 1 : 0);
+  P.forEach(p => gl.uniform1f(U[p[0]], vals[p[0]]));
+  gl.drawArrays(gl.TRIANGLES, 0, 3);
+  frames++;
+  if (now - fpsT > 500) { fps = Math.round(frames * 1000 / (now - fpsT)); frames = 0; fpsT = now;
+    document.getElementById("hud").textContent =
+      `${fps} fps · ${paused ? "paused @ " + progress.toFixed(2) : "playing"} · h = panel · space = pause`; }
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+
+// ---------------------------------------------------------------- panel
+const controls = document.getElementById("controls");
+function addRow(name, min, max, val, step, onInput) {
+  const row = document.createElement("div"); row.className = "row";
+  const lab = document.createElement("label"); lab.textContent = name;
+  const inp = document.createElement("input");
+  inp.type = "range"; inp.min = min; inp.max = max; inp.step = step; inp.value = val;
+  const out = document.createElement("span"); out.className = "val";
+  out.textContent = (+val).toFixed(2);
+  inp.addEventListener("input", () => { out.textContent = (+inp.value).toFixed(2); onInput(+inp.value); });
+  row.append(lab, inp, out); controls.append(row);
+  return { inp, out };
+}
+const ctlRefs = {};
+{ // time scrub first
+  const g = document.createElement("div"); g.className = "grp"; g.textContent = "Time";
+  controls.append(g);
+  const r = addRow("progress", 0, 1, progress, 0.001, v => { progress = v; paused = true; });
+  ctlRefs["__progress"] = r;
+}
+let lastGroup = "";
+P.forEach(p => {
+  const [name, min, max, def, group] = p;
+  if (group !== lastGroup) {
+    const g = document.createElement("div"); g.className = "grp"; g.textContent = group;
+    controls.append(g); lastGroup = group;
+  }
+  const step = (name === "detail") ? 1 : (max - min) / 200;
+  ctlRefs[name] = addRow(name, min, max, vals[name], step, v => {
+    vals[name] = v;
+    localStorage.setItem("omarchy-lab", JSON.stringify(vals));
+  });
+});
+
+addEventListener("keydown", e => {
+  if (e.key === "h") document.getElementById("panel").classList.toggle("hidden");
+  if (e.code === "Space") { e.preventDefault(); paused = !paused; }
+});
+const outEl = document.getElementById("out");
+document.getElementById("copy").onclick = () => {
+  const w = Math.max(...P.map(p => p[0].length));
+  const lines = P.map((p, i) =>
+    `  vec3(${p[1].toFixed(2).padStart(5)}, ${p[2].toFixed(2).padStart(5)}, ${vals[p[0]].toFixed(3).padStart(6)}), // ${String(i).padStart(2)} ${p[0]}`);
+  outEl.style.display = "block";
+  outEl.textContent = "// paste into PDEF (order matters)\n" + lines.join("\n");
+  navigator.clipboard && navigator.clipboard.writeText(outEl.textContent);
+};
+document.getElementById("copyjson").onclick = () => {
+  outEl.style.display = "block";
+  outEl.textContent = JSON.stringify(vals, null, 2);
+  navigator.clipboard && navigator.clipboard.writeText(outEl.textContent);
+};
+document.getElementById("hideout").onclick = () => { outEl.style.display = "none"; };
+document.getElementById("reset").onclick = () => {
+  P.forEach(p => { vals[p[0]] = p[3]; ctlRefs[p[0]].inp.value = p[3]; ctlRefs[p[0]].out.textContent = p[3].toFixed(2); });
+  localStorage.setItem("omarchy-lab", JSON.stringify(vals));
+};
+</script>
+</body>
+</html>

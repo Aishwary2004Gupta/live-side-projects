@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pinned Drawer — Scroll Chain</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;500;700&family=JetBrains+Mono:wght@400;700&display=swap');
+
+:root {
+  --paper: #f4f3ea;
+  --ink: #0f0e0c;
+  --tab-ink: #0f0e0c;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+html { scroll-behavior: smooth; }
+
+body {
+  background: var(--paper);
+  color: var(--ink);
+  font-family: 'Space Grotesk', system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+
+/* Long scroll track drives the sequence */
+.track {
+  position: relative;
+  height: 320vh;
+  width: 100%;
+}
+
+/* The pinned drawer stays visible while scroll drives inside it */
+.drawer {
+  position: sticky;
+  top: 6vh;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(780px, 92vw);
+  height: 86vh;
+  background: var(--paper);
+  border: 1.5px solid var(--ink);
+  box-shadow: 20px 30px 0 -5px rgba(15,14,12,0.04), 0 0 0 1px rgba(15,14,12,0.06);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  z-index: 10;
+}
+
+/* Cards sit stacked like files in a drawer */
+.card {
+  position: relative;
+  width: 100%;
+  padding: 1.1rem 2.2rem;
+  border-bottom: 1px solid rgba(15,14,12,0.25);
+  background: linear-gradient(180deg, #fff 0%, #f7f6f1 100%);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-height: 82px;
+  will-change: transform;
+  transition: none; /* we drive via JS for tight scroll coupling */
+}
+
+/* Last bottom card is taller, like drawer floor */
+.card.bottom {
+  min-height: 170px;
+  justify-content: flex-end;
+  padding-bottom: 2.5rem;
+  background: linear-gradient(180deg, #f4f3ea 60%, #eae8df 100%);
+  border-bottom: none;
+}
+
+/* Black folder tabs with numbering */
+.tab {
+  position: absolute;
+  top: -13px;
+  background: var(--tab-ink);
+  color: var(--paper);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.65rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  padding: 0.3rem 1rem;
+  border-radius: 2px 2px 0 0;
+  box-shadow: 2px 2px 0 rgba(15,14,12,0.15);
+}
+.tab.left  { left: 2.2rem; }
+.tab.right { right: 2.2rem; }
+.tab.center { left: 50%; transform: translateX(-50%); }
+
+/* The record (inner content) rises separately from the folder */
+.record {
+  font-family: 'Space Grotesk', sans-serif;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  font-size: 0.95rem;
+  line-height: 1.35;
+  color: var(--ink);
+  opacity: 0.35;
+  will-change: transform, opacity;
+}
+
+/* Large bottom record style */
+.card.bottom .record {
+  font-size: 0.85rem;
+  letter-spacing: 0.2em;
+  opacity: 0.35;
+  line-height: 1.6;
+}
+
+/* Small top handle / drawer pull matching reference image */
+.handle-strip {
+  position: sticky;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(780px, 92vw);
+  height: 8px;
+  background: var(--ink);
+  z-index: 20;
+  border-bottom: 1px solid rgba(15,14,12,0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.handle-strip::after {
+  content: "F-8";
+  position: absolute;
+  top: -16px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--ink);
+  color: var(--paper);
+  padding: 0.15rem 0.7rem;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.6rem;
+  letter-spacing: 0.08em;
+}
+</style>
+</head>
+<body>
+
+<div class="handle-strip"></div>
+
+<div class="track" id="scrollTrack">
+  <div class="drawer" id="drawer">
+    <div class="card">
+      <div class="tab center">F-8</div>
+      <div class="record">Bellwether</div>
+    </div>
+    <div class="card">
+      <div class="tab right">Cabinets Binding</div>
+      <div class="record">Cabinets Binding</div>
+    </div>
+    <div class="card">
+      <div class="tab left">Fieldnote</div>
+      <div class="record">Fieldnote</div>
+    </div>
+    <div class="card">
+      <div class="tab right">Palden</div>
+      <div class="record">Palden</div>
+    </div>
+    <div class="card">
+      <div class="tab left">F-4</div>
+      <div class="record">End Petrol</div>
+    </div>
+    <div class="card">
+      <div class="tab right">Anthracite</div>
+      <div class="record">Anthracite</div>
+    </div>
+    <div class="card">
+      <div class="tab left">Paper Mailer</div>
+      <div class="record">Paper Mailer</div>
+    </div>
+    <div class="card">
+      <div class="tab right">Pea Khawakane</div>
+      <div class="record">Pea Khawakane</div>
+    </div>
+    <div class="card bottom">
+      <div class="tab left">F-2</div>
+      <div class="record">Pentens / 88 Files</div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* 
+  Chain logic:
+  - spacing: how far apart (in global progress units) each folder starts
+  - duration: how long a folder's full cycle lasts
+  - Overlap happens when spacing < duration, so the next folder lifts
+    while the previous is still returning.
+*/
+const drawer = document.getElementById('drawer');
+const cards = drawer.querySelectorAll('.card');
+
+const spacing  = 0.28; // start gap in progress units
+const duration = 0.52; // full cycle length in progress units
+
+function update() {
+  const scrollY = window.scrollY || window.pageYOffset;
+  const track = document.getElementById('scrollTrack');
+  const maxScroll = Math.max(1, track.offsetHeight - window.innerHeight);
+  
+  // Scale progress so the full chain (all cards) unfolds across the scroll
+  const totalSpan = (cards.length - 1) * spacing + duration;
+  const scale = Math.max(1, maxScroll / totalSpan);
+  let p = scrollY / scale;
+
+  cards.forEach((card, i) => {
+    const start = i * spacing;
+    const end   = start + duration;
+    let t = (p - start) / duration;
+
+    // Clamp slightly outside 0..1 so edges don't snap
+    t = Math.max(-0.05, Math.min(1.05, t));
+
+    // --- Folder lift / hold / return ---
+    // 0.0 -> 0.30  : quick lift (ease out)
+    // 0.30 -> 0.55 : hold at peak
+    // 0.55 -> 1.0  : return (ease in)
+    let folderY = 0;
+    if (t < 0.30) {
+      const s = t / 0.30;
+      folderY = -42 * (1 - Math.pow(1 - s, 3));
+    } else if (t < 0.55) {
+      folderY = -42;
+    } else {
+      const s = (t - 0.55) / 0.45;
+      folderY = -42 * (1 - Math.pow(s, 3));
+    }
+
+    // --- Record rise --- (delayed start, holds, then gently settles)
+    // Starts after folder is already lifting, peaks, then fades back as folder returns
+    let recordT = (t - 0.08) / 0.85;
+    recordT = Math.max(0, Math.min(1, recordT));
+
+    const recordEase = 1 - Math.pow(1 - recordT, 2);
+    const recordY = -22 * recordEase;
+
+    // Opacity: record appears quickly, lingers, then dims as folder closes
+    const recordOp = 0.35 + 0.65 * (Math.sin(recordT * Math.PI));
+    
+    // Apply transforms
+    card.style.transform = `translateY(${folderY}px)`;
+    const recordEl = card.querySelector('.record');
+    recordEl.style.transform = `translateY(${recordY}px)`;
+    recordEl.style.opacity = recordOp.toFixed(3);
+  });
+
+  requestAnimationFrame(update);
+}
+
+requestAnimationFrame(update);
+</script>
+</body>
+</html>

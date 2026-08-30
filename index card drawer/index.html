@@ -1,439 +1,1201 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Sam's Secret Files</title>
-    <style>
-      :root {
-        --bg: #e8e6df;
-        --card-bg: #f3f1ea;
-        --ink: #1a1a1a;
-        --border: #1a1a1a;
-        --tab-black: #111111;
-        --tab-white: #f3f1ea;
-        --label-gold: #c9b458;
-        --shadow: rgba(0, 0, 0, 0.08);
-      }
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sam's Secret Files</title>
 
-      * {
-        box-sizing: border-box;
-        margin: 0;
-        padding: 0;
-      }
+  <style>
+    :root {
+      --background: #dddddd;
+      --folder: #e4e4e4;
+      --folder-dark: #d0d0d0;
+      --ink: #111111;
+      --tray-height: clamp(112px, 18vh, 170px);
+    }
 
-      body {
-        background: var(--bg);
-        font-family: "Courier New", Courier, monospace;
-        height: 100vh;
-        width: 100vw;
-        overflow: hidden;
-        display: flex;
-        justify-content: center;
-        align-items: flex-end;
-        padding-bottom: 40px;
-      }
+    * {
+      box-sizing: border-box;
+    }
 
-      .viewport {
-        position: relative;
-        width: 95%;
-        max-width: 700px;
-        height: 85vh;
-        max-height: 800px;
-        perspective: 1000px;
-      }
+    html,
+    body {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      overflow: hidden;
+      background: var(--background);
+      color: var(--ink);
+      font-family: Arial, Helvetica, sans-serif;
+    }
 
-      /* The Card Stack */
-      .stack {
-        position: absolute;
-        bottom: 60px; /* Above drawer face */
-        left: 50%;
-        transform: translateX(-50%);
-        width: 90%;
-        height: calc(100% - 80px);
-      }
+    button {
+      font: inherit;
+    }
 
-      .card {
-        position: absolute;
-        width: 100%;
-        background: var(--card-bg);
-        border: 1.5px solid var(--border);
-        border-radius: 3px 3px 0 0;
-        cursor: pointer;
-        transition:
-          transform 0.55s cubic-bezier(0.23, 1, 0.32, 1),
-          height 0.5s cubic-bezier(0.23, 1, 0.32, 1),
-          box-shadow 0.35s ease,
-          z-index 0s 0s;
-        transform-origin: top center;
-        z-index: var(--z);
-        overflow: hidden;
-      }
+    .archive {
+      position: relative;
+      width: 100%;
+      height: 100svh;
+      min-height: 500px;
+      overflow: hidden;
+      background: var(--background);
+      isolation: isolate;
+    }
 
-      .card:hover:not(.open):not(.below-open) {
-        transform: translateY(-6px) scale(1.01);
-        z-index: 200 !important;
-      }
+    /*
+      The file stack fills the area above the drawer.
+      JavaScript calculates the row spacing so all files remain visible.
+    */
+    .stack {
+      position: absolute;
+      top: 4.5vh;
+      left: 7%;
+      right: 7%;
+      bottom: calc(var(--tray-height) - 1px);
+      z-index: 10;
+      overflow: visible;
+    }
 
-      /* Tab Styling */
-      .tab {
-        position: absolute;
-        top: -19px;
-        width: 90px;
-        height: 20px;
-        background: var(--tab-white);
-        border: 1.5px solid var(--border);
-        border-bottom: none;
-        border-radius: 6px 6px 0 0;
-        left: var(--pos);
-        transform: translateX(-50%);
-        display: flex;
-        align-items: flex-end;
-        justify-content: space-between;
-        padding: 0 8px 3px;
-        font-size: 10px;
-        font-weight: bold;
-        color: var(--ink);
-        z-index: 2;
-      }
+    .stack::before,
+    .stack::after {
+      content: "";
+      position: absolute;
+      top: 4px;
+      bottom: 0;
+      width: 1.5px;
+      background: var(--ink);
+      opacity: 0.9;
+      pointer-events: none;
+      z-index: 1500;
+    }
 
-      .tab::before {
-        /* Subtle 3D lip */
-        content: "";
-        position: absolute;
-        bottom: 0;
-        left: 0;
-        right: 0;
-        height: 2px;
-        background: inherit;
-        filter: brightness(0.9);
-      }
+    .stack::before {
+      left: 0;
+      transform: skewX(-2deg);
+    }
 
-      .tab.black {
-        background: var(--tab-black);
-        color: #fff;
-      }
+    .stack::after {
+      right: 0;
+      transform: skewX(2deg);
+    }
 
-      .card-inner {
-        height: 48px;
-        border-bottom: 1px solid rgba(26, 26, 26, 0.15);
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        padding: 0 14px;
-        opacity: 1;
-        transition: opacity 0.2s ease;
-      }
+    /*
+      Each file is a full-width folder shape.
+      Only its visible tab is interactive.
+    */
+    .file {
+      position: absolute;
+      left: 0;
+      right: 0;
+      height: var(--folder-height);
+      pointer-events: none;
+      transition: opacity 220ms ease;
+    }
 
-      /* Content Area (Hidden by default) */
-      .content {
-        position: absolute;
-        top: 48px;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        background: var(--card-bg);
-        opacity: 0;
-        pointer-events: none;
-        transition: opacity 0.4s ease 0.1s;
-        padding: 20px;
-        display: flex;
-        flex-direction: column;
-      }
+    .folder-art {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      overflow: visible;
+      pointer-events: none;
+    }
 
-      .content h2 {
-        font-size: 13px;
-        margin-bottom: 4px;
-        color: var(--ink);
-      }
+    .folder-art path {
+      fill: var(--folder);
+      stroke: var(--ink);
+      stroke-width: 1.45;
+      stroke-linejoin: round;
+      vector-effect: non-scaling-stroke;
+    }
 
-      .content p {
-        font-size: 10px;
-        color: #777;
-        margin-bottom: 16px;
-      }
+    /*
+      The raised file label.
+    */
+    .file-tab {
+      position: absolute;
+      top: -1px;
+      height: calc(100% - 3px);
+      border: 0;
+      padding: 5px 15px 0;
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 10px;
+      color: var(--ink);
+      background: var(--folder);
+      cursor: pointer;
+      pointer-events: auto;
+      z-index: 2000;
+      clip-path: polygon(
+        7% 0%,
+        91% 0%,
+        100% 100%,
+        0% 100%
+      );
+      transition:
+        opacity 180ms ease,
+        transform 180ms ease,
+        background 180ms ease;
+    }
 
-      .content-image {
-        flex: 1;
-        width: 100%;
-        object-fit: contain;
-        object-position: center top;
-        max-height: 220px;
-      }
+    .file-tab:hover,
+    .file-tab:focus-visible {
+      background: #eeeeee;
+      outline: none;
+      transform: translateY(-3px);
+    }
 
-      /* Open State */
-      .card.open {
-        z-index: 500 !important;
-        transform: translateY(-180px) !important;
-        height: 380px !important;
-        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
-        transition:
-          transform 0.65s cubic-bezier(0.22, 1, 0.36, 1),
-          height 0.6s cubic-bezier(0.22, 1, 0.36, 1),
-          box-shadow 0.4s ease,
-          z-index 0s 0s;
-      }
+    .file-tab.left {
+      left: 32%;
+      width: 31%;
+    }
 
-      .card.open .content {
-        opacity: 1;
-        pointer-events: auto;
-      }
+    .file-tab.right {
+      left: 61%;
+      width: 29%;
+    }
 
-      .card.open .card-inner {
-        opacity: 0;
-      }
+    .file-tab.far-left {
+      left: 10%;
+      width: 25%;
+    }
 
-      /* Push down cards below the opened one */
-      .card.below-open {
-        filter: brightness(0.97);
-      }
+    .file-tab span {
+      white-space: nowrap;
+      font-size: clamp(9px, 1.45vw, 16px);
+      line-height: 1.2;
+    }
 
-      /* Drawer Base */
-      .drawer-base {
-        position: absolute;
-        bottom: 0;
-        left: 50%;
-        transform: translateX(-50%);
-        width: 102%; /* slightly wider for 3D */
-        height: 70px;
-        background: linear-gradient(to bottom, #dcd8cc 0%, #b8b4a8 100%);
-        border-top: 3px solid var(--border);
-        border-radius: 4px 4px 8px 8px;
-        box-shadow:
-          inset 0 4px 12px rgba(255, 255, 255, 0.4),
-          0 10px 30px rgba(0, 0, 0, 0.2);
-        z-index: 10;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        position: relative;
-      }
+    .file-tab .number {
+      font-weight: 500;
+    }
 
-      .drawer-face-front {
-        position: absolute;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: -20px;
-        background: linear-gradient(
+    .file-tab .name {
+      font-weight: 600;
+      text-align: right;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    /*
+      Active file disappears from its original position while
+      its duplicate tab appears attached to the opened panel.
+    */
+    .archive.is-open .file.is-active .file-tab,
+    .archive.is-closing .file.is-active .file-tab {
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    /*
+      Black section markers: O 010, P 012, Q 005, etc.
+    */
+    .marker {
+      position: absolute;
+      height: var(--folder-height);
+      pointer-events: none;
+      z-index: 2100;
+    }
+
+    .marker-button {
+      position: absolute;
+      top: -2px;
+      left: 0;
+      width: 100%;
+      height: 78%;
+      border: 0;
+      padding: 6px 15px 0;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      color: white;
+      background: #050505;
+      cursor: pointer;
+      pointer-events: auto;
+      clip-path: polygon(
+        12% 0,
+        88% 0,
+        100% 100%,
+        0 100%
+      );
+      transition: transform 180ms ease, background 180ms ease;
+    }
+
+    .marker-button:hover,
+    .marker-button:focus-visible {
+      background: #252525;
+      transform: translateY(-3px);
+      outline: none;
+    }
+
+    .marker-button span {
+      font-size: clamp(9px, 1.45vw, 16px);
+      line-height: 1.2;
+    }
+
+    .marker-o {
+      left: 9%;
+      width: 25%;
+    }
+
+    .marker-p {
+      left: 34%;
+      width: 25%;
+    }
+
+    .marker-q {
+      left: 54%;
+      width: 25%;
+    }
+
+    .marker-r {
+      left: 17%;
+      width: 25%;
+    }
+
+    .marker-s {
+      left: 4%;
+      width: 25%;
+    }
+
+    /*
+      Open detail panel.
+      Its height changes slightly depending on the selected file,
+      similar to the reference animation.
+    */
+    .detail-panel {
+      position: absolute;
+      left: 8%;
+      right: 8%;
+      bottom: calc(var(--tray-height) - 1px);
+      height: min(
+        var(--detail-height, 64vh),
+        calc(100% - var(--tray-height) - 18px)
+      );
+      z-index: 5000;
+      visibility: hidden;
+      transform: translateY(115%);
+      transition:
+        transform 700ms cubic-bezier(0.2, 0.85, 0.25, 1),
+        visibility 0s linear 700ms;
+      pointer-events: none;
+    }
+
+    .detail-panel.is-visible {
+      visibility: visible;
+      pointer-events: auto;
+    }
+
+    .archive.is-open .detail-panel.is-visible {
+      transform: translateY(0);
+      transition:
+        transform 700ms cubic-bezier(0.2, 0.85, 0.25, 1),
+        visibility 0s linear 0s;
+    }
+
+    .detail-surface {
+      position: absolute;
+      inset: 0;
+      overflow: hidden;
+      border: 1.5px solid var(--ink);
+      border-radius: 9px 9px 0 0;
+      background: #e3e3e3;
+    }
+
+    .detail-content {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      padding: 28px 24px 14px;
+    }
+
+    .detail-heading {
+      position: relative;
+      z-index: 2;
+      flex: 0 0 auto;
+    }
+
+    .detail-heading h1 {
+      margin: 0;
+      font-size: clamp(15px, 1.7vw, 19px);
+      font-weight: 700;
+      line-height: 1.1;
+    }
+
+    .detail-heading p {
+      margin: 4px 0 0;
+      color: #a2a2a2;
+      font-size: clamp(14px, 1.5vw, 17px);
+    }
+
+    .detail-media {
+      flex: 1 1 auto;
+      min-height: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 18px 5% 8px;
+    }
+
+    .detail-media img {
+      display: block;
+      max-width: 78%;
+      max-height: 100%;
+      object-fit: contain;
+      mix-blend-mode: multiply;
+      user-select: none;
+      -webkit-user-drag: none;
+    }
+
+    /*
+      Used when a file does not have an external image.
+    */
+    .fallback-media {
+      position: relative;
+      width: min(420px, 75%);
+      height: min(270px, 68%);
+      min-height: 150px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      border: 1px solid #999;
+      background:
+        linear-gradient(
+          135deg,
+          rgba(0, 0, 0, 0.08) 25%,
+          transparent 25%
+        ) 0 0 / 26px 26px,
+        linear-gradient(
+          315deg,
+          rgba(0, 0, 0, 0.06) 25%,
+          transparent 25%
+        ) 0 0 / 26px 26px,
+        #d5d5d5;
+    }
+
+    .fallback-media strong {
+      max-width: 80%;
+      text-align: center;
+      font-size: clamp(18px, 3vw, 34px);
+      text-transform: lowercase;
+      font-weight: 500;
+    }
+
+    .fallback-media small {
+      position: absolute;
+      left: 15px;
+      bottom: 12px;
+      font-size: 11px;
+      color: #777;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    /*
+      Tab attached to the open detail card.
+    */
+    .detail-tab {
+      position: absolute;
+      top: -31px;
+      left: 32%;
+      width: 31%;
+      height: 38px;
+      z-index: 4;
+      border: 1.5px solid var(--ink);
+      border-bottom: 0;
+      border-radius: 13px 13px 0 0;
+      padding: 7px 16px 0;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      color: var(--ink);
+      background: var(--folder);
+      cursor: pointer;
+      opacity: 0;
+      transform: translateY(12px);
+      transition:
+        opacity 250ms ease 180ms,
+        transform 450ms cubic-bezier(0.2, 0.85, 0.25, 1) 180ms;
+    }
+
+    .archive.is-open .detail-tab {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .detail-tab.right {
+      left: 61%;
+      width: 29%;
+    }
+
+    .detail-tab.far-left {
+      left: 10%;
+      width: 25%;
+    }
+
+    .detail-tab span {
+      white-space: nowrap;
+      font-size: clamp(9px, 1.45vw, 16px);
+      line-height: 1.2;
+    }
+
+    .detail-tab .tab-name {
+      font-weight: 600;
+      text-align: right;
+    }
+
+    .detail-close {
+      position: absolute;
+      top: 12px;
+      right: 14px;
+      z-index: 10;
+      width: 27px;
+      height: 27px;
+      border: 1px solid transparent;
+      border-radius: 50%;
+      color: #555;
+      background: transparent;
+      font-size: 22px;
+      line-height: 20px;
+      cursor: pointer;
+    }
+
+    .detail-close:hover,
+    .detail-close:focus-visible {
+      color: #111;
+      border-color: #777;
+      outline: none;
+    }
+
+    /*
+      Drawer/tray at the bottom.
+    */
+    .tray {
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      height: var(--tray-height);
+      z-index: 300;
+      border-top: 1.5px solid var(--ink);
+      background:
+        linear-gradient(
           to bottom,
-          rgba(0, 0, 0, 0.05) 0%,
-          transparent 100%
+          #c9c9c9 0%,
+          #9d9d9d 23%,
+          #353535 72%,
+          #111111 100%
         );
-        border-top: 1px solid rgba(255, 255, 255, 0.5);
+      clip-path: polygon(
+        0 0,
+        100% 0,
+        96% 100%,
+        4% 100%
+      );
+    }
+
+    .tray::before {
+      content: "";
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: 11px;
+      height: 1px;
+      background: var(--ink);
+    }
+
+    .tray::after {
+      content: "";
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: 22px;
+      height: 1px;
+      background: rgba(17, 17, 17, 0.75);
+    }
+
+    .tray-label {
+      position: absolute;
+      left: 50%;
+      bottom: clamp(12px, 2vh, 22px);
+      transform: translateX(-50%);
+      min-width: 155px;
+      padding: 7px 20px 6px;
+      border: 1.5px solid #222;
+      border-radius: 6px;
+      background: #9a9b3d;
+      color: #151515;
+      text-align: center;
+      font-size: clamp(12px, 1.5vw, 17px);
+      font-weight: 600;
+      box-shadow: 0 2px 0 rgba(0, 0, 0, 0.25);
+    }
+
+    @media (max-width: 650px) {
+      .stack {
+        left: 3%;
+        right: 3%;
+        top: 3vh;
       }
 
-      .gold-label {
-        background: linear-gradient(135deg, #e0c87a 0%, #bfa44f 100%);
-        color: #3a3500;
-        padding: 6px 20px;
-        border-radius: 20px;
-        font-size: 11px;
-        font-weight: bold;
-        letter-spacing: 0.05em;
-        border: 1px solid rgba(255, 255, 255, 0.3);
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-        z-index: 11;
-        position: relative;
+      .detail-panel {
+        left: 4%;
+        right: 4%;
       }
 
-      /* Decorative UI from screenshot (fake player) */
-      .player-ui {
-        position: absolute;
-        bottom: 10px;
-        left: 50%;
-        transform: translateX(-50%);
-        display: flex;
-        align-items: center;
-        gap: 12px;
-        color: #666;
-        font-size: 10px;
-        opacity: 0.6;
-        z-index: 12;
-      }
-      .player-ui span {
-        cursor: default;
+      .detail-content {
+        padding-left: 15px;
+        padding-right: 15px;
       }
 
-      /* Mobile adjustments */
-      @media (max-height: 750px) {
-        .card.open {
-          transform: translateY(-140px) !important;
-          height: 320px !important;
-        }
-        .stack {
-          bottom: 50px;
-        }
+      .file-tab,
+      .detail-tab {
+        padding-left: 8px;
+        padding-right: 8px;
+        gap: 4px;
       }
-    </style>
-  </head>
-  <body>
-    <div class="viewport">
-      <div class="stack" id="stack"></div>
 
-      <div class="drawer-base">
-        <div class="drawer-face-front"></div>
-        <div class="gold-label">sam's secret files</div>
+      .detail-media img {
+        max-width: 92%;
+      }
+    }
+  </style>
+</head>
 
-        <div class="player-ui">
-          <span>▶</span>
-          <span>0:00 / 0:11</span>
-          <span>🔊</span>
-          <span>⛶</span>
+<body>
+  <main class="archive" id="archive">
+    <section class="stack" id="stack" aria-label="Secret files"></section>
+
+    <section
+      class="detail-panel"
+      id="detailPanel"
+      aria-hidden="true"
+    >
+      <div class="detail-surface">
+        <div class="detail-content">
+          <div class="detail-heading">
+            <h1 id="detailTitle">file</h1>
+            <p>details</p>
+          </div>
+
+          <div class="detail-media" id="detailMedia"></div>
         </div>
       </div>
-    </div>
 
-    <script>
-      // Data matching the visual exactly
-      const FILES = [
-        { id: "94", name: "oil lamp", type: "normal" },
-        { id: "95", name: "oats", type: "normal" },
-        { id: "O", num: "010", name: "", type: "divider" }, // Black tab
-        { id: "96", name: "pants", type: "normal" },
-        { id: "97", name: "plane", type: "normal" },
-        {
-          id: "98",
-          name: "plant 003",
-          type: "normal",
-          img: "https://images.unsplash.com/photo-1459411552884-841db9b3cc2a?w=400&auto=format&fit=crop&q=60",
-        },
-        { id: "99", name: "pomelo", type: "normal" },
-        { id: "100", name: "phisher", type: "normal" },
-        { id: "101", name: "palo alto", type: "normal" },
-        { id: "102", name: "pencile", type: "normal" },
-        { id: "103", name: "photos", type: "normal" },
-        { id: "104", name: "quiet", type: "normal" },
-        { id: "P", num: "012", name: "", type: "divider" }, // Black tab
-        { id: "105", name: "queen", type: "normal" },
-        { id: "106", name: "questions", type: "normal" },
-        { id: "107", name: "quizz", type: "normal" },
-        { id: "108", name: "quit", type: "normal" },
-        { id: "Q", num: "005", name: "", type: "divider" }, // Black tab
-        { id: "109", name: "raccoon", type: "normal" },
-        { id: "110", name: "", type: "normal", empty: true },
-        { id: "111", name: "rizz", type: "normal" },
-        { id: "112", name: "rum", type: "normal" },
-        {
-          id: "113",
-          name: "generic guy",
-          type: "normal",
-          img: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=400&auto=format&fit=crop&q=60",
-        },
-        { id: "R", num: "002", name: "", type: "divider" }, // Black tab
-        { id: "114", name: "rain", type: "normal" },
-        { id: "115", name: "rug", type: "normal" },
-        { id: "116", name: "ruby", type: "normal" },
-        { id: "117", name: "sider", type: "normal" },
-        {
-          id: "118",
-          name: "sony",
-          type: "normal",
-          img: "https://images.unsplash.com/photo-1545127398-14699f92334b?w=400&auto=format&fit=crop&q=60",
-        },
-        { id: "119", name: "sun", type: "normal" },
-        { id: "120", name: "seller", type: "normal" },
-        { id: "121", name: "sims", type: "normal" },
-        { id: "122", name: "slides", type: "normal" },
-        { id: "123", name: "simpsons", type: "normal" },
-        { id: "S", num: "002", name: "", type: "divider" }, // Black tab
-        { id: "124", name: "sir", type: "normal" },
-      ];
+      <button
+        class="detail-tab"
+        id="detailTab"
+        type="button"
+        aria-label="Close opened file"
+      >
+        <span id="detailNumber">00</span>
+        <span class="tab-name" id="detailName">file</span>
+      </button>
 
-      // Tab positions (percentage from left) - alternates for realistic look
-      const TAB_POSITIONS = [18, 82, 50, 28, 72, 42];
+      <button
+        class="detail-close"
+        id="detailClose"
+        type="button"
+        aria-label="Close file"
+      >
+        ×
+      </button>
+    </section>
 
-      const stack = document.getElementById("stack");
-      let currentlyOpen = null;
+    <footer class="tray">
+      <div class="tray-label">sam's secret files</div>
+    </footer>
+  </main>
 
-      FILES.forEach((file, i) => {
-        const card = document.createElement("article");
-        card.className = "card";
-        card.dataset.index = i;
+  <script>
+    const archive = document.getElementById("archive");
+    const stack = document.getElementById("stack");
+    const detailPanel = document.getElementById("detailPanel");
+    const detailMedia = document.getElementById("detailMedia");
+    const detailTitle = document.getElementById("detailTitle");
+    const detailNumber = document.getElementById("detailNumber");
+    const detailName = document.getElementById("detailName");
+    const detailTab = document.getElementById("detailTab");
+    const detailClose = document.getElementById("detailClose");
 
-        // Stacking logic: each card is 22px lower than last
-        const yOffset = i * 22;
-        card.style.top = `${yOffset}px`;
-        card.style.setProperty("--z", i + 1);
-        card.style.setProperty(
-          "--pos",
-          `${TAB_POSITIONS[i % TAB_POSITIONS.length]}%`,
-        );
+    /*
+      Files shown in the reference image.
+      sony, generic guy, and plant 003 use image examples.
+      The other files still open and show a generated file card.
+    */
+    const files = [
+      {
+        id: "oil-lamp",
+        number: "94",
+        name: "oil lamp",
+        side: "left",
+        detail: "oil lamp"
+      },
+      {
+        id: "oats",
+        number: "95",
+        name: "oats",
+        side: "right",
+        detail: "oats"
+      },
+      {
+        id: "pants",
+        number: "96",
+        name: "pants",
+        side: "left",
+        detail: "pants"
+      },
+      {
+        id: "plane",
+        number: "97",
+        name: "plane",
+        side: "right",
+        detail: "plane"
+      },
+      {
+        id: "plant-003",
+        number: "98",
+        name: "plant 003",
+        side: "left",
+        detail: "plant 003",
+        height: "82vh",
+        image:
+          "https://images.unsplash.com/photo-1497250681960-ef046c08a56e?auto=format&fit=crop&w=900&q=85"
+      },
+      {
+        id: "pomelo",
+        number: "99",
+        name: "pomelo",
+        side: "right",
+        detail: "pomelo"
+      },
+      {
+        id: "phisher",
+        number: "100",
+        name: "phisher",
+        side: "left",
+        detail: "phisher"
+      },
+      {
+        id: "palo-alto",
+        number: "101",
+        name: "palo alto",
+        side: "right",
+        detail: "palo alto"
+      },
+      {
+        id: "pencile",
+        number: "102",
+        name: "pencile",
+        side: "left",
+        detail: "pencile"
+      },
+      {
+        id: "photos",
+        number: "103",
+        name: "photos",
+        side: "right",
+        detail: "photos"
+      },
+      {
+        id: "quiet",
+        number: "104",
+        name: "quiet",
+        side: "far-left",
+        detail: "quiet"
+      },
+      {
+        id: "queen",
+        number: "105",
+        name: "queen",
+        side: "right",
+        detail: "queen"
+      },
+      {
+        id: "questions",
+        number: "106",
+        name: "questions",
+        side: "left",
+        detail: "questions"
+      },
+      {
+        id: "quizz",
+        number: "107",
+        name: "quizz",
+        side: "right",
+        detail: "quizz"
+      },
+      {
+        id: "quit",
+        number: "108",
+        name: "quit",
+        side: "left",
+        detail: "quit"
+      },
+      {
+        id: "raccoon",
+        number: "109",
+        name: "raccoon",
+        side: "left",
+        detail: "raccoon"
+      },
+      {
+        id: "rizz",
+        number: "111",
+        name: "rizz",
+        side: "right",
+        detail: "rizz"
+      },
+      {
+        id: "rum",
+        number: "112",
+        name: "rum",
+        side: "far-left",
+        detail: "rum"
+      },
+      {
+        id: "generic-guy",
+        number: "113",
+        name: "generic guy",
+        side: "right",
+        detail: "generic guy",
+        height: "76vh",
+        image:
+          "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=800&q=85"
+      },
+      {
+        id: "rain",
+        number: "114",
+        name: "rain",
+        side: "left",
+        detail: "rain"
+      },
+      {
+        id: "rug",
+        number: "115",
+        name: "rug",
+        side: "right",
+        detail: "rug"
+      },
+      {
+        id: "ruby",
+        number: "116",
+        name: "ruby",
+        side: "left",
+        detail: "ruby"
+      },
+      {
+        id: "sony",
+        number: "118",
+        name: "sony",
+        side: "left",
+        detail: "walkman - 1979",
+        height: "55vh",
+        image:
+          "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=900&q=85"
+      },
+      {
+        id: "sun",
+        number: "119",
+        name: "sun",
+        side: "right",
+        detail: "sun"
+      },
+      {
+        id: "seller",
+        number: "120",
+        name: "seller",
+        side: "left",
+        detail: "seller"
+      },
+      {
+        id: "sims",
+        number: "121",
+        name: "sims",
+        side: "right",
+        detail: "sims"
+      },
+      {
+        id: "slides",
+        number: "122",
+        name: "slides",
+        side: "left",
+        detail: "slides"
+      },
+      {
+        id: "simpsons",
+        number: "123",
+        name: "simpsons",
+        side: "right",
+        detail: "simpsons"
+      },
+      {
+        id: "sir",
+        number: "124",
+        name: "sir",
+        side: "left",
+        detail: "sir"
+      }
+    ];
 
-        const isBlack = file.type === "divider";
-        const tabClass = isBlack ? "tab black" : "tab";
+    const markers = [
+      {
+        id: "marker-o",
+        letter: "O",
+        code: "010",
+        row: 2,
+        position: "marker-o",
+        detail: "section O / 010"
+      },
+      {
+        id: "marker-p",
+        letter: "P",
+        code: "012",
+        row: 10,
+        position: "marker-p",
+        detail: "section P / 012"
+      },
+      {
+        id: "marker-q",
+        letter: "Q",
+        code: "005",
+        row: 14,
+        position: "marker-q",
+        detail: "section Q / 005"
+      },
+      {
+        id: "marker-r",
+        letter: "R",
+        code: "002",
+        row: 21,
+        position: "marker-r",
+        detail: "section R / 002"
+      },
+      {
+        id: "marker-s",
+        letter: "S",
+        code: "002",
+        row: 29,
+        position: "marker-s",
+        detail: "section S / 002"
+      }
+    ];
 
-        // Build tab content
-        let tabLeft = file.id || "";
-        let tabRight = file.num || file.name || (file.empty ? "" : "");
+    const folderPaths = {
+      left: `
+        M 1 56
+        V 19
+        Q 1 12 9 12
+        H 333
+        Q 346 12 353 2
+        L 360 -6
+        Q 365 -12 376 -12
+        H 590
+        Q 602 -12 608 0
+        L 622 27
+        Q 627 36 640 36
+        H 990
+        Q 999 36 999 45
+        V 56
+        Z
+      `,
+      right: `
+        M 1 56
+        V 19
+        Q 1 12 9 12
+        H 598
+        Q 610 12 617 2
+        L 629 -6
+        Q 634 -12 645 -12
+        H 868
+        Q 880 -12 887 0
+        L 902 27
+        Q 907 36 920 36
+        H 990
+        Q 999 36 999 45
+        V 56
+        Z
+      `,
+      "far-left": `
+        M 1 56
+        V 19
+        Q 1 12 9 12
+        H 113
+        Q 126 12 133 2
+        L 141 -6
+        Q 146 -12 157 -12
+        H 315
+        Q 327 -12 334 0
+        L 347 27
+        Q 352 36 365 36
+        H 990
+        Q 999 36 999 45
+        V 56
+        Z
+      `
+    };
 
-        // Special handling for dividers which show Letter and Number
-        if (isBlack) {
-          tabLeft = file.id;
-          tabRight = file.num;
-        }
+    const fileElements = [];
+    const markerElements = [];
 
-        card.innerHTML = `
-      <div class="${tabClass}">
-        <span>${tabLeft}</span>
-        <span style="text-align:right">${tabRight}</span>
-      </div>
-      <div class="card-inner">
-        ${!isBlack && file.name ? `<span>${file.id}</span><span>${file.name}</span>` : ""}
-        ${isBlack ? `<span></span>` : ""}
-      </div>
-      <div class="content">
-        <h2>${file.name || file.id}</h2>
-        <p>details</p>
-        ${file.img ? `<img src="${file.img}" alt="" class="content-image">` : `<div style="flex:1;display:flex;align-items:center;justify-content:center;color:#ccc;font-size:11px;border:1px dashed #ccc;margin-top:10px;">[file encrypted]</div>`}
-      </div>
-    `;
+    function createFolderSvg(side) {
+      const svg = document.createElementNS(
+        "http://www.w3.org/2000/svg",
+        "svg"
+      );
 
-        // Click handler
-        card.addEventListener("click", () => toggleCard(card));
+      svg.setAttribute("class", "folder-art");
+      svg.setAttribute("viewBox", "0 -14 1000 70");
+      svg.setAttribute("preserveAspectRatio", "none");
+      svg.setAttribute("aria-hidden", "true");
 
-        stack.appendChild(card);
+      const path = document.createElementNS(
+        "http://www.w3.org/2000/svg",
+        "path"
+      );
+
+      path.setAttribute("d", folderPaths[side]);
+      svg.appendChild(path);
+
+      return svg;
+    }
+
+    function createFile(file, index) {
+      const element = document.createElement("div");
+      element.className = "file";
+      element.dataset.id = file.id;
+      element.dataset.index = index;
+
+      element.appendChild(createFolderSvg(file.side));
+
+      const tab = document.createElement("button");
+      tab.type = "button";
+      tab.className = `file-tab ${file.side}`;
+      tab.setAttribute(
+        "aria-label",
+        `Open file ${file.number}, ${file.name}`
+      );
+
+      const number = document.createElement("span");
+      number.className = "number";
+      number.textContent = file.number;
+
+      const name = document.createElement("span");
+      name.className = "name";
+      name.textContent = file.name;
+
+      tab.append(number, name);
+
+      tab.addEventListener("click", (event) => {
+        event.stopPropagation();
+        openFile(file, element);
       });
 
-      function toggleCard(clickedCard) {
-        // If clicking already open card, close it
-        if (currentlyOpen === clickedCard) {
-          closeCard(clickedCard);
-          return;
+      element.appendChild(tab);
+      stack.appendChild(element);
+      fileElements.push(element);
+    }
+
+    function createMarker(marker) {
+      const element = document.createElement("div");
+      element.className = `marker ${marker.position}`;
+      element.dataset.id = marker.id;
+      element.dataset.row = marker.row;
+
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "marker-button";
+      button.setAttribute(
+        "aria-label",
+        `Open ${marker.letter} ${marker.code}`
+      );
+
+      const letter = document.createElement("span");
+      letter.textContent = marker.letter;
+
+      const code = document.createElement("span");
+      code.textContent = marker.code;
+
+      button.append(letter, code);
+
+      button.addEventListener("click", (event) => {
+        event.stopPropagation();
+        openFile(
+          {
+            id: marker.id,
+            number: marker.letter,
+            name: marker.code,
+            detail: marker.detail,
+            side: "left",
+            marker: true,
+            height: "57vh"
+          },
+          element
+        );
+      });
+
+      element.appendChild(button);
+      stack.appendChild(element);
+      markerElements.push(element);
+    }
+
+    files.forEach(createFile);
+    markers.forEach(createMarker);
+
+    /*
+      Fits all rows into the visible stack without creating a scrollbar.
+    */
+    function resizeStack() {
+      const totalRows = files.length;
+      const stackHeight = stack.clientHeight;
+
+      const step = Math.min(
+        24,
+        Math.max(11, (stackHeight - 27) / (totalRows - 1))
+      );
+
+      const folderHeight = Math.max(
+        26,
+        Math.min(45, step * 1.88)
+      );
+
+      stack.style.setProperty("--step", `${step}px`);
+      stack.style.setProperty("--folder-height", `${folderHeight}px`);
+
+      fileElements.forEach((element, index) => {
+        const bottom = (totalRows - 1 - index) * step;
+        element.style.bottom = `${bottom}px`;
+      });
+
+      markerElements.forEach((element) => {
+        const row = Number(element.dataset.row);
+        const bottom = (totalRows - 1 - row) * step;
+        element.style.bottom = `${bottom}px`;
+      });
+    }
+
+    const resizeObserver = new ResizeObserver(resizeStack);
+    resizeObserver.observe(stack);
+    window.addEventListener("resize", resizeStack);
+
+    let activeElement = null;
+    let activeFile = null;
+    let closingTimer = null;
+
+    function createFallback(file) {
+      const fallback = document.createElement("div");
+      fallback.className = "fallback-media";
+
+      const title = document.createElement("strong");
+      title.textContent = file.detail || file.name;
+
+      const small = document.createElement("small");
+      small.textContent = `${file.number} / archive record`;
+
+      fallback.append(title, small);
+      return fallback;
+    }
+
+    function loadMedia(file) {
+      detailMedia.innerHTML = "";
+
+      if (!file.image) {
+        detailMedia.appendChild(createFallback(file));
+        return;
+      }
+
+      const image = document.createElement("img");
+      image.alt = file.detail || file.name;
+      image.src = file.image;
+
+      image.addEventListener("error", () => {
+        detailMedia.innerHTML = "";
+        detailMedia.appendChild(createFallback(file));
+      });
+
+      detailMedia.appendChild(image);
+    }
+
+    function setPanelSide(side) {
+      detailTab.classList.remove("right", "far-left");
+
+      if (side === "right") {
+        detailTab.classList.add("right");
+      }
+
+      if (side === "far-left") {
+        detailTab.classList.add("far-left");
+      }
+    }
+
+    function openFile(file, element) {
+      clearTimeout(closingTimer);
+
+      if (activeElement) {
+        activeElement.classList.remove("is-active");
+      }
+
+      activeElement = element;
+      activeFile = file;
+
+      if (activeElement) {
+        activeElement.classList.add("is-active");
+      }
+
+      detailTitle.textContent = file.detail || file.name;
+      detailNumber.textContent = file.number;
+      detailName.textContent = file.name;
+      setPanelSide(file.side);
+      loadMedia(file);
+
+      detailPanel.style.setProperty(
+        "--detail-height",
+        file.height || "64vh"
+      );
+
+      detailPanel.classList.add("is-visible");
+      detailPanel.setAttribute("aria-hidden", "false");
+
+      requestAnimationFrame(() => {
+        archive.classList.remove("is-closing");
+        archive.classList.add("is-open");
+      });
+    }
+
+    function closeFile() {
+      if (!activeFile) return;
+
+      archive.classList.remove("is-open");
+      archive.classList.add("is-closing");
+
+      closingTimer = setTimeout(() => {
+        detailPanel.classList.remove("is-visible");
+        detailPanel.setAttribute("aria-hidden", "true");
+
+        if (activeElement) {
+          activeElement.classList.remove("is-active");
         }
 
-        // Close previous if exists
-        if (currentlyOpen) {
-          closeCard(currentlyOpen);
-        }
+        activeElement = null;
+        activeFile = null;
+        archive.classList.remove("is-closing");
+      }, 720);
+    }
 
-        // Open new
-        openCard(clickedCard);
+    detailClose.addEventListener("click", closeFile);
+    detailTab.addEventListener("click", closeFile);
+
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape") {
+        closeFile();
       }
+    });
 
-      function openCard(card) {
-        currentlyOpen = card;
-
-        // Mark all cards below this one
-        const idx = parseInt(card.dataset.index);
-        document.querySelectorAll(".card").forEach((c, i) => {
-          if (i > idx) c.classList.add("below-open");
-          else c.classList.remove("below-open");
-        });
-
-        card.classList.add("open");
-      }
-
-      function closeCard(card) {
-        card.classList.remove("open");
-        // Reset below markers after animation
-        setTimeout(() => {
-          document
-            .querySelectorAll(".card")
-            .forEach((c) => c.classList.remove("below-open"));
-        }, 300);
-        currentlyOpen = null;
-      }
-    </script>
-  </body>
+    resizeStack();
+  </script>
+</body>
 </html>

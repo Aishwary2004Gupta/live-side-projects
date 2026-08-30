@@ -1,381 +1,1002 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Global Setup — Filing Sequence</title>
-<style>
-  @import url('https://fonts.googleapis.com/css2?family=Courier+Prime&family=Space+Grotesk:wght@300;500&display=swap');
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sam's Secret Files Animation</title>
 
-  :root {
-    --bg: #e6e5de;
-    --paper: #f0efe8;
-    --ink: #161616;
-    --tab-black: #131313;
-    --accent: #cfc194;
-  }
+  <style>
+    :root {
+      --bg: #dedede;
+      --paper: #e7e7e7;
+      --paper-dark: #cfcfcf;
+      --ink: #101010;
+      --muted: #9b9b9b;
+      --yellow: #95953d;
+      --tray-height: clamp(92px, 14vh, 135px);
+      --line: 1.45px;
+    }
 
-  * { box-sizing: border-box; margin: 0; padding: 0; }
+    * {
+      box-sizing: border-box;
+    }
 
-  html, body {
-    width: 100%;
-    height: 100%;
-    background: var(--bg);
-    font-family: 'Courier Prime', 'Courier New', monospace;
-    color: var(--ink);
-    overflow: hidden;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
+    html,
+    body {
+      margin: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: Arial, Helvetica, sans-serif;
+    }
 
-  /* Main scene container */
-  .scene {
-    position: relative;
-    width: 720px;
-    height: 640px;
-    background: var(--bg);
-  }
+    body {
+      display: grid;
+      place-items: center;
+    }
 
-  /* Filing cabinet stack */
-  .cabinet {
-    position: absolute;
-    top: 80px;
-    left: 50%;
-    transform: translateX(-50%);
-    width: 520px;
-    height: 400px;
-  }
+    .scene {
+      position: relative;
+      width: min(100vw, 980px);
+      height: min(100svh, 980px);
+      overflow: hidden;
+      background: var(--bg);
+      isolation: isolate;
+    }
 
-  /* Each file card */
-  .file {
-    position: absolute;
-    left: 30px;
-    width: 460px;
-    height: 36px;
-    background: var(--paper);
-    border: 1.2px solid var(--ink);
-    border-radius: 4px;
-    font-size: 11px;
-    letter-spacing: 0.02em;
-    color: var(--ink);
-    overflow: hidden;
-    z-index: 1;
-    transition: transform 0.4s ease, height 0.4s ease, z-index 0s;
-  }
+    /*
+      Slight top-down filing cabinet view.
+    */
+    .cabinet {
+      position: absolute;
+      left: 7%;
+      right: 7%;
+      top: 4.5%;
+      bottom: calc(var(--tray-height) - 2px);
+      perspective: 900px;
+      z-index: 10;
+    }
 
-  /* Tab shapes at top of each card */
-  .tab {
-    position: absolute;
-    top: -14px;
-    height: 15px;
-    background: var(--paper);
-    border: 1.2px solid var(--ink);
-    border-bottom: 0;
-    border-radius: 4px 4px 0 0;
-    padding: 0 8px;
-    display: flex;
-    align-items: flex-end;
-    font-size: 10px;
-    font-weight: 600;
-    white-space: nowrap;
-    box-shadow: 0 1px 0 rgba(0,0,0,0.06);
-  }
+    .stack {
+      position: absolute;
+      inset: 0;
+      transform-origin: 50% 100%;
+      transform: rotateX(3deg);
+    }
 
-  .tab.black-tab {
-    background: var(--tab-black);
-    color: #fff;
-    border-color: var(--tab-black);
-    box-shadow: none;
-  }
+    .stack::before,
+    .stack::after {
+      content: "";
+      position: absolute;
+      top: 12px;
+      bottom: -3px;
+      width: var(--line);
+      background: var(--ink);
+      z-index: 900;
+      pointer-events: none;
+    }
 
-  /* Inner content shown when open */
-  .card-body {
-    position: absolute;
-    top: 36px;
-    left: -30px;
-    width: 460px;
-    height: 0;
-    background: var(--paper);
-    border: 1.2px solid var(--ink);
-    border-top: 0;
-    border-radius: 0 0 4px 4px;
-    opacity: 0;
-    overflow: hidden;
-    transition: height 0.55s ease, opacity 0.35s ease;
-    z-index: 50;
-    box-shadow: 0 20px 40px rgba(0,0,0,0.08);
-    pointer-events: none;
-  }
+    .stack::before {
+      left: 0;
+      transform: skewX(-3deg);
+    }
 
-  .file.open .card-body {
-    height: 320px;
-    opacity: 1;
-    pointer-events: auto;
-  }
+    .stack::after {
+      right: 0;
+      transform: skewX(3deg);
+    }
 
-  /* When open, slide card up and expand */
-  .file.open {
-    z-index: 100;
-    transform: translateY(-140px);
-    height: 356px;
-    box-shadow: 0 25px 50px rgba(0,0,0,0.12);
-  }
+    .file {
+      position: absolute;
+      left: 0;
+      right: 0;
+      height: var(--file-height);
+      pointer-events: none;
+      transition: opacity 0.18s ease;
+    }
 
-  /* Card label row */
-  .label-row {
-    height: 34px;
-    display: flex;
-    align-items: center;
-    padding: 0 16px;
-    border-bottom: 1px solid rgba(22,22,22,0.15);
-    font-size: 11px;
-    letter-spacing: 0.06em;
-    justify-content: space-between;
-  }
+    .file svg {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      overflow: visible;
+      pointer-events: none;
+    }
 
-  .file.open .label-row {
-    opacity: 0;
-    transition: opacity 0.2s ease;
-  }
+    .file path {
+      fill: var(--paper);
+      stroke: var(--ink);
+      stroke-width: 1.45;
+      stroke-linejoin: round;
+      vector-effect: non-scaling-stroke;
+    }
 
-  /* Open content layout */
-  .content-wrap {
-    padding: 22px 24px 28px;
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    height: 100%;
-  }
+    .tab {
+      position: absolute;
+      top: -1px;
+      height: calc(100% - 4px);
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 5px 15px 0;
+      color: var(--ink);
+      background: var(--paper);
+      pointer-events: none;
+      clip-path: polygon(8% 0%, 91% 0%, 100% 100%, 0% 100%);
+      z-index: 20;
+    }
 
-  .content-wrap h2 {
-    font-size: 16px;
-    font-weight: 300;
-    letter-spacing: 0.02em;
-    font-family: 'Space Grotesk', sans-serif;
-    margin-bottom: 2px;
-  }
+    .tab.left {
+      left: 34%;
+      width: 31%;
+    }
 
-  .content-wrap .sub {
-    font-size: 10px;
-    color: #777;
-    letter-spacing: 0.08em;
-    margin-bottom: 10px;
-    text-transform: lowercase;
-  }
+    .tab.right {
+      left: 61%;
+      width: 29%;
+    }
 
-  .img-box {
-    flex: 1;
-    width: 100%;
-    background: #ddd;
-    border: 1px solid rgba(22,22,22,0.2);
-    border-radius: 3px;
-    overflow: hidden;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
+    .tab.far-left {
+      left: 10%;
+      width: 25%;
+    }
 
-  .img-box img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    display: block;
-  }
+    .tab span {
+      white-space: nowrap;
+      font-size: clamp(9px, 1.55vw, 17px);
+      line-height: 1.15;
+    }
 
-  /* Bottom gold label */
-  .drawer-label {
-    position: absolute;
-    bottom: 30px;
-    left: 50%;
-    transform: translateX(-50%);
-    background: linear-gradient(180deg, #ddd7ad 0%, #c2b78e 100%);
-    color: #3a3220;
-    padding: 8px 28px;
-    border-radius: 20px;
-    font-size: 12px;
-    font-weight: 500;
-    letter-spacing: 0.06em;
-    box-shadow: 0 4px 10px rgba(0,0,0,0.08);
-    z-index: 200;
-    border: 1px solid rgba(255,255,255,0.4);
-  }
+    .tab .name {
+      font-weight: 700;
+      text-align: right;
+    }
 
-  /* Scene divider / time marker (optional subtle) */
-  .time-marker {
-    position: absolute;
-    top: 12px;
-    left: 24px;
-    font-size: 10px;
-    color: #999;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-  }
+    .section-tab {
+      position: absolute;
+      height: var(--file-height);
+      z-index: 60;
+      pointer-events: none;
+    }
 
-  /* Responsive centering */
-  @media (max-width: 780px) {
-    .scene { transform: scale(0.85); }
-  }
-</style>
+    .section-inner {
+      position: absolute;
+      top: -2px;
+      left: 0;
+      width: 100%;
+      height: 78%;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      padding: 6px 15px 0;
+      color: #fff;
+      background: #020202;
+      clip-path: polygon(12% 0%, 88% 0%, 100% 100%, 0% 100%);
+    }
+
+    .section-inner span {
+      font-size: clamp(9px, 1.55vw, 17px);
+      line-height: 1.15;
+    }
+
+    .section-o {
+      left: 12%;
+      width: 25%;
+    }
+
+    .section-p {
+      left: 35%;
+      width: 25%;
+    }
+
+    .section-q {
+      left: 57%;
+      width: 25%;
+    }
+
+    .section-r {
+      left: 17%;
+      width: 25%;
+    }
+
+    .section-s {
+      left: 4%;
+      width: 25%;
+    }
+
+    /*
+      Opened card / record.
+    */
+    .record {
+      position: absolute;
+      left: 6.5%;
+      right: 6.5%;
+      bottom: calc(var(--tray-height) - 3px);
+      height: var(--record-height, 58vh);
+      max-height: calc(100% - var(--tray-height) - 35px);
+      z-index: 3000;
+      transform: translateY(116%);
+      opacity: 1;
+      pointer-events: none;
+    }
+
+    .record.is-open {
+      animation: recordUp 0.72s cubic-bezier(.18,.88,.22,1) forwards;
+    }
+
+    .record.is-close {
+      animation: recordDown 0.72s cubic-bezier(.72,0,.25,1) forwards;
+    }
+
+    @keyframes recordUp {
+      from {
+        transform: translateY(116%);
+      }
+      to {
+        transform: translateY(0);
+      }
+    }
+
+    @keyframes recordDown {
+      from {
+        transform: translateY(0);
+      }
+      to {
+        transform: translateY(116%);
+      }
+    }
+
+    .record-surface {
+      position: absolute;
+      inset: 0;
+      overflow: hidden;
+      border: var(--line) solid var(--ink);
+      border-radius: 9px 9px 0 0;
+      background: #e4e4e4;
+    }
+
+    .record-tab {
+      position: absolute;
+      top: -31px;
+      height: 38px;
+      padding: 7px 16px 0;
+      border: var(--line) solid var(--ink);
+      border-bottom: 0;
+      border-radius: 13px 13px 0 0;
+      background: var(--paper);
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+      opacity: 0;
+      transform: translateY(14px);
+      animation: tabIn 0.45s cubic-bezier(.18,.88,.22,1) 0.17s forwards;
+      z-index: 3;
+    }
+
+    .record.is-close .record-tab {
+      animation: tabOut 0.18s ease forwards;
+    }
+
+    @keyframes tabIn {
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    @keyframes tabOut {
+      to {
+        opacity: 0;
+        transform: translateY(14px);
+      }
+    }
+
+    .record-tab.left {
+      left: 34%;
+      width: 31%;
+    }
+
+    .record-tab.right {
+      left: 61%;
+      width: 29%;
+    }
+
+    .record-tab span {
+      white-space: nowrap;
+      font-size: clamp(9px, 1.55vw, 17px);
+      line-height: 1.15;
+    }
+
+    .record-tab .record-tab-name {
+      font-weight: 700;
+      text-align: right;
+    }
+
+    .record-content {
+      position: absolute;
+      inset: 0;
+      padding: 28px 25px 15px;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .record-copy {
+      position: relative;
+      z-index: 5;
+      flex: 0 0 auto;
+    }
+
+    .record-title {
+      margin: 0;
+      font-size: clamp(15px, 1.85vw, 20px);
+      line-height: 1.1;
+      font-weight: 700;
+    }
+
+    .record-subtitle {
+      margin: 4px 0 0;
+      color: var(--muted);
+      font-size: clamp(14px, 1.65vw, 18px);
+      font-weight: 600;
+    }
+
+    .record-art {
+      position: relative;
+      z-index: 2;
+      flex: 1;
+      min-height: 0;
+      display: grid;
+      place-items: center;
+      padding: 10px 4% 0;
+    }
+
+    .record-art svg {
+      width: min(58%, 360px);
+      height: min(92%, 430px);
+      overflow: visible;
+    }
+
+    .record-art.generic svg {
+      width: min(52%, 350px);
+    }
+
+    .record-art.plant svg {
+      width: min(62%, 430px);
+    }
+
+    /*
+      Hide active folder's original tab while the opened record tab takes over.
+    */
+    .file.active .tab {
+      opacity: 0;
+    }
+
+    /*
+      Tray / cabinet bottom.
+    */
+    .tray {
+      position: absolute;
+      left: -1%;
+      right: -1%;
+      bottom: 0;
+      height: var(--tray-height);
+      z-index: 2000;
+      border-top: var(--line) solid var(--ink);
+      background:
+        linear-gradient(
+          to bottom,
+          #c8c8c8 0%,
+          #aaa 20%,
+          #4a4a4a 69%,
+          #101010 100%
+        );
+      clip-path: polygon(0 0, 100% 0, 96% 100%, 4% 100%);
+    }
+
+    .tray::before,
+    .tray::after {
+      content: "";
+      position: absolute;
+      left: 0;
+      right: 0;
+      height: var(--line);
+      background: var(--ink);
+    }
+
+    .tray::before {
+      top: 10px;
+    }
+
+    .tray::after {
+      top: 21px;
+      opacity: 0.75;
+    }
+
+    .label {
+      position: absolute;
+      left: 50%;
+      bottom: clamp(12px, 1.9vh, 22px);
+      transform: translateX(-50%);
+      padding: 7px 20px 6px;
+      min-width: 160px;
+      border: var(--line) solid #202020;
+      border-radius: 6px;
+      background: var(--yellow);
+      color: #151515;
+      text-align: center;
+      font-size: clamp(12px, 1.55vw, 17px);
+      font-weight: 700;
+      box-shadow: 0 2px 0 rgba(0,0,0,0.2);
+    }
+
+    /*
+      Tiny timeline indicator, optional but useful.
+    */
+    .timecode {
+      position: absolute;
+      left: 16px;
+      bottom: 12px;
+      z-index: 5000;
+      color: rgba(255,255,255,0.85);
+      font-size: 13px;
+      font-variant-numeric: tabular-nums;
+      pointer-events: none;
+    }
+
+    .hint {
+      position: absolute;
+      right: 16px;
+      bottom: 12px;
+      z-index: 5000;
+      color: rgba(255,255,255,0.6);
+      font-size: 12px;
+      pointer-events: none;
+    }
+
+    @media (max-width: 640px) {
+      .scene {
+        width: 100vw;
+        height: 100svh;
+      }
+
+      .cabinet {
+        left: 3.5%;
+        right: 3.5%;
+        top: 4%;
+      }
+
+      .record {
+        left: 4%;
+        right: 4%;
+      }
+
+      .record-content {
+        padding-left: 17px;
+        padding-right: 17px;
+      }
+
+      .tab,
+      .record-tab,
+      .section-inner {
+        padding-left: 8px;
+        padding-right: 8px;
+        gap: 5px;
+      }
+
+      .record-art svg {
+        width: 78%;
+      }
+
+      .record-art.generic svg,
+      .record-art.plant svg {
+        width: 82%;
+      }
+    }
+  </style>
 </head>
+
 <body>
+  <main class="scene" aria-label="Animated filing cabinet">
+    <section class="cabinet">
+      <div class="stack" id="stack"></div>
+    </section>
 
-<div class="scene" id="scene">
-  <div class="time-marker" id="timer">00:00 / 00:11</div>
+    <section class="record" id="record" aria-hidden="true">
+      <div class="record-tab left" id="recordTab">
+        <span id="recordNumber">118</span>
+        <span class="record-tab-name" id="recordName">sony</span>
+      </div>
 
-  <div class="cabinet" id="cabinet">
-    <!-- Cards generated by JS below -->
-  </div>
-
-  <div class="drawer-label">sam's secret files</div>
-</div>
-
-<script>
-  // Exact data from source image with correct names, numbers, and black tab markers
-  const files = [
-    { id: 94, name: "oil lamp", pos: 22 },
-    { id: 95, name: "oats", pos: 65 },
-    { letter: "O", num: "010", pos: 48, black: true },
-    { id: 96, name: "pants", pos: 18 },
-    { id: 97, name: "plane", pos: 72 },
-    { id: 98, name: "plant 003", pos: 28, openImg: "https://images.unsplash.com/photo-1446071103084-c257b5f70672?w=500&auto=format&fit=crop&q=60" },
-    { id: 99, name: "pomelo", pos: 75 },
-    { id: 100, name: "phisher", pos: 35 },
-    { id: 101, name: "palo alto", pos: 60 },
-    { id: 102, name: "pencile", pos: 20 },
-    { id: 103, name: "photos", pos: 70 },
-    { id: 104, name: "quiet", pos: 30 },
-    { letter: "P", num: "012", pos: 55, black: true },
-    { id: 105, name: "queen", pos: 25 },
-    { id: 106, name: "questions", pos: 65 },
-    { id: 107, name: "quizz", pos: 40 },
-    { letter: "Q", num: "005", pos: 75, black: true },
-    { id: 109, name: "raccoon", pos: 20 },
-    { id: 111, name: "rizz", pos: 70 },
-    { id: 113, name: "generic guy", pos: 35, openImg: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=500&auto=format&fit=crop&q=60" },
-    { id: 114, name: "rain", pos: 55 },
-    { id: 115, name: "rug", pos: 22 },
-    { id: 116, name: "ruby", pos: 68 },
-    { letter: "R", num: "002", pos: 45, black: true },
-    { id: 118, name: "sony", pos: 18, openImg: "https://images.unsplash.com/photo-1484704849700-f032a568e944?w=500&auto=format&fit=crop&q=60" },
-    { id: 119, name: "sun", pos: 60 },
-    { id: 120, name: "seller", pos: 25 },
-    { id: 121, name: "sims", pos: 65 },
-    { id: 122, name: "slides", pos: 38 },
-    { id: 123, name: "simpsons", pos: 72 },
-    { letter: "S", num: "002", pos: 50, black: true },
-    { id: 124, name: "sir", pos: 28 },
-  ];
-
-  const cabinet = document.getElementById("cabinet");
-
-  // Build cards
-  files.forEach((f, i) => {
-    const top = i * 16;
-    const file = document.createElement("div");
-    file.className = "file";
-    file.style.top = top + "px";
-    file.style.zIndex = i + 1;
-
-    // Tab HTML
-    let tabHTML = "";
-    if (f.black) {
-      tabHTML = `<div class="tab black-tab" style="left:${f.pos}%;transform:translateX(-50%)">
-        <span>${f.letter}</span><span>${f.num}</span>
-      </div>`;
-    } else {
-      tabHTML = `<div class="tab" style="left:${f.pos}%;transform:translateX(-50%)">
-        <span>${f.id}</span><span>${f.name}</span>
-      </div>`;
-    }
-
-    // Content for open state
-    let contentHTML = "";
-    if (f.openImg) {
-      contentHTML = `
-        <div class="content-wrap">
-          <h2>${f.name}</h2>
-          <div class="sub">details</div>
-          <div class="img-box">
-            <img src="${f.openImg}" alt="${f.name}" loading="eager">
+      <div class="record-surface">
+        <div class="record-content">
+          <div class="record-copy">
+            <h1 class="record-title" id="recordTitle">walkman - 1979</h1>
+            <p class="record-subtitle">details</p>
           </div>
+
+          <div class="record-art" id="recordArt"></div>
         </div>
-      `;
-    } else {
-      contentHTML = `<div class="content-wrap"><h2>${f.name}</h2><div class="sub">details</div></div>`;
+      </div>
+    </section>
+
+    <footer class="tray">
+      <div class="label">sam's secret files</div>
+    </footer>
+
+    <div class="timecode" id="timecode">0:00 / 0:11</div>
+    <div class="hint">looping archival motion</div>
+  </main>
+
+  <script>
+    const stack = document.getElementById("stack");
+    const record = document.getElementById("record");
+    const recordTab = document.getElementById("recordTab");
+    const recordNumber = document.getElementById("recordNumber");
+    const recordName = document.getElementById("recordName");
+    const recordTitle = document.getElementById("recordTitle");
+    const recordArt = document.getElementById("recordArt");
+    const timecode = document.getElementById("timecode");
+
+    const folders = [
+      ["94", "oil lamp", "left"],
+      ["95", "oats", "right"],
+      ["96", "pants", "left"],
+      ["97", "plane", "right"],
+      ["98", "plant 003", "left"],
+      ["99", "pomelo", "right"],
+      ["100", "phisher", "left"],
+      ["101", "palo alto", "right"],
+      ["102", "pencile", "left"],
+      ["103", "photos", "right"],
+      ["104", "quiet", "far-left"],
+      ["105", "queen", "right"],
+      ["106", "questions", "left"],
+      ["107", "quizz", "right"],
+      ["108", "quit", "left"],
+      ["109", "raccoon", "left"],
+      ["111", "rizz", "right"],
+      ["112", "rum", "far-left"],
+      ["113", "generic guy", "right"],
+      ["114", "rain", "left"],
+      ["115", "rug", "right"],
+      ["116", "ruby", "left"],
+      ["118", "sony", "left"],
+      ["119", "sun", "right"],
+      ["120", "seller", "left"],
+      ["121", "sims", "right"],
+      ["122", "slides", "left"],
+      ["123", "simpsons", "right"],
+      ["124", "sir", "left"]
+    ];
+
+    const sections = [
+      { letter: "Q", code: "010", row: 2, className: "section-o" },
+      { letter: "P", code: "012", row: 10, className: "section-p" },
+      { letter: "Q", code: "005", row: 14, className: "section-q" },
+      { letter: "R", code: "002", row: 21, className: "section-r" },
+      { letter: "S", code: "002", row: 29, className: "section-s" }
+    ];
+
+    const folderPaths = {
+      left: `
+        M 1 56
+        V 19
+        Q 1 12 9 12
+        H 333
+        Q 346 12 353 2
+        L 360 -6
+        Q 365 -12 376 -12
+        H 590
+        Q 602 -12 608 0
+        L 622 27
+        Q 627 36 640 36
+        H 990
+        Q 999 36 999 45
+        V 56
+        Z
+      `,
+      right: `
+        M 1 56
+        V 19
+        Q 1 12 9 12
+        H 598
+        Q 610 12 617 2
+        L 629 -6
+        Q 634 -12 645 -12
+        H 868
+        Q 880 -12 887 0
+        L 902 27
+        Q 907 36 920 36
+        H 990
+        Q 999 36 999 45
+        V 56
+        Z
+      `,
+      "far-left": `
+        M 1 56
+        V 19
+        Q 1 12 9 12
+        H 113
+        Q 126 12 133 2
+        L 141 -6
+        Q 146 -12 157 -12
+        H 315
+        Q 327 -12 334 0
+        L 347 27
+        Q 352 36 365 36
+        H 990
+        Q 999 36 999 45
+        V 56
+        Z
+      `
+    };
+
+    const fileNodes = new Map();
+
+    function makeSvg(side) {
+      const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+      svg.setAttribute("viewBox", "0 -14 1000 70");
+      svg.setAttribute("preserveAspectRatio", "none");
+
+      const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+      path.setAttribute("d", folderPaths[side]);
+
+      svg.appendChild(path);
+      return svg;
     }
 
-    file.innerHTML = `
-      ${tabHTML}
-      <div class="label-row">
-        <span>${f.id || f.letter || ''}</span>
-        <span>${f.name || f.num || ''}</span>
-      </div>
-      <div class="card-body" data-file="${f.id || f.letter}">
-        ${contentHTML}
-      </div>
-    `;
+    function makeFolder(number, name, side, index) {
+      const file = document.createElement("div");
+      file.className = "file";
+      file.dataset.name = name;
+      file.dataset.index = index;
 
-    cabinet.appendChild(file);
-  });
+      file.appendChild(makeSvg(side));
 
-  // Scene mapping based on exact time script
-  // 00:00-00:02: 118 sony open
-  // 00:02-00:03: all closed
-  // 00:03-00:06: 113 generic guy open
-  // 00:06-00:08: all closed
-  // 00:08-00:10: 98 plant 003 open
-  // 00:10-00:11: all closed
+      const tab = document.createElement("div");
+      tab.className = `tab ${side}`;
 
-  const scenes = [
-    { t: 0, open: 118, label: "00:00 / 00:11" },
-    { t: 2000, open: null, label: "00:02 / 00:11" },
-    { t: 3000, open: 113, label: "00:03 / 00:11" },
-    { t: 6000, open: null, label: "00:06 / 00:11" },
-    { t: 8000, open: 98, label: "00:08 / 00:11" },
-    { t: 10000, open: null, label: "00:10 / 00:11" },
-  ];
+      const n = document.createElement("span");
+      n.textContent = number;
 
-  let currentScene = -1;
+      const label = document.createElement("span");
+      label.className = "name";
+      label.textContent = name;
 
-  function applyScene(openId) {
-    document.querySelectorAll(".file").forEach(el => {
-      const id = parseInt(el.querySelector(".card-body")?.dataset.file || "0");
-      const match = (openId === id);
-      if (match) el.classList.add("open");
-      else el.classList.remove("open");
+      tab.append(n, label);
+      file.appendChild(tab);
+
+      stack.appendChild(file);
+      fileNodes.set(name, file);
+    }
+
+    function makeSection(section) {
+      const marker = document.createElement("div");
+      marker.className = `section-tab ${section.className}`;
+      marker.dataset.row = section.row;
+
+      const inner = document.createElement("div");
+      inner.className = "section-inner";
+
+      const letter = document.createElement("span");
+      letter.textContent = section.letter;
+
+      const code = document.createElement("span");
+      code.textContent = section.code;
+
+      inner.append(letter, code);
+      marker.appendChild(inner);
+      stack.appendChild(marker);
+    }
+
+    folders.forEach(([number, name, side], index) => {
+      makeFolder(number, name, side, index);
     });
-  }
 
-  function tick() {
-    const now = Date.now();
-    const start = window.__start || (window.__start = Date.now());
-    const elapsed = now - start;
+    sections.forEach(makeSection);
 
-    // Determine active scene
-    let idx = scenes.findIndex(s => elapsed >= s.t && (scenes.findIndex(x => x.t > s.t) === -1 || elapsed < scenes.find(s2 => s2.t > s.t)?.t));
-    // Simpler: find last scene whose time has passed
-    let active = -1;
-    for (let i = 0; i < scenes.length; i++) {
-      if (elapsed >= scenes[i].t) active = i;
+    function resizeStack() {
+      const total = folders.length;
+      const height = stack.clientHeight;
+
+      const step = Math.min(
+        24,
+        Math.max(11, (height - 30) / (total - 1))
+      );
+
+      const fileHeight = Math.max(
+        26,
+        Math.min(45, step * 1.9)
+      );
+
+      stack.style.setProperty("--file-height", `${fileHeight}px`);
+
+      [...stack.querySelectorAll(".file")].forEach((file) => {
+        const index = Number(file.dataset.index);
+        const bottom = (total - 1 - index) * step;
+        file.style.bottom = `${bottom}px`;
+      });
+
+      [...stack.querySelectorAll(".section-tab")].forEach((marker) => {
+        const row = Number(marker.dataset.row);
+        const bottom = (total - 1 - row) * step;
+        marker.style.bottom = `${bottom}px`;
+        marker.style.height = `${fileHeight}px`;
+      });
     }
 
-    if (active !== currentScene) {
-      currentScene = active;
-      const s = scenes[active];
-      document.getElementById("timer").textContent = s ? s.label : "00:11 / 00:11";
-      applyScene(s ? s.open : null);
+    window.addEventListener("resize", resizeStack);
+    resizeStack();
+
+    const art = {
+      sony: `
+        <svg viewBox="0 0 220 320" aria-label="Sony Walkman illustration">
+          <defs>
+            <linearGradient id="walkmanBody" x1="0" x2="1">
+              <stop offset="0" stop-color="#203149"/>
+              <stop offset="0.65" stop-color="#4b5870"/>
+              <stop offset="1" stop-color="#c8c1aa"/>
+            </linearGradient>
+          </defs>
+
+          <path d="M57 18 L166 8 Q188 10 190 32 L193 284 Q193 307 169 309 L61 300 Q41 298 39 276 L35 42 Q34 22 57 18 Z"
+                fill="url(#walkmanBody)" stroke="#333" stroke-width="2"/>
+
+          <path d="M57 18 L166 8 Q188 10 190 32 L190 65 Q126 75 37 60 L35 42 Q34 22 57 18 Z"
+                fill="#151a22" opacity="0.95"/>
+
+          <ellipse cx="123" cy="12" rx="15" ry="7" fill="#c95f24"/>
+
+          <text x="71" y="98" fill="#e8e8e8" font-size="28" font-weight="700"
+                font-family="Arial, Helvetica, sans-serif" letter-spacing="2">SONY</text>
+
+          <rect x="86" y="130" width="59" height="111" rx="4" fill="#1a1a1a" stroke="#555" stroke-width="2"/>
+          <rect x="101" y="158" width="28" height="51" rx="2" fill="#e1ddd4"/>
+          <circle cx="116" cy="231" r="8" fill="#252525" stroke="#777"/>
+
+          <path d="M169 167 L184 144 L199 167 L189 167 L189 217 L180 217 L180 167 Z"
+                fill="none" stroke="#d8d8d8" stroke-width="3"/>
+
+          <text x="79" y="279" fill="#d6d6d6" font-size="18" font-weight="700"
+                font-family="Arial, Helvetica, sans-serif">WALKMAN</text>
+
+          <path d="M185 40 Q203 117 194 291" fill="none" stroke="#a7a18e" stroke-width="10" opacity="0.55"/>
+        </svg>
+      `,
+
+      generic: `
+        <svg viewBox="0 0 260 360" aria-label="Person sitting in chair illustration">
+          <defs>
+            <linearGradient id="jacket" x1="0" x2="1" y1="0" y2="1">
+              <stop offset="0" stop-color="#111"/>
+              <stop offset="0.55" stop-color="#303033"/>
+              <stop offset="1" stop-color="#755a34"/>
+            </linearGradient>
+            <linearGradient id="chair" x1="0" x2="1">
+              <stop offset="0" stop-color="#8a6f42"/>
+              <stop offset="0.6" stop-color="#4f412a"/>
+              <stop offset="1" stop-color="#151515"/>
+            </linearGradient>
+          </defs>
+
+          <ellipse cx="130" cy="335" rx="90" ry="13" fill="#000" opacity="0.08"/>
+
+          <path d="M74 163 Q69 230 58 315 L202 315 Q190 232 185 162 Q132 183 74 163 Z"
+                fill="url(#chair)" stroke="#222" stroke-width="2"/>
+
+          <path d="M82 128 Q105 92 154 94 Q187 102 197 151 Q177 154 164 144 Q135 162 93 151 Z"
+                fill="#17171c"/>
+
+          <path d="M87 141 Q129 158 170 140 Q199 193 198 311 Q148 289 92 313 Q73 207 87 141 Z"
+                fill="url(#jacket)" stroke="#151515" stroke-width="2"/>
+
+          <path d="M97 163 Q71 178 66 229 Q68 246 85 247 Q91 202 112 180 Z"
+                fill="#18181b"/>
+
+          <path d="M162 168 Q192 182 197 236 Q195 250 181 251 Q173 206 149 181 Z"
+                fill="#18181b"/>
+
+          <path d="M112 62 Q122 43 145 47 Q166 53 164 79 Q162 104 139 112 Q113 104 109 82 Q108 72 112 62 Z"
+                fill="#b98266" stroke="#493126" stroke-width="2"/>
+
+          <path d="M108 64 Q123 33 157 52 Q143 47 125 60 Q116 68 108 64 Z"
+                fill="#744331"/>
+
+          <path d="M103 57 Q130 35 165 56 L162 72 Q130 59 110 75 Z"
+                fill="#bf8069" stroke="#4a3126" stroke-width="1.5"/>
+
+          <path d="M98 251 Q68 276 61 321" fill="none" stroke="#b07d42" stroke-width="18" stroke-linecap="round"/>
+          <path d="M177 247 Q203 277 207 321" fill="none" stroke="#7b562e" stroke-width="18" stroke-linecap="round"/>
+
+          <path d="M78 314 Q130 292 204 314" fill="none" stroke="#111" stroke-width="2"/>
+        </svg>
+      `,
+
+      plant: `
+        <svg viewBox="0 0 420 300" aria-label="Aloe vera plant illustration">
+          <defs>
+            <linearGradient id="leaf" x1="0" x2="1">
+              <stop offset="0" stop-color="#39482d"/>
+              <stop offset="0.5" stop-color="#88976a"/>
+              <stop offset="1" stop-color="#d3d0b6"/>
+            </linearGradient>
+          </defs>
+
+          <ellipse cx="210" cy="260" rx="86" ry="13" fill="#000" opacity="0.08"/>
+
+          <path d="M209 230 C188 177 190 96 207 16 C229 98 229 172 209 230 Z"
+                fill="url(#leaf)" stroke="#2f3a27" stroke-width="2"/>
+          <path d="M199 231 C160 181 135 106 120 35 C179 94 207 164 199 231 Z"
+                fill="url(#leaf)" stroke="#2f3a27" stroke-width="2"/>
+          <path d="M220 230 C256 172 289 104 330 53 C304 131 274 200 220 230 Z"
+                fill="url(#leaf)" stroke="#2f3a27" stroke-width="2"/>
+          <path d="M196 225 C131 178 75 133 31 113 C104 110 170 149 196 225 Z"
+                fill="url(#leaf)" stroke="#2f3a27" stroke-width="2"/>
+          <path d="M224 226 C292 174 356 146 403 139 C351 187 291 226 224 226 Z"
+                fill="url(#leaf)" stroke="#2f3a27" stroke-width="2"/>
+          <path d="M205 228 C179 153 178 87 185 38 C218 107 226 175 205 228 Z"
+                fill="#6f855d" stroke="#2f3a27" stroke-width="1.7"/>
+          <path d="M213 229 C238 154 246 90 258 41 C264 114 251 185 213 229 Z"
+                fill="#73875c" stroke="#2f3a27" stroke-width="1.7"/>
+          <path d="M206 230 C153 214 96 209 45 218 C102 184 164 191 206 230 Z"
+                fill="#899568" stroke="#2f3a27" stroke-width="1.8"/>
+          <path d="M219 230 C279 207 334 207 381 219 C323 182 260 190 219 230 Z"
+                fill="#879565" stroke="#2f3a27" stroke-width="1.8"/>
+
+          <path d="M169 244 Q210 220 253 244 L240 272 Q210 287 181 272 Z"
+                fill="#9c7440" stroke="#4b3520" stroke-width="2"/>
+        </svg>
+      `
+    };
+
+    const timeline = [
+      {
+        start: 0,
+        end: 2,
+        action: "open",
+        key: "sony",
+        number: "118",
+        name: "sony",
+        side: "left",
+        title: "walkman - 1979",
+        height: "55vh"
+      },
+      {
+        start: 2,
+        end: 3,
+        action: "close"
+      },
+      {
+        start: 3,
+        end: 6,
+        action: "open",
+        key: "generic",
+        number: "113",
+        name: "generic guy",
+        side: "right",
+        title: "generic guy",
+        height: "76vh"
+      },
+      {
+        start: 6,
+        end: 8,
+        action: "close"
+      },
+      {
+        start: 8,
+        end: 10,
+        action: "open",
+        key: "plant",
+        number: "98",
+        name: "plant 003",
+        side: "left",
+        title: "plant 003",
+        height: "82vh"
+      },
+      {
+        start: 10,
+        end: 11,
+        action: "close"
+      }
+    ];
+
+    let currentScene = null;
+    let currentOpenName = null;
+    const duration = 11;
+    const startedAt = performance.now();
+
+    function openRecord(scene) {
+      if (currentOpenName) {
+        const previous = fileNodes.get(currentOpenName);
+        if (previous) previous.classList.remove("active");
+      }
+
+      const node = fileNodes.get(scene.name);
+      if (node) node.classList.add("active");
+
+      currentOpenName = scene.name;
+
+      record.style.setProperty("--record-height", scene.height);
+      recordNumber.textContent = scene.number;
+      recordName.textContent = scene.name;
+      recordTitle.textContent = scene.title;
+
+      recordTab.className = `record-tab ${scene.side}`;
+      recordArt.className = `record-art ${scene.key}`;
+      recordArt.innerHTML = art[scene.key];
+
+      record.classList.remove("is-close");
+      void record.offsetWidth;
+      record.classList.add("is-open");
+      record.setAttribute("aria-hidden", "false");
+    }
+
+    function closeRecord() {
+      record.classList.remove("is-open");
+      void record.offsetWidth;
+      record.classList.add("is-close");
+
+      if (currentOpenName) {
+        const node = fileNodes.get(currentOpenName);
+        if (node) {
+          setTimeout(() => node.classList.remove("active"), 620);
+        }
+      }
+
+      currentOpenName = null;
+      record.setAttribute("aria-hidden", "true");
+    }
+
+    function resetRecordInstantly() {
+      record.classList.remove("is-open", "is-close");
+      record.style.transform = "translateY(116%)";
+
+      [...fileNodes.values()].forEach(node => node.classList.remove("active"));
+      currentOpenName = null;
+      currentScene = null;
+
+      requestAnimationFrame(() => {
+        record.style.transform = "";
+      });
+    }
+
+    function getScene(t) {
+      return timeline.find(scene => t >= scene.start && t < scene.end);
+    }
+
+    function tick(now) {
+      const elapsed = ((now - startedAt) / 1000) % duration;
+      const seconds = Math.floor(elapsed);
+      timecode.textContent = `0:${String(seconds).padStart(2, "0")} / 0:11`;
+
+      /*
+        Loop boundary reset.
+      */
+      if (elapsed < 0.05 && currentScene !== null) {
+        resetRecordInstantly();
+      }
+
+      const scene = getScene(elapsed);
+
+      if (scene && scene !== currentScene) {
+        currentScene = scene;
+
+        if (scene.action === "open") {
+          openRecord(scene);
+        } else {
+          closeRecord();
+        }
+      }
+
+      requestAnimationFrame(tick);
     }
 
     requestAnimationFrame(tick);
-  }
-
-  // Start after brief setup
-  setTimeout(() => {
-    applyScene(118); // initial scene at load
-    tick();
-  }, 50);
-</script>
-
+  </script>
 </body>
 </html>

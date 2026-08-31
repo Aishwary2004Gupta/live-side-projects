@@ -1,420 +1,451 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Brush Torus</title>
-<style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { background: #e8dbc8; overflow: hidden; width: 100vw; height: 100vh; }
-    canvas { display: block; }
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Oil Paint Brush Stroke Spiral</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            user-select: none;
+        }
+
+        body {
+            background: #ede3d2;
+            overflow: hidden;
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        #canvas-container {
+            width: 100%;
+            height: 100%;
+            position: relative;
+            background: radial-gradient(circle at 50% 48%, #f8f1e5 0%, #ece0cf 52%, #ddcfba 100%);
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+            cursor: grab;
+        }
+
+        canvas:active {
+            cursor: grabbing;
+        }
+
+        .paper-grain {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            opacity: 0.16;
+            mix-blend-mode: multiply;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+        }
+
+        .hint {
+            position: absolute;
+            bottom: 22px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: #8f7d6a;
+            font-size: 12px;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            font-weight: 600;
+            pointer-events: none;
+            opacity: 0.65;
+            transition: opacity 0.4s ease;
+        }
+    </style>
 </head>
 <body>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-<script>
-// ─── Scene ────────────────────────────────────────────────────────────────────
-const scene = new THREE.Scene();
-scene.background = new THREE.Color(0xe8dbc8);
+    <div id="canvas-container">
+        <div class="paper-grain"></div>
+        <div class="hint" id="hint">Drag to inspect &bull; Scroll to zoom</div>
+    </div>
 
-const camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 1, 6000);
-camera.position.set(0, 100, 760);
-camera.lookAt(0, 0, 0);
+    <!-- Three.js and OrbitControls -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
 
-const renderer = new THREE.WebGLRenderer({ antialias: true });
-renderer.setSize(window.innerWidth, window.innerHeight);
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-document.body.appendChild(renderer.domElement);
+    <script>
+        // ─── Scene & Camera Setup ─────────────────────────────────────────────────────
+        const container = document.getElementById('canvas-container');
+        const scene = new THREE.Scene();
 
-// ─── Lighting ─────────────────────────────────────────────────────────────────
-scene.add(new THREE.AmbientLight(0xffffff, 0.55));
+        const camera = new THREE.PerspectiveCamera(42, window.innerWidth / window.innerHeight, 10, 3000);
+        camera.position.set(0, 10, 620);
 
-const dl1 = new THREE.DirectionalLight(0xfff8f0, 1.5);
-dl1.position.set(250, 400, 380);
-scene.add(dl1);
+        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: "high-performance" });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        renderer.toneMapping = THREE.ACESFilmicToneMapping;
+        renderer.toneMappingExposure = 1.15;
+        container.appendChild(renderer.domElement);
 
-const dl2 = new THREE.DirectionalLight(0xbbd4ff, 0.8);
-dl2.position.set(-350, -150, 200);
-scene.add(dl2);
+        // ─── Orbit Controls ───────────────────────────────────────────────────────────
+        const controls = new THREE.OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.05;
+        controls.rotateSpeed = 0.75;
+        controls.minDistance = 220;
+        controls.maxDistance = 1100;
+        controls.autoRotate = true;
+        controls.autoRotateSpeed = 0.45;
 
-const pl = new THREE.PointLight(0xff9955, 0.6, 1500);
-pl.position.set(-150, 300, 500);
-scene.add(pl);
-
-// ─── Palette: Blue → Purple → Magenta → Red → Orange ──────────────────────────
-const PALETTE_COLORS = [
-    new THREE.Color(0x2233ff),
-    new THREE.Color(0x6622dd),
-    new THREE.Color(0xaa22bb),
-    new THREE.Color(0xdd2299),
-    new THREE.Color(0xee3344),
-    new THREE.Color(0xee6633),
-    new THREE.Color(0xdd9933),
-    new THREE.Color(0x4422cc),
-    new THREE.Color(0x2244ee),
-];
-
-function samplePalette(t) {
-    const n = PALETTE_COLORS.length - 1;
-    const i = Math.min(Math.floor(t * n), n - 1);
-    const f = t * n - i;
-    return PALETTE_COLORS[i].clone().lerp(PALETTE_COLORS[i + 1], f);
-}
-
-// ─── Seeded random ────────────────────────────────────────────────────────────
-let _seed = 1337;
-function rng() {
-    _seed = (_seed * 1664525 + 1013904223) >>> 0;
-    return _seed / 0xffffffff;
-}
-
-// ─── Build dense brush-stroke torus ──────────────────────────────────────────
-/**
- * Creates a dense mass of brush fiber tubes forming a torus.
- * Fibers are closely packed (like bristles in a paintbrush cross-section)
- * and flow parallel around the main torus ring — matching the reference images.
- */
-function buildBrushTorus() {
-    const R = 195;       // Main ring radius
-    const r = 70;        // Tube cross-section radius
-    const nFibers = 160; // Number of fibers (bristles)
-    const nSeg = 180;    // Path segments per fiber
-    const tubeSeg = 8;   // Circumferential tube segments
-
-    const group = new THREE.Group();
-
-    for (let fi = 0; fi < nFibers; fi++) {
-        const fiberT = fi / nFibers;
-
-        // Position fiber within the torus tube cross-section
-        // Use concentric-ring packing for dense coverage
-        // phi: angular position within cross-section
-        // rho: radial distance from tube center (0=center, 1=edge)
-        const phi = rng() * Math.PI * 2;
-        const rho = Math.sqrt(rng());          // uniform in circle
-        const fibR = rho * r;
-
-        // Gentle spiral twist (low helix turns = mostly parallel fibers)
-        // Low values (0-1) keep fibers mostly parallel → dense painted look
-        const helixTwist = (rng() * 2.0 - 1.0) * 0.8;
-
-        // Per-fiber subtle waviness
-        const wA1 = (rng() * 0.08 + 0.02);
-        const wF1 = 1.0 + rng() * 3.0;
-        const wP1 = rng() * Math.PI * 2;
-        const wA2 = (rng() * 0.04);
-        const wF2 = 2.0 + rng() * 4.0;
-        const wP2 = rng() * Math.PI * 2;
-
-        const points = [];
-        for (let j = 0; j <= nSeg; j++) {
-            const v = (j / nSeg) * Math.PI * 2;
-            const cosV = Math.cos(v);
-            const sinV = Math.sin(v);
-
-            // Slowly rotating angle in the cross-section (helix)
-            const a = phi + helixTwist * v;
-            const cosA = Math.cos(a);
-            const sinA = Math.sin(a);
-
-            // Waviness
-            const wave = wA1 * Math.sin(wF1 * v + wP1) + wA2 * Math.sin(wF2 * v + wP2);
-
-            // Radial offset modulated by wave
-            const rEff = fibR * (1.0 + wave * 0.5);
-
-            // Standard torus parametric with frenet frame:
-            // Tube cross-section lives in the plane spanned by:
-            //   e_r = (cosV, sinV, 0) — radial outward from torus axis
-            //   e_z = (0, 0, 1)       — vertical axis
-            const x = (R + rEff * cosA) * cosV;
-            const y = (R + rEff * cosA) * sinV;
-            const z = rEff * sinA + wave * r * 0.15;
-
-            points.push(new THREE.Vector3(x, y, z));
-        }
-
-        const curve = new THREE.CatmullRomCurve3(points, true, 'catmullrom', 0.4);
-
-        // Fiber tube radius: core fibers thicker, edge fibers slightly thinner
-        // This creates the dense packed look of the references
-        const thisTubeR = (4.5 + rho * 3.0) * (0.85 + rng() * 0.3);
-
-        const geom = new THREE.TubeGeometry(curve, nSeg * 2, thisTubeR, tubeSeg, true);
-
-        // Color: blend along palette, with slight per-fiber color variation
-        const cT = (fiberT + rng() * 0.12 - 0.06 + 1.0) % 1.0;
-        const color = samplePalette(cT);
-
-        // Brightness variation to simulate fiber texture
-        const bright = 0.7 + rng() * 0.55;
-        color.multiplyScalar(bright);
-
-        const opacity = 0.55 + rng() * 0.42;
-
-        const mat = new THREE.MeshPhongMaterial({
-            color,
-            shininess: 20 + rng() * 50,
-            specular: new THREE.Color(0xaabbff),
-            transparent: true,
-            opacity,
-            depthWrite: opacity > 0.88,
-            side: THREE.FrontSide,
+        let userInteracting = false;
+        controls.addEventListener('start', () => {
+            userInteracting = true;
+            controls.autoRotate = false;
+            document.getElementById('hint').style.opacity = '0';
         });
 
-        group.add(new THREE.Mesh(geom, mat));
-    }
+        // ─── Rich Lighting for Saturated Oil Paint ────────────────────────────────────
+        const ambientLight = new THREE.AmbientLight(0xfff5ea, 0.75);
+        scene.add(ambientLight);
 
-    return group;
-}
+        // Top right key light (creates specular gloss along bristle ridges)
+        const keyLight = new THREE.DirectionalLight(0xfffcf0, 1.55);
+        keyLight.position.set(280, 420, 380);
+        scene.add(keyLight);
 
-_seed = 1337;
-const torusGroup = buildBrushTorus();
+        // Cool fill light from left
+        const fillLight = new THREE.DirectionalLight(0x8cb0ff, 0.9);
+        fillLight.position.set(-360, 60, 260);
+        scene.add(fillLight);
 
-// Tilt perspective matching reference images
-torusGroup.rotation.x = 0.42;
-torusGroup.rotation.z = -0.10;
-scene.add(torusGroup);
+        // Warm backlight / Rim light
+        const rimLight = new THREE.DirectionalLight(0xff4477, 0.85);
+        rimLight.position.set(60, -320, -320);
+        scene.add(rimLight);
 
-// ─── Animate ──────────────────────────────────────────────────────────────────
-let t = 0;
-function animate() {
-    requestAnimationFrame(animate);
-    t += 0.0032;
-    torusGroup.rotation.y = t * 0.15;
-    torusGroup.rotation.x = 0.42 + Math.sin(t * 0.09) * 0.06;
-    renderer.render(scene, camera);
-}
-animate();
+        // Soft internal warmth
+        const innerLight = new THREE.PointLight(0xff7722, 0.9, 700);
+        innerLight.position.set(0, 0, 0);
+        scene.add(innerLight);
 
-window.addEventListener('resize', () => {
-    camera.aspect = window.innerWidth / window.innerHeight;
-    camera.updateProjectionMatrix();
-    renderer.setSize(window.innerWidth, window.innerHeight);
-});
-</script>
+        // ─── Deterministic RNG ────────────────────────────────────────────────────────
+        let seed = 884123;
+        function rnd() {
+            seed = (seed * 1664525 + 1013904223) & 0xffffffff;
+            return (seed >>> 0) / 0xffffffff;
+        }
+
+        function rndRange(min, max) {
+            return min + rnd() * (max - min);
+        }
+
+        // ─── Saturated Oil Pigment Palette ────────────────────────────────────────────
+        // Royal Cobalt Blue -> Indigo -> Electric Violet -> Deep Magenta -> Ruby Crimson -> Flaming Orange -> Warm Amber -> Golden Ochre
+        const PALETTE = [
+            { pos: 0.00, color: new THREE.Color(0x102fe0) }, // Royal Cobalt Blue
+            { pos: 0.14, color: new THREE.Color(0x1c4ef8) }, // Vivid Blue
+            { pos: 0.28, color: new THREE.Color(0x4a18cb) }, // Deep Indigo Purple
+            { pos: 0.42, color: new THREE.Color(0x840fb0) }, // Electric Violet
+            { pos: 0.55, color: new THREE.Color(0xbf0a74) }, // Deep Magenta
+            { pos: 0.68, color: new THREE.Color(0xdf113d) }, // Ruby Crimson Red
+            { pos: 0.80, color: new THREE.Color(0xee3d0c) }, // Flaming Red-Orange
+            { pos: 0.92, color: new THREE.Color(0xf4760a) }, // Warm Amber Orange
+            { pos: 1.00, color: new THREE.Color(0xeaa014) }, // Golden Ochre
+        ];
+
+        function getPaintColor(t) {
+            t = Math.max(0, Math.min(1, t));
+            for (let i = 0; i < PALETTE.length - 1; i++) {
+                if (t >= PALETTE[i].pos && t <= PALETTE[i + 1].pos) {
+                    const localT = (t - PALETTE[i].pos) / (PALETTE[i + 1].pos - PALETTE[i].pos);
+                    return PALETTE[i].color.clone().lerp(PALETTE[i + 1].color, localT);
+                }
+            }
+            return PALETTE[PALETTE.length - 1].color.clone();
+        }
+
+        // ─── Mathematical Spine of the 3D Coiled Brush Stroke ─────────────────────────
+        const SPHERE_R = 195;
+        const TOTAL_TURNS = 3.15;
+
+        function getSpineData(t) {
+            const theta = t * TOTAL_TURNS * Math.PI * 2 + 1.65;
+
+            // Latitude progression
+            const lat = 1.05 - t * 2.10;
+            const cosLat = Math.cos(lat);
+            const sinLat = Math.sin(lat);
+
+            // Ellipsoid radii
+            const Rx = SPHERE_R * (1.0 + 0.06 * Math.sin(theta * 0.5));
+            const Ry = SPHERE_R * 1.06;
+            const Rz = SPHERE_R * (1.0 + 0.05 * Math.cos(theta * 0.5));
+
+            let x = Rx * cosLat * Math.cos(theta);
+            let y = Ry * sinLat;
+            let z = Rz * cosLat * Math.sin(theta);
+
+            // Smooth brush flick lead-in at top-left
+            if (t < 0.08) {
+                const tail = Math.pow(1 - t / 0.08, 1.5);
+                x -= tail * 35;
+                y += tail * 30;
+                z -= tail * 15;
+            }
+
+            const sphereNorm = new THREE.Vector3(x / Rx, y / Ry, z / Rz).normalize();
+
+            return {
+                pos: new THREE.Vector3(x, y, z),
+                sphereNorm: sphereNorm
+            };
+        }
+
+        // ─── Build High-Fidelity 3D Brush Artwork ─────────────────────────────────────
+        function buildBrushStroke() {
+            const masterGroup = new THREE.Group();
+
+            const SPINE_SAMPLES = 360;
+            const spineData = [];
+            const spinePoints = [];
+
+            for (let i = 0; i <= SPINE_SAMPLES; i++) {
+                const data = getSpineData(i / SPINE_SAMPLES);
+                spineData.push(data);
+                spinePoints.push(data.pos);
+            }
+
+            const spineCurve = new THREE.CatmullRomCurve3(spinePoints, false, 'centripetal', 0.45);
+
+            // Precompute smooth Frenet reference frames
+            const spineFrames = [];
+            for (let i = 0; i <= SPINE_SAMPLES; i++) {
+                const t = i / SPINE_SAMPLES;
+                const pt = spinePoints[i];
+                const tangent = spineCurve.getTangentAt(t).normalize();
+                const sphereNorm = spineData[i].sphereNorm;
+
+                // Binormal is across the wide brush ribbon
+                const binormal = new THREE.Vector3().crossVectors(tangent, sphereNorm).normalize();
+                // Normal is perpendicular to the ribbon face
+                const normal = new THREE.Vector3().crossVectors(binormal, tangent).normalize();
+
+                spineFrames.push({ pt, tangent, normal, binormal });
+            }
+
+            function getFrameAt(t) {
+                const idxFloat = t * SPINE_SAMPLES;
+                const idx = Math.min(Math.floor(idxFloat), SPINE_SAMPLES - 1);
+                const frac = idxFloat - idx;
+                const f1 = spineFrames[idx];
+                const f2 = spineFrames[idx + 1] || f1;
+
+                return {
+                    pt: f1.pt.clone().lerp(f2.pt, frac),
+                    tangent: f1.tangent.clone().lerp(f2.tangent, frac).normalize(),
+                    normal: f1.normal.clone().lerp(f2.normal, frac).normalize(),
+                    binormal: f1.binormal.clone().lerp(f2.binormal, frac).normalize(),
+                };
+            }
+
+            // Bold wide ribbon profile (54 to 84 units)
+            function getWidth(t) {
+                if (t < 0.08) {
+                    return 30 + (t / 0.08) * 36;
+                }
+                const taper = Math.sin(t * Math.PI);
+                return 54 + taper * 30; // 54 to 84 units wide
+            }
+
+            // Ribbon thickness
+            function getThickness(t) {
+                return 16 + Math.sin(t * Math.PI) * 12;
+            }
+
+            // ── 1. Volumetric Under-Ribbon Paint Body Layers ────────────────────────
+            const NUM_LAYERS = 4;
+            const RIBBON_SEGS = 280;
+
+            for (let l = 0; l < NUM_LAYERS; l++) {
+                const ribbonGeom = new THREE.PlaneGeometry(1, 1, 20, RIBBON_SEGS);
+                const posAttr = ribbonGeom.attributes.position;
+                const colAttr = new Float32Array(posAttr.count * 3);
+
+                const layerH = (l - 1.5) * 4.2;
+                const widthScale = 0.95 - l * 0.04;
+
+                for (let r = 0; r <= RIBBON_SEGS; r++) {
+                    const t = r / RIBBON_SEGS;
+                    const frame = getFrameAt(t);
+                    const w = getWidth(t) * widthScale;
+
+                    for (let c = 0; c <= 20; c++) {
+                        const vIdx = r * 21 + c;
+                        const u = (c / 20) * 2 - 1; // [-1, 1] across width
+
+                        const vx = frame.pt.x + frame.binormal.x * (u * w * 0.5) + frame.normal.x * layerH;
+                        const vy = frame.pt.y + frame.binormal.y * (u * w * 0.5) + frame.normal.y * layerH;
+                        const vz = frame.pt.z + frame.binormal.z * (u * w * 0.5) + frame.normal.z * layerH;
+
+                        posAttr.setXYZ(vIdx, vx, vy, vz);
+
+                        // Gradient: Royal Blue on outer top rim (u = 1) -> Magenta -> Amber Orange (u = -1)
+                        const colorT = (1 - u) * 0.5;
+                        const color = getPaintColor(colorT);
+                        colAttr[vIdx * 3] = color.r;
+                        colAttr[vIdx * 3 + 1] = color.g;
+                        colAttr[vIdx * 3 + 2] = color.b;
+                    }
+                }
+
+                ribbonGeom.setAttribute('color', new THREE.BufferAttribute(colAttr, 3));
+                ribbonGeom.computeVertexNormals();
+
+                const ribbonMat = new THREE.MeshPhongMaterial({
+                    vertexColors: true,
+                    specular: new THREE.Color(0xffffff),
+                    shininess: 85,
+                    transparent: true,
+                    opacity: 0.75,
+                    side: THREE.DoubleSide,
+                    depthWrite: false
+                });
+
+                masterGroup.add(new THREE.Mesh(ribbonGeom, ribbonMat));
+            }
+
+            // ── 2. Dense Individual Bristle Strands (380 Bristles) ───────────────────
+            const NUM_BRISTLES = 380;
+            const BRISTLE_SEGS = 200;
+
+            for (let bi = 0; bi < NUM_BRISTLES; bi++) {
+                const uNorm = (bi / (NUM_BRISTLES - 1)) * 2 - 1; // [-1 to 1]
+
+                // Cross-sectional distribution
+                const uOffset = Math.sign(uNorm) * Math.pow(Math.abs(uNorm), 0.90) + rndRange(-0.02, 0.02);
+                const vOffset = rndRange(-0.48, 0.48) * Math.sqrt(1 - Math.min(1, Math.abs(uOffset) * 0.85));
+
+                // Pigment streak mapping: Blue on outer edge, Orange on inner edge
+                let colT = (1 - uOffset) * 0.5;
+                colT = Math.max(0, Math.min(1, colT + rndRange(-0.05, 0.05)));
+                const bristleColor = getPaintColor(colT);
+
+                // Rich brightness & oil paint luster
+                const brightness = rndRange(0.88, 1.32);
+                bristleColor.multiplyScalar(brightness);
+
+                // Stray bristle characteristics
+                const isStray = rnd() > 0.88;
+                const spread = isStray ? rndRange(1.08, 1.35) : 1.0;
+
+                // Natural frayed bristle start/end
+                const startT = (bi < 50 || rnd() > 0.80) ? rndRange(0.0, 0.05) : 0.0;
+                const endT = (bi > NUM_BRISTLES - 50 || rnd() > 0.82) ? rndRange(0.95, 1.0) : 1.0;
+
+                // Micro waviness
+                const waveFreq = rndRange(3, 8);
+                const wavePhase = rndRange(0, Math.PI * 2);
+                const waveAmp = rndRange(0.6, 2.4);
+
+                const points = [];
+                const steps = Math.floor(BRISTLE_SEGS * (endT - startT));
+
+                for (let si = 0; si <= steps; si++) {
+                    const localT = si / steps;
+                    const t = startT + localT * (endT - startT);
+                    const frame = getFrameAt(t);
+
+                    const w = getWidth(t) * spread;
+                    const th = getThickness(t) * spread;
+
+                    const wave = Math.sin(t * Math.PI * waveFreq + wavePhase) * waveAmp;
+
+                    // Smooth bristle fanning at the top brush flick
+                    let fanning = 1.0;
+                    if (t < 0.08) {
+                        fanning = 1.0 + Math.pow(1 - t / 0.08, 1.5) * 0.45 * (uOffset);
+                    }
+
+                    let px = frame.pt.x + frame.binormal.x * (uOffset * w * 0.5 * fanning + wave) + frame.normal.x * (vOffset * th * 0.5);
+                    let py = frame.pt.y + frame.binormal.y * (uOffset * w * 0.5 * fanning + wave) + frame.normal.y * (vOffset * th * 0.5);
+                    let pz = frame.pt.z + frame.binormal.z * (uOffset * w * 0.5 * fanning + wave) + frame.normal.z * (vOffset * th * 0.5);
+
+                    points.push(new THREE.Vector3(px, py, pz));
+                }
+
+                if (points.length > 3) {
+                    const curve = new THREE.CatmullRomCurve3(points, false, 'centripetal', 0.4);
+                    const radius = isStray ? rndRange(0.55, 0.95) : rndRange(0.90, 1.95);
+                    const geom = new THREE.TubeGeometry(curve, Math.floor(steps * 1.35), radius, 6, false);
+
+                    const opacity = isStray ? rndRange(0.55, 0.78) : rndRange(0.82, 0.98);
+                    const specular = bristleColor.clone().lerp(new THREE.Color(0xffffff), 0.70);
+
+                    const mat = new THREE.MeshPhongMaterial({
+                        color: bristleColor,
+                        specular: specular,
+                        shininess: rndRange(60, 120),
+                        transparent: true,
+                        opacity: opacity,
+                        depthWrite: opacity > 0.88,
+                        side: THREE.FrontSide
+                    });
+
+                    masterGroup.add(new THREE.Mesh(geom, mat));
+                }
+            }
+
+            return masterGroup;
+        }
+
+        // ─── Assemble & Position Artwork ──────────────────────────────────────────────
+        seed = 884123;
+        const brushArt = buildBrushStroke();
+
+        // Exact 3D tilt matching reference image perspective
+        brushArt.position.set(0, -12, 0);
+        brushArt.rotation.x = 0.52;
+        brushArt.rotation.y = -0.40;
+        brushArt.rotation.z = -0.24;
+        scene.add(brushArt);
+
+        // ─── Animation Loop ───────────────────────────────────────────────────────────
+        let clock = new THREE.Clock();
+
+        function animate() {
+            requestAnimationFrame(animate);
+
+            const elapsed = clock.getElapsedTime();
+
+            if (!userInteracting) {
+                // Subtle organic floating motion
+                brushArt.rotation.y = -0.44 + Math.sin(elapsed * 0.38) * 0.08;
+                brushArt.rotation.x = 0.56 + Math.cos(elapsed * 0.28) * 0.05;
+                brushArt.rotation.z = -0.26 + Math.sin(elapsed * 0.22) * 0.04;
+                brushArt.position.y = Math.sin(elapsed * 0.7) * 5;
+            }
+
+            controls.update();
+            renderer.render(scene, camera);
+        }
+
+        animate();
+
+        // ─── Window Resize Handler ───────────────────────────────────────────────────
+        window.addEventListener('resize', () => {
+            const w = window.innerWidth;
+            const h = window.innerHeight;
+            camera.aspect = w / h;
+            camera.updateProjectionMatrix();
+            renderer.setSize(w, h);
+        });
+    </script>
 </body>
 </html>
-
-<script>
-// ─── Scene Setup ─────────────────────────────────────────────────────────────
-const scene = new THREE.Scene();
-scene.background = new THREE.Color(0xe8dbc8);
-
-const W = window.innerWidth, H = window.innerHeight;
-const camera = new THREE.PerspectiveCamera(50, W / H, 1, 6000);
-camera.position.set(0, 80, 820);
-camera.lookAt(0, 0, 0);
-
-const renderer = new THREE.WebGLRenderer({ antialias: true });
-renderer.setSize(W, H);
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-document.body.appendChild(renderer.domElement);
-
-// ─── Lighting ─────────────────────────────────────────────────────────────────
-scene.add(new THREE.AmbientLight(0xffffff, 0.52));
-
-const dl1 = new THREE.DirectionalLight(0xfff8f0, 1.4);
-dl1.position.set(300, 450, 350);
-scene.add(dl1);
-
-const dl2 = new THREE.DirectionalLight(0xc8d8ff, 0.75);
-dl2.position.set(-380, -120, 220);
-scene.add(dl2);
-
-const pl = new THREE.PointLight(0xff8844, 0.55, 1400);
-pl.position.set(-180, 280, 450);
-scene.add(pl);
-
-// ─── Seeded pseudo-random (for reproducibility) ───────────────────────────────
-let seed = 42;
-function rand() {
-    seed = (seed * 1664525 + 1013904223) & 0xffffffff;
-    return (seed >>> 0) / 0xffffffff;
-}
-
-// ─── Color Palettes ────────────────────────────────────────────────────────────
-const PALETTES = [
-    // Blue-purple-magenta-red-orange (reference image 1 & 2)
-    [0x3344ee, 0x5522dd, 0x9922cc, 0xcc2299, 0xee4433, 0xdd6622, 0xaa3366],
-    // Blue-orange-red (reference image 2)
-    [0x4466ff, 0x3388ff, 0xff5533, 0xff7722, 0xcc4411, 0x6633cc, 0xff4466],
-    // Purple-lavender-blue (reference image 3)
-    [0x9933ee, 0xaa55ff, 0xcc88ff, 0x3366ee, 0x5599ff, 0xdd44ff, 0xffffff],
-];
-
-function lerpColor(c1, c2, t) {
-    return new THREE.Color(
-        c1.r + (c2.r - c1.r) * t,
-        c1.g + (c2.g - c1.g) * t,
-        c1.b + (c2.b - c1.b) * t
-    );
-}
-
-function samplePalette(palette, t) {
-    const colors = palette.map(h => new THREE.Color(h));
-    const idx = Math.min(Math.floor(t * (colors.length - 1)), colors.length - 2);
-    const alpha = (t * (colors.length - 1)) - idx;
-    return lerpColor(colors[idx], colors[idx + 1], alpha);
-}
-
-// ─── Brush Torus Builder ──────────────────────────────────────────────────────
-/**
- * Generates a volumetric brush-stroke torus made of many helical fiber strands.
- * Each strand follows a helical path around the torus tube, creating the
- * spiraling paintbrush fiber look from the reference images.
- */
-function buildBrushTorus(paletteHex, opts = {}) {
-    const {
-        R = 210,          // Major radius (center of tube ring)
-        r = 62,           // Minor radius (tube cross-section size)
-        numFibers = 130,  // Total number of fiber strands
-        tubeR = 4.5,      // Max fiber tube radius
-        seg = 160,        // Path segments per fiber
-        tubeSeg = 9,      // Circumferential segments per fiber tube
-    } = opts;
-
-    const group = new THREE.Group();
-
-    for (let fi = 0; fi < numFibers; fi++) {
-        const fiberT = fi / numFibers;
-
-        // Fiber starting angle within the tube cross-section
-        const phi0 = rand() * Math.PI * 2;
-        // Radial fraction within tube (sqrt gives uniform area distribution)
-        const radFrac = Math.sqrt(rand());
-        const fiberR = radFrac * r;
-
-        // Helix winding rate around tube (how many times the fiber spirals)
-        // Between 0 and 2 full revolutions of the tube as the torus completes
-        const helixTurns = (rand() * 2 - 1) * 2.5;
-
-        // Individual waviness
-        const waveAmp = 0.05 + rand() * 0.18;
-        const waveFreq1 = 1 + rand() * 4;
-        const waveFreq2 = 2 + rand() * 5;
-        const wavePhase1 = rand() * Math.PI * 2;
-        const wavePhase2 = rand() * Math.PI * 2;
-
-        const points = [];
-        for (let j = 0; j <= seg; j++) {
-            const v = (j / seg) * Math.PI * 2;  // Progress around the torus ring
-
-            // Helical angle in the tube cross-section
-            const phi = phi0 + helixTurns * v;
-
-            // Waviness modulation
-            const wave = waveAmp * (
-                Math.sin(waveFreq1 * v + wavePhase1) +
-                0.5 * Math.sin(waveFreq2 * v + wavePhase2)
-            );
-
-            // Local tube radial distance (with waviness)
-            const rLocal = fiberR * (1 + wave * 0.4);
-
-            // Torus coordinate (frenet frame approach)
-            const cosV = Math.cos(v), sinV = Math.sin(v);
-            const cosPhi = Math.cos(phi), sinPhi = Math.sin(phi);
-
-            // Center of tube at this v angle
-            const cx = R * cosV;
-            const cy = R * sinV;
-
-            // Radial outward direction from torus center (in XY plane)
-            const nx = cosV, ny = sinV, nz = 0;
-            // Tube's "up" direction: perpendicular to n in the XY plane and Z
-            // For a torus, this is the Z axis rotated into the local frame
-            // Local frame: e_r (radial outward), e_z (vertical/axial), e_t (tangential)
-            // Tube cross-section: e_r (radial outward from ring axis) = cosV*x + sinV*y
-            //                    e_z = z-axis
-            // Fiber in cross-section: rLocal*(cosPhi * e_r + sinPhi * e_z)
-
-            const x = cx + rLocal * cosPhi * nx + rLocal * sinPhi * 0;
-            const y = cy + rLocal * cosPhi * ny + rLocal * sinPhi * 0;
-            const z = rLocal * sinPhi + wave * r * 0.2;
-
-            // Small radial jitter outward
-            const rJitter = 1 + wave * 0.12;
-            const dist = Math.sqrt(x * x + y * y);
-            const scale = dist > 0 ? (R + (rLocal * cosPhi) * rJitter) / dist : 1;
-
-            points.push(new THREE.Vector3(
-                x,
-                y,
-                z
-            ));
-        }
-
-        // Close the curve
-        const curve = new THREE.CatmullRomCurve3(points, true, 'catmullrom', 0.5);
-
-        // Fiber tube radius: thicker fibers near tube center, thinner at edges
-        const thisFiberR = tubeR * (0.3 + radFrac * 0.85);
-
-        const geometry = new THREE.TubeGeometry(curve, seg * 2, thisFiberR, tubeSeg, true);
-
-        // Color: interpolated along palette based on fiber position + some random shift
-        const colorT = (fiberT + rand() * 0.15) % 1;
-        const color = samplePalette(paletteHex, colorT);
-        const brightness = 0.68 + rand() * 0.58;
-        color.multiplyScalar(brightness);
-
-        const opacity = 0.48 + rand() * 0.47;
-
-        const mat = new THREE.MeshPhongMaterial({
-            color,
-            shininess: 25 + rand() * 55,
-            specular: new THREE.Color(0x9999ff),
-            transparent: true,
-            opacity,
-            depthWrite: opacity > 0.85,
-            side: THREE.FrontSide,
-        });
-
-        group.add(new THREE.Mesh(geometry, mat));
-    }
-
-    return group;
-}
-
-// ─── Build Scene ──────────────────────────────────────────────────────────────
-// Reset seed for deterministic results
-seed = 42;
-
-const torusGroup = buildBrushTorus(PALETTES[0], {
-    R: 215, r: 65,
-    numFibers: 130,
-    tubeR: 4.5,
-    seg: 160,
-    tubeSeg: 9,
-});
-
-// Tilted perspective like reference images
-torusGroup.rotation.x = 0.38;
-torusGroup.rotation.z = -0.12;
-scene.add(torusGroup);
-
-// ─── Animation ────────────────────────────────────────────────────────────────
-let time = 0;
-function animate() {
-    requestAnimationFrame(animate);
-    time += 0.0035;
-
-    // Slow rotation for a living screensaver feel
-    torusGroup.rotation.y = time * 0.16;
-    torusGroup.rotation.x = 0.38 + Math.sin(time * 0.10) * 0.07;
-
-    renderer.render(scene, camera);
-}
-animate();
-
-// ─── Resize ──────────────────────────────────────────────────────────────────
-window.addEventListener('resize', () => {
-    const w = window.innerWidth, h = window.innerHeight;
-    camera.aspect = w / h;
-    camera.updateProjectionMatrix();
-    renderer.setSize(w, h);
-});
-</script>
-</body>
-</html>

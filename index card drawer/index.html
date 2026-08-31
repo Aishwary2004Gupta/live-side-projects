@@ -6,17 +6,235 @@
 <title>Brush Torus</title>
 <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body {
-        background: #e8dbc8;
-        overflow: hidden;
-        width: 100vw;
-        height: 100vh;
-    }
+    body { background: #e8dbc8; overflow: hidden; width: 100vw; height: 100vh; }
     canvas { display: block; }
 </style>
 </head>
 <body>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+// ─── Scene Setup ─────────────────────────────────────────────────────────────
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0xe8dbc8);
+
+const W = window.innerWidth, H = window.innerHeight;
+const camera = new THREE.PerspectiveCamera(50, W / H, 1, 6000);
+camera.position.set(0, 80, 820);
+camera.lookAt(0, 0, 0);
+
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setSize(W, H);
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+document.body.appendChild(renderer.domElement);
+
+// ─── Lighting ─────────────────────────────────────────────────────────────────
+scene.add(new THREE.AmbientLight(0xffffff, 0.52));
+
+const dl1 = new THREE.DirectionalLight(0xfff8f0, 1.4);
+dl1.position.set(300, 450, 350);
+scene.add(dl1);
+
+const dl2 = new THREE.DirectionalLight(0xc8d8ff, 0.75);
+dl2.position.set(-380, -120, 220);
+scene.add(dl2);
+
+const pl = new THREE.PointLight(0xff8844, 0.55, 1400);
+pl.position.set(-180, 280, 450);
+scene.add(pl);
+
+// ─── Seeded pseudo-random (for reproducibility) ───────────────────────────────
+let seed = 42;
+function rand() {
+    seed = (seed * 1664525 + 1013904223) & 0xffffffff;
+    return (seed >>> 0) / 0xffffffff;
+}
+
+// ─── Color Palettes ────────────────────────────────────────────────────────────
+const PALETTES = [
+    // Blue-purple-magenta-red-orange (reference image 1 & 2)
+    [0x3344ee, 0x5522dd, 0x9922cc, 0xcc2299, 0xee4433, 0xdd6622, 0xaa3366],
+    // Blue-orange-red (reference image 2)
+    [0x4466ff, 0x3388ff, 0xff5533, 0xff7722, 0xcc4411, 0x6633cc, 0xff4466],
+    // Purple-lavender-blue (reference image 3)
+    [0x9933ee, 0xaa55ff, 0xcc88ff, 0x3366ee, 0x5599ff, 0xdd44ff, 0xffffff],
+];
+
+function lerpColor(c1, c2, t) {
+    return new THREE.Color(
+        c1.r + (c2.r - c1.r) * t,
+        c1.g + (c2.g - c1.g) * t,
+        c1.b + (c2.b - c1.b) * t
+    );
+}
+
+function samplePalette(palette, t) {
+    const colors = palette.map(h => new THREE.Color(h));
+    const idx = Math.min(Math.floor(t * (colors.length - 1)), colors.length - 2);
+    const alpha = (t * (colors.length - 1)) - idx;
+    return lerpColor(colors[idx], colors[idx + 1], alpha);
+}
+
+// ─── Brush Torus Builder ──────────────────────────────────────────────────────
+/**
+ * Generates a volumetric brush-stroke torus made of many helical fiber strands.
+ * Each strand follows a helical path around the torus tube, creating the
+ * spiraling paintbrush fiber look from the reference images.
+ */
+function buildBrushTorus(paletteHex, opts = {}) {
+    const {
+        R = 210,          // Major radius (center of tube ring)
+        r = 62,           // Minor radius (tube cross-section size)
+        numFibers = 130,  // Total number of fiber strands
+        tubeR = 4.5,      // Max fiber tube radius
+        seg = 160,        // Path segments per fiber
+        tubeSeg = 9,      // Circumferential segments per fiber tube
+    } = opts;
+
+    const group = new THREE.Group();
+
+    for (let fi = 0; fi < numFibers; fi++) {
+        const fiberT = fi / numFibers;
+
+        // Fiber starting angle within the tube cross-section
+        const phi0 = rand() * Math.PI * 2;
+        // Radial fraction within tube (sqrt gives uniform area distribution)
+        const radFrac = Math.sqrt(rand());
+        const fiberR = radFrac * r;
+
+        // Helix winding rate around tube (how many times the fiber spirals)
+        // Between 0 and 2 full revolutions of the tube as the torus completes
+        const helixTurns = (rand() * 2 - 1) * 2.5;
+
+        // Individual waviness
+        const waveAmp = 0.05 + rand() * 0.18;
+        const waveFreq1 = 1 + rand() * 4;
+        const waveFreq2 = 2 + rand() * 5;
+        const wavePhase1 = rand() * Math.PI * 2;
+        const wavePhase2 = rand() * Math.PI * 2;
+
+        const points = [];
+        for (let j = 0; j <= seg; j++) {
+            const v = (j / seg) * Math.PI * 2;  // Progress around the torus ring
+
+            // Helical angle in the tube cross-section
+            const phi = phi0 + helixTurns * v;
+
+            // Waviness modulation
+            const wave = waveAmp * (
+                Math.sin(waveFreq1 * v + wavePhase1) +
+                0.5 * Math.sin(waveFreq2 * v + wavePhase2)
+            );
+
+            // Local tube radial distance (with waviness)
+            const rLocal = fiberR * (1 + wave * 0.4);
+
+            // Torus coordinate (frenet frame approach)
+            const cosV = Math.cos(v), sinV = Math.sin(v);
+            const cosPhi = Math.cos(phi), sinPhi = Math.sin(phi);
+
+            // Center of tube at this v angle
+            const cx = R * cosV;
+            const cy = R * sinV;
+
+            // Radial outward direction from torus center (in XY plane)
+            const nx = cosV, ny = sinV, nz = 0;
+            // Tube's "up" direction: perpendicular to n in the XY plane and Z
+            // For a torus, this is the Z axis rotated into the local frame
+            // Local frame: e_r (radial outward), e_z (vertical/axial), e_t (tangential)
+            // Tube cross-section: e_r (radial outward from ring axis) = cosV*x + sinV*y
+            //                    e_z = z-axis
+            // Fiber in cross-section: rLocal*(cosPhi * e_r + sinPhi * e_z)
+
+            const x = cx + rLocal * cosPhi * nx + rLocal * sinPhi * 0;
+            const y = cy + rLocal * cosPhi * ny + rLocal * sinPhi * 0;
+            const z = rLocal * sinPhi + wave * r * 0.2;
+
+            // Small radial jitter outward
+            const rJitter = 1 + wave * 0.12;
+            const dist = Math.sqrt(x * x + y * y);
+            const scale = dist > 0 ? (R + (rLocal * cosPhi) * rJitter) / dist : 1;
+
+            points.push(new THREE.Vector3(
+                x,
+                y,
+                z
+            ));
+        }
+
+        // Close the curve
+        const curve = new THREE.CatmullRomCurve3(points, true, 'catmullrom', 0.5);
+
+        // Fiber tube radius: thicker fibers near tube center, thinner at edges
+        const thisFiberR = tubeR * (0.3 + radFrac * 0.85);
+
+        const geometry = new THREE.TubeGeometry(curve, seg * 2, thisFiberR, tubeSeg, true);
+
+        // Color: interpolated along palette based on fiber position + some random shift
+        const colorT = (fiberT + rand() * 0.15) % 1;
+        const color = samplePalette(paletteHex, colorT);
+        const brightness = 0.68 + rand() * 0.58;
+        color.multiplyScalar(brightness);
+
+        const opacity = 0.48 + rand() * 0.47;
+
+        const mat = new THREE.MeshPhongMaterial({
+            color,
+            shininess: 25 + rand() * 55,
+            specular: new THREE.Color(0x9999ff),
+            transparent: true,
+            opacity,
+            depthWrite: opacity > 0.85,
+            side: THREE.FrontSide,
+        });
+
+        group.add(new THREE.Mesh(geometry, mat));
+    }
+
+    return group;
+}
+
+// ─── Build Scene ──────────────────────────────────────────────────────────────
+// Reset seed for deterministic results
+seed = 42;
+
+const torusGroup = buildBrushTorus(PALETTES[0], {
+    R: 215, r: 65,
+    numFibers: 130,
+    tubeR: 4.5,
+    seg: 160,
+    tubeSeg: 9,
+});
+
+// Tilted perspective like reference images
+torusGroup.rotation.x = 0.38;
+torusGroup.rotation.z = -0.12;
+scene.add(torusGroup);
+
+// ─── Animation ────────────────────────────────────────────────────────────────
+let time = 0;
+function animate() {
+    requestAnimationFrame(animate);
+    time += 0.0035;
+
+    // Slow rotation for a living screensaver feel
+    torusGroup.rotation.y = time * 0.16;
+    torusGroup.rotation.x = 0.38 + Math.sin(time * 0.10) * 0.07;
+
+    renderer.render(scene, camera);
+}
+animate();
+
+// ─── Resize ──────────────────────────────────────────────────────────────────
+window.addEventListener('resize', () => {
+    const w = window.innerWidth, h = window.innerHeight;
+    camera.aspect = w / h;
+    camera.updateProjectionMatrix();
+    renderer.setSize(w, h);
+});
+</script>
+</body>
+</html>
+
 <script>
 // ─── Scene Setup ─────────────────────────────────────────────────────────────
 const scene = new THREE.Scene();

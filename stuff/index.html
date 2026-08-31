@@ -44,22 +44,21 @@
       .scene {
         position: fixed;
         inset: 0;
-        overflow: hidden;
+        overflow: auto;
+        padding: 3rem;
       }
 
-      /* Anchor sits exactly at viewport center; stickers self-center on it */
+      /* Grid layout for stickers */
       .sticker-anchor {
-        position: absolute;
-        top: 50%;
-        left: 50%;
-        width: 0;
-        height: 0;
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+        gap: 2rem;
+        max-width: 1400px;
+        margin: 0 auto;
+        width: 100%;
       }
 
       .sticker {
-        position: absolute;
-        top: 0;
-        left: 0;
         display: flex;
         align-items: center;
         justify-content: center;
@@ -72,6 +71,7 @@
         touch-action: none;
         z-index: 1;
         line-height: 0;
+        height: 140px;
       }
 
       .sticker.dragging {
@@ -87,16 +87,18 @@
       }
 
       .sticker:hover:not(.dragging) .sticker-inner {
-        transform: scale(1.06);
+        transform: scale(1.1);
       }
       .sticker.dragging .sticker-inner {
-        transform: scale(1.2);
+        transform: scale(1.15);
       }
 
       .sticker-art {
         display: block;
-        width: 110px;
-        height: 110px;
+        width: 100%;
+        height: 100%;
+        max-width: 110px;
+        max-height: 110px;
         filter: drop-shadow(0 3px 7px rgba(0, 0, 0, 0.16))
           drop-shadow(0 1px 2px rgba(0, 0, 0, 0.1));
         transition: filter 0.35s ease;
@@ -115,14 +117,24 @@
 
       @media (max-width: 768px) {
         .sticker-art {
-          width: 72px;
-          height: 72px;
+          max-width: 72px;
+          max-height: 72px;
+        }
+        .sticker-anchor {
+          gap: 1rem;
+          grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+        }
+        .sticker {
+          height: 100px;
         }
       }
       @media (min-width: 768px) and (max-width: 1024px) {
         .sticker-art {
-          width: 82px;
-          height: 82px;
+          max-width: 90px;
+          max-height: 90px;
+        }
+        .sticker {
+          height: 120px;
         }
       }
 
@@ -1229,22 +1241,21 @@ m175 -86 c35 -25 70 -98 78 -160 7 -66 -25 -176 -70 -235 -34 -44 -122 -100
       });
 
       function initStickers() {
-        initialConfigs = computeInitials();
         STICKERS.forEach((svg, i) => {
           const el = document.createElement("div");
           el.className = "sticker";
           el.innerHTML = `<div class="sticker-inner">${svg}</div>`;
-          const cfg = initialConfigs[i];
+          
           states.push({
             x: 0,
             y: 0,
             rot: 0,
             scale: 1,
-            baseScale: cfg.scale,
-            restRot: cfg.rotate,
+            baseScale: 1,
+            restRot: 0,
             hw: 55,
             hh: 55,
-            z: 1,
+            z: i + 1,
             dragging: false,
             anim: null,
             vx: 0,
@@ -1252,39 +1263,21 @@ m175 -86 c35 -25 70 -98 78 -160 7 -66 -25 -176 -70 -235 -34 -44 -122 -100
             vr: 0,
             _vs: 0,
           });
+          
           el.style.opacity = "0";
           anchor.appendChild(el);
           els.push(el);
-          renderSticker(i);
-          setupStickerDrag(el, i);
+          
+          // Simple fade in animation
+          setTimeout(() => {
+            el.style.transition = "opacity 0.6s ease, transform 0.6s ease";
+            el.style.opacity = "1";
+          }, 50 + i * 30);
         });
-
-        // Measure after layout so bounds are exact
-        requestAnimationFrame(() => {
-          els.forEach((_, i) => measure(i));
-        });
-
+        
+        // Set up drag for all stickers
         els.forEach((el, i) => {
-          setTimeout(
-            () => {
-              el.style.transition = "opacity 0.45s ease";
-              el.style.opacity = "1";
-              setTimeout(() => {
-                el.style.transition = "";
-              }, 500);
-              const cfg = initialConfigs[i];
-              springAnimate(
-                i,
-                { x: cfg.x, y: cfg.y, rot: cfg.rotate, scale: cfg.scale },
-                {
-                  stiffness: 28 + Math.random() * 18,
-                  damping: 7 + Math.random() * 5,
-                  mass: 1.2 + Math.random() * 0.6,
-                },
-              );
-            },
-            70 + i * 55,
-          );
+          setupStickerDrag(el, i);
         });
       }
 

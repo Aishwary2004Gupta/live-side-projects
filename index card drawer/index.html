@@ -101,13 +101,9 @@
         controls.rotateSpeed = 0.75;
         controls.minDistance = 220;
         controls.maxDistance = 1100;
-        controls.autoRotate = true;
-        controls.autoRotateSpeed = 0.45;
+        controls.autoRotate = false;
 
-        let userInteracting = false;
         controls.addEventListener('start', () => {
-            userInteracting = true;
-            controls.autoRotate = false;
             document.getElementById('hint').style.opacity = '0';
         });
 
@@ -405,32 +401,36 @@
             return masterGroup;
         }
 
-        // ─── Assemble & Position Artwork ──────────────────────────────────────────────
+        // ─── Assemble Artwork inside a Tilted Pivot Group ────────────────────────────
         seed = 884123;
         const brushArt = buildBrushStroke();
 
-        // Exact 3D tilt matching reference image perspective
-        brushArt.position.set(0, -12, 0);
-        brushArt.rotation.x = 0.52;
-        brushArt.rotation.y = -0.40;
-        brushArt.rotation.z = -0.24;
-        scene.add(brushArt);
+        const pivotGroup = new THREE.Group();
+        pivotGroup.position.set(0, -12, 0);
+        // Diagonal tilt matching the reference angle
+        pivotGroup.rotation.x = 0.52;
+        pivotGroup.rotation.z = -0.24;
+        pivotGroup.rotation.y = -0.15;
 
-        // ─── Animation Loop ───────────────────────────────────────────────────────────
+        pivotGroup.add(brushArt);
+        scene.add(pivotGroup);
+
+        // ─── Animation Loop (Continuous Upward Spin) ──────────────────────────────────
         let clock = new THREE.Clock();
 
         function animate() {
             requestAnimationFrame(animate);
 
+            const delta = clock.getDelta();
             const elapsed = clock.getElapsedTime();
 
-            if (!userInteracting) {
-                // Subtle organic floating motion
-                brushArt.rotation.y = -0.44 + Math.sin(elapsed * 0.38) * 0.08;
-                brushArt.rotation.x = 0.56 + Math.cos(elapsed * 0.28) * 0.05;
-                brushArt.rotation.z = -0.26 + Math.sin(elapsed * 0.22) * 0.04;
-                brushArt.position.y = Math.sin(elapsed * 0.7) * 5;
-            }
+            // Continuous upward spiral spin around its central axis
+            const spinSpeed = 0.55;
+            brushArt.rotation.y -= delta * spinSpeed;
+
+            // Subtle organic floating bob
+            pivotGroup.position.y = -12 + Math.sin(elapsed * 1.1) * 5;
+            pivotGroup.rotation.z = -0.24 + Math.sin(elapsed * 0.4) * 0.025;
 
             controls.update();
             renderer.render(scene, camera);

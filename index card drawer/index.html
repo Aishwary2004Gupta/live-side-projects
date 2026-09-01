@@ -71,26 +71,21 @@
             z-index: 10;
         }
 
-        /* Tweakpane positioning and styling */
+        /* Tweakpane UI Container */
         .tp-dfwv {
             position: fixed !important;
-            top: 16px !important;
-            right: 16px !important;
+            top: 14px !important;
+            right: 14px !important;
             width: 320px !important;
-            max-height: calc(100vh - 32px) !important;
+            max-height: calc(100vh - 28px) !important;
             overflow-y: auto !important;
             border-radius: 12px !important;
             box-shadow: 0 16px 36px rgba(0, 0, 0, 0.22), 0 2px 8px rgba(0, 0, 0, 0.12) !important;
-            z-index: 100 !important;
-            backdrop-filter: blur(14px) !important;
+            z-index: 9999 !important;
         }
 
         .tp-dfwv::-webkit-scrollbar {
-            width: 6px;
-        }
-        .tp-dfwv::-webkit-scrollbar-track {
-            background: rgba(0,0,0,0.1);
-            border-radius: 4px;
+            width: 5px;
         }
         .tp-dfwv::-webkit-scrollbar-thumb {
             background: rgba(255,255,255,0.25);
@@ -107,7 +102,7 @@
     <!-- Three.js, OrbitControls & Tweakpane -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/tweakpane@4.0.3/dist/tweakpane.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/tweakpane@3.1.10/dist/tweakpane.min.js"></script>
 
     <script>
         // ─── Preset Color Palette Definitions ─────────────────────────────────────────
@@ -603,9 +598,9 @@
         rebuildArtwork();
         updateBackground();
 
-        // ─── Safe Tweakpane Initializer ───────────────────────────────────────────────
+        // ─── Tweakpane UI Setup (Universal Input Binder) ──────────────────────────────
         try {
-            const PaneClass = (window.Tweakpane && window.Tweakpane.Pane) ? window.Tweakpane.Pane : (window.Pane ? window.Pane : window.Tweakpane);
+            const PaneClass = (window.Tweakpane && (window.Tweakpane.Pane || window.Tweakpane)) || window.Pane;
             
             if (PaneClass) {
                 const pane = new PaneClass({
@@ -613,12 +608,24 @@
                     expanded: true
                 });
 
+                // Helper to support both Tweakpane v3 (addInput) and v4 (addBinding)
+                function addControl(parent, obj, prop, opt) {
+                    if (typeof parent.addBinding === 'function') {
+                        return parent.addBinding(obj, prop, opt);
+                    } else if (typeof parent.addInput === 'function') {
+                        return parent.addInput(obj, prop, opt);
+                    } else {
+                        return parent.add(obj, prop, opt);
+                    }
+                }
+
                 // 1. Presets Folder
                 const fPresets = pane.addFolder({ title: '🌟 Style Presets', expanded: true });
-                fPresets.addBinding(params, 'preset', {
+                addControl(fPresets, params, 'preset', {
                     options: Object.keys(PRESETS).reduce((acc, key) => ({ ...acc, [key]: key }), {})
                 }).on('change', (ev) => {
-                    const pr = PRESETS[ev.value];
+                    const val = ev.value !== undefined ? ev.value : ev;
+                    const pr = PRESETS[val];
                     if (pr) {
                         params.shape = pr.shape;
                         params.c1 = pr.colors[0] || params.c1;
@@ -643,46 +650,46 @@
 
                 // 2. Palette & Pigment Folder
                 const fPalette = pane.addFolder({ title: '🌈 Multi-Pigment Palette', expanded: false });
-                fPalette.addBinding(params, 'c1', { label: 'Outer Edge' }).on('change', rebuildArtwork);
-                fPalette.addBinding(params, 'c2', { label: 'Outer Mid' }).on('change', rebuildArtwork);
-                fPalette.addBinding(params, 'c3', { label: 'Mid Purple' }).on('change', rebuildArtwork);
-                fPalette.addBinding(params, 'c4', { label: 'Core Magenta' }).on('change', rebuildArtwork);
-                fPalette.addBinding(params, 'c5', { label: 'Core Crimson' }).on('change', rebuildArtwork);
-                fPalette.addBinding(params, 'c6', { label: 'Inner Amber' }).on('change', rebuildArtwork);
-                fPalette.addBinding(params, 'c7', { label: 'Inner Gold' }).on('change', rebuildArtwork);
-                fPalette.addBinding(params, 'invertPalette', { label: 'Invert Pigment' }).on('change', rebuildArtwork);
-                fPalette.addBinding(params, 'colorJitter', { min: 0.0, max: 0.15, step: 0.01, label: 'Color Striation' }).on('change', rebuildArtwork);
+                addControl(fPalette, params, 'c1', { label: 'Outer Edge' }).on('change', rebuildArtwork);
+                addControl(fPalette, params, 'c2', { label: 'Outer Mid' }).on('change', rebuildArtwork);
+                addControl(fPalette, params, 'c3', { label: 'Mid Purple' }).on('change', rebuildArtwork);
+                addControl(fPalette, params, 'c4', { label: 'Core Magenta' }).on('change', rebuildArtwork);
+                addControl(fPalette, params, 'c5', { label: 'Core Crimson' }).on('change', rebuildArtwork);
+                addControl(fPalette, params, 'c6', { label: 'Inner Amber' }).on('change', rebuildArtwork);
+                addControl(fPalette, params, 'c7', { label: 'Inner Gold' }).on('change', rebuildArtwork);
+                addControl(fPalette, params, 'invertPalette', { label: 'Invert Pigment' }).on('change', rebuildArtwork);
+                addControl(fPalette, params, 'colorJitter', { min: 0.0, max: 0.15, step: 0.01, label: 'Color Striation' }).on('change', rebuildArtwork);
 
                 // 3. Geometry & Sculpture Folder
                 const fGeometry = pane.addFolder({ title: '📐 Geometry & Sculpture', expanded: true });
-                fGeometry.addBinding(params, 'shape', {
+                addControl(fGeometry, params, 'shape', {
                     label: 'Form Type',
                     options: {
                         'Hook Crest S-Loop (Ref)': 'Hook Crest S-Loop',
                         'Spherical Coil': 'Spherical Coil'
                     }
                 }).on('change', rebuildArtwork);
-                fGeometry.addBinding(params, 'crestFold', { min: 0.0, max: 2.0, step: 0.05, label: 'Crest Hook Fold' }).on('change', rebuildArtwork);
-                fGeometry.addBinding(params, 'turns', { min: 2.0, max: 4.5, step: 0.05, label: 'Coil Turns' }).on('change', rebuildArtwork);
-                fGeometry.addBinding(params, 'sphereRadius', { min: 140, max: 260, step: 5, label: 'Sphere Radius' }).on('change', rebuildArtwork);
-                fGeometry.addBinding(params, 'width', { min: 30, max: 100, step: 2, label: 'Stroke Width' }).on('change', rebuildArtwork);
-                fGeometry.addBinding(params, 'thickness', { min: 6, max: 32, step: 1, label: 'Stroke Depth' }).on('change', rebuildArtwork);
-                fGeometry.addBinding(params, 'fiberCount', { min: 80, max: 420, step: 10, label: 'Bristle Density' }).on('change', rebuildArtwork);
-                fGeometry.addBinding(params, 'fiberRadius', { min: 0.5, max: 2.5, step: 0.1, label: 'Bristle Size' }).on('change', rebuildArtwork);
-                fGeometry.addBinding(params, 'waviness', { min: 0.0, max: 3.0, step: 0.1, label: 'Bristle Wiggle' }).on('change', rebuildArtwork);
-                fGeometry.addBinding(params, 'strayFibers', { min: 0.0, max: 0.35, step: 0.01, label: 'Stray Bristles' }).on('change', rebuildArtwork);
-                fGeometry.addBinding(params, 'startFlick', { label: 'Top Brush Flick' }).on('change', rebuildArtwork);
+                addControl(fGeometry, params, 'crestFold', { min: 0.0, max: 2.0, step: 0.05, label: 'Crest Hook Fold' }).on('change', rebuildArtwork);
+                addControl(fGeometry, params, 'turns', { min: 2.0, max: 4.5, step: 0.05, label: 'Coil Turns' }).on('change', rebuildArtwork);
+                addControl(fGeometry, params, 'sphereRadius', { min: 140, max: 260, step: 5, label: 'Sphere Radius' }).on('change', rebuildArtwork);
+                addControl(fGeometry, params, 'width', { min: 30, max: 100, step: 2, label: 'Stroke Width' }).on('change', rebuildArtwork);
+                addControl(fGeometry, params, 'thickness', { min: 6, max: 32, step: 1, label: 'Stroke Depth' }).on('change', rebuildArtwork);
+                addControl(fGeometry, params, 'fiberCount', { min: 80, max: 420, step: 10, label: 'Bristle Density' }).on('change', rebuildArtwork);
+                addControl(fGeometry, params, 'fiberRadius', { min: 0.5, max: 2.5, step: 0.1, label: 'Bristle Size' }).on('change', rebuildArtwork);
+                addControl(fGeometry, params, 'waviness', { min: 0.0, max: 3.0, step: 0.1, label: 'Bristle Wiggle' }).on('change', rebuildArtwork);
+                addControl(fGeometry, params, 'strayFibers', { min: 0.0, max: 0.35, step: 0.01, label: 'Stray Bristles' }).on('change', rebuildArtwork);
+                addControl(fGeometry, params, 'startFlick', { label: 'Top Brush Flick' }).on('change', rebuildArtwork);
 
                 // 4. Material & Paint Surface Folder
                 const fMaterial = pane.addFolder({ title: '✨ Paint Luster & Finish', expanded: false });
-                fMaterial.addBinding(params, 'shininess', { min: 10, max: 150, step: 5, label: 'Wet Gloss' }).on('change', rebuildArtwork);
-                fMaterial.addBinding(params, 'specularIntensity', { min: 0.1, max: 2.0, step: 0.05, label: 'Highlights' }).on('change', rebuildArtwork);
-                fMaterial.addBinding(params, 'fiberOpacity', { min: 0.4, max: 1.0, step: 0.02, label: 'Bristle Opacity' }).on('change', rebuildArtwork);
-                fMaterial.addBinding(params, 'underRibbonOpacity', { min: 0.0, max: 1.0, step: 0.05, label: 'Under-Body Fill' }).on('change', rebuildArtwork);
+                addControl(fMaterial, params, 'shininess', { min: 10, max: 150, step: 5, label: 'Wet Gloss' }).on('change', rebuildArtwork);
+                addControl(fMaterial, params, 'specularIntensity', { min: 0.1, max: 2.0, step: 0.05, label: 'Highlights' }).on('change', rebuildArtwork);
+                addControl(fMaterial, params, 'fiberOpacity', { min: 0.4, max: 1.0, step: 0.02, label: 'Bristle Opacity' }).on('change', rebuildArtwork);
+                addControl(fMaterial, params, 'underRibbonOpacity', { min: 0.0, max: 1.0, step: 0.05, label: 'Under-Body Fill' }).on('change', rebuildArtwork);
 
                 // 5. Motion & Spin Controls
                 const fMotion = pane.addFolder({ title: '🌪️ Motion & Spin Dynamics', expanded: true });
-                fMotion.addBinding(params, 'spinMode', {
+                addControl(fMotion, params, 'spinMode', {
                     label: 'Spin Direction',
                     options: {
                         'Upward (Default)': 'Upward',
@@ -690,19 +697,19 @@
                         'Paused': 'Paused'
                     }
                 });
-                fMotion.addBinding(params, 'spinSpeed', { min: 0.0, max: 2.0, step: 0.05, label: 'Spin Velocity' });
-                fMotion.addBinding(params, 'floatingBob', { label: 'Floating Bob' });
-                fMotion.addBinding(params, 'bobAmplitude', { min: 0.0, max: 18.0, step: 0.5, label: 'Bob Amplitude' });
-                fMotion.addBinding(params, 'bobSpeed', { min: 0.1, max: 3.0, step: 0.1, label: 'Bob Speed' });
+                addControl(fMotion, params, 'spinSpeed', { min: 0.0, max: 2.0, step: 0.05, label: 'Spin Velocity' });
+                addControl(fMotion, params, 'floatingBob', { label: 'Floating Bob' });
+                addControl(fMotion, params, 'bobAmplitude', { min: 0.0, max: 18.0, step: 0.5, label: 'Bob Amplitude' });
+                addControl(fMotion, params, 'bobSpeed', { min: 0.1, max: 3.0, step: 0.1, label: 'Bob Speed' });
 
                 // 6. Lighting & Canvas Background
                 const fEnvironment = pane.addFolder({ title: '💡 Lighting & Canvas', expanded: false });
-                fEnvironment.addBinding(params, 'bgColor', { label: 'Background' }).on('change', updateBackground);
-                fEnvironment.addBinding(params, 'paperGrain', { label: 'Canvas Texture' }).on('change', updateBackground);
-                fEnvironment.addBinding(params, 'grainOpacity', { min: 0.0, max: 0.4, step: 0.02, label: 'Grain Opacity' }).on('change', updateBackground);
-                fEnvironment.addBinding(params, 'keyLightIntensity', { min: 0.2, max: 3.0, step: 0.1, label: 'Sun Key Light' }).on('change', updateLighting);
-                fEnvironment.addBinding(params, 'fillLightIntensity', { min: 0.0, max: 2.0, step: 0.1, label: 'Sky Fill Light' }).on('change', updateLighting);
-                fEnvironment.addBinding(params, 'rimLightIntensity', { min: 0.0, max: 2.0, step: 0.1, label: 'Rim Light' }).on('change', updateLighting);
+                addControl(fEnvironment, params, 'bgColor', { label: 'Background' }).on('change', updateBackground);
+                addControl(fEnvironment, params, 'paperGrain', { label: 'Canvas Texture' }).on('change', updateBackground);
+                addControl(fEnvironment, params, 'grainOpacity', { min: 0.0, max: 0.4, step: 0.02, label: 'Grain Opacity' }).on('change', updateBackground);
+                addControl(fEnvironment, params, 'keyLightIntensity', { min: 0.2, max: 3.0, step: 0.1, label: 'Sun Key Light' }).on('change', updateLighting);
+                addControl(fEnvironment, params, 'fillLightIntensity', { min: 0.0, max: 2.0, step: 0.1, label: 'Sky Fill Light' }).on('change', updateLighting);
+                addControl(fEnvironment, params, 'rimLightIntensity', { min: 0.0, max: 2.0, step: 0.1, label: 'Rim Light' }).on('change', updateLighting);
 
                 // 7. Action Buttons
                 const fActions = pane.addFolder({ title: '⚡ Quick Actions', expanded: true });

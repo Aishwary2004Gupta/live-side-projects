@@ -72,6 +72,7 @@
             z-index: 10;
         }
 
+        /* Tweakpane UI Container */
         .tp-dfwv {
             position: fixed !important;
             top: 14px !important;
@@ -87,7 +88,6 @@
         .tp-dfwv::-webkit-scrollbar {
             width: 5px;
         }
-
         .tp-dfwv::-webkit-scrollbar-thumb {
             background: rgba(255, 255, 255, 0.25);
             border-radius: 4px;
@@ -101,6 +101,7 @@
         <div class="hint" id="hint">Drag to inspect &bull; Scroll to zoom</div>
     </div>
 
+    <!-- Three.js, OrbitControls & Tweakpane -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/tweakpane@3.1.10/dist/tweakpane.min.js"></script>
@@ -114,6 +115,7 @@
                 return;
             }
 
+            // ─── Preset Color Palette Definitions ─────────────────────────────────────
             const PRESETS = {
                 'Cobalt & Sunset Orange': {
                     shape: 'Spherical Coil',
@@ -184,9 +186,10 @@
                     width: 62,
                     fiberCount: 340,
                     shininess: 85
-                }
+                },
             };
 
+            // ─── Global State Parameters ───────────────────────────────────────────────
             const DEFAULT_PARAMS = {
                 preset: 'Cobalt & Sunset Orange',
                 shape: 'Spherical Coil',
@@ -219,7 +222,7 @@
 
                 spinMode: 'Downward',
                 spinSpeed: 0.35,
-                rotateClockwise: false,
+                autoRotate: true,
                 floatingBob: true,
                 bobAmplitude: 2.0,
                 bobSpeed: 0.6,
@@ -234,6 +237,7 @@
 
             const params = { ...DEFAULT_PARAMS };
 
+            // ─── Scene & Camera Setup ─────────────────────────────────────────────────
             const container = document.getElementById('canvas-container');
             const paperGrainEl = document.getElementById('paperGrain');
             const hintEl = document.getElementById('hint');
@@ -246,6 +250,7 @@
                 10,
                 3000
             );
+            // Camera angle adjusted to match reference image
             camera.position.set(0, 25, 680);
 
             const renderer = new THREE.WebGLRenderer({
@@ -258,6 +263,7 @@
             renderer.toneMapping = THREE.ACESFilmicToneMapping;
             renderer.toneMappingExposure = 1.15;
             renderer.setClearColor(0x000000, 0);
+
             container.appendChild(renderer.domElement);
 
             let needsRender = true;
@@ -291,6 +297,7 @@
 
             resizeRenderer();
 
+            // ─── Orbit Controls ───────────────────────────────────────────────────────
             let controls;
 
             if (THREE.OrbitControls) {
@@ -317,6 +324,7 @@
                 console.error('OrbitControls did not load.');
             }
 
+            // ─── Lighting Rig ─────────────────────────────────────────────────────────
             const ambientLight = new THREE.AmbientLight(0xfff5ea, 0.75);
             scene.add(ambientLight);
 
@@ -336,6 +344,7 @@
             innerLight.position.set(0, 0, 0);
             scene.add(innerLight);
 
+            // ─── Palette Helpers ──────────────────────────────────────────────────────
             function setPaletteFromColors(colors) {
                 const slots = 7;
 
@@ -400,6 +409,7 @@
                 return palette[palette.length - 1].color.clone();
             }
 
+            // ─── Mathematical Spine of 3D Brush Sculpture ─────────────────────────────
             function getSpineData(t) {
                 const turns = params.turns;
                 const theta = t * turns * Math.PI * 2 + 1.65;
@@ -443,7 +453,9 @@
                 };
             }
 
+            // ─── Artwork Lifecycle Management ─────────────────────────────────────────
             const pivotGroup = new THREE.Group();
+            // Adjusted to match reference image - more frontal, less tilt
             pivotGroup.position.set(0, -5, 0);
             pivotGroup.rotation.x = 0.12;
             pivotGroup.rotation.z = 0.02;
@@ -473,10 +485,12 @@
                 return new Promise(resolve => requestAnimationFrame(resolve));
             }
 
+            // ─── Build High-Fidelity 3D Brush Artwork ─────────────────────────────────
             async function buildBrushStrokeAsync(token) {
                 const masterGroup = new THREE.Group();
                 const palette = getActivePalette();
 
+                // Local deterministic RNG keeps every rebuild visually consistent.
                 let localSeed = 884123;
 
                 function rnd() {
@@ -499,6 +513,7 @@
                 }
 
                 const spineCurve = new THREE.CatmullRomCurve3(spinePoints, false, 'centripetal', 0.45);
+
                 const spineFrames = [];
 
                 for (let i = 0; i <= SPINE_SAMPLES; i++) {
@@ -551,6 +566,7 @@
                     return baseThickness * 0.85 + Math.sin(t * Math.PI) * (baseThickness * 0.45);
                 }
 
+                // 1. Under-ribbon body layers.
                 const NUM_LAYERS = 4;
                 const RIBBON_SEGS = 260;
 
@@ -610,6 +626,7 @@
                     masterGroup.add(ribbonMesh);
                 }
 
+                // 2. Individual bristle strands.
                 const NUM_BRISTLES = Math.max(1, Math.round(params.fiberCount));
                 const BRISTLE_SEGS = 190;
                 const waviness = params.waviness;
@@ -730,6 +747,7 @@
                         masterGroup.add(mesh);
                     }
 
+                    // Yield to browser every few bristles so the site stays responsive.
                     if (bi > 0 && bi % BRISTLE_CHUNK === 0) {
                         await nextFrame();
                     }
@@ -855,12 +873,11 @@
                         }
 
                         const previousArt = currentBrushArt;
-                        const previousRotation = previousArt
-                            ? previousArt.rotation.clone()
-                            : new THREE.Euler(0, 0, 0);
+                        const previousRotationY = previousArt ? previousArt.rotation.y : 0;
 
-                        nextArt.rotation.copy(previousRotation);
+                        nextArt.rotation.y = previousRotationY;
 
+                        // Smooth fade-in transition
                         nextArt.traverse(child => {
                             if (child.material) {
                                 child.material.transparent = true;
@@ -877,6 +894,7 @@
                             disposeObject(previousArt);
                         }
 
+                        // Animate fade-in
                         fadeInAnimation = {
                             object: nextArt,
                             startTime: performance.now(),
@@ -914,16 +932,14 @@
                         if (child.material.userData.kind === 'ribbon') {
                             child.material.opacity = params.underRibbonOpacity * eased;
                         } else if (child.material.userData.kind === 'bristle') {
-                            child.material.opacity = Math.min(
-                                1,
-                                (child.material.userData.opacityBase * (params.fiberOpacity / 0.88)) * eased
-                            );
+                            child.material.opacity = Math.min(1, (child.material.userData.opacityBase * (params.fiberOpacity / 0.88)) * eased);
                         }
                         child.material.needsUpdate = true;
                     }
                 });
 
                 if (progress >= 1) {
+                    // Final update to ensure exact values
                     updateMaterials();
                     fadeInAnimation = null;
                 }
@@ -1015,6 +1031,7 @@
             updateLighting();
             scheduleRebuild(0);
 
+            // ─── Tweakpane UI Setup ───────────────────────────────────────────────────
             try {
                 const PaneClass = (window.Tweakpane && (window.Tweakpane.Pane || window.Tweakpane)) || window.Pane;
 
@@ -1039,6 +1056,7 @@
                         return acc;
                     }, {});
 
+                    // 1. Presets Folder
                     const fPresets = pane.addFolder({ title: '🌟 Style Presets', expanded: true });
 
                     addControl(fPresets, params, 'preset', {
@@ -1055,6 +1073,7 @@
                         }
                     });
 
+                    // 2. Palette & Pigment Folder
                     const fPalette = pane.addFolder({ title: '🌈 Multi-Pigment Palette', expanded: false });
 
                     addControl(fPalette, params, 'c1', { label: 'Outer Edge' }).on('change', rebuildArtwork);
@@ -1072,6 +1091,7 @@
                         label: 'Color Striation'
                     }).on('change', rebuildArtwork);
 
+                    // 3. Geometry & Sculpture Folder
                     const fGeometry = pane.addFolder({ title: '📐 Geometry & Sculpture', expanded: true });
 
                     addControl(fGeometry, params, 'turns', {
@@ -1134,6 +1154,7 @@
                         label: 'Top Brush Flick'
                     }).on('change', rebuildArtwork);
 
+                    // 4. Material & Paint Surface Folder
                     const fMaterial = pane.addFolder({ title: '✨ Paint Luster & Finish', expanded: false });
 
                     addControl(fMaterial, params, 'shininess', {
@@ -1164,6 +1185,7 @@
                         label: 'Under-Body Fill'
                     }).on('change', updateMaterials);
 
+                    // 5. Motion & Spin Controls
                     const fMotion = pane.addFolder({ title: '🌪️ Motion & Spin Dynamics', expanded: true });
 
                     addControl(fMotion, params, 'spinMode', {
@@ -1192,8 +1214,9 @@
                         needsRender = true;
                     });
 
-                    addControl(fMotion, params, 'rotateClockwise', {
-                        label: 'Rotate Clockwise'
+                    // Auto Rotate Checkbox below Floating Bob
+                    addControl(fMotion, params, 'autoRotate', {
+                        label: 'Auto Rotate'
                     }).on('change', () => {
                         needsRender = true;
                     });
@@ -1216,6 +1239,7 @@
                         needsRender = true;
                     });
 
+                    // 6. Lighting & Canvas Background
                     const fEnvironment = pane.addFolder({ title: '💡 Lighting & Canvas', expanded: false });
 
                     addControl(fEnvironment, params, 'bgColor', {
@@ -1254,6 +1278,7 @@
                         label: 'Rim Light'
                     }).on('change', updateLighting);
 
+                    // 7. Action Buttons
                     const fActions = pane.addFolder({ title: '⚡ Quick Actions', expanded: true });
 
                     fActions.addButton({ title: '🎲 Randomize Palette & Form' }).on('click', () => {
@@ -1309,6 +1334,7 @@
                 console.error('Tweakpane init warning:', e);
             }
 
+            // ─── Main Animation Loop ──────────────────────────────────────────────────
             const clock = new THREE.Clock();
 
             function animate() {
@@ -1320,25 +1346,27 @@
 
                 let animated = false;
 
+                // Update fade-in transition
                 if (fadeInAnimation) {
                     if (updateFadeIn(now)) {
                         animated = true;
                     }
                 }
 
-                // Spin behavior unchanged
+                // Continuous axial spin (only if spinMode is not Paused)
                 if (currentBrushArt && params.spinMode !== 'Paused' && params.spinSpeed > 0) {
                     const direction = params.spinMode === 'Upward' ? -1 : 1;
                     currentBrushArt.rotation.y += direction * delta * params.spinSpeed;
                     animated = true;
                 }
 
-                // Separate clockwise rotate behavior
-                if (currentBrushArt && params.rotateClockwise) {
-                    currentBrushArt.rotation.z -= delta * 0.25;
+                // Auto Rotate - smooth continuous rotation
+                if (currentBrushArt && params.autoRotate) {
+                    currentBrushArt.rotation.y += delta * 0.25;
                     animated = true;
                 }
 
+                // Floating organic bob
                 if (params.floatingBob) {
                     pivotGroup.position.y = -5 + Math.sin(elapsed * params.bobSpeed) * params.bobAmplitude;
                     pivotGroup.rotation.z = 0.02 + Math.sin(elapsed * 0.4) * 0.015;
@@ -1365,6 +1393,7 @@
 
             animate();
 
+            // ─── Responsive Window Resize ─────────────────────────────────────────────
             let resizeFrame = null;
 
             window.addEventListener('resize', () => {

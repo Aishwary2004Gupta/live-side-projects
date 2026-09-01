@@ -222,7 +222,7 @@
 
                 spinMode: 'Downward',
                 spinSpeed: 0.35,
-                autoRotate: true,
+                rotateClockwise: false,
                 floatingBob: true,
                 bobAmplitude: 2.0,
                 bobSpeed: 0.6,
@@ -236,6 +236,10 @@
             };
 
             const params = { ...DEFAULT_PARAMS };
+
+            // Fixed speed for the clockwise Z-rotation.
+            // Deliberately independent from params.spinSpeed.
+            const CLOCKWISE_ROTATE_SPEED = 0.25;
 
             // ─── Scene & Camera Setup ─────────────────────────────────────────────────
             const container = document.getElementById('canvas-container');
@@ -438,11 +442,20 @@
                     }
                 }
 
+                // Top brush flick lead-in (start of stroke)
                 if (params.startFlick && t < 0.08) {
                     const tail = Math.pow(1 - t / 0.08, 1.5);
                     x -= tail * 35;
                     y += tail * 30;
                     z -= tail * 15;
+                }
+
+                // Rear-end brush flick (end of stroke) — flicks DOWN, mirrored
+                if (params.startFlick && t > 0.92) {
+                    const tail = Math.pow((t - 0.92) / 0.08, 1.5);
+                    x += tail * 35;
+                    y -= tail * 30;
+                    z += tail * 15;
                 }
 
                 const sphereNorm = new THREE.Vector3(x / Rx, y / Ry, z / Rz).normalize();
@@ -554,8 +567,15 @@
                 const baseThickness = params.thickness;
 
                 function getWidth(t) {
-                    if (t < 0.08 && params.startFlick) {
-                        return (baseWidth * 0.5) + (t / 0.08) * (baseWidth * 0.5);
+                    if (params.startFlick) {
+                        // Tapered lead-in at the top flick
+                        if (t < 0.08) {
+                            return (baseWidth * 0.5) + (t / 0.08) * (baseWidth * 0.5);
+                        }
+                        // Mirrored taper at the rear-end flick
+                        if (t > 0.92) {
+                            return (baseWidth * 0.5) + ((1 - t) / 0.08) * (baseWidth * 0.5);
+                        }
                     }
 
                     const taper = Math.sin(t * Math.PI);
@@ -680,8 +700,14 @@
 
                         let fanning = 1.0;
 
+                        // Fan out at the top flick
                         if (t < 0.08 && params.startFlick) {
                             fanning = 1.0 + Math.pow(1 - t / 0.08, 1.5) * 0.45 * uOffset;
+                        }
+
+                        // Fan out at the rear-end flick
+                        if (t > 0.92 && params.startFlick) {
+                            fanning = 1.0 + Math.pow((t - 0.92) / 0.08, 1.5) * 0.45 * uOffset;
                         }
 
                         const px =
@@ -873,9 +899,12 @@
                         }
 
                         const previousArt = currentBrushArt;
-                        const previousRotationY = previousArt ? previousArt.rotation.y : 0;
+                        // Preserve BOTH spin (Y) and clockwise rotate (Z) across rebuilds
+                        const previousRotation = previousArt
+                            ? previousArt.rotation.clone()
+                            : new THREE.Euler(0, 0, 0);
 
-                        nextArt.rotation.y = previousRotationY;
+                        nextArt.rotation.copy(previousRotation);
 
                         // Smooth fade-in transition
                         nextArt.traverse(child => {
@@ -1151,7 +1180,7 @@
                     }).on('change', rebuildArtwork);
 
                     addControl(fGeometry, params, 'startFlick', {
-                        label: 'Top Brush Flick'
+                        label: 'Brush Flicks (Top + Tail)'
                     }).on('change', rebuildArtwork);
 
                     // 4. Material & Paint Surface Folder
@@ -1214,9 +1243,10 @@
                         needsRender = true;
                     });
 
-                    // Auto Rotate Checkbox below Floating Bob
-                    addControl(fMotion, params, 'autoRotate', {
-                        label: 'Auto Rotate'
+                    // Clockwise rotate checkbox — below Floating Bob.
+                    // Runs ONLY when ticked, at its own fixed speed (ignores Spin Velocity).
+                    addControl(fMotion, params, 'rotateClockwise', {
+                        label: 'Rotate Clockwise'
                     }).on('change', () => {
                         needsRender = true;
                     });
@@ -1353,16 +1383,17 @@
                     }
                 }
 
-                // Continuous axial spin (only if spinMode is not Paused)
+                // SPIN — Y-axis, controlled ONLY by Spin Direction + Spin Velocity.
                 if (currentBrushArt && params.spinMode !== 'Paused' && params.spinSpeed > 0) {
                     const direction = params.spinMode === 'Upward' ? -1 : 1;
                     currentBrushArt.rotation.y += direction * delta * params.spinSpeed;
                     animated = true;
                 }
 
-                // Auto Rotate - smooth continuous rotation
-                if (currentBrushArt && params.autoRotate) {
-                    currentBrushArt.rotation.y += delta * 0.25;
+                // ROTATE CLOCKWISE — Z-axis, fixed speed, completely independent
+                // of Spin Velocity. Runs ONLY when the checkbox is ticked.
+                if (currentBrushArt && params.rotateClockwise) {
+                    currentBrushArt.rotation.z -= delta * CLOCKWISE_ROTATE_SPEED;
                     animated = true;
                 }
 

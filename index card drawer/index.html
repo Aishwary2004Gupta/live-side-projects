@@ -222,7 +222,7 @@
 
                 spinMode: 'Downward',
                 spinSpeed: 0.35,
-                rotateClockwise: false,
+                autoRotate: true,
                 floatingBob: true,
                 bobAmplitude: 2.0,
                 bobSpeed: 0.6,
@@ -237,7 +237,7 @@
 
             const params = { ...DEFAULT_PARAMS };
 
-            // ─── Scene & Camera Setup ────────────────────────────────────────────────
+            // ─── Scene & Camera Setup ─────────────────────────────────────────────────
             const container = document.getElementById('canvas-container');
             const paperGrainEl = document.getElementById('paperGrain');
             const hintEl = document.getElementById('hint');
@@ -250,6 +250,7 @@
                 10,
                 3000
             );
+            // Camera angle adjusted to match reference image
             camera.position.set(0, 25, 680);
 
             const renderer = new THREE.WebGLRenderer({
@@ -343,7 +344,7 @@
             innerLight.position.set(0, 0, 0);
             scene.add(innerLight);
 
-            // ─── Palette Helpers ─────────────────────────────────────────────────────
+            // ─── Palette Helpers ──────────────────────────────────────────────────────
             function setPaletteFromColors(colors) {
                 const slots = 7;
 
@@ -437,20 +438,11 @@
                     }
                 }
 
-                // Top brush flick lead-in
                 if (params.startFlick && t < 0.08) {
                     const tail = Math.pow(1 - t / 0.08, 1.5);
                     x -= tail * 35;
                     y += tail * 30;
                     z -= tail * 15;
-                }
-
-                // Rear end brush flick (tail)
-                if (params.startFlick && t > 0.92) {
-                    const tail = Math.pow((t - 0.92) / 0.08, 1.5);
-                    x += tail * 35;
-                    y -= tail * 30;
-                    z += tail * 15;
                 }
 
                 const sphereNorm = new THREE.Vector3(x / Rx, y / Ry, z / Rz).normalize();
@@ -463,6 +455,7 @@
 
             // ─── Artwork Lifecycle Management ─────────────────────────────────────────
             const pivotGroup = new THREE.Group();
+            // Adjusted to match reference image - more frontal, less tilt
             pivotGroup.position.set(0, -5, 0);
             pivotGroup.rotation.x = 0.12;
             pivotGroup.rotation.z = 0.02;
@@ -497,6 +490,7 @@
                 const masterGroup = new THREE.Group();
                 const palette = getActivePalette();
 
+                // Local deterministic RNG keeps every rebuild visually consistent.
                 let localSeed = 884123;
 
                 function rnd() {
@@ -562,10 +556,6 @@
                 function getWidth(t) {
                     if (t < 0.08 && params.startFlick) {
                         return (baseWidth * 0.5) + (t / 0.08) * (baseWidth * 0.5);
-                    }
-                    if (t > 0.92 && params.startFlick) {
-                        const tailT = (t - 0.92) / 0.08;
-                        return (baseWidth * 0.5) + (1 - tailT) * (baseWidth * 0.5);
                     }
 
                     const taper = Math.sin(t * Math.PI);
@@ -690,14 +680,8 @@
 
                         let fanning = 1.0;
 
-                        // Top brush flick fanning
                         if (t < 0.08 && params.startFlick) {
                             fanning = 1.0 + Math.pow(1 - t / 0.08, 1.5) * 0.45 * uOffset;
-                        }
-
-                        // Rear end brush flick fanning
-                        if (t > 0.92 && params.startFlick) {
-                            fanning = 1.0 + Math.pow((t - 0.92) / 0.08, 1.5) * 0.45 * uOffset;
                         }
 
                         const px =
@@ -763,6 +747,7 @@
                         masterGroup.add(mesh);
                     }
 
+                    // Yield to browser every few bristles so the site stays responsive.
                     if (bi > 0 && bi % BRISTLE_CHUNK === 0) {
                         await nextFrame();
                     }
@@ -892,6 +877,7 @@
 
                         nextArt.rotation.y = previousRotationY;
 
+                        // Smooth fade-in transition
                         nextArt.traverse(child => {
                             if (child.material) {
                                 child.material.transparent = true;
@@ -908,6 +894,7 @@
                             disposeObject(previousArt);
                         }
 
+                        // Animate fade-in
                         fadeInAnimation = {
                             object: nextArt,
                             startTime: performance.now(),
@@ -952,6 +939,7 @@
                 });
 
                 if (progress >= 1) {
+                    // Final update to ensure exact values
                     updateMaterials();
                     fadeInAnimation = null;
                 }
@@ -1068,6 +1056,7 @@
                         return acc;
                     }, {});
 
+                    // 1. Presets Folder
                     const fPresets = pane.addFolder({ title: '🌟 Style Presets', expanded: true });
 
                     addControl(fPresets, params, 'preset', {
@@ -1084,6 +1073,7 @@
                         }
                     });
 
+                    // 2. Palette & Pigment Folder
                     const fPalette = pane.addFolder({ title: '🌈 Multi-Pigment Palette', expanded: false });
 
                     addControl(fPalette, params, 'c1', { label: 'Outer Edge' }).on('change', rebuildArtwork);
@@ -1101,6 +1091,7 @@
                         label: 'Color Striation'
                     }).on('change', rebuildArtwork);
 
+                    // 3. Geometry & Sculpture Folder
                     const fGeometry = pane.addFolder({ title: '📐 Geometry & Sculpture', expanded: true });
 
                     addControl(fGeometry, params, 'turns', {
@@ -1163,6 +1154,7 @@
                         label: 'Top Brush Flick'
                     }).on('change', rebuildArtwork);
 
+                    // 4. Material & Paint Surface Folder
                     const fMaterial = pane.addFolder({ title: '✨ Paint Luster & Finish', expanded: false });
 
                     addControl(fMaterial, params, 'shininess', {
@@ -1193,6 +1185,7 @@
                         label: 'Under-Body Fill'
                     }).on('change', updateMaterials);
 
+                    // 5. Motion & Spin Controls
                     const fMotion = pane.addFolder({ title: '🌪️ Motion & Spin Dynamics', expanded: true });
 
                     addControl(fMotion, params, 'spinMode', {
@@ -1221,8 +1214,9 @@
                         needsRender = true;
                     });
 
-                    addControl(fMotion, params, 'rotateClockwise', {
-                        label: 'Rotate Clockwise'
+                    // Auto Rotate Checkbox below Floating Bob
+                    addControl(fMotion, params, 'autoRotate', {
+                        label: 'Auto Rotate'
                     }).on('change', () => {
                         needsRender = true;
                     });
@@ -1245,6 +1239,7 @@
                         needsRender = true;
                     });
 
+                    // 6. Lighting & Canvas Background
                     const fEnvironment = pane.addFolder({ title: '💡 Lighting & Canvas', expanded: false });
 
                     addControl(fEnvironment, params, 'bgColor', {
@@ -1283,7 +1278,8 @@
                         label: 'Rim Light'
                     }).on('change', updateLighting);
 
-                    const fActions = pane.addFolder({ title: ' Quick Actions', expanded: true });
+                    // 7. Action Buttons
+                    const fActions = pane.addFolder({ title: '⚡ Quick Actions', expanded: true });
 
                     fActions.addButton({ title: '🎲 Randomize Palette & Form' }).on('click', () => {
                         const randomColor = () =>
@@ -1350,25 +1346,27 @@
 
                 let animated = false;
 
+                // Update fade-in transition
                 if (fadeInAnimation) {
                     if (updateFadeIn(now)) {
                         animated = true;
                     }
                 }
 
-                // Spin behavior (Y-axis) - ONLY affected by spinSpeed
+                // Continuous axial spin (only if spinMode is not Paused)
                 if (currentBrushArt && params.spinMode !== 'Paused' && params.spinSpeed > 0) {
                     const direction = params.spinMode === 'Upward' ? -1 : 1;
                     currentBrushArt.rotation.y += direction * delta * params.spinSpeed;
                     animated = true;
                 }
 
-                // Clockwise rotation (Z-axis) - Independent of spinSpeed
-                if (currentBrushArt && params.rotateClockwise) {
-                    currentBrushArt.rotation.z -= delta * 0.25;
+                // Auto Rotate - smooth continuous rotation
+                if (currentBrushArt && params.autoRotate) {
+                    currentBrushArt.rotation.y += delta * 0.25;
                     animated = true;
                 }
 
+                // Floating organic bob
                 if (params.floatingBob) {
                     pivotGroup.position.y = -5 + Math.sin(elapsed * params.bobSpeed) * params.bobAmplitude;
                     pivotGroup.rotation.z = 0.02 + Math.sin(elapsed * 0.4) * 0.015;
@@ -1395,6 +1393,7 @@
 
             animate();
 
+            // ─── Responsive Window Resize ─────────────────────────────────────────────
             let resizeFrame = null;
 
             window.addEventListener('resize', () => {

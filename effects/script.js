@@ -946,14 +946,14 @@ const MODELS = {
         rotation: { x: 0, y: 0, z: 0 },
         position: { x: 0, y: -1, z: 0 },
     },
-    try: {
+    croissant: {
         url: "https://raw.githubusercontent.com/Aishwary2004Gupta/models/cloud/croissant.glb",
         scale: 0.0045,
         rotation: { x: -1.6, y: 0, z: 0 },
         position: { x: 0, y: -0.2, z: 0 },
     },
     try: {
-        url: "https://raw.githubusercontent.com/Aishwary2004Gupta/models/cloud/croissant.glb",
+        url: "https://raw.githubusercontent.com/Aishwary2004Gupta/models/cloud/box-truck.glb",
         scale: 0.0045,
         rotation: { x: -1.6, y: 0, z: 0 },
         position: { x: 0, y: -0.2, z: 0 },

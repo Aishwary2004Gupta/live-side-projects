@@ -72,7 +72,6 @@
             z-index: 10;
         }
 
-        /* Tweakpane UI Container */
         .tp-dfwv {
             position: fixed !important;
             top: 14px !important;
@@ -88,8 +87,9 @@
         .tp-dfwv::-webkit-scrollbar {
             width: 5px;
         }
+
         .tp-dfwv::-webkit-scrollbar-thumb {
-            background: rgba(255, 255, 255, 0.25);
+            background: rgba(255,255,255,0.25);
             border-radius: 4px;
         }
     </style>
@@ -101,7 +101,6 @@
         <div class="hint" id="hint">Drag to inspect &bull; Scroll to zoom</div>
     </div>
 
-    <!-- Three.js, OrbitControls & Tweakpane -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/tweakpane@3.1.10/dist/tweakpane.min.js"></script>
@@ -115,7 +114,6 @@
                 return;
             }
 
-            // ─── Preset Color Palette Definitions ─────────────────────────────────────
             const PRESETS = {
                 'Cobalt & Sunset Orange': {
                     shape: 'Spherical Coil',
@@ -186,10 +184,9 @@
                     width: 62,
                     fiberCount: 340,
                     shininess: 85
-                },
+                }
             };
 
-            // ─── Global State Parameters ───────────────────────────────────────────────
             const DEFAULT_PARAMS = {
                 preset: 'Cobalt & Sunset Orange',
                 shape: 'Spherical Coil',
@@ -222,7 +219,10 @@
 
                 spinMode: 'Downward',
                 spinSpeed: 0.35,
-                // rotateClockwise: false,
+
+                /* Separate clockwise rotation toggle — false by default */
+                rotateClockwise: false,
+
                 floatingBob: true,
                 bobAmplitude: 2.0,
                 bobSpeed: 0.6,
@@ -237,11 +237,14 @@
 
             const params = { ...DEFAULT_PARAMS };
 
-            // Fixed speed for the clockwise Z-rotation.
-            // Deliberately independent from params.spinSpeed.
-            // const CLOCKWISE_ROTATE_SPEED = 0.25;
+            /*
+             * Spin uses params.spinSpeed only.
+             * Clockwise rotation uses this fixed speed only.
+             * They are deliberately independent.
+             */
+            const CLOCKWISE_ROTATE_SPEED = 0.25;
+            const CLOCKWISE_RETURN_SPEED = 7.5;
 
-            // ─── Scene & Camera Setup ─────────────────────────────────────────────────
             const container = document.getElementById('canvas-container');
             const paperGrainEl = document.getElementById('paperGrain');
             const hintEl = document.getElementById('hint');
@@ -254,7 +257,7 @@
                 10,
                 3000
             );
-            // Camera angle adjusted to match reference image
+
             camera.position.set(0, 25, 680);
 
             const renderer = new THREE.WebGLRenderer({
@@ -267,33 +270,37 @@
             renderer.toneMapping = THREE.ACESFilmicToneMapping;
             renderer.toneMappingExposure = 1.15;
             renderer.setClearColor(0x000000, 0);
-
             container.appendChild(renderer.domElement);
 
             let needsRender = true;
 
             function getSafePixelRatio() {
                 const dpr = window.devicePixelRatio || 1;
-                const isTouch = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
-                const lowCoreDevice = (navigator.hardwareConcurrency || 8) <= 4;
-                const maxRatio = (isTouch || lowCoreDevice) ? 1.25 : 2;
+                const isTouch = window.matchMedia &&
+                    window.matchMedia('(pointer: coarse)').matches;
 
-                const w = Math.max(1, window.innerWidth);
-                const h = Math.max(1, window.innerHeight);
+                const lowCoreDevice =
+                    (navigator.hardwareConcurrency || 8) <= 4;
+
+                const maxRatio =
+                    (isTouch || lowCoreDevice) ? 1.25 : 2;
+
+                const width = Math.max(1, window.innerWidth);
+                const height = Math.max(1, window.innerHeight);
                 const maxPixels = 5200000;
-                const budgetRatio = Math.sqrt(maxPixels / (w * h));
+                const budgetRatio = Math.sqrt(maxPixels / (width * height));
 
                 return Math.max(0.75, Math.min(dpr, maxRatio, budgetRatio));
             }
 
             function resizeRenderer() {
-                const w = Math.max(1, window.innerWidth);
-                const h = Math.max(1, window.innerHeight);
+                const width = Math.max(1, window.innerWidth);
+                const height = Math.max(1, window.innerHeight);
 
                 renderer.setPixelRatio(getSafePixelRatio());
-                renderer.setSize(w, h, false);
+                renderer.setSize(width, height, false);
 
-                camera.aspect = w / h;
+                camera.aspect = width / height;
                 camera.updateProjectionMatrix();
 
                 needsRender = true;
@@ -301,7 +308,6 @@
 
             resizeRenderer();
 
-            // ─── Orbit Controls ───────────────────────────────────────────────────────
             let controls;
 
             if (THREE.OrbitControls) {
@@ -325,22 +331,31 @@
                     update: () => false,
                     reset: () => {}
                 };
+
                 console.error('OrbitControls did not load.');
             }
 
-            // ─── Lighting Rig ─────────────────────────────────────────────────────────
             const ambientLight = new THREE.AmbientLight(0xfff5ea, 0.75);
             scene.add(ambientLight);
 
-            const keyLight = new THREE.DirectionalLight(0xfffcf0, params.keyLightIntensity);
+            const keyLight = new THREE.DirectionalLight(
+                0xfffcf0,
+                params.keyLightIntensity
+            );
             keyLight.position.set(280, 420, 380);
             scene.add(keyLight);
 
-            const fillLight = new THREE.DirectionalLight(0x8cb0ff, params.fillLightIntensity);
+            const fillLight = new THREE.DirectionalLight(
+                0x8cb0ff,
+                params.fillLightIntensity
+            );
             fillLight.position.set(-360, 60, 260);
             scene.add(fillLight);
 
-            const rimLight = new THREE.DirectionalLight(0xff4477, params.rimLightIntensity);
+            const rimLight = new THREE.DirectionalLight(
+                0xff4477,
+                params.rimLightIntensity
+            );
             rimLight.position.set(60, -320, -320);
             scene.add(rimLight);
 
@@ -348,7 +363,6 @@
             innerLight.position.set(0, 0, 0);
             scene.add(innerLight);
 
-            // ─── Palette Helpers ──────────────────────────────────────────────────────
             function setPaletteFromColors(colors) {
                 const slots = 7;
 
@@ -368,17 +382,17 @@
             }
 
             function applyPreset(name) {
-                const pr = PRESETS[name];
-                if (!pr) return;
+                const preset = PRESETS[name];
+                if (!preset) return;
 
-                params.shape = pr.shape;
-                setPaletteFromColors(pr.colors);
-                params.turns = pr.turns;
-                params.crestFold = pr.crestFold;
-                params.width = pr.width;
-                params.fiberCount = pr.fiberCount;
-                params.shininess = pr.shininess;
-                params.bgColor = pr.bgClear;
+                params.shape = preset.shape;
+                setPaletteFromColors(preset.colors);
+                params.turns = preset.turns;
+                params.crestFold = preset.crestFold;
+                params.width = preset.width;
+                params.fiberCount = preset.fiberCount;
+                params.shininess = preset.shininess;
+                params.bgColor = preset.bgClear;
             }
 
             function getActivePalette() {
@@ -392,10 +406,12 @@
                     params.c7
                 ];
 
-                const list = params.invertPalette ? [...rawColors].reverse() : rawColors;
+                const list = params.invertPalette
+                    ? [...rawColors].reverse()
+                    : rawColors;
 
-                return list.map((hex, i) => ({
-                    pos: i / (list.length - 1),
+                return list.map((hex, index) => ({
+                    pos: index / (list.length - 1),
                     color: new THREE.Color(hex)
                 }));
             }
@@ -405,60 +421,64 @@
 
                 for (let i = 0; i < palette.length - 1; i++) {
                     if (t >= palette[i].pos && t <= palette[i + 1].pos) {
-                        const localT = (t - palette[i].pos) / (palette[i + 1].pos - palette[i].pos);
-                        return palette[i].color.clone().lerp(palette[i + 1].color, localT);
+                        const localT = (t - palette[i].pos) /
+                            (palette[i + 1].pos - palette[i].pos);
+
+                        return palette[i].color
+                            .clone()
+                            .lerp(palette[i + 1].color, localT);
                     }
                 }
 
                 return palette[palette.length - 1].color.clone();
             }
 
-            // ─── Mathematical Spine of 3D Brush Sculpture ─────────────────────────────
             function getSpineData(t) {
-                const turns = params.turns;
-                const theta = t * turns * Math.PI * 2 + 1.65;
+                const theta = t * params.turns * Math.PI * 2 + 1.65;
 
                 const lat = 1.05 - t * 2.10;
                 const cosLat = Math.cos(lat);
                 const sinLat = Math.sin(lat);
 
-                const R = params.sphereRadius;
-                const Rx = R * (1.0 + 0.06 * Math.sin(theta * 0.5));
-                const Ry = R * 1.06;
-                const Rz = R * (1.0 + 0.05 * Math.cos(theta * 0.5));
+                const radius = params.sphereRadius;
+                const rx = radius * (1.0 + 0.06 * Math.sin(theta * 0.5));
+                const ry = radius * 1.06;
+                const rz = radius * (1.0 + 0.05 * Math.cos(theta * 0.5));
 
-                let x = Rx * cosLat * Math.cos(theta);
-                let y = Ry * sinLat;
-                let z = Rz * cosLat * Math.sin(theta);
+                let x = rx * cosLat * Math.cos(theta);
+                let y = ry * sinLat;
+                let z = rz * cosLat * Math.sin(theta);
 
-                if (params.shape === 'Hook Crest S-Loop') {
+                if (params.shape === 'Hook Crest S-Loop' && t < 0.26) {
                     const fold = params.crestFold;
+                    const foldT = Math.sin((t / 0.26) * Math.PI);
 
-                    if (t < 0.26) {
-                        const foldT = Math.sin((t / 0.26) * Math.PI);
-                        x -= Math.sin(t * Math.PI * 3.5) * 35 * fold * foldT;
-                        y += Math.cos(t * Math.PI * 3.5) * 25 * fold * foldT;
-                        z += Math.sin(t * Math.PI * 2.0) * 30 * fold * foldT;
-                    }
+                    x -= Math.sin(t * Math.PI * 3.5) * 35 * fold * foldT;
+                    y += Math.cos(t * Math.PI * 3.5) * 25 * fold * foldT;
+                    z += Math.sin(t * Math.PI * 2.0) * 30 * fold * foldT;
                 }
 
-                // Top brush flick lead-in (start of stroke)
                 if (params.startFlick && t < 0.08) {
-                    const tail = Math.pow(1 - t / 0.08, 1.5);
-                    x -= tail * 35;
-                    y += tail * 30;
-                    z -= tail * 15;
+                    const flick = Math.pow(1 - t / 0.08, 1.5);
+
+                    x -= flick * 35;
+                    y += flick * 30;
+                    z -= flick * 15;
                 }
 
-                // Rear-end brush flick (end of stroke) — flicks DOWN, mirrored
                 if (params.startFlick && t > 0.92) {
-                    const tail = Math.pow((t - 0.92) / 0.08, 1.5);
-                    x += tail * 35;
-                    y -= tail * 30;
-                    z += tail * 15;
+                    const rearFlick = Math.pow((t - 0.92) / 0.08, 1.5);
+
+                    x += rearFlick * 35;
+                    y -= rearFlick * 30;
+                    z += rearFlick * 15;
                 }
 
-                const sphereNorm = new THREE.Vector3(x / Rx, y / Ry, z / Rz).normalize();
+                const sphereNorm = new THREE.Vector3(
+                    x / rx,
+                    y / ry,
+                    z / rz
+                ).normalize();
 
                 return {
                     pos: new THREE.Vector3(x, y, z),
@@ -466,17 +486,35 @@
                 };
             }
 
-            // ─── Artwork Lifecycle Management ─────────────────────────────────────────
+            /*
+             * Three groups separate all movement cleanly:
+             *
+             * pivotGroup  = bob motion / fixed showcase angle
+             * spinGroup   = normal Upward / Downward spin (Y axis)
+             * rotateGroup = separate clockwise checkbox motion (Z axis)
+             *
+             * This prevents clockwise rotation from affecting spin logic.
+             */
             const pivotGroup = new THREE.Group();
-            // Adjusted to match reference image - more frontal, less tilt
             pivotGroup.position.set(0, -5, 0);
-            pivotGroup.rotation.x = 0.12;
-            pivotGroup.rotation.z = 0.02;
-            pivotGroup.rotation.y = 0;
+            pivotGroup.rotation.set(0.12, 0, 0.02);
             scene.add(pivotGroup);
+
+            const spinGroup = new THREE.Group();
+            pivotGroup.add(spinGroup);
+
+            const rotateGroup = new THREE.Group();
+            spinGroup.add(rotateGroup);
 
             let currentBrushArt = null;
             let fadeInAnimation = null;
+
+            /*
+             * When rotation is disabled, this target is always 0:
+             * the original upright orientation of rotateGroup.
+             */
+            const originalRotateZ = 0;
+            let rotateReturning = false;
 
             function disposeObject(object) {
                 object.traverse(child => {
@@ -498,17 +536,15 @@
                 return new Promise(resolve => requestAnimationFrame(resolve));
             }
 
-            // ─── Build High-Fidelity 3D Brush Artwork ─────────────────────────────────
             async function buildBrushStrokeAsync(token) {
                 const masterGroup = new THREE.Group();
                 const palette = getActivePalette();
 
-                // Local deterministic RNG keeps every rebuild visually consistent.
                 let localSeed = 884123;
 
                 function rnd() {
                     localSeed = (Math.imul(localSeed, 1664525) + 1013904223) >>> 0;
-                    return (localSeed >>> 0) / 0xffffffff;
+                    return localSeed / 0xffffffff;
                 }
 
                 function rndRange(min, max) {
@@ -525,17 +561,24 @@
                     spinePoints.push(data.pos);
                 }
 
-                const spineCurve = new THREE.CatmullRomCurve3(spinePoints, false, 'centripetal', 0.45);
+                const spineCurve = new THREE.CatmullRomCurve3(
+                    spinePoints,
+                    false,
+                    'centripetal',
+                    0.45
+                );
 
                 const spineFrames = [];
 
                 for (let i = 0; i <= SPINE_SAMPLES; i++) {
                     const t = i / SPINE_SAMPLES;
-                    const pt = spinePoints[i];
                     const tangent = spineCurve.getTangentAt(t).normalize();
                     const sphereNorm = spineData[i].sphereNorm;
 
-                    let binormal = new THREE.Vector3().crossVectors(tangent, sphereNorm);
+                    let binormal = new THREE.Vector3().crossVectors(
+                        tangent,
+                        sphereNorm
+                    );
 
                     if (binormal.lengthSq() < 0.000001) {
                         binormal = new THREE.Vector3(1, 0, 0);
@@ -543,23 +586,34 @@
 
                     binormal.normalize();
 
-                    const normal = new THREE.Vector3().crossVectors(binormal, tangent).normalize();
+                    const normal = new THREE.Vector3()
+                        .crossVectors(binormal, tangent)
+                        .normalize();
 
-                    spineFrames.push({ pt, tangent, normal, binormal });
+                    spineFrames.push({
+                        pt: spinePoints[i],
+                        tangent,
+                        normal,
+                        binormal
+                    });
                 }
 
                 function getFrameAt(t) {
-                    const idxFloat = t * SPINE_SAMPLES;
-                    const idx = Math.min(Math.floor(idxFloat), SPINE_SAMPLES - 1);
-                    const frac = idxFloat - idx;
-                    const f1 = spineFrames[idx];
-                    const f2 = spineFrames[idx + 1] || f1;
+                    const indexFloat = t * SPINE_SAMPLES;
+                    const index = Math.min(
+                        Math.floor(indexFloat),
+                        SPINE_SAMPLES - 1
+                    );
+
+                    const fraction = indexFloat - index;
+                    const first = spineFrames[index];
+                    const second = spineFrames[index + 1] || first;
 
                     return {
-                        pt: f1.pt.clone().lerp(f2.pt, frac),
-                        tangent: f1.tangent.clone().lerp(f2.tangent, frac).normalize(),
-                        normal: f1.normal.clone().lerp(f2.normal, frac).normalize(),
-                        binormal: f1.binormal.clone().lerp(f2.binormal, frac).normalize()
+                        pt: first.pt.clone().lerp(second.pt, fraction),
+                        tangent: first.tangent.clone().lerp(second.tangent, fraction).normalize(),
+                        normal: first.normal.clone().lerp(second.normal, fraction).normalize(),
+                        binormal: first.binormal.clone().lerp(second.binormal, fraction).normalize()
                     };
                 }
 
@@ -568,13 +622,14 @@
 
                 function getWidth(t) {
                     if (params.startFlick) {
-                        // Tapered lead-in at the top flick
                         if (t < 0.08) {
-                            return (baseWidth * 0.5) + (t / 0.08) * (baseWidth * 0.5);
+                            return (baseWidth * 0.5) +
+                                (t / 0.08) * (baseWidth * 0.5);
                         }
-                        // Mirrored taper at the rear-end flick
+
                         if (t > 0.92) {
-                            return (baseWidth * 0.5) + ((1 - t) / 0.08) * (baseWidth * 0.5);
+                            return (baseWidth * 0.5) +
+                                ((1 - t) / 0.08) * (baseWidth * 0.5);
                         }
                     }
 
@@ -583,51 +638,72 @@
                 }
 
                 function getThickness(t) {
-                    return baseThickness * 0.85 + Math.sin(t * Math.PI) * (baseThickness * 0.45);
+                    return baseThickness * 0.85 +
+                        Math.sin(t * Math.PI) * (baseThickness * 0.45);
                 }
 
-                // 1. Under-ribbon body layers.
                 const NUM_LAYERS = 4;
                 const RIBBON_SEGS = 260;
 
-                for (let l = 0; l < NUM_LAYERS; l++) {
-                    const ribbonGeom = new THREE.PlaneGeometry(1, 1, 20, RIBBON_SEGS);
-                    const posAttr = ribbonGeom.attributes.position;
-                    const colAttr = new Float32Array(posAttr.count * 3);
+                for (let layer = 0; layer < NUM_LAYERS; layer++) {
+                    const ribbonGeometry = new THREE.PlaneGeometry(
+                        1,
+                        1,
+                        20,
+                        RIBBON_SEGS
+                    );
 
-                    const layerH = (l - 1.5) * (baseThickness * 0.26);
-                    const widthScale = 0.95 - l * 0.04;
+                    const positionAttribute = ribbonGeometry.attributes.position;
+                    const colorAttribute = new Float32Array(
+                        positionAttribute.count * 3
+                    );
 
-                    for (let r = 0; r <= RIBBON_SEGS; r++) {
-                        const t = r / RIBBON_SEGS;
+                    const layerHeight =
+                        (layer - 1.5) * (baseThickness * 0.26);
+
+                    const widthScale = 0.95 - layer * 0.04;
+
+                    for (let row = 0; row <= RIBBON_SEGS; row++) {
+                        const t = row / RIBBON_SEGS;
                         const frame = getFrameAt(t);
-                        const w = getWidth(t) * widthScale;
+                        const width = getWidth(t) * widthScale;
 
-                        for (let c = 0; c <= 20; c++) {
-                            const vIdx = r * 21 + c;
-                            const u = (c / 20) * 2 - 1;
+                        for (let column = 0; column <= 20; column++) {
+                            const vertexIndex = row * 21 + column;
+                            const u = (column / 20) * 2 - 1;
 
-                            const vx = frame.pt.x + frame.binormal.x * (u * w * 0.5) + frame.normal.x * layerH;
-                            const vy = frame.pt.y + frame.binormal.y * (u * w * 0.5) + frame.normal.y * layerH;
-                            const vz = frame.pt.z + frame.binormal.z * (u * w * 0.5) + frame.normal.z * layerH;
+                            positionAttribute.setXYZ(
+                                vertexIndex,
+                                frame.pt.x +
+                                    frame.binormal.x * (u * width * 0.5) +
+                                    frame.normal.x * layerHeight,
+                                frame.pt.y +
+                                    frame.binormal.y * (u * width * 0.5) +
+                                    frame.normal.y * layerHeight,
+                                frame.pt.z +
+                                    frame.binormal.z * (u * width * 0.5) +
+                                    frame.normal.z * layerHeight
+                            );
 
-                            posAttr.setXYZ(vIdx, vx, vy, vz);
+                            const color = samplePaintColor((1 - u) * 0.5, palette);
 
-                            const colorT = (1 - u) * 0.5;
-                            const color = samplePaintColor(colorT, palette);
-
-                            colAttr[vIdx * 3] = color.r;
-                            colAttr[vIdx * 3 + 1] = color.g;
-                            colAttr[vIdx * 3 + 2] = color.b;
+                            colorAttribute[vertexIndex * 3] = color.r;
+                            colorAttribute[vertexIndex * 3 + 1] = color.g;
+                            colorAttribute[vertexIndex * 3 + 2] = color.b;
                         }
                     }
 
-                    ribbonGeom.setAttribute('color', new THREE.BufferAttribute(colAttr, 3));
-                    ribbonGeom.computeVertexNormals();
+                    ribbonGeometry.setAttribute(
+                        'color',
+                        new THREE.BufferAttribute(colorAttribute, 3)
+                    );
 
-                    const ribbonMat = new THREE.MeshPhongMaterial({
+                    ribbonGeometry.computeVertexNormals();
+
+                    const ribbonMaterial = new THREE.MeshPhongMaterial({
                         vertexColors: true,
-                        specular: new THREE.Color(0xffffff).multiplyScalar(params.specularIntensity),
+                        specular: new THREE.Color(0xffffff)
+                            .multiplyScalar(params.specularIntensity),
                         shininess: params.shininess,
                         transparent: true,
                         opacity: params.underRibbonOpacity,
@@ -635,9 +711,13 @@
                         depthWrite: false
                     });
 
-                    ribbonMat.userData.kind = 'ribbon';
+                    ribbonMaterial.userData.kind = 'ribbon';
 
-                    const ribbonMesh = new THREE.Mesh(ribbonGeom, ribbonMat);
+                    const ribbonMesh = new THREE.Mesh(
+                        ribbonGeometry,
+                        ribbonMaterial
+                    );
+
                     ribbonMesh.userData.kind = 'ribbon';
                     ribbonMesh.visible = params.underRibbonOpacity > 0.001;
                     ribbonMesh.matrixAutoUpdate = false;
@@ -646,96 +726,129 @@
                     masterGroup.add(ribbonMesh);
                 }
 
-                // 2. Individual bristle strands.
                 const NUM_BRISTLES = Math.max(1, Math.round(params.fiberCount));
                 const BRISTLE_SEGS = 190;
-                const waviness = params.waviness;
                 const BRISTLE_CHUNK = 10;
 
-                for (let bi = 0; bi < NUM_BRISTLES; bi++) {
+                for (let bristleIndex = 0; bristleIndex < NUM_BRISTLES; bristleIndex++) {
                     if (token !== rebuildRequestId) {
                         disposeObject(masterGroup);
                         return null;
                     }
 
-                    const uNorm = NUM_BRISTLES === 1 ? 0 : (bi / (NUM_BRISTLES - 1)) * 2 - 1;
+                    const uNorm = NUM_BRISTLES === 1
+                        ? 0
+                        : (bristleIndex / (NUM_BRISTLES - 1)) * 2 - 1;
 
                     const uOffset =
-                        Math.sign(uNorm) * Math.pow(Math.abs(uNorm), 0.90) +
+                        Math.sign(uNorm) *
+                        Math.pow(Math.abs(uNorm), 0.90) +
                         rndRange(-0.02, 0.02);
 
                     const vOffset =
                         rndRange(-0.48, 0.48) *
                         Math.sqrt(1 - Math.min(1, Math.abs(uOffset) * 0.85));
 
-                    let colT = (1 - uOffset) * 0.5;
-                    colT = Math.max(0, Math.min(1, colT + rndRange(-params.colorJitter, params.colorJitter)));
+                    let colorT = (1 - uOffset) * 0.5;
 
-                    const bristleColor = samplePaintColor(colT, palette);
-                    const brightness = rndRange(0.88, 1.30);
-                    bristleColor.multiplyScalar(brightness);
+                    colorT = Math.max(
+                        0,
+                        Math.min(
+                            1,
+                            colorT + rndRange(-params.colorJitter, params.colorJitter)
+                        )
+                    );
+
+                    const bristleColor = samplePaintColor(colorT, palette);
+                    bristleColor.multiplyScalar(rndRange(0.88, 1.30));
 
                     const isStray = rnd() < params.strayFibers;
-                    const spread = isStray ? rndRange(1.08, 1.35) : 1.0;
+                    const spread = isStray ? rndRange(1.08, 1.35) : 1;
 
-                    const startT = (bi < 50 || rnd() > 0.80) ? rndRange(0.0, 0.05) : 0.0;
-                    const endT = (bi > NUM_BRISTLES - 50 || rnd() > 0.82) ? rndRange(0.95, 1.0) : 1.0;
+                    const startT = (bristleIndex < 50 || rnd() > 0.80)
+                        ? rndRange(0, 0.05)
+                        : 0;
 
-                    const waveFreq = rndRange(3, 8);
+                    const endT = (bristleIndex > NUM_BRISTLES - 50 || rnd() > 0.82)
+                        ? rndRange(0.95, 1)
+                        : 1;
+
+                    const waveFrequency = rndRange(3, 8);
                     const wavePhase = rndRange(0, Math.PI * 2);
-                    const waveAmp = rndRange(0.5, 2.2) * waviness;
+                    const waveAmplitude = rndRange(0.5, 2.2) * params.waviness;
 
                     const points = [];
-                    const steps = Math.max(4, Math.floor(BRISTLE_SEGS * (endT - startT)));
+                    const steps = Math.max(
+                        4,
+                        Math.floor(BRISTLE_SEGS * (endT - startT))
+                    );
 
-                    for (let si = 0; si <= steps; si++) {
-                        const localT = si / steps;
+                    for (let pointIndex = 0; pointIndex <= steps; pointIndex++) {
+                        const localT = pointIndex / steps;
                         const t = startT + localT * (endT - startT);
                         const frame = getFrameAt(t);
 
-                        const w = getWidth(t) * spread;
-                        const th = getThickness(t) * spread;
+                        const width = getWidth(t) * spread;
+                        const thickness = getThickness(t) * spread;
 
-                        const wave = Math.sin(t * Math.PI * waveFreq + wavePhase) * waveAmp;
+                        const wave = Math.sin(
+                            t * Math.PI * waveFrequency + wavePhase
+                        ) * waveAmplitude;
 
-                        let fanning = 1.0;
+                        let fanning = 1;
 
-                        // Fan out at the top flick
-                        if (t < 0.08 && params.startFlick) {
-                            fanning = 1.0 + Math.pow(1 - t / 0.08, 1.5) * 0.45 * uOffset;
+                        if (params.startFlick && t < 0.08) {
+                            fanning +=
+                                Math.pow(1 - t / 0.08, 1.5) *
+                                0.45 *
+                                uOffset;
                         }
 
-                        // Fan out at the rear-end flick
-                        if (t > 0.92 && params.startFlick) {
-                            fanning = 1.0 + Math.pow((t - 0.92) / 0.08, 1.5) * 0.45 * uOffset;
+                        if (params.startFlick && t > 0.92) {
+                            fanning +=
+                                Math.pow((t - 0.92) / 0.08, 1.5) *
+                                0.45 *
+                                uOffset;
                         }
 
-                        const px =
-                            frame.pt.x +
-                            frame.binormal.x * (uOffset * w * 0.5 * fanning + wave) +
-                            frame.normal.x * (vOffset * th * 0.5);
+                        points.push(
+                            new THREE.Vector3(
+                                frame.pt.x +
+                                    frame.binormal.x * (
+                                        uOffset * width * 0.5 * fanning + wave
+                                    ) +
+                                    frame.normal.x * (vOffset * thickness * 0.5),
 
-                        const py =
-                            frame.pt.y +
-                            frame.binormal.y * (uOffset * w * 0.5 * fanning + wave) +
-                            frame.normal.y * (vOffset * th * 0.5);
+                                frame.pt.y +
+                                    frame.binormal.y * (
+                                        uOffset * width * 0.5 * fanning + wave
+                                    ) +
+                                    frame.normal.y * (vOffset * thickness * 0.5),
 
-                        const pz =
-                            frame.pt.z +
-                            frame.binormal.z * (uOffset * w * 0.5 * fanning + wave) +
-                            frame.normal.z * (vOffset * th * 0.5);
-
-                        points.push(new THREE.Vector3(px, py, pz));
+                                frame.pt.z +
+                                    frame.binormal.z * (
+                                        uOffset * width * 0.5 * fanning + wave
+                                    ) +
+                                    frame.normal.z * (vOffset * thickness * 0.5)
+                            )
+                        );
                     }
 
                     if (points.length > 3) {
-                        const curve = new THREE.CatmullRomCurve3(points, false, 'centripetal', 0.4);
+                        const curve = new THREE.CatmullRomCurve3(
+                            points,
+                            false,
+                            'centripetal',
+                            0.4
+                        );
 
-                        const radius =
-                            (isStray ? rndRange(0.5, 0.85) : rndRange(0.8, 1.7)) *
-                            (params.fiberRadius / 1.15);
+                        const radius = (
+                            isStray
+                                ? rndRange(0.5, 0.85)
+                                : rndRange(0.8, 1.7)
+                        ) * (params.fiberRadius / 1.15);
 
-                        const geom = new THREE.TubeGeometry(
+                        const geometry = new THREE.TubeGeometry(
                             curve,
                             Math.floor(steps * 1.35),
                             radius,
@@ -743,29 +856,33 @@
                             false
                         );
 
-                        const opacityBase = isStray ? rndRange(0.55, 0.78) : rndRange(0.82, 0.98);
-                        const opacity = opacityBase * (params.fiberOpacity / 0.88);
+                        const opacityBase = isStray
+                            ? rndRange(0.55, 0.78)
+                            : rndRange(0.82, 0.98);
+
+                        const opacity =
+                            opacityBase * (params.fiberOpacity / 0.88);
 
                         const specular = bristleColor
                             .clone()
                             .lerp(new THREE.Color(0xffffff), 0.70)
                             .multiplyScalar(params.specularIntensity);
 
-                        const mat = new THREE.MeshPhongMaterial({
+                        const material = new THREE.MeshPhongMaterial({
                             color: bristleColor,
                             specular,
                             shininess: params.shininess,
                             transparent: true,
-                            opacity: Math.min(1.0, opacity),
+                            opacity: Math.min(1, opacity),
                             depthWrite: opacity > 0.88,
                             side: THREE.FrontSide
                         });
 
-                        mat.userData.kind = 'bristle';
-                        mat.userData.baseColor = bristleColor.clone();
-                        mat.userData.opacityBase = opacityBase;
+                        material.userData.kind = 'bristle';
+                        material.userData.baseColor = bristleColor.clone();
+                        material.userData.opacityBase = opacityBase;
 
-                        const mesh = new THREE.Mesh(geom, mat);
+                        const mesh = new THREE.Mesh(geometry, material);
                         mesh.userData.kind = 'bristle';
                         mesh.matrixAutoUpdate = false;
                         mesh.updateMatrix();
@@ -773,8 +890,10 @@
                         masterGroup.add(mesh);
                     }
 
-                    // Yield to browser every few bristles so the site stays responsive.
-                    if (bi > 0 && bi % BRISTLE_CHUNK === 0) {
+                    if (
+                        bristleIndex > 0 &&
+                        bristleIndex % BRISTLE_CHUNK === 0
+                    ) {
                         await nextFrame();
                     }
                 }
@@ -796,40 +915,48 @@
                 currentBrushArt.traverse(child => {
                     if (!child.material) return;
 
-                    const materials = Array.isArray(child.material) ? child.material : [child.material];
+                    const materials = Array.isArray(child.material)
+                        ? child.material
+                        : [child.material];
 
-                    materials.forEach(mat => {
-                        if (mat.userData.kind === 'ribbon') {
-                            mat.specular.setRGB(
+                    materials.forEach(material => {
+                        if (material.userData.kind === 'ribbon') {
+                            material.specular.setRGB(
                                 params.specularIntensity,
                                 params.specularIntensity,
                                 params.specularIntensity
                             );
 
-                            mat.shininess = params.shininess;
-                            mat.opacity = params.underRibbonOpacity;
-                            mat.needsUpdate = true;
+                            material.shininess = params.shininess;
+                            material.opacity = params.underRibbonOpacity;
+                            material.needsUpdate = true;
 
                             child.visible = params.underRibbonOpacity > 0.001;
                         }
 
-                        if (mat.userData.kind === 'bristle') {
-                            const baseColor = mat.userData.baseColor || mat.color;
-                            const opacityBase = mat.userData.opacityBase !== undefined ? mat.userData.opacityBase : mat.opacity;
+                        if (material.userData.kind === 'bristle') {
+                            const baseColor =
+                                material.userData.baseColor || material.color;
 
-                            mat.color.copy(baseColor);
+                            const opacityBase =
+                                material.userData.opacityBase !== undefined
+                                    ? material.userData.opacityBase
+                                    : material.opacity;
 
-                            mat.specular
+                            material.color.copy(baseColor);
+
+                            material.specular
                                 .copy(baseColor)
                                 .lerp(new THREE.Color(0xffffff), 0.70)
                                 .multiplyScalar(params.specularIntensity);
 
-                            const nextOpacity = opacityBase * (params.fiberOpacity / 0.88);
+                            const opacity =
+                                opacityBase * (params.fiberOpacity / 0.88);
 
-                            mat.shininess = params.shininess;
-                            mat.opacity = Math.min(1.0, nextOpacity);
-                            mat.depthWrite = nextOpacity > 0.88;
-                            mat.needsUpdate = true;
+                            material.shininess = params.shininess;
+                            material.opacity = Math.min(1, opacity);
+                            material.depthWrite = opacity > 0.88;
+                            material.needsUpdate = true;
 
                             child.visible = params.fiberOpacity > 0.001;
                         }
@@ -851,9 +978,15 @@
                 paperGrainEl.style.display = params.paperGrain ? 'block' : 'none';
                 paperGrainEl.style.opacity = params.grainOpacity;
 
-                const c = new THREE.Color(params.bgColor);
-                const luminance = 0.299 * c.r + 0.587 * c.g + 0.114 * c.b;
-                hintEl.style.color = luminance < 0.4 ? 'rgba(255,255,255,0.65)' : '#8f7d6a';
+                const color = new THREE.Color(params.bgColor);
+                const luminance =
+                    0.299 * color.r +
+                    0.587 * color.g +
+                    0.114 * color.b;
+
+                hintEl.style.color = luminance < 0.4
+                    ? 'rgba(255,255,255,0.65)'
+                    : '#8f7d6a';
 
                 needsRender = true;
             }
@@ -898,15 +1031,8 @@
                             return;
                         }
 
-                        const previousArt = currentBrushArt;
-                        // Preserve BOTH spin (Y) and clockwise rotate (Z) across rebuilds
-                        const previousRotation = previousArt
-                            ? previousArt.rotation.clone()
-                            : new THREE.Euler(0, 0, 0);
+                        const oldArt = currentBrushArt;
 
-                        nextArt.rotation.copy(previousRotation);
-
-                        // Smooth fade-in transition
                         nextArt.traverse(child => {
                             if (child.material) {
                                 child.material.transparent = true;
@@ -915,15 +1041,14 @@
                             }
                         });
 
-                        pivotGroup.add(nextArt);
+                        rotateGroup.add(nextArt);
                         currentBrushArt = nextArt;
 
-                        if (previousArt) {
-                            pivotGroup.remove(previousArt);
-                            disposeObject(previousArt);
+                        if (oldArt) {
+                            rotateGroup.remove(oldArt);
+                            disposeObject(oldArt);
                         }
 
-                        // Animate fade-in
                         fadeInAnimation = {
                             object: nextArt,
                             startTime: performance.now(),
@@ -957,20 +1082,26 @@
                 const eased = 1 - Math.pow(1 - progress, 3);
 
                 object.traverse(child => {
-                    if (child.material) {
-                        if (child.material.userData.kind === 'ribbon') {
-                            child.material.opacity = params.underRibbonOpacity * eased;
-                        } else if (child.material.userData.kind === 'bristle') {
-                            child.material.opacity = Math.min(1, (child.material.userData.opacityBase * (params.fiberOpacity / 0.88)) * eased);
-                        }
-                        child.material.needsUpdate = true;
+                    if (!child.material) return;
+
+                    if (child.material.userData.kind === 'ribbon') {
+                        child.material.opacity =
+                            params.underRibbonOpacity * eased;
+                    } else if (child.material.userData.kind === 'bristle') {
+                        child.material.opacity = Math.min(
+                            1,
+                            child.material.userData.opacityBase *
+                            (params.fiberOpacity / 0.88) *
+                            eased
+                        );
                     }
+
+                    child.material.needsUpdate = true;
                 });
 
                 if (progress >= 1) {
-                    // Final update to ensure exact values
-                    updateMaterials();
                     fadeInAnimation = null;
+                    updateMaterials();
                 }
 
                 return true;
@@ -1001,37 +1132,48 @@
                 const oldAspect = camera.aspect;
                 const oldSceneBackground = scene.background;
 
-                const displayW = Math.max(1, window.innerWidth);
-                const displayH = Math.max(1, window.innerHeight);
+                const displayWidth = Math.max(1, window.innerWidth);
+                const displayHeight = Math.max(1, window.innerHeight);
 
-                const maxTexture = Math.min(renderer.capabilities.maxTextureSize || 4096, 4096);
+                const maxTexture = Math.min(
+                    renderer.capabilities.maxTextureSize || 4096,
+                    4096
+                );
+
                 const maxArea = 10000000;
 
                 let scale = Math.min(
                     2,
-                    maxTexture / displayW,
-                    maxTexture / displayH,
-                    Math.sqrt(maxArea / (displayW * displayH))
+                    maxTexture / displayWidth,
+                    maxTexture / displayHeight,
+                    Math.sqrt(maxArea / (displayWidth * displayHeight))
                 );
 
                 scale = Math.max(0.75, scale);
 
-                const exportW = Math.floor(displayW * scale);
-                const exportH = Math.floor(displayH * scale);
-
-                let dataURL = null;
+                const exportWidth = Math.floor(displayWidth * scale);
+                const exportHeight = Math.floor(displayHeight * scale);
 
                 try {
                     scene.background = new THREE.Color(params.bgColor);
 
                     renderer.setPixelRatio(1);
-                    renderer.setSize(exportW, exportH, false);
+                    renderer.setSize(exportWidth, exportHeight, false);
 
-                    camera.aspect = exportW / exportH;
+                    camera.aspect = exportWidth / exportHeight;
                     camera.updateProjectionMatrix();
 
                     renderer.render(scene, camera);
-                    dataURL = renderer.domElement.toDataURL('image/png');
+
+                    const dataURL = renderer.domElement.toDataURL('image/png');
+                    const link = document.createElement('a');
+
+                    link.download = `brush-sculpture-${Date.now()}.png`;
+                    link.href = dataURL;
+
+                    document.body.appendChild(link);
+                    link.click();
+                    link.remove();
                 } catch (error) {
                     console.error('PNG export failed:', error);
                 } finally {
@@ -1045,24 +1187,17 @@
 
                     needsRender = true;
                 }
-
-                if (dataURL) {
-                    const link = document.createElement('a');
-                    link.download = `brush-sculpture-${Date.now()}.png`;
-                    link.href = dataURL;
-                    document.body.appendChild(link);
-                    link.click();
-                    link.remove();
-                }
             }
 
             updateBackground();
             updateLighting();
             scheduleRebuild(0);
 
-            // ─── Tweakpane UI Setup ───────────────────────────────────────────────────
             try {
-                const PaneClass = (window.Tweakpane && (window.Tweakpane.Pane || window.Tweakpane)) || window.Pane;
+                const PaneClass =
+                    (window.Tweakpane &&
+                        (window.Tweakpane.Pane || window.Tweakpane)) ||
+                    window.Pane;
 
                 if (PaneClass) {
                     const pane = new PaneClass({
@@ -1070,31 +1205,41 @@
                         expanded: true
                     });
 
-                    function addControl(parent, obj, prop, opt) {
+                    function addControl(parent, object, property, options) {
                         if (typeof parent.addBinding === 'function') {
-                            return parent.addBinding(obj, prop, opt);
-                        } else if (typeof parent.addInput === 'function') {
-                            return parent.addInput(obj, prop, opt);
-                        } else {
-                            return parent.add(obj, prop, opt);
+                            return parent.addBinding(object, property, options);
                         }
+
+                        if (typeof parent.addInput === 'function') {
+                            return parent.addInput(object, property, options);
+                        }
+
+                        return parent.add(object, property, options);
                     }
 
-                    const presetOptions = Object.keys(PRESETS).reduce((acc, key) => {
-                        acc[key] = key;
-                        return acc;
-                    }, {});
+                    const presetOptions = Object.keys(PRESETS).reduce(
+                        (options, key) => {
+                            options[key] = key;
+                            return options;
+                        },
+                        {}
+                    );
 
-                    // 1. Presets Folder
-                    const fPresets = pane.addFolder({ title: '🌟 Style Presets', expanded: true });
+                    const fPresets = pane.addFolder({
+                        title: '🌟 Style Presets',
+                        expanded: true
+                    });
 
                     addControl(fPresets, params, 'preset', {
                         options: presetOptions
-                    }).on('change', ev => {
-                        const val = ev && ev.value !== undefined ? ev.value : ev;
+                    }).on('change', event => {
+                        const value =
+                            event && event.value !== undefined
+                                ? event.value
+                                : event;
 
-                        if (PRESETS[val]) {
-                            applyPreset(val);
+                        if (PRESETS[value]) {
+                            applyPreset(value);
                             pane.refresh();
                             updateBackground();
                             updateMaterials();
@@ -1102,8 +1247,10 @@
                         }
                     });
 
-                    // 2. Palette & Pigment Folder
-                    const fPalette = pane.addFolder({ title: '🌈 Multi-Pigment Palette', expanded: false });
+                    const fPalette = pane.addFolder({
+                        title: '🌈 Multi-Pigment Palette',
+                        expanded: false
+                    });
 
                     addControl(fPalette, params, 'c1', { label: 'Outer Edge' }).on('change', rebuildArtwork);
                     addControl(fPalette, params, 'c2', { label: 'Outer Mid' }).on('change', rebuildArtwork);
@@ -1113,19 +1260,22 @@
                     addControl(fPalette, params, 'c6', { label: 'Inner Amber' }).on('change', rebuildArtwork);
                     addControl(fPalette, params, 'c7', { label: 'Inner Gold' }).on('change', rebuildArtwork);
                     addControl(fPalette, params, 'invertPalette', { label: 'Invert Pigment' }).on('change', rebuildArtwork);
+
                     addControl(fPalette, params, 'colorJitter', {
-                        min: 0.0,
+                        min: 0,
                         max: 0.15,
                         step: 0.01,
                         label: 'Color Striation'
                     }).on('change', rebuildArtwork);
 
-                    // 3. Geometry & Sculpture Folder
-                    const fGeometry = pane.addFolder({ title: '📐 Geometry & Sculpture', expanded: true });
+                    const fGeometry = pane.addFolder({
+                        title: '📐 Geometry & Sculpture',
+                        expanded: true
+                    });
 
                     addControl(fGeometry, params, 'turns', {
-                        min: 2.0,
-                        max: 5.0,
+                        min: 2,
+                        max: 5,
                         step: 0.05,
                         label: 'Coil Turns'
                     }).on('change', rebuildArtwork);
@@ -1166,14 +1316,14 @@
                     }).on('change', rebuildArtwork);
 
                     addControl(fGeometry, params, 'waviness', {
-                        min: 0.0,
-                        max: 3.0,
+                        min: 0,
+                        max: 3,
                         step: 0.1,
                         label: 'Bristle Wiggle'
                     }).on('change', rebuildArtwork);
 
                     addControl(fGeometry, params, 'strayFibers', {
-                        min: 0.0,
+                        min: 0,
                         max: 0.35,
                         step: 0.01,
                         label: 'Stray Bristles'
@@ -1183,8 +1333,10 @@
                         label: 'Brush Flicks (Top + Tail)'
                     }).on('change', rebuildArtwork);
 
-                    // 4. Material & Paint Surface Folder
-                    const fMaterial = pane.addFolder({ title: '✨ Paint Luster & Finish', expanded: false });
+                    const fMaterial = pane.addFolder({
+                        title: '✨ Paint Luster & Finish',
+                        expanded: false
+                    });
 
                     addControl(fMaterial, params, 'shininess', {
                         min: 10,
@@ -1195,27 +1347,29 @@
 
                     addControl(fMaterial, params, 'specularIntensity', {
                         min: 0.1,
-                        max: 2.0,
+                        max: 2,
                         step: 0.05,
                         label: 'Highlights'
                     }).on('change', updateMaterials);
 
                     addControl(fMaterial, params, 'fiberOpacity', {
                         min: 0.4,
-                        max: 1.0,
+                        max: 1,
                         step: 0.02,
                         label: 'Bristle Opacity'
                     }).on('change', updateMaterials);
 
                     addControl(fMaterial, params, 'underRibbonOpacity', {
-                        min: 0.0,
-                        max: 1.0,
+                        min: 0,
+                        max: 1,
                         step: 0.05,
                         label: 'Under-Body Fill'
                     }).on('change', updateMaterials);
 
-                    // 5. Motion & Spin Controls
-                    const fMotion = pane.addFolder({ title: '🌪️ Motion & Spin Dynamics', expanded: true });
+                    const fMotion = pane.addFolder({
+                        title: '🌪️ Motion & Spin Dynamics',
+                        expanded: true
+                    });
 
                     addControl(fMotion, params, 'spinMode', {
                         label: 'Spin Direction',
@@ -1229,8 +1383,8 @@
                     });
 
                     addControl(fMotion, params, 'spinSpeed', {
-                        min: 0.0,
-                        max: 2.0,
+                        min: 0,
+                        max: 2,
                         step: 0.05,
                         label: 'Spin Velocity'
                     }).on('change', () => {
@@ -1243,17 +1397,21 @@
                         needsRender = true;
                     });
 
-                    // Clockwise rotate checkbox — below Floating Bob.
-                    // Runs ONLY when ticked, at its own fixed speed (ignores Spin Velocity).
-                    // addControl(fMotion, params, 'rotateClockwise', {
-                    //     label: 'Rotate Clockwise'
-                    // }).on('change', () => {
-                    //     needsRender = true;
-                    // });
+                    addControl(fMotion, params, 'rotateClockwise', {
+                        label: 'Rotate Clockwise'
+                    }).on('change', () => {
+                        /*
+                         * On uncheck, rotateReturning activates.
+                         * rotateGroup will smoothly return to Z = 0.
+                         * spinGroup continues its normal Y-axis spin.
+                         */
+                        rotateReturning = !params.rotateClockwise;
+                        needsRender = true;
+                    });
 
                     addControl(fMotion, params, 'bobAmplitude', {
-                        min: 0.0,
-                        max: 18.0,
+                        min: 0,
+                        max: 18,
                         step: 0.5,
                         label: 'Bob Amplitude'
                     }).on('change', () => {
@@ -1262,15 +1420,17 @@
 
                     addControl(fMotion, params, 'bobSpeed', {
                         min: 0.1,
-                        max: 3.0,
+                        max: 3,
                         step: 0.1,
                         label: 'Bob Speed'
                     }).on('change', () => {
                         needsRender = true;
                     });
 
-                    // 6. Lighting & Canvas Background
-                    const fEnvironment = pane.addFolder({ title: '💡 Lighting & Canvas', expanded: false });
+                    const fEnvironment = pane.addFolder({
+                        title: '💡 Lighting & Canvas',
+                        expanded: false
+                    });
 
                     addControl(fEnvironment, params, 'bgColor', {
                         label: 'Background'
@@ -1281,7 +1441,7 @@
                     }).on('change', updateBackground);
 
                     addControl(fEnvironment, params, 'grainOpacity', {
-                        min: 0.0,
+                        min: 0,
                         max: 0.4,
                         step: 0.02,
                         label: 'Grain Opacity'
@@ -1289,31 +1449,38 @@
 
                     addControl(fEnvironment, params, 'keyLightIntensity', {
                         min: 0.2,
-                        max: 3.0,
+                        max: 3,
                         step: 0.1,
                         label: 'Sun Key Light'
                     }).on('change', updateLighting);
 
                     addControl(fEnvironment, params, 'fillLightIntensity', {
-                        min: 0.0,
-                        max: 2.0,
+                        min: 0,
+                        max: 2,
                         step: 0.1,
                         label: 'Sky Fill Light'
                     }).on('change', updateLighting);
 
                     addControl(fEnvironment, params, 'rimLightIntensity', {
-                        min: 0.0,
-                        max: 2.0,
+                        min: 0,
+                        max: 2,
                         step: 0.1,
                         label: 'Rim Light'
                     }).on('change', updateLighting);
 
-                    // 7. Action Buttons
-                    const fActions = pane.addFolder({ title: '⚡ Quick Actions', expanded: true });
+                    const fActions = pane.addFolder({
+                        title: '⚡ Quick Actions',
+                        expanded: true
+                    });
 
-                    fActions.addButton({ title: '🎲 Randomize Palette & Form' }).on('click', () => {
+                    fActions.addButton({
+                        title: '🎲 Randomize Palette & Form'
+                    }).on('click', () => {
                         const randomColor = () =>
-                            '#' + Math.floor(Math.random() * 16777215).toString(16).padStart(6, '0');
+                            '#' +
+                            Math.floor(Math.random() * 16777215)
+                                .toString(16)
+                                .padStart(6, '0');
 
                         params.c1 = randomColor();
                         params.c2 = randomColor();
@@ -1331,23 +1498,25 @@
                         scheduleRebuild(20);
                     });
 
-                    fActions.addButton({ title: '📸 Save High-Res Artwork PNG' }).on('click', () => {
-                        saveHighResArtworkPNG();
-                    });
+                    fActions.addButton({
+                        title: '📸 Save High-Res Artwork PNG'
+                    }).on('click', saveHighResArtworkPNG);
 
-                    fActions.addButton({ title: '🔄 Reset' }).on('click', () => {
+                    fActions.addButton({
+                        title: '🔄 Reset'
+                    }).on('click', () => {
                         Object.assign(params, DEFAULT_PARAMS);
-                        params.preset = 'Cobalt & Sunset Orange';
                         applyPreset(params.preset);
 
                         pivotGroup.position.set(0, -5, 0);
-                        pivotGroup.rotation.x = 0.12;
-                        pivotGroup.rotation.z = 0.02;
-                        pivotGroup.rotation.y = 0;
+                        pivotGroup.rotation.set(0.12, 0, 0.02);
 
-                        if (currentBrushArt) {
-                            currentBrushArt.rotation.set(0, 0, 0);
-                        }
+                        /* Original upright clockwise-rotation state */
+                        rotateGroup.rotation.z = originalRotateZ;
+                        rotateReturning = false;
+
+                        /* Normal spin has its own separate rotation group */
+                        spinGroup.rotation.y = 0;
 
                         if (controls.reset) {
                             controls.reset();
@@ -1360,11 +1529,10 @@
                         scheduleRebuild(20);
                     });
                 }
-            } catch (e) {
-                console.error('Tweakpane init warning:', e);
+            } catch (error) {
+                console.error('Tweakpane init warning:', error);
             }
 
-            // ─── Main Animation Loop ──────────────────────────────────────────────────
             const clock = new THREE.Clock();
 
             function animate() {
@@ -1376,31 +1544,73 @@
 
                 let animated = false;
 
-                // Update fade-in transition
-                if (fadeInAnimation) {
-                    if (updateFadeIn(now)) {
+                if (fadeInAnimation && updateFadeIn(now)) {
+                    animated = true;
+                }
+
+                /*
+                 * NORMAL SPIN:
+                 * - spinGroup rotation on Y-axis.
+                 * - params.spinSpeed affects ONLY this block.
+                 * - rotateClockwise does not affect this speed.
+                 */
+                if (params.spinMode !== 'Paused' && params.spinSpeed > 0) {
+                    const direction = params.spinMode === 'Upward' ? -1 : 1;
+
+                    spinGroup.rotation.y +=
+                        direction * delta * params.spinSpeed;
+
+                    animated = true;
+                }
+
+                /*
+                 * CLOCKWISE ROTATION:
+                 * - rotateGroup rotation on Z-axis.
+                 * - Fixed CLOCKWISE_ROTATE_SPEED.
+                 * - Does not use params.spinSpeed.
+                 * - Runs only while checkbox is ticked.
+                 */
+                if (params.rotateClockwise) {
+                    rotateGroup.rotation.z -=
+                        delta * CLOCKWISE_ROTATE_SPEED;
+
+                    rotateReturning = false;
+                    animated = true;
+                }
+
+                /*
+                 * When checkbox is unticked, smoothly return rotateGroup
+                 * to its original upright orientation (Z = 0).
+                 *
+                 * This does not touch spinGroup.rotation.y, so normal
+                 * Upward/Downward spinning continues exactly as usual.
+                 */
+                if (!params.rotateClockwise && rotateReturning) {
+                    const difference =
+                        originalRotateZ - rotateGroup.rotation.z;
+
+                    if (Math.abs(difference) > 0.0001) {
+                        const easing =
+                            1 - Math.exp(-CLOCKWISE_RETURN_SPEED * delta);
+
+                        rotateGroup.rotation.z += difference * easing;
                         animated = true;
+                    } else {
+                        rotateGroup.rotation.z = originalRotateZ;
+                        rotateReturning = false;
                     }
                 }
 
-                // SPIN — Y-axis, controlled ONLY by Spin Direction + Spin Velocity.
-                if (currentBrushArt && params.spinMode !== 'Paused' && params.spinSpeed > 0) {
-                    const direction = params.spinMode === 'Upward' ? -1 : 1;
-                    currentBrushArt.rotation.y += direction * delta * params.spinSpeed;
-                    animated = true;
-                }
-
-                // ROTATE CLOCKWISE — Z-axis, fixed speed, completely independent
-                // of Spin Velocity. Runs ONLY when the checkbox is ticked.
-                if (currentBrushArt && params.rotateClockwise) {
-                    currentBrushArt.rotation.z -= delta * CLOCKWISE_ROTATE_SPEED;
-                    animated = true;
-                }
-
-                // Floating organic bob
                 if (params.floatingBob) {
-                    pivotGroup.position.y = -5 + Math.sin(elapsed * params.bobSpeed) * params.bobAmplitude;
-                    pivotGroup.rotation.z = 0.02 + Math.sin(elapsed * 0.4) * 0.015;
+                    pivotGroup.position.y =
+                        -5 +
+                        Math.sin(elapsed * params.bobSpeed) *
+                        params.bobAmplitude;
+
+                    pivotGroup.rotation.z =
+                        0.02 +
+                        Math.sin(elapsed * 0.4) * 0.015;
+
                     animated = true;
                 } else {
                     if (Math.abs(pivotGroup.position.y + 5) > 0.001) {
@@ -1414,7 +1624,9 @@
                     }
                 }
 
-                const controlsChanged = controls.update ? controls.update() : false;
+                const controlsChanged = controls.update
+                    ? controls.update()
+                    : false;
 
                 if (animated || controlsChanged || needsRender) {
                     renderer.render(scene, camera);
@@ -1424,7 +1636,6 @@
 
             animate();
 
-            // ─── Responsive Window Resize ─────────────────────────────────────────────
             let resizeFrame = null;
 
             window.addEventListener('resize', () => {

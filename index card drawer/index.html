@@ -1,1083 +1,1693 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>3D Paint Sketch Studio</title>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>3D Oil Paint Brush Sculpture Studio</title>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-            user-select: none;
-        }
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+        user-select: none;
+      }
 
-        body {
-            background: #C4BDBC;
-            overflow: hidden;
-            width: 100vw;
-            height: 100vh;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-        }
+      body {
+        background: #c4bdbc;
+        overflow: hidden;
+        width: 100vw;
+        height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-family:
+          -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica,
+          Arial, sans-serif;
+      }
 
-        #canvas-container {
-            width: 100%;
-            height: 100%;
-            position: relative;
-            background: radial-gradient(circle at 50% 48%, #D8D2D0 0%, #C4BDBC 52%, #B4ACAB 100%);
-            transition: background 0.4s ease;
-        }
+      #canvas-container {
+        width: 100%;
+        height: 100%;
+        position: relative;
+        background: radial-gradient(
+          circle at 50% 48%,
+          #d8d2d0 0%,
+          #c4bdbc 52%,
+          #b4acab 100%
+        );
+        transition: background 0.4s ease;
+      }
 
-        canvas {
-            display: block;
-            width: 100%;
-            height: 100%;
-            cursor: grab;
-            touch-action: none;
-        }
+      canvas {
+        display: block;
+        width: 100%;
+        height: 100%;
+        cursor: grab;
+        touch-action: none;
+      }
 
-        canvas:active {
-            cursor: grabbing;
-        }
+      canvas:active {
+        cursor: grabbing;
+      }
 
-        .paper-grain {
-            position: absolute;
-            inset: 0;
-            pointer-events: none;
-            opacity: 0.15;
-            mix-blend-mode: multiply;
-            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
-            transition: opacity 0.3s ease;
-        }
+      .paper-grain {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        pointer-events: none;
+        opacity: 0.15;
+        mix-blend-mode: multiply;
+        background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+        transition: opacity 0.3s ease;
+      }
 
-        .hint {
-            position: absolute;
-            bottom: 22px;
-            left: 50%;
-            transform: translateX(-50%);
-            color: #8f7d6a;
-            font-size: 12px;
-            letter-spacing: 0.1em;
-            text-transform: uppercase;
-            font-weight: 600;
-            pointer-events: none;
-            opacity: 0.65;
-            transition: opacity 0.4s ease, color 0.3s ease;
-            z-index: 10;
-            white-space: nowrap;
-        }
+      .hint {
+        position: absolute;
+        bottom: 22px;
+        left: 50%;
+        transform: translateX(-50%);
+        color: #8f7d6a;
+        font-size: 12px;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        font-weight: 600;
+        pointer-events: none;
+        opacity: 0.65;
+        transition:
+          opacity 0.4s ease,
+          color 0.3s ease;
+        z-index: 10;
+      }
 
-        .tp-dfwv {
-            position: fixed !important;
-            top: 14px !important;
-            right: 14px !important;
-            width: 320px !important;
-            max-height: calc(100vh - 28px) !important;
-            overflow-y: auto !important;
-            border-radius: 12px !important;
-            box-shadow: 0 16px 36px rgba(0, 0, 0, 0.22), 0 2px 8px rgba(0, 0, 0, 0.12) !important;
-            z-index: 9999 !important;
-        }
+      /* Tweakpane UI Container */
+      .tp-dfwv {
+        position: fixed !important;
+        top: 14px !important;
+        right: 14px !important;
+        width: 320px !important;
+        max-height: calc(100vh - 28px) !important;
+        overflow-y: auto !important;
+        border-radius: 12px !important;
+        box-shadow:
+          0 16px 36px rgba(0, 0, 0, 0.22),
+          0 2px 8px rgba(0, 0, 0, 0.12) !important;
+        z-index: 9999 !important;
+      }
 
-        .tp-dfwv::-webkit-scrollbar {
-            width: 5px;
-        }
-
-        .tp-dfwv::-webkit-scrollbar-thumb {
-            background: rgba(255,255,255,0.25);
-            border-radius: 4px;
-        }
+      .tp-dfwv::-webkit-scrollbar {
+        width: 5px;
+      }
+      .tp-dfwv::-webkit-scrollbar-thumb {
+        background: rgba(255, 255, 255, 0.25);
+        border-radius: 4px;
+      }
     </style>
-</head>
+  </head>
 
-<body>
+  <body>
     <div id="canvas-container">
-        <div class="paper-grain" id="paperGrain"></div>
-        <div class="hint" id="hint">Drag to inspect &bull; Scroll to zoom</div>
+      <div class="paper-grain" id="paperGrain"></div>
+      <div class="hint" id="hint">Drag to inspect &bull; Scroll to zoom</div>
     </div>
 
+    <!-- Three.js, OrbitControls & Tweakpane -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/tweakpane@3.1.10/dist/tweakpane.min.js"></script>
 
     <script>
-        (() => {
-            'use strict';
+      (() => {
+        "use strict";
 
-            const PRESETS = {
-                'Cobalt & Sunset Orange': {
-                    colors: ['#102fe0', '#2a55f5', '#8a10b2', '#de1245', '#ee400e', '#f5780a', '#e89e18'],
-                    bgColor: '#C4BDBC'
-                },
-                'Lavender & Ocean Blue': {
-                    colors: ['#a96bff', '#c495ff', '#e8d8ff', '#8e4bf2', '#3a4fe8', '#1b2ad4', '#0d1896'],
-                    bgColor: '#ede2d6'
-                },
-                'Cyberpunk Neon': {
-                    colors: ['#00f5d4', '#00bbf9', '#7b2cbf', '#9d4edd', '#f72585', '#7209b7', '#3a0ca3'],
-                    bgColor: '#12111d'
-                },
-                'Sunset Ember & Gold': {
-                    colors: ['#590d22', '#800f2f', '#a4133c', '#c9184a', '#ff4d6d', '#ff758f', '#ffb703'],
-                    bgColor: '#ebded6'
-                },
-                'Emerald & Aureolin': {
-                    colors: ['#081c15', '#1b4332', '#2d6a4f', '#40916c', '#52b788', '#74c69d', '#ffd166'],
-                    bgColor: '#e2ece0'
-                },
-                'Midnight Pearl & Silver': {
-                    colors: ['#0b132b', '#1c2541', '#3a506b', '#5bc0be', '#6fffe9', '#e0fbfc', '#ffffff'],
-                    bgColor: '#141a24'
-                }
-            };
+        if (!window.THREE) {
+          console.error("Three.js did not load.");
+          return;
+        }
 
-            const DEFAULT_PARAMS = {
-                sketch: 'Brush Sculpture',
-                preset: 'Cobalt & Sunset Orange',
+        // ─── Preset Color Palette Definitions ─────────────────────────────────────
+        const PRESETS = {
+          "Cobalt & Sunset Orange": {
+            shape: "Spherical Coil",
+            colors: [
+              "#102fe0",
+              "#2a55f5",
+              "#8a10b2",
+              "#de1245",
+              "#ee400e",
+              "#f5780a",
+              "#e89e18",
+            ],
+            bgClear: "#C4BDBC",
+            turns: 4.5,
+            crestFold: 0.5,
+            width: 68,
+            fiberCount: 340,
+            shininess: 85,
+          },
+          "Lavender & Ocean Blue": {
+            shape: "Spherical Coil",
+            colors: [
+              "#a96bff",
+              "#c495ff",
+              "#e8d8ff",
+              "#8e4bf2",
+              "#3a4fe8",
+              "#1b2ad4",
+              "#0d1896",
+            ],
+            bgClear: "#ede2d6",
+            turns: 4.3,
+            crestFold: 0.6,
+            width: 70,
+            fiberCount: 350,
+            shininess: 95,
+          },
+          "Cyberpunk Neon": {
+            shape: "Spherical Coil",
+            colors: [
+              "#00f5d4",
+              "#00bbf9",
+              "#7b2cbf",
+              "#9d4edd",
+              "#f72585",
+              "#7209b7",
+              "#3a0ca3",
+            ],
+            bgClear: "#12111d",
+            turns: 4.4,
+            crestFold: 0.4,
+            width: 66,
+            fiberCount: 320,
+            shininess: 120,
+          },
+          "Sunset Ember & Gold": {
+            shape: "Spherical Coil",
+            colors: [
+              "#590d22",
+              "#800f2f",
+              "#a4133c",
+              "#c9184a",
+              "#ff4d6d",
+              "#ff758f",
+              "#ffb703",
+              "#fb8500",
+            ],
+            bgClear: "#ebded6",
+            turns: 4.2,
+            crestFold: 0.3,
+            width: 68,
+            fiberCount: 330,
+            shininess: 90,
+          },
+          "Emerald & Aureolin": {
+            shape: "Spherical Coil",
+            colors: [
+              "#081c15",
+              "#1b4332",
+              "#2d6a4f",
+              "#40916c",
+              "#52b788",
+              "#74c69d",
+              "#ffd166",
+              "#f77f00",
+            ],
+            bgClear: "#e2ece0",
+            turns: 4.3,
+            crestFold: 0.5,
+            width: 64,
+            fiberCount: 320,
+            shininess: 85,
+          },
+          "Midnight Pearl & Silver": {
+            shape: "Spherical Coil",
+            colors: [
+              "#0b132b",
+              "#1c2541",
+              "#3a506b",
+              "#5bc0be",
+              "#6fffe9",
+              "#e0fbfc",
+              "#ffffff",
+            ],
+            bgClear: "#141a24",
+            turns: 4.3,
+            crestFold: 0.4,
+            width: 62,
+            fiberCount: 320,
+            shininess: 110,
+          },
+          "Classic Rainbow Spectrum": {
+            shape: "Spherical Coil",
+            colors: [
+              "#0f2be0",
+              "#1c4ff8",
+              "#4b1bcb",
+              "#820fb0",
+              "#bf0a74",
+              "#df113d",
+              "#ee3d0c",
+              "#f4760a",
+              "#eaa014",
+            ],
+            bgClear: "#ede3d2",
+            turns: 4.35,
+            crestFold: 0.2,
+            width: 62,
+            fiberCount: 340,
+            shininess: 85,
+          },
+        };
 
-                c1: '#102fe0',
-                c2: '#2a55f5',
-                c3: '#8a10b2',
-                c4: '#de1245',
-                c5: '#ee400e',
-                c6: '#f5780a',
-                c7: '#e89e18',
-                invertPalette: false,
+        // ─── Global State Parameters ───────────────────────────────────────────────
+        const DEFAULT_PARAMS = {
+          preset: "Cobalt & Sunset Orange",
+          shape: "Spherical Coil",
 
-                lines: 180,
-                segments: 105,
-                sphereRadius: 220,
-                turns: 4.5,
-                strokeWidth: 68,
-                fiberRadius: 1.05,
-                waviness: 0.8,
-                twist: 0.55,
-                lineSpread: 0.2,
-                strayFibers: 0.10,
-                brushFlicks: false,
+          c1: "#102fe0",
+          c2: "#2a55f5",
+          c3: "#8a10b2",
+          c4: "#de1245",
+          c5: "#ee400e",
+          c6: "#f5780a",
+          c7: "#e89e18",
+          invertPalette: false,
+          colorJitter: 0.05,
 
-                shininess: 85,
-                specularIntensity: 0.75,
-                opacity: 0.88,
+          sphereRadius: 220,
+          turns: 4.5,
+          crestFold: 0.5,
+          width: 68,
+          thickness: 14,
+          fiberCount: 340,
+          fiberRadius: 1.15,
+          waviness: 0.8,
+          strayFibers: 0.1,
+          startFlick: false,
 
-                spinMode: 'Downward',
-                spinSpeed: 0.35,
-                rotateClockwise: false,
-                floatingBob: true,
-                bobAmplitude: 2,
-                bobSpeed: 0.6,
+          shininess: 85,
+          specularIntensity: 0.75,
+          fiberOpacity: 0.88,
+          underRibbonOpacity: 0.72,
 
-                bgColor: '#C4BDBC',
-                paperGrain: true,
-                grainOpacity: 0.15,
-                keyLightIntensity: 1.55,
-                fillLightIntensity: 0.9,
-                rimLightIntensity: 0.85
-            };
+          spinMode: "Downward",
+          spinSpeed: 0.35,
+          rotateClockwise: false,
+          floatingBob: true,
+          bobAmplitude: 2.0,
+          bobSpeed: 0.6,
 
-            const params = { ...DEFAULT_PARAMS };
+          keyLightIntensity: 1.55,
+          fillLightIntensity: 0.9,
+          rimLightIntensity: 0.85,
+          bgColor: "#C4BDBC",
+          paperGrain: true,
+          grainOpacity: 0.15,
+        };
 
-            const CLOCKWISE_ROTATE_SPEED = 0.25;
-            const CLOCKWISE_RETURN_SPEED = 7.5;
+        const params = { ...DEFAULT_PARAMS };
 
-            const container = document.getElementById('canvas-container');
-            const paperGrainEl = document.getElementById('paperGrain');
-            const hintEl = document.getElementById('hint');
+        // Fixed speed for the clockwise Z-rotation.
+        // Fully independent from params.spinSpeed — Spin Velocity never affects it.
+        const CLOCKWISE_ROTATE_SPEED = 0.25;
 
-            const scene = new THREE.Scene();
+        // How fast the sculpture swings back upright when Rotate Clockwise is unticked.
+        const ROTATE_RETURN_DAMPING = 6;
 
-            const camera = new THREE.PerspectiveCamera(
-                42,
-                window.innerWidth / window.innerHeight,
-                10,
-                3000
+        // Frame-rate independent damping helper.
+        function dampAngle(current, target, lambda, dt) {
+          return current + (target - current) * (1 - Math.exp(-lambda * dt));
+        }
+
+        // ─── Scene & Camera Setup ─────────────────────────────────────────────────
+        const container = document.getElementById("canvas-container");
+        const paperGrainEl = document.getElementById("paperGrain");
+        const hintEl = document.getElementById("hint");
+
+        const scene = new THREE.Scene();
+
+        const camera = new THREE.PerspectiveCamera(
+          42,
+          window.innerWidth / window.innerHeight,
+          10,
+          3000,
+        );
+        // Camera angle adjusted to match reference image
+        camera.position.set(0, 25, 680);
+
+        const renderer = new THREE.WebGLRenderer({
+          antialias: true,
+          alpha: true,
+          powerPreference: "high-performance",
+          preserveDrawingBuffer: false,
+        });
+
+        renderer.toneMapping = THREE.ACESFilmicToneMapping;
+        renderer.toneMappingExposure = 1.15;
+        renderer.setClearColor(0x000000, 0);
+
+        container.appendChild(renderer.domElement);
+
+        let needsRender = true;
+
+        function getSafePixelRatio() {
+          const dpr = window.devicePixelRatio || 1;
+          const isTouch =
+            window.matchMedia && window.matchMedia("(pointer: coarse)").matches;
+          const lowCoreDevice = (navigator.hardwareConcurrency || 8) <= 4;
+          const maxRatio = isTouch || lowCoreDevice ? 1.25 : 2;
+
+          const w = Math.max(1, window.innerWidth);
+          const h = Math.max(1, window.innerHeight);
+          const maxPixels = 5200000;
+          const budgetRatio = Math.sqrt(maxPixels / (w * h));
+
+          return Math.max(0.75, Math.min(dpr, maxRatio, budgetRatio));
+        }
+
+        function resizeRenderer() {
+          const w = Math.max(1, window.innerWidth);
+          const h = Math.max(1, window.innerHeight);
+
+          renderer.setPixelRatio(getSafePixelRatio());
+          renderer.setSize(w, h, false);
+
+          camera.aspect = w / h;
+          camera.updateProjectionMatrix();
+
+          needsRender = true;
+        }
+
+        resizeRenderer();
+
+        // ─── Orbit Controls ───────────────────────────────────────────────────────
+        let controls;
+
+        if (THREE.OrbitControls) {
+          controls = new THREE.OrbitControls(camera, renderer.domElement);
+          controls.enableDamping = true;
+          controls.dampingFactor = 0.05;
+          controls.rotateSpeed = 0.75;
+          controls.minDistance = 200;
+          controls.maxDistance = 1200;
+          controls.autoRotate = false;
+
+          controls.addEventListener("start", () => {
+            hintEl.style.opacity = "0";
+          });
+
+          controls.addEventListener("change", () => {
+            needsRender = true;
+          });
+        } else {
+          controls = {
+            update: () => false,
+            reset: () => {},
+          };
+          console.error("OrbitControls did not load.");
+        }
+
+        // ─── Lighting Rig ─────────────────────────────────────────────────────────
+        const ambientLight = new THREE.AmbientLight(0xfff5ea, 0.75);
+        scene.add(ambientLight);
+
+        const keyLight = new THREE.DirectionalLight(
+          0xfffcf0,
+          params.keyLightIntensity,
+        );
+        keyLight.position.set(280, 420, 380);
+        scene.add(keyLight);
+
+        const fillLight = new THREE.DirectionalLight(
+          0x8cb0ff,
+          params.fillLightIntensity,
+        );
+        fillLight.position.set(-360, 60, 260);
+        scene.add(fillLight);
+
+        const rimLight = new THREE.DirectionalLight(
+          0xff4477,
+          params.rimLightIntensity,
+        );
+        rimLight.position.set(60, -320, -320);
+        scene.add(rimLight);
+
+        const innerLight = new THREE.PointLight(0xff7722, 0.8, 700);
+        innerLight.position.set(0, 0, 0);
+        scene.add(innerLight);
+
+        // ─── Palette Helpers ──────────────────────────────────────────────────────
+        function setPaletteFromColors(colors) {
+          const slots = 7;
+
+          for (let i = 0; i < slots; i++) {
+            const position = (i / (slots - 1)) * (colors.length - 1);
+            const lower = Math.floor(position);
+            const upper = Math.min(colors.length - 1, lower + 1);
+            const mix = position - lower;
+
+            const color = new THREE.Color(colors[lower]).lerp(
+              new THREE.Color(colors[upper]),
+              mix,
             );
-            camera.position.set(0, 25, 680);
 
-            const renderer = new THREE.WebGLRenderer({
-                antialias: true,
-                alpha: true,
-                powerPreference: 'high-performance',
-                preserveDrawingBuffer: false
+            params["c" + (i + 1)] = "#" + color.getHexString();
+          }
+        }
+
+        function applyPreset(name) {
+          const pr = PRESETS[name];
+          if (!pr) return;
+
+          params.shape = pr.shape;
+          setPaletteFromColors(pr.colors);
+          params.turns = pr.turns;
+          params.crestFold = pr.crestFold;
+          params.width = pr.width;
+          params.fiberCount = pr.fiberCount;
+          params.shininess = pr.shininess;
+          params.bgColor = pr.bgClear;
+        }
+
+        function getActivePalette() {
+          const rawColors = [
+            params.c1,
+            params.c2,
+            params.c3,
+            params.c4,
+            params.c5,
+            params.c6,
+            params.c7,
+          ];
+
+          const list = params.invertPalette
+            ? [...rawColors].reverse()
+            : rawColors;
+
+          return list.map((hex, i) => ({
+            pos: i / (list.length - 1),
+            color: new THREE.Color(hex),
+          }));
+        }
+
+        function samplePaintColor(t, palette) {
+          t = Math.max(0, Math.min(1, t));
+
+          for (let i = 0; i < palette.length - 1; i++) {
+            if (t >= palette[i].pos && t <= palette[i + 1].pos) {
+              const localT =
+                (t - palette[i].pos) / (palette[i + 1].pos - palette[i].pos);
+              return palette[i].color
+                .clone()
+                .lerp(palette[i + 1].color, localT);
+            }
+          }
+
+          return palette[palette.length - 1].color.clone();
+        }
+
+        // ─── Mathematical Spine of 3D Brush Sculpture ─────────────────────────────
+        function getSpineData(t) {
+          const turns = params.turns;
+          const theta = t * turns * Math.PI * 2 + 1.65;
+
+          const lat = 1.05 - t * 2.1;
+          const cosLat = Math.cos(lat);
+          const sinLat = Math.sin(lat);
+
+          const R = params.sphereRadius;
+          const Rx = R * (1.0 + 0.06 * Math.sin(theta * 0.5));
+          const Ry = R * 1.06;
+          const Rz = R * (1.0 + 0.05 * Math.cos(theta * 0.5));
+
+          let x = Rx * cosLat * Math.cos(theta);
+          let y = Ry * sinLat;
+          let z = Rz * cosLat * Math.sin(theta);
+
+          if (params.shape === "Hook Crest S-Loop") {
+            const fold = params.crestFold;
+
+            if (t < 0.26) {
+              const foldT = Math.sin((t / 0.26) * Math.PI);
+              x -= Math.sin(t * Math.PI * 3.5) * 35 * fold * foldT;
+              y += Math.cos(t * Math.PI * 3.5) * 25 * fold * foldT;
+              z += Math.sin(t * Math.PI * 2.0) * 30 * fold * foldT;
+            }
+          }
+
+          // Top brush flick lead-in (start of stroke)
+          if (params.startFlick && t < 0.08) {
+            const tail = Math.pow(1 - t / 0.08, 1.5);
+            x -= tail * 35;
+            y += tail * 30;
+            z -= tail * 15;
+          }
+
+          // Rear-end brush flick (end of stroke) — flicks DOWN, mirrored
+          if (params.startFlick && t > 0.92) {
+            const tail = Math.pow((t - 0.92) / 0.08, 1.5);
+            x += tail * 35;
+            y -= tail * 30;
+            z += tail * 15;
+          }
+
+          const sphereNorm = new THREE.Vector3(
+            x / Rx,
+            y / Ry,
+            z / Rz,
+          ).normalize();
+
+          return {
+            pos: new THREE.Vector3(x, y, z),
+            sphereNorm,
+          };
+        }
+
+        // ─── Artwork Lifecycle Management ─────────────────────────────────────────
+        const pivotGroup = new THREE.Group();
+        // Adjusted to match reference image - more frontal, less tilt
+        pivotGroup.position.set(0, -5, 0);
+        pivotGroup.rotation.x = 0.12;
+        pivotGroup.rotation.z = 0.02;
+        pivotGroup.rotation.y = 0;
+        scene.add(pivotGroup);
+
+        let currentBrushArt = null;
+        let fadeInAnimation = null;
+
+        function disposeObject(object) {
+          object.traverse((child) => {
+            if (child.geometry) {
+              child.geometry.dispose();
+            }
+
+            if (child.material) {
+              if (Array.isArray(child.material)) {
+                child.material.forEach((material) => material.dispose());
+              } else {
+                child.material.dispose();
+              }
+            }
+          });
+        }
+
+        function nextFrame() {
+          return new Promise((resolve) => requestAnimationFrame(resolve));
+        }
+
+        // ─── Build High-Fidelity 3D Brush Artwork ─────────────────────────────────
+        async function buildBrushStrokeAsync(token) {
+          const masterGroup = new THREE.Group();
+          const palette = getActivePalette();
+
+          // Local deterministic RNG keeps every rebuild visually consistent.
+          let localSeed = 884123;
+
+          function rnd() {
+            localSeed = (Math.imul(localSeed, 1664525) + 1013904223) >>> 0;
+            return (localSeed >>> 0) / 0xffffffff;
+          }
+
+          function rndRange(min, max) {
+            return min + rnd() * (max - min);
+          }
+
+          const SPINE_SAMPLES = 360;
+          const spineData = [];
+          const spinePoints = [];
+
+          for (let i = 0; i <= SPINE_SAMPLES; i++) {
+            const data = getSpineData(i / SPINE_SAMPLES);
+            spineData.push(data);
+            spinePoints.push(data.pos);
+          }
+
+          const spineCurve = new THREE.CatmullRomCurve3(
+            spinePoints,
+            false,
+            "centripetal",
+            0.45,
+          );
+
+          const spineFrames = [];
+
+          for (let i = 0; i <= SPINE_SAMPLES; i++) {
+            const t = i / SPINE_SAMPLES;
+            const pt = spinePoints[i];
+            const tangent = spineCurve.getTangentAt(t).normalize();
+            const sphereNorm = spineData[i].sphereNorm;
+
+            let binormal = new THREE.Vector3().crossVectors(
+              tangent,
+              sphereNorm,
+            );
+
+            if (binormal.lengthSq() < 0.000001) {
+              binormal = new THREE.Vector3(1, 0, 0);
+            }
+
+            binormal.normalize();
+
+            const normal = new THREE.Vector3()
+              .crossVectors(binormal, tangent)
+              .normalize();
+
+            spineFrames.push({ pt, tangent, normal, binormal });
+          }
+
+          function getFrameAt(t) {
+            const idxFloat = t * SPINE_SAMPLES;
+            const idx = Math.min(Math.floor(idxFloat), SPINE_SAMPLES - 1);
+            const frac = idxFloat - idx;
+            const f1 = spineFrames[idx];
+            const f2 = spineFrames[idx + 1] || f1;
+
+            return {
+              pt: f1.pt.clone().lerp(f2.pt, frac),
+              tangent: f1.tangent.clone().lerp(f2.tangent, frac).normalize(),
+              normal: f1.normal.clone().lerp(f2.normal, frac).normalize(),
+              binormal: f1.binormal.clone().lerp(f2.binormal, frac).normalize(),
+            };
+          }
+
+          const baseWidth = params.width;
+          const baseThickness = params.thickness;
+
+          function getWidth(t) {
+            if (params.startFlick) {
+              // Tapered lead-in at the top flick
+              if (t < 0.08) {
+                return baseWidth * 0.5 + (t / 0.08) * (baseWidth * 0.5);
+              }
+              // Mirrored taper at the rear-end flick
+              if (t > 0.92) {
+                return baseWidth * 0.5 + ((1 - t) / 0.08) * (baseWidth * 0.5);
+              }
+            }
+
+            const taper = Math.sin(t * Math.PI);
+            return baseWidth * 0.85 + taper * (baseWidth * 0.35);
+          }
+
+          function getThickness(t) {
+            return (
+              baseThickness * 0.85 +
+              Math.sin(t * Math.PI) * (baseThickness * 0.45)
+            );
+          }
+
+          // 1. Under-ribbon body layers.
+          const NUM_LAYERS = 4;
+          const RIBBON_SEGS = 260;
+
+          for (let l = 0; l < NUM_LAYERS; l++) {
+            const ribbonGeom = new THREE.PlaneGeometry(1, 1, 20, RIBBON_SEGS);
+            const posAttr = ribbonGeom.attributes.position;
+            const colAttr = new Float32Array(posAttr.count * 3);
+
+            const layerH = (l - 1.5) * (baseThickness * 0.26);
+            const widthScale = 0.95 - l * 0.04;
+
+            for (let r = 0; r <= RIBBON_SEGS; r++) {
+              const t = r / RIBBON_SEGS;
+              const frame = getFrameAt(t);
+              const w = getWidth(t) * widthScale;
+
+              for (let c = 0; c <= 20; c++) {
+                const vIdx = r * 21 + c;
+                const u = (c / 20) * 2 - 1;
+
+                const vx =
+                  frame.pt.x +
+                  frame.binormal.x * (u * w * 0.5) +
+                  frame.normal.x * layerH;
+                const vy =
+                  frame.pt.y +
+                  frame.binormal.y * (u * w * 0.5) +
+                  frame.normal.y * layerH;
+                const vz =
+                  frame.pt.z +
+                  frame.binormal.z * (u * w * 0.5) +
+                  frame.normal.z * layerH;
+
+                posAttr.setXYZ(vIdx, vx, vy, vz);
+
+                const colorT = (1 - u) * 0.5;
+                const color = samplePaintColor(colorT, palette);
+
+                colAttr[vIdx * 3] = color.r;
+                colAttr[vIdx * 3 + 1] = color.g;
+                colAttr[vIdx * 3 + 2] = color.b;
+              }
+            }
+
+            ribbonGeom.setAttribute(
+              "color",
+              new THREE.BufferAttribute(colAttr, 3),
+            );
+            ribbonGeom.computeVertexNormals();
+
+            const ribbonMat = new THREE.MeshPhongMaterial({
+              vertexColors: true,
+              specular: new THREE.Color(0xffffff).multiplyScalar(
+                params.specularIntensity,
+              ),
+              shininess: params.shininess,
+              transparent: true,
+              opacity: params.underRibbonOpacity,
+              side: THREE.DoubleSide,
+              depthWrite: false,
             });
 
-            renderer.outputEncoding = THREE.sRGBEncoding;
-            renderer.toneMapping = THREE.ACESFilmicToneMapping;
-            renderer.toneMappingExposure = 1.15;
-            renderer.setClearColor(0x000000, 0);
-            container.appendChild(renderer.domElement);
+            ribbonMat.userData.kind = "ribbon";
 
-            function resizeRenderer() {
-                const w = window.innerWidth;
-                const h = window.innerHeight;
-                const maxPixels = 5200000;
-                const dpr = window.devicePixelRatio || 1;
-                const pixelBudget = Math.sqrt(maxPixels / (w * h));
+            const ribbonMesh = new THREE.Mesh(ribbonGeom, ribbonMat);
+            ribbonMesh.userData.kind = "ribbon";
+            ribbonMesh.visible = params.underRibbonOpacity > 0.001;
+            ribbonMesh.matrixAutoUpdate = false;
+            ribbonMesh.updateMatrix();
 
-                renderer.setPixelRatio(Math.max(0.75, Math.min(dpr, 2, pixelBudget)));
-                renderer.setSize(w, h, false);
+            masterGroup.add(ribbonMesh);
+          }
 
-                camera.aspect = w / h;
-                camera.updateProjectionMatrix();
+          // 2. Individual bristle strands.
+          const NUM_BRISTLES = Math.max(1, Math.round(params.fiberCount));
+          const BRISTLE_SEGS = 190;
+          const waviness = params.waviness;
+          const BRISTLE_CHUNK = 10;
+
+          for (let bi = 0; bi < NUM_BRISTLES; bi++) {
+            if (token !== rebuildRequestId) {
+              disposeObject(masterGroup);
+              return null;
             }
 
-            resizeRenderer();
+            const uNorm =
+              NUM_BRISTLES === 1 ? 0 : (bi / (NUM_BRISTLES - 1)) * 2 - 1;
 
-            const controls = new THREE.OrbitControls(camera, renderer.domElement);
-            controls.enableDamping = true;
-            controls.dampingFactor = 0.05;
-            controls.rotateSpeed = 0.75;
-            controls.minDistance = 200;
-            controls.maxDistance = 1200;
-            controls.enablePan = false;
+            const uOffset =
+              Math.sign(uNorm) * Math.pow(Math.abs(uNorm), 0.9) +
+              rndRange(-0.02, 0.02);
 
-            controls.addEventListener('start', () => {
-                hintEl.style.opacity = '0';
-            });
+            const vOffset =
+              rndRange(-0.48, 0.48) *
+              Math.sqrt(1 - Math.min(1, Math.abs(uOffset) * 0.85));
 
-            const ambientLight = new THREE.AmbientLight(0xfff5ea, 0.75);
-            scene.add(ambientLight);
+            let colT = (1 - uOffset) * 0.5;
+            colT = Math.max(
+              0,
+              Math.min(
+                1,
+                colT + rndRange(-params.colorJitter, params.colorJitter),
+              ),
+            );
 
-            const keyLight = new THREE.DirectionalLight(0xfffcf0, params.keyLightIntensity);
-            keyLight.position.set(280, 420, 380);
-            scene.add(keyLight);
+            const bristleColor = samplePaintColor(colT, palette);
+            const brightness = rndRange(0.88, 1.3);
+            bristleColor.multiplyScalar(brightness);
 
-            const fillLight = new THREE.DirectionalLight(0x8cb0ff, params.fillLightIntensity);
-            fillLight.position.set(-360, 60, 260);
-            scene.add(fillLight);
+            const isStray = rnd() < params.strayFibers;
+            const spread = isStray ? rndRange(1.08, 1.35) : 1.0;
 
-            const rimLight = new THREE.DirectionalLight(0xff4477, params.rimLightIntensity);
-            rimLight.position.set(60, -320, -320);
-            scene.add(rimLight);
+            const startT = bi < 50 || rnd() > 0.8 ? rndRange(0.0, 0.05) : 0.0;
+            const endT =
+              bi > NUM_BRISTLES - 50 || rnd() > 0.82
+                ? rndRange(0.95, 1.0)
+                : 1.0;
 
-            const pivotGroup = new THREE.Group();
-            pivotGroup.position.set(0, -5, 0);
-            pivotGroup.rotation.set(0.12, 0, 0.02);
-            scene.add(pivotGroup);
+            const waveFreq = rndRange(3, 8);
+            const wavePhase = rndRange(0, Math.PI * 2);
+            const waveAmp = rndRange(0.5, 2.2) * waviness;
 
-            /*
-             * These groups keep every movement completely separate:
-             * pivotGroup  = showcase position and floating bob
-             * spinGroup   = normal upward/downward spin only
-             * rotateGroup = clockwise checkbox only
-             */
-            const spinGroup = new THREE.Group();
-            const rotateGroup = new THREE.Group();
+            const points = [];
+            const steps = Math.max(
+              4,
+              Math.floor(BRISTLE_SEGS * (endT - startT)),
+            );
 
-            pivotGroup.add(spinGroup);
-            spinGroup.add(rotateGroup);
+            for (let si = 0; si <= steps; si++) {
+              const localT = si / steps;
+              const t = startT + localT * (endT - startT);
+              const frame = getFrameAt(t);
 
-            let currentSketch = null;
-            let rotateReturning = false;
-            let rebuildToken = 0;
-            let rebuildTimer = null;
-            let building = false;
+              const w = getWidth(t) * spread;
+              const th = getThickness(t) * spread;
 
-            function disposeObject(object) {
-                object.traverse(child => {
-                    if (child.geometry) child.geometry.dispose();
+              const wave =
+                Math.sin(t * Math.PI * waveFreq + wavePhase) * waveAmp;
 
-                    if (child.material) {
-                        const materials = Array.isArray(child.material)
-                            ? child.material
-                            : [child.material];
+              let fanning = 1.0;
 
-                        materials.forEach(material => material.dispose());
-                    }
-                });
+              // Fan out at the top flick
+              if (t < 0.08 && params.startFlick) {
+                fanning = 1.0 + Math.pow(1 - t / 0.08, 1.5) * 0.45 * uOffset;
+              }
+
+              // Fan out at the rear-end flick
+              if (t > 0.92 && params.startFlick) {
+                fanning =
+                  1.0 + Math.pow((t - 0.92) / 0.08, 1.5) * 0.45 * uOffset;
+              }
+
+              const px =
+                frame.pt.x +
+                frame.binormal.x * (uOffset * w * 0.5 * fanning + wave) +
+                frame.normal.x * (vOffset * th * 0.5);
+
+              const py =
+                frame.pt.y +
+                frame.binormal.y * (uOffset * w * 0.5 * fanning + wave) +
+                frame.normal.y * (vOffset * th * 0.5);
+
+              const pz =
+                frame.pt.z +
+                frame.binormal.z * (uOffset * w * 0.5 * fanning + wave) +
+                frame.normal.z * (vOffset * th * 0.5);
+
+              points.push(new THREE.Vector3(px, py, pz));
             }
 
-            function getPalette() {
-                let colors = [
-                    params.c1,
-                    params.c2,
-                    params.c3,
-                    params.c4,
-                    params.c5,
-                    params.c6,
-                    params.c7
-                ];
+            if (points.length > 3) {
+              const curve = new THREE.CatmullRomCurve3(
+                points,
+                false,
+                "centripetal",
+                0.4,
+              );
 
-                if (params.invertPalette) colors = colors.reverse();
-                return colors.map(color => new THREE.Color(color));
+              const radius =
+                (isStray ? rndRange(0.5, 0.85) : rndRange(0.8, 1.7)) *
+                (params.fiberRadius / 1.15);
+
+              const geom = new THREE.TubeGeometry(
+                curve,
+                Math.floor(steps * 1.35),
+                radius,
+                6,
+                false,
+              );
+
+              const opacityBase = isStray
+                ? rndRange(0.55, 0.78)
+                : rndRange(0.82, 0.98);
+              const opacity = opacityBase * (params.fiberOpacity / 0.88);
+
+              const specular = bristleColor
+                .clone()
+                .lerp(new THREE.Color(0xffffff), 0.7)
+                .multiplyScalar(params.specularIntensity);
+
+              const mat = new THREE.MeshPhongMaterial({
+                color: bristleColor,
+                specular,
+                shininess: params.shininess,
+                transparent: true,
+                opacity: Math.min(1.0, opacity),
+                depthWrite: opacity > 0.88,
+                side: THREE.FrontSide,
+              });
+
+              mat.userData.kind = "bristle";
+              mat.userData.baseColor = bristleColor.clone();
+              mat.userData.opacityBase = opacityBase;
+
+              const mesh = new THREE.Mesh(geom, mat);
+              mesh.userData.kind = "bristle";
+              mesh.matrixAutoUpdate = false;
+              mesh.updateMatrix();
+
+              masterGroup.add(mesh);
             }
 
-            function paletteColor(t, palette) {
-                t = THREE.MathUtils.clamp(t, 0, 1);
+            // Yield to browser every few bristles so the site stays responsive.
+            if (bi > 0 && bi % BRISTLE_CHUNK === 0) {
+              await nextFrame();
+            }
+          }
 
-                const position = t * (palette.length - 1);
-                const lower = Math.floor(position);
-                const upper = Math.min(palette.length - 1, lower + 1);
+          if (token !== rebuildRequestId) {
+            disposeObject(masterGroup);
+            return null;
+          }
 
-                return palette[lower].clone().lerp(
-                    palette[upper],
-                    position - lower
+          return masterGroup;
+        }
+
+        function updateMaterials() {
+          if (!currentBrushArt) {
+            needsRender = true;
+            return;
+          }
+
+          currentBrushArt.traverse((child) => {
+            if (!child.material) return;
+
+            const materials = Array.isArray(child.material)
+              ? child.material
+              : [child.material];
+
+            materials.forEach((mat) => {
+              if (mat.userData.kind === "ribbon") {
+                mat.specular.setRGB(
+                  params.specularIntensity,
+                  params.specularIntensity,
+                  params.specularIntensity,
                 );
-            }
 
-            function randomFactory(seed) {
-                let value = seed >>> 0;
+                mat.shininess = params.shininess;
+                mat.opacity = params.underRibbonOpacity;
+                mat.needsUpdate = true;
 
-                return () => {
-                    value = (Math.imul(value, 1664525) + 1013904223) >>> 0;
-                    return value / 4294967296;
-                };
-            }
+                child.visible = params.underRibbonOpacity > 0.001;
+              }
 
-            function getBrushSpine(t) {
-                const theta = t * params.turns * Math.PI * 2 + 1.65;
-                const latitude = 1.05 - t * 2.1;
-                const r = params.sphereRadius;
+              if (mat.userData.kind === "bristle") {
+                const baseColor = mat.userData.baseColor || mat.color;
+                const opacityBase =
+                  mat.userData.opacityBase !== undefined
+                    ? mat.userData.opacityBase
+                    : mat.opacity;
 
-                let x = r * (1 + 0.06 * Math.sin(theta * 0.5)) * Math.cos(latitude) * Math.cos(theta);
-                let y = r * 1.06 * Math.sin(latitude);
-                let z = r * (1 + 0.05 * Math.cos(theta * 0.5)) * Math.cos(latitude) * Math.sin(theta);
+                mat.color.copy(baseColor);
 
-                if (params.brushFlicks && t < 0.08) {
-                    const flick = Math.pow(1 - t / 0.08, 1.5);
-                    x -= flick * 35;
-                    y += flick * 30;
-                    z -= flick * 15;
+                mat.specular
+                  .copy(baseColor)
+                  .lerp(new THREE.Color(0xffffff), 0.7)
+                  .multiplyScalar(params.specularIntensity);
+
+                const nextOpacity = opacityBase * (params.fiberOpacity / 0.88);
+
+                mat.shininess = params.shininess;
+                mat.opacity = Math.min(1.0, nextOpacity);
+                mat.depthWrite = nextOpacity > 0.88;
+                mat.needsUpdate = true;
+
+                child.visible = params.fiberOpacity > 0.001;
+              }
+            });
+          });
+
+          needsRender = true;
+        }
+
+        function updateLighting() {
+          keyLight.intensity = params.keyLightIntensity;
+          fillLight.intensity = params.fillLightIntensity;
+          rimLight.intensity = params.rimLightIntensity;
+          needsRender = true;
+        }
+
+        function updateBackground() {
+          container.style.background = params.bgColor;
+          paperGrainEl.style.display = params.paperGrain ? "block" : "none";
+          paperGrainEl.style.opacity = params.grainOpacity;
+
+          const c = new THREE.Color(params.bgColor);
+          const luminance = 0.299 * c.r + 0.587 * c.g + 0.114 * c.b;
+          hintEl.style.color =
+            luminance < 0.4 ? "rgba(255,255,255,0.65)" : "#8f7d6a";
+
+          needsRender = true;
+        }
+
+        let rebuildRequestId = 0;
+        let rebuildTimer = null;
+        let buildInProgress = false;
+        let pendingBuildToken = null;
+
+        function scheduleRebuild(delay = 150) {
+          rebuildRequestId++;
+          const token = rebuildRequestId;
+
+          clearTimeout(rebuildTimer);
+
+          rebuildTimer = setTimeout(() => {
+            rebuildTimer = null;
+            startRebuild(token);
+          }, delay);
+        }
+
+        function rebuildArtwork() {
+          scheduleRebuild();
+        }
+
+        function startRebuild(token) {
+          if (token !== rebuildRequestId) return;
+
+          if (buildInProgress) {
+            pendingBuildToken = token;
+            return;
+          }
+
+          buildInProgress = true;
+
+          buildBrushStrokeAsync(token)
+            .then((nextArt) => {
+              if (!nextArt) return;
+
+              if (token !== rebuildRequestId) {
+                disposeObject(nextArt);
+                return;
+              }
+
+              const previousArt = currentBrushArt;
+              // Preserve BOTH spin (Y) and clockwise rotate (Z) across rebuilds
+              const previousRotation = previousArt
+                ? previousArt.rotation.clone()
+                : new THREE.Euler(0, 0, 0);
+
+              nextArt.rotation.copy(previousRotation);
+
+              // Smooth fade-in transition
+              nextArt.traverse((child) => {
+                if (child.material) {
+                  child.material.transparent = true;
+                  child.material.opacity = 0;
+                  child.material.needsUpdate = true;
                 }
+              });
 
-                if (params.brushFlicks && t > 0.92) {
-                    const flick = Math.pow((t - 0.92) / 0.08, 1.5);
-                    x += flick * 35;
-                    y -= flick * 30;
-                    z += flick * 15;
+              pivotGroup.add(nextArt);
+              currentBrushArt = nextArt;
+
+              if (previousArt) {
+                pivotGroup.remove(previousArt);
+                disposeObject(previousArt);
+              }
+
+              // Animate fade-in
+              fadeInAnimation = {
+                object: nextArt,
+                startTime: performance.now(),
+                duration: 350,
+              };
+
+              needsRender = true;
+            })
+            .catch((error) => {
+              console.error("Artwork rebuild failed:", error);
+            })
+            .finally(() => {
+              buildInProgress = false;
+
+              if (pendingBuildToken !== null) {
+                const nextToken = pendingBuildToken;
+                pendingBuildToken = null;
+
+                if (nextToken === rebuildRequestId) {
+                  startRebuild(nextToken);
                 }
+              }
+            });
+        }
 
-                return new THREE.Vector3(x, y, z);
+        function updateFadeIn(now) {
+          if (!fadeInAnimation) return false;
+
+          const { object, startTime, duration } = fadeInAnimation;
+          const progress = Math.min(1, (now - startTime) / duration);
+          const eased = 1 - Math.pow(1 - progress, 3);
+
+          object.traverse((child) => {
+            if (child.material) {
+              if (child.material.userData.kind === "ribbon") {
+                child.material.opacity = params.underRibbonOpacity * eased;
+              } else if (child.material.userData.kind === "bristle") {
+                child.material.opacity = Math.min(
+                  1,
+                  child.material.userData.opacityBase *
+                    (params.fiberOpacity / 0.88) *
+                    eased,
+                );
+              }
+              child.material.needsUpdate = true;
             }
-
-            function createMaterial(color, opacity) {
-                return new THREE.MeshPhongMaterial({
-                    color,
-                    specular: color.clone()
-                        .lerp(new THREE.Color(0xffffff), 0.7)
-                        .multiplyScalar(params.specularIntensity),
-                    shininess: params.shininess,
-                    transparent: true,
-                    opacity,
-                    depthWrite: opacity > 0.88
-                });
-            }
-
-            /*
-             * Sketch 1:
-             * The original spherical bristle-based brush sculpture.
-             */
-            function createBrushSculpture() {
-                const group = new THREE.Group();
-                const palette = getPalette();
-                const random = randomFactory(884123);
-                const lineCount = Math.min(260, params.lines);
-                const pointsPerLine = Math.min(150, params.segments);
-
-                for (let lineIndex = 0; lineIndex < lineCount; lineIndex++) {
-                    const u = lineCount === 1 ? 0 : (lineIndex / (lineCount - 1)) * 2 - 1;
-                    const side = Math.sign(u) * Math.pow(Math.abs(u), 0.9);
-                    const depth = (random() - 0.5) * 0.75;
-                    const stray = random() < params.strayFibers;
-                    const spread = stray ? 1.18 + random() * 0.20 : 1;
-                    const points = [];
-
-                    for (let i = 0; i <= pointsPerLine; i++) {
-                        const t = i / pointsPerLine;
-                        const position = getBrushSpine(t);
-                        const next = getBrushSpine(Math.min(1, t + 0.002));
-                        const tangent = next.clone().sub(position).normalize();
-                        const sphereNormal = position.clone().normalize();
-                        const binormal = new THREE.Vector3()
-                            .crossVectors(tangent, sphereNormal)
-                            .normalize();
-
-                        const normal = new THREE.Vector3()
-                            .crossVectors(binormal, tangent)
-                            .normalize();
-
-                        let width = params.strokeWidth * (
-                            0.85 + Math.sin(t * Math.PI) * 0.35
-                        );
-
-                        if (params.brushFlicks && t < 0.08) {
-                            width *= 0.5 + (t / 0.08) * 0.5;
-                        }
-
-                        if (params.brushFlicks && t > 0.92) {
-                            width *= 0.5 + ((1 - t) / 0.08) * 0.5;
-                        }
-
-                        const wave = Math.sin(
-                            t * Math.PI * (3 + random() * 3) +
-                            lineIndex * 0.15
-                        ) * params.waviness;
-
-                        points.push(
-                            position
-                                .addScaledVector(binormal, side * width * 0.5 * spread + wave)
-                                .addScaledVector(normal, depth * params.fiberRadius * 7)
-                        );
-                    }
-
-                    const curve = new THREE.CatmullRomCurve3(points, false, 'centripetal', 0.4);
-                    const color = paletteColor((1 - side) * 0.5, palette);
-                    color.multiplyScalar(0.88 + random() * 0.34);
-
-                    const geometry = new THREE.TubeGeometry(
-                        curve,
-                        Math.max(12, Math.floor(pointsPerLine * 0.7)),
-                        (stray ? 0.55 + random() * 0.3 : 0.8 + random() * 0.7) *
-                            (params.fiberRadius / 1.15),
-                        5,
-                        false
-                    );
-
-                    group.add(new THREE.Mesh(
-                        geometry,
-                        createMaterial(color, params.opacity * (stray ? 0.7 : 1))
-                    ));
-                }
-
-                return group;
-            }
-
-            /*
-             * Sketch 2:
-             * Based on the supplied Winders sketch: layered twisted closed loops.
-             */
-            function createWinders() {
-                const group = new THREE.Group();
-                const palette = getPalette();
-                const random = randomFactory(1337);
-                const lines = Math.min(220, params.lines);
-                const segments = Math.min(260, params.segments * 2);
-
-                for (let lineIndex = 0; lineIndex < lines; lineIndex++) {
-                    const points = [];
-                    const lineT = lineIndex / lines;
-                    const q = 0.5 + 0.5 * Math.cos(Math.PI + (lineT + params.twist * 0.5) * Math.PI * 2);
-                    const radius = 4.5 + params.sphereRadius / 65 + lineT * 2;
-                    const spread = params.lineSpread;
-
-                    const offset = new THREE.Vector3(
-                        (random() - 0.5) * spread,
-                        (random() - 0.5) * spread,
-                        (random() - 0.5) * spread
-                    );
-
-                    for (let i = 0; i <= segments; i++) {
-                        const theta = (i / segments) * Math.PI * 2;
-                        const phase = Math.cos(theta) * (2.5 * Math.PI * q);
-
-                        points.push(new THREE.Vector3(
-                            radius * Math.sin(theta) * Math.cos(phase),
-                            radius * Math.cos(theta),
-                            radius * Math.sin(theta) * Math.sin(phase)
-                        ).multiplyScalar(19).add(offset));
-                    }
-
-                    const curve = new THREE.CatmullRomCurve3(points, true, 'centripetal', 0.45);
-                    const geometry = new THREE.TubeGeometry(
-                        curve,
-                        segments,
-                        (0.34 + random() * 0.65) * params.fiberRadius,
-                        5,
-                        true
-                    );
-
-                    const color = paletteColor(lineIndex / lines, palette);
-
-                    group.add(new THREE.Mesh(
-                        geometry,
-                        createMaterial(color, params.opacity * (0.55 + random() * 0.45))
-                    ));
-                }
-
-                group.scale.setScalar(0.72);
-                return group;
-            }
-
-            /*
-             * Sketch 3:
-             * Orbital paint ribbons wrapping around a softly pinched sphere.
-             */
-            function createOrbitalRibbons() {
-                const group = new THREE.Group();
-                const palette = getPalette();
-                const random = randomFactory(9351);
-                const lines = Math.min(190, params.lines);
-                const segments = Math.min(220, params.segments * 2);
-                const radius = params.sphereRadius;
-
-                for (let lineIndex = 0; lineIndex < lines; lineIndex++) {
-                    const points = [];
-                    const band = (lineIndex / (lines - 1)) * 2 - 1;
-                    const lineOffset = (random() - 0.5) * 0.09;
-
-                    for (let i = 0; i <= segments; i++) {
-                        const t = i / segments;
-                        const angle = t * Math.PI * 2;
-                        const latitude = band * 1.18 + Math.sin(angle * 2 + lineIndex) * 0.04;
-                        const bandRadius = Math.cos(latitude) * radius;
-                        const y = Math.sin(latitude) * radius;
-
-                        points.push(new THREE.Vector3(
-                            bandRadius * Math.cos(angle + lineOffset),
-                            y,
-                            bandRadius * Math.sin(angle + lineOffset)
-                        ));
-                    }
-
-                    const curve = new THREE.CatmullRomCurve3(points, true, 'centripetal', 0.45);
-                    const geometry = new THREE.TubeGeometry(
-                        curve,
-                        segments,
-                        (0.45 + random() * 0.55) * params.fiberRadius,
-                        5,
-                        true
-                    );
-
-                    group.add(new THREE.Mesh(
-                        geometry,
-                        createMaterial(
-                            paletteColor((lineIndex / lines + 0.15) % 1, palette),
-                            params.opacity
-                        )
-                    ));
-                }
-
-                return group;
-            }
-
-            /*
-             * Sketch 4:
-             * A colorful flower-like spiral bloom.
-             */
-            function createSpiralBloom() {
-                const group = new THREE.Group();
-                const palette = getPalette();
-                const random = randomFactory(7331);
-                const lines = Math.min(160, params.lines);
-                const segments = Math.min(220, params.segments * 2);
-
-                for (let lineIndex = 0; lineIndex < lines; lineIndex++) {
-                    const points = [];
-                    const lineT = lineIndex / lines;
-                    const baseAngle = lineT * Math.PI * 2;
-                    const petalOffset = random() * 0.2;
-
-                    for (let i = 0; i <= segments; i++) {
-                        const t = i / segments;
-                        const angle = t * Math.PI * 2 * params.turns;
-                        const flower = Math.sin(angle * 2.5 + baseAngle) * 0.34;
-                        const radius = params.sphereRadius * (
-                            0.35 + t * 0.62 + flower * 0.25
-                        );
-
-                        points.push(new THREE.Vector3(
-                            Math.cos(angle + baseAngle) * radius,
-                            (t - 0.5) * params.sphereRadius * 1.7 +
-                                Math.sin(angle * 3 + petalOffset) * 22,
-                            Math.sin(angle + baseAngle) * radius
-                        ));
-                    }
-
-                    const curve = new THREE.CatmullRomCurve3(points, false, 'centripetal', 0.45);
-                    const geometry = new THREE.TubeGeometry(
-                        curve,
-                        segments,
-                        (0.4 + random() * 0.65) * params.fiberRadius,
-                        5,
-                        false
-                    );
-
-                    group.add(new THREE.Mesh(
-                        geometry,
-                        createMaterial(
-                            paletteColor(lineT, palette),
-                            params.opacity * (0.65 + random() * 0.35)
-                        )
-                    ));
-                }
-
-                group.scale.setScalar(0.83);
-                return group;
-            }
-
-            function buildCurrentSketch() {
-                switch (params.sketch) {
-                    case 'Winders':
-                        return createWinders();
-
-                    case 'Orbital Ribbons':
-                        return createOrbitalRibbons();
-
-                    case 'Spiral Bloom':
-                        return createSpiralBloom();
-
-                    default:
-                        return createBrushSculpture();
-                }
-            }
-
-            function rebuildNow(token) {
-                if (token !== rebuildToken || building) return;
-
-                building = true;
-
-                requestAnimationFrame(() => {
-                    if (token !== rebuildToken) {
-                        building = false;
-                        return;
-                    }
-
-                    const nextSketch = buildCurrentSketch();
-
-                    if (token !== rebuildToken) {
-                        disposeObject(nextSketch);
-                        building = false;
-                        return;
-                    }
-
-                    const oldSketch = currentSketch;
-                    rotateGroup.add(nextSketch);
-                    currentSketch = nextSketch;
-
-                    if (oldSketch) {
-                        rotateGroup.remove(oldSketch);
-                        disposeObject(oldSketch);
-                    }
-
-                    building = false;
-                });
-            }
-
-            function scheduleRebuild(delay = 140) {
-                rebuildToken++;
-                const token = rebuildToken;
-
-                clearTimeout(rebuildTimer);
-
-                rebuildTimer = setTimeout(() => {
-                    rebuildTimer = null;
-                    rebuildNow(token);
-                }, delay);
-            }
-
-            function updateBackground() {
-                container.style.background = params.bgColor;
-                paperGrainEl.style.display = params.paperGrain ? 'block' : 'none';
-                paperGrainEl.style.opacity = params.grainOpacity;
-
-                const color = new THREE.Color(params.bgColor);
-                const luminance = 0.299 * color.r + 0.587 * color.g + 0.114 * color.b;
-
-                hintEl.style.color = luminance < 0.4
-                    ? 'rgba(255,255,255,0.65)'
-                    : '#8f7d6a';
-            }
-
-            function updateLighting() {
-                keyLight.intensity = params.keyLightIntensity;
-                fillLight.intensity = params.fillLightIntensity;
-                rimLight.intensity = params.rimLightIntensity;
-            }
-
-            function applyPreset(name) {
-                const preset = PRESETS[name];
-                if (!preset) return;
-
-                preset.colors.forEach((color, index) => {
-                    params['c' + (index + 1)] = color;
-                });
-
-                params.bgColor = preset.bgColor;
-            }
-
-            updateBackground();
-            updateLighting();
-            scheduleRebuild(0);
-
-            try {
-                const PaneClass =
-                    (window.Tweakpane && (window.Tweakpane.Pane || window.Tweakpane)) ||
-                    window.Pane;
-
-                const pane = new PaneClass({
-                    title: '🎨 3D Paint Sketch Studio',
-                    expanded: true
-                });
-
-                function addControl(parent, object, property, options) {
-                    if (typeof parent.addBinding === 'function') {
-                        return parent.addBinding(object, property, options);
-                    }
-
-                    return parent.addInput(object, property, options);
-                }
-
-                const fSketch = pane.addFolder({
-                    title: '🖼️ Sketch Type',
-                    expanded: true
-                });
-
-                addControl(fSketch, params, 'sketch', {
-                    label: 'Sketch',
-                    options: {
-                        'Brush Sculpture': 'Brush Sculpture',
-                        'Winders': 'Winders',
-                        'Orbital Ribbons': 'Orbital Ribbons',
-                        'Spiral Bloom': 'Spiral Bloom'
-                    }
-                }).on('change', scheduleRebuild);
-
-                addControl(fSketch, params, 'preset', {
-                    label: 'Palette Preset',
-                    options: Object.keys(PRESETS).reduce((result, key) => {
-                        result[key] = key;
-                        return result;
-                    }, {})
-                }).on('change', event => {
-                    applyPreset(event.value);
-                    pane.refresh();
-                    updateBackground();
-                    scheduleRebuild(20);
-                });
-
-                const fPalette = pane.addFolder({
-                    title: '🌈 Multi-Pigment Palette',
-                    expanded: false
-                });
-
-                ['c1', 'c2', 'c3', 'c4', 'c5', 'c6', 'c7'].forEach((key, index) => {
-                    addControl(fPalette, params, key, {
-                        label: 'Pigment ' + (index + 1)
-                    }).on('change', scheduleRebuild);
-                });
-
-                addControl(fPalette, params, 'invertPalette', {
-                    label: 'Invert Pigment'
-                }).on('change', scheduleRebuild);
-
-                const fGeometry = pane.addFolder({
-                    title: '📐 Shape & Lines',
-                    expanded: true
-                });
-
-                addControl(fGeometry, params, 'lines', {
-                    min: 30,
-                    max: 340,
-                    step: 10,
-                    label: 'Line Count'
-                }).on('change', scheduleRebuild);
-
-                addControl(fGeometry, params, 'segments', {
-                    min: 40,
-                    max: 180,
-                    step: 5,
-                    label: 'Line Detail'
-                }).on('change', scheduleRebuild);
-
-                addControl(fGeometry, params, 'sphereRadius', {
-                    min: 140,
-                    max: 280,
-                    step: 5,
-                    label: 'Sculpture Radius'
-                }).on('change', scheduleRebuild);
-
-                addControl(fGeometry, params, 'turns', {
-                    min: 2,
-                    max: 5,
-                    step: 0.05,
-                    label: 'Coil Turns'
-                }).on('change', scheduleRebuild);
-
-                addControl(fGeometry, params, 'strokeWidth', {
-                    min: 30,
-                    max: 100,
-                    step: 2,
-                    label: 'Stroke Width'
-                }).on('change', scheduleRebuild);
-
-                addControl(fGeometry, params, 'fiberRadius', {
-                    min: 0.4,
-                    max: 2.5,
-                    step: 0.1,
-                    label: 'Fiber Size'
-                }).on('change', scheduleRebuild);
-
-                addControl(fGeometry, params, 'waviness', {
-                    min: 0,
-                    max: 3,
-                    step: 0.1,
-                    label: 'Bristle Wiggle'
-                }).on('change', scheduleRebuild);
-
-                addControl(fGeometry, params, 'twist', {
-                    min: 0,
-                    max: 1,
-                    step: 0.01,
-                    label: 'Winder Twist'
-                }).on('change', scheduleRebuild);
-
-                addControl(fGeometry, params, 'lineSpread', {
-                    min: 0,
-                    max: 2,
-                    step: 0.05,
-                    label: 'Line Spread'
-                }).on('change', scheduleRebuild);
-
-                addControl(fGeometry, params, 'strayFibers', {
-                    min: 0,
-                    max: 0.35,
-                    step: 0.01,
-                    label: 'Stray Bristles'
-                }).on('change', scheduleRebuild);
-
-                addControl(fGeometry, params, 'brushFlicks', {
-                    label: 'Brush Flicks (Top + Tail)'
-                }).on('change', scheduleRebuild);
-
-                const fMaterial = pane.addFolder({
-                    title: '✨ Paint Luster & Finish',
-                    expanded: false
-                });
-
-                addControl(fMaterial, params, 'shininess', {
-                    min: 10,
-                    max: 150,
-                    step: 5,
-                    label: 'Wet Gloss'
-                }).on('change', scheduleRebuild);
-
-                addControl(fMaterial, params, 'specularIntensity', {
-                    min: 0.1,
-                    max: 2,
-                    step: 0.05,
-                    label: 'Highlights'
-                }).on('change', scheduleRebuild);
-
-                addControl(fMaterial, params, 'opacity', {
-                    min: 0.2,
-                    max: 1,
-                    step: 0.02,
-                    label: 'Paint Opacity'
-                }).on('change', scheduleRebuild);
-
-                const fMotion = pane.addFolder({
-                    title: '🌪️ Motion & Spin Dynamics',
-                    expanded: true
-                });
-
-                addControl(fMotion, params, 'spinMode', {
-                    label: 'Spin Direction',
-                    options: {
-                        'Downward': 'Downward',
-                        'Paused': 'Paused',
-                        'Upward': 'Upward'
-                    }
-                });
-
-                addControl(fMotion, params, 'spinSpeed', {
-                    min: 0,
-                    max: 2,
-                    step: 0.05,
-                    label: 'Spin Velocity'
-                });
-
-                addControl(fMotion, params, 'floatingBob', {
-                    label: 'Floating Bob'
-                });
-
-                addControl(fMotion, params, 'rotateClockwise', {
-                    label: 'Rotate Clockwise'
-                }).on('change', () => {
-                    rotateReturning = !params.rotateClockwise;
-                });
-
-                addControl(fMotion, params, 'bobAmplitude', {
-                    min: 0,
-                    max: 18,
-                    step: 0.5,
-                    label: 'Bob Amplitude'
-                });
-
-                addControl(fMotion, params, 'bobSpeed', {
-                    min: 0.1,
-                    max: 3,
-                    step: 0.1,
-                    label: 'Bob Speed'
-                });
-
-                const fEnvironment = pane.addFolder({
-                    title: '💡 Lighting & Canvas',
-                    expanded: false
-                });
-
-                addControl(fEnvironment, params, 'bgColor', {
-                    label: 'Background'
-                }).on('change', updateBackground);
-
-                addControl(fEnvironment, params, 'paperGrain', {
-                    label: 'Canvas Texture'
-                }).on('change', updateBackground);
-
-                addControl(fEnvironment, params, 'grainOpacity', {
-                    min: 0,
-                    max: 0.4,
-                    step: 0.02,
-                    label: 'Grain Opacity'
-                }).on('change', updateBackground);
-
-                addControl(fEnvironment, params, 'keyLightIntensity', {
-                    min: 0.2,
-                    max: 3,
-                    step: 0.1,
-                    label: 'Sun Key Light'
-                }).on('change', updateLighting);
-
-                addControl(fEnvironment, params, 'fillLightIntensity', {
-                    min: 0,
-                    max: 2,
-                    step: 0.1,
-                    label: 'Sky Fill Light'
-                }).on('change', updateLighting);
-
-                addControl(fEnvironment, params, 'rimLightIntensity', {
-                    min: 0,
-                    max: 2,
-                    step: 0.1,
-                    label: 'Rim Light'
-                }).on('change', updateLighting);
-
-                const fActions = pane.addFolder({
-                    title: '⚡ Quick Actions',
-                    expanded: true
-                });
-
-                fActions.addButton({
-                    title: '🎲 Randomize Palette & Form'
-                }).on('click', () => {
-                    const randomColor = () =>
-                        '#' + Math.floor(Math.random() * 16777215)
-                            .toString(16)
-                            .padStart(6, '0');
-
-                    for (let i = 1; i <= 7; i++) {
-                        params['c' + i] = randomColor();
-                    }
-
-                    params.turns = 3 + Math.random() * 1.8;
-                    params.twist = Math.random();
-                    params.strokeWidth = 45 + Math.random() * 38;
-
-                    pane.refresh();
-                    scheduleRebuild(20);
-                });
-
-                fActions.addButton({
-                    title: '🔄 Reset'
-                }).on('click', () => {
-                    Object.assign(params, DEFAULT_PARAMS);
-
-                    spinGroup.rotation.y = 0;
-                    rotateGroup.rotation.z = 0;
-                    rotateReturning = false;
-
-                    pivotGroup.position.set(0, -5, 0);
-                    pivotGroup.rotation.set(0.12, 0, 0.02);
-
-                    camera.position.set(0, 25, 680);
-                    controls.target.set(0, 0, 0);
-                    controls.update();
-
-                    pane.refresh();
-                    updateBackground();
-                    updateLighting();
-                    scheduleRebuild(20);
-                });
-            } catch (error) {
-                console.error('Tweakpane initialization failed:', error);
-            }
-
-            const clock = new THREE.Clock();
-
-            function animate() {
-                requestAnimationFrame(animate);
-
-                const delta = Math.min(clock.getDelta(), 0.05);
-                const elapsed = clock.elapsedTime;
-
-                /*
-                 * Spin Velocity affects ONLY this Y-axis spin.
-                 */
-                if (params.spinMode !== 'Paused' && params.spinSpeed > 0) {
-                    const direction = params.spinMode === 'Upward' ? -1 : 1;
-                    spinGroup.rotation.y += direction * delta * params.spinSpeed;
-                }
-
-                /*
-                 * Clockwise rotation uses a separate group and fixed speed.
-                 * It never reads or uses spinSpeed.
-                 */
-                if (params.rotateClockwise) {
-                    rotateGroup.rotation.z -= delta * CLOCKWISE_ROTATE_SPEED;
-                    rotateReturning = false;
-                }
-
-                /*
-                 * When clockwise rotation is turned off, only rotateGroup
-                 * returns to Z = 0. spinGroup continues spinning normally.
-                 */
-                if (!params.rotateClockwise && rotateReturning) {
-                    const difference = -rotateGroup.rotation.z;
-
-                    if (Math.abs(difference) > 0.0001) {
-                        const easing = 1 - Math.exp(-CLOCKWISE_RETURN_SPEED * delta);
-                        rotateGroup.rotation.z += difference * easing;
-                    } else {
-                        rotateGroup.rotation.z = 0;
-                        rotateReturning = false;
-                    }
-                }
-
-                if (params.floatingBob) {
-                    pivotGroup.position.y =
-                        -5 + Math.sin(elapsed * params.bobSpeed) * params.bobAmplitude;
-
-                    pivotGroup.rotation.z =
-                        0.02 + Math.sin(elapsed * 0.4) * 0.015;
-                } else {
-                    pivotGroup.position.y += (-5 - pivotGroup.position.y) * 0.08;
-                    pivotGroup.rotation.z += (0.02 - pivotGroup.rotation.z) * 0.08;
-                }
-
-                controls.update();
-                renderer.render(scene, camera);
-            }
-
-            animate();
-
-            let resizeFrame = null;
-
-            window.addEventListener('resize', () => {
-                cancelAnimationFrame(resizeFrame);
-
-                resizeFrame = requestAnimationFrame(() => {
-                    resizeRenderer();
-                });
+          });
+
+          if (progress >= 1) {
+            // Final update to ensure exact values
+            updateMaterials();
+            fadeInAnimation = null;
+          }
+
+          return true;
+        }
+
+        function wait(ms) {
+          return new Promise((resolve) => setTimeout(resolve, ms));
+        }
+
+        async function waitForLatestArtwork() {
+          if (rebuildTimer !== null) {
+            const token = rebuildRequestId;
+            clearTimeout(rebuildTimer);
+            rebuildTimer = null;
+            startRebuild(token);
+          }
+
+          while (buildInProgress || rebuildTimer !== null) {
+            await wait(40);
+          }
+        }
+
+        async function saveHighResArtworkPNG() {
+          await waitForLatestArtwork();
+
+          const oldSize = renderer.getSize(new THREE.Vector2());
+          const oldPixelRatio = renderer.getPixelRatio();
+          const oldAspect = camera.aspect;
+          const oldSceneBackground = scene.background;
+
+          const displayW = Math.max(1, window.innerWidth);
+          const displayH = Math.max(1, window.innerHeight);
+
+          const maxTexture = Math.min(
+            renderer.capabilities.maxTextureSize || 4096,
+            4096,
+          );
+          const maxArea = 10000000;
+
+          let scale = Math.min(
+            2,
+            maxTexture / displayW,
+            maxTexture / displayH,
+            Math.sqrt(maxArea / (displayW * displayH)),
+          );
+
+          scale = Math.max(0.75, scale);
+
+          const exportW = Math.floor(displayW * scale);
+          const exportH = Math.floor(displayH * scale);
+
+          let dataURL = null;
+
+          try {
+            scene.background = new THREE.Color(params.bgColor);
+
+            renderer.setPixelRatio(1);
+            renderer.setSize(exportW, exportH, false);
+
+            camera.aspect = exportW / exportH;
+            camera.updateProjectionMatrix();
+
+            renderer.render(scene, camera);
+            dataURL = renderer.domElement.toDataURL("image/png");
+          } catch (error) {
+            console.error("PNG export failed:", error);
+          } finally {
+            scene.background = oldSceneBackground;
+
+            renderer.setPixelRatio(oldPixelRatio);
+            renderer.setSize(oldSize.x, oldSize.y, false);
+
+            camera.aspect = oldAspect;
+            camera.updateProjectionMatrix();
+
+            needsRender = true;
+          }
+
+          if (dataURL) {
+            const link = document.createElement("a");
+            link.download = `brush-sculpture-${Date.now()}.png`;
+            link.href = dataURL;
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+          }
+        }
+
+        updateBackground();
+        updateLighting();
+        scheduleRebuild(0);
+
+        // ─── Tweakpane UI Setup ───────────────────────────────────────────────────
+        try {
+          const PaneClass =
+            (window.Tweakpane && (window.Tweakpane.Pane || window.Tweakpane)) ||
+            window.Pane;
+
+          if (PaneClass) {
+            const pane = new PaneClass({
+              title: "🎨 3D Brush Sculpture Studio",
+              expanded: true,
             });
 
-            renderer.domElement.addEventListener('webglcontextlost', event => {
-                event.preventDefault();
-                console.warn('WebGL context lost.');
+            function addControl(parent, obj, prop, opt) {
+              if (typeof parent.addBinding === "function") {
+                return parent.addBinding(obj, prop, opt);
+              } else if (typeof parent.addInput === "function") {
+                return parent.addInput(obj, prop, opt);
+              } else {
+                return parent.add(obj, prop, opt);
+              }
+            }
+
+            const presetOptions = Object.keys(PRESETS).reduce((acc, key) => {
+              acc[key] = key;
+              return acc;
+            }, {});
+
+            // 1. Presets Folder
+            const fPresets = pane.addFolder({
+              title: "🌟 Style Presets",
+              expanded: true,
             });
 
-            renderer.domElement.addEventListener('webglcontextrestored', () => {
+            addControl(fPresets, params, "preset", {
+              options: presetOptions,
+            }).on("change", (ev) => {
+              const val = ev && ev.value !== undefined ? ev.value : ev;
+
+              if (PRESETS[val]) {
+                applyPreset(val);
+                pane.refresh();
+                updateBackground();
+                updateMaterials();
                 scheduleRebuild(20);
+              }
             });
-        })();
+
+            // 2. Palette & Pigment Folder
+            const fPalette = pane.addFolder({
+              title: "🌈 Multi-Pigment Palette",
+              expanded: false,
+            });
+
+            addControl(fPalette, params, "c1", { label: "Outer Edge" }).on(
+              "change",
+              rebuildArtwork,
+            );
+            addControl(fPalette, params, "c2", { label: "Outer Mid" }).on(
+              "change",
+              rebuildArtwork,
+            );
+            addControl(fPalette, params, "c3", { label: "Mid Purple" }).on(
+              "change",
+              rebuildArtwork,
+            );
+            addControl(fPalette, params, "c4", { label: "Core Magenta" }).on(
+              "change",
+              rebuildArtwork,
+            );
+            addControl(fPalette, params, "c5", { label: "Core Crimson" }).on(
+              "change",
+              rebuildArtwork,
+            );
+            addControl(fPalette, params, "c6", { label: "Inner Amber" }).on(
+              "change",
+              rebuildArtwork,
+            );
+            addControl(fPalette, params, "c7", { label: "Inner Gold" }).on(
+              "change",
+              rebuildArtwork,
+            );
+            addControl(fPalette, params, "invertPalette", {
+              label: "Invert Pigment",
+            }).on("change", rebuildArtwork);
+            addControl(fPalette, params, "colorJitter", {
+              min: 0.0,
+              max: 0.15,
+              step: 0.01,
+              label: "Color Striation",
+            }).on("change", rebuildArtwork);
+
+            // 3. Geometry & Sculpture Folder
+            const fGeometry = pane.addFolder({
+              title: "📐 Geometry & Sculpture",
+              expanded: true,
+            });
+
+            addControl(fGeometry, params, "turns", {
+              min: 2.0,
+              max: 5.0,
+              step: 0.05,
+              label: "Coil Turns",
+            }).on("change", rebuildArtwork);
+
+            addControl(fGeometry, params, "sphereRadius", {
+              min: 140,
+              max: 280,
+              step: 5,
+              label: "Sphere Radius",
+            }).on("change", rebuildArtwork);
+
+            addControl(fGeometry, params, "width", {
+              min: 30,
+              max: 100,
+              step: 2,
+              label: "Stroke Width",
+            }).on("change", rebuildArtwork);
+
+            addControl(fGeometry, params, "thickness", {
+              min: 6,
+              max: 32,
+              step: 1,
+              label: "Stroke Depth",
+            }).on("change", rebuildArtwork);
+
+            addControl(fGeometry, params, "fiberCount", {
+              min: 80,
+              max: 420,
+              step: 10,
+              label: "Bristle Density",
+            }).on("change", rebuildArtwork);
+
+            addControl(fGeometry, params, "fiberRadius", {
+              min: 0.5,
+              max: 2.5,
+              step: 0.1,
+              label: "Bristle Size",
+            }).on("change", rebuildArtwork);
+
+            addControl(fGeometry, params, "waviness", {
+              min: 0.0,
+              max: 3.0,
+              step: 0.1,
+              label: "Bristle Wiggle",
+            }).on("change", rebuildArtwork);
+
+            addControl(fGeometry, params, "strayFibers", {
+              min: 0.0,
+              max: 0.35,
+              step: 0.01,
+              label: "Stray Bristles",
+            }).on("change", rebuildArtwork);
+
+            addControl(fGeometry, params, "startFlick", {
+              label: "Brush Flicks (Top + Tail)",
+            }).on("change", rebuildArtwork);
+
+            // 4. Material & Paint Surface Folder
+            const fMaterial = pane.addFolder({
+              title: "✨ Paint Luster & Finish",
+              expanded: false,
+            });
+
+            addControl(fMaterial, params, "shininess", {
+              min: 10,
+              max: 150,
+              step: 5,
+              label: "Wet Gloss",
+            }).on("change", updateMaterials);
+
+            addControl(fMaterial, params, "specularIntensity", {
+              min: 0.1,
+              max: 2.0,
+              step: 0.05,
+              label: "Highlights",
+            }).on("change", updateMaterials);
+
+            addControl(fMaterial, params, "fiberOpacity", {
+              min: 0.4,
+              max: 1.0,
+              step: 0.02,
+              label: "Bristle Opacity",
+            }).on("change", updateMaterials);
+
+            addControl(fMaterial, params, "underRibbonOpacity", {
+              min: 0.0,
+              max: 1.0,
+              step: 0.05,
+              label: "Under-Body Fill",
+            }).on("change", updateMaterials);
+
+            // 5. Motion & Spin Controls
+            const fMotion = pane.addFolder({
+              title: "🌪️ Motion & Spin Dynamics",
+              expanded: true,
+            });
+
+            addControl(fMotion, params, "spinMode", {
+              label: "Spin Direction",
+              options: {
+                Downward: "Downward",
+                Paused: "Paused",
+                Upward: "Upward",
+              },
+            }).on("change", () => {
+              needsRender = true;
+            });
+
+            addControl(fMotion, params, "spinSpeed", {
+              min: 0.0,
+              max: 2.0,
+              step: 0.05,
+              label: "Spin Velocity",
+            }).on("change", () => {
+              needsRender = true;
+            });
+
+            addControl(fMotion, params, "floatingBob", {
+              label: "Floating Bob",
+            }).on("change", () => {
+              needsRender = true;
+            });
+
+            // Clockwise rotate checkbox — below Floating Bob.
+            // Ticked  → rolls clockwise at its own fixed speed (Spin Velocity ignored).
+            // Unticked → sculpture smoothly returns to its original upright pose.
+            addControl(fMotion, params, "rotateClockwise", {
+              label: "Rotate Clockwise",
+            }).on("change", () => {
+              needsRender = true;
+            });
+
+            addControl(fMotion, params, "bobAmplitude", {
+              min: 0.0,
+              max: 18.0,
+              step: 0.5,
+              label: "Bob Amplitude",
+            }).on("change", () => {
+              needsRender = true;
+            });
+
+            addControl(fMotion, params, "bobSpeed", {
+              min: 0.1,
+              max: 3.0,
+              step: 0.1,
+              label: "Bob Speed",
+            }).on("change", () => {
+              needsRender = true;
+            });
+
+            // 6. Lighting & Canvas Background
+            const fEnvironment = pane.addFolder({
+              title: "💡 Lighting & Canvas",
+              expanded: false,
+            });
+
+            addControl(fEnvironment, params, "bgColor", {
+              label: "Background",
+            }).on("change", updateBackground);
+
+            addControl(fEnvironment, params, "paperGrain", {
+              label: "Canvas Texture",
+            }).on("change", updateBackground);
+
+            addControl(fEnvironment, params, "grainOpacity", {
+              min: 0.0,
+              max: 0.4,
+              step: 0.02,
+              label: "Grain Opacity",
+            }).on("change", updateBackground);
+
+            addControl(fEnvironment, params, "keyLightIntensity", {
+              min: 0.2,
+              max: 3.0,
+              step: 0.1,
+              label: "Sun Key Light",
+            }).on("change", updateLighting);
+
+            addControl(fEnvironment, params, "fillLightIntensity", {
+              min: 0.0,
+              max: 2.0,
+              step: 0.1,
+              label: "Sky Fill Light",
+            }).on("change", updateLighting);
+
+            addControl(fEnvironment, params, "rimLightIntensity", {
+              min: 0.0,
+              max: 2.0,
+              step: 0.1,
+              label: "Rim Light",
+            }).on("change", updateLighting);
+
+            // 7. Action Buttons
+            const fActions = pane.addFolder({
+              title: "⚡ Quick Actions",
+              expanded: true,
+            });
+
+            fActions
+              .addButton({ title: "🎲 Randomize Palette & Form" })
+              .on("click", () => {
+                const randomColor = () =>
+                  "#" +
+                  Math.floor(Math.random() * 16777215)
+                    .toString(16)
+                    .padStart(6, "0");
+
+                params.c1 = randomColor();
+                params.c2 = randomColor();
+                params.c3 = randomColor();
+                params.c4 = randomColor();
+                params.c5 = randomColor();
+                params.c6 = randomColor();
+                params.c7 = randomColor();
+
+                params.turns = 3.5 + Math.random() * 1.5;
+                params.crestFold = 0.2 + Math.random() * 0.8;
+                params.width = 50 + Math.random() * 25;
+
+                pane.refresh();
+                scheduleRebuild(20);
+              });
+
+            fActions
+              .addButton({ title: "📸 Save High-Res Artwork PNG" })
+              .on("click", () => {
+                saveHighResArtworkPNG();
+              });
+
+            fActions.addButton({ title: "🔄 Reset" }).on("click", () => {
+              Object.assign(params, DEFAULT_PARAMS);
+              params.preset = "Cobalt & Sunset Orange";
+              applyPreset(params.preset);
+
+              pivotGroup.position.set(0, -5, 0);
+              pivotGroup.rotation.x = 0.12;
+              pivotGroup.rotation.z = 0.02;
+              pivotGroup.rotation.y = 0;
+
+              if (currentBrushArt) {
+                currentBrushArt.rotation.set(0, 0, 0);
+              }
+
+              if (controls.reset) {
+                controls.reset();
+              }
+
+              pane.refresh();
+              updateBackground();
+              updateLighting();
+              updateMaterials();
+              scheduleRebuild(20);
+            });
+          }
+        } catch (e) {
+          console.error("Tweakpane init warning:", e);
+        }
+
+        // ─── Main Animation Loop ──────────────────────────────────────────────────
+        const clock = new THREE.Clock();
+
+        function animate() {
+          requestAnimationFrame(animate);
+
+          const delta = Math.min(clock.getDelta(), 0.05);
+          const elapsed = clock.elapsedTime;
+          const now = performance.now();
+
+          let animated = false;
+
+          // Update fade-in transition
+          if (fadeInAnimation) {
+            if (updateFadeIn(now)) {
+              animated = true;
+            }
+          }
+
+          // ── SPIN (Y-axis) ────────────────────────────────────────────────
+          // Controlled ONLY by Spin Direction + Spin Velocity.
+          // This is the only place params.spinSpeed is ever used.
+          if (
+            currentBrushArt &&
+            params.spinMode !== "Paused" &&
+            params.spinSpeed > 0
+          ) {
+            const direction = params.spinMode === "Upward" ? -1 : 1;
+            currentBrushArt.rotation.y += direction * delta * params.spinSpeed;
+            animated = true;
+          }
+
+          // ── ROTATE CLOCKWISE (Z-axis roll) ───────────────────────────────
+          // Uses its own fixed speed — Spin Velocity has zero effect here.
+          if (currentBrushArt && params.rotateClockwise) {
+            currentBrushArt.rotation.z -= delta * CLOCKWISE_ROTATE_SPEED;
+            animated = true;
+          } else if (currentBrushArt && currentBrushArt.rotation.z !== 0) {
+            // Checkbox unticked → smoothly swing the sculpture back to its
+            // original upright orientation (Z = 0) via the shortest path.
+            // The Y-axis spin above keeps running exactly as usual.
+            let z = currentBrushArt.rotation.z % (Math.PI * 2);
+            if (z > Math.PI) z -= Math.PI * 2;
+            if (z < -Math.PI) z += Math.PI * 2;
+
+            z = dampAngle(z, 0, ROTATE_RETURN_DAMPING, delta);
+
+            if (Math.abs(z) < 0.0005) z = 0;
+            currentBrushArt.rotation.z = z;
+            animated = true;
+          }
+
+          // Floating organic bob
+          if (params.floatingBob) {
+            pivotGroup.position.y =
+              -5 + Math.sin(elapsed * params.bobSpeed) * params.bobAmplitude;
+            pivotGroup.rotation.z = 0.02 + Math.sin(elapsed * 0.4) * 0.015;
+            animated = true;
+          } else {
+            if (Math.abs(pivotGroup.position.y + 5) > 0.001) {
+              pivotGroup.position.y = -5;
+              animated = true;
+            }
+
+            if (Math.abs(pivotGroup.rotation.z - 0.02) > 0.001) {
+              pivotGroup.rotation.z = 0.02;
+              animated = true;
+            }
+          }
+
+          const controlsChanged = controls.update ? controls.update() : false;
+
+          if (animated || controlsChanged || needsRender) {
+            renderer.render(scene, camera);
+            needsRender = false;
+          }
+        }
+
+        animate();
+
+        // ─── Responsive Window Resize ─────────────────────────────────────────────
+        let resizeFrame = null;
+
+        window.addEventListener("resize", () => {
+          if (resizeFrame !== null) {
+            cancelAnimationFrame(resizeFrame);
+          }
+
+          resizeFrame = requestAnimationFrame(() => {
+            resizeFrame = null;
+            resizeRenderer();
+          });
+        });
+
+        document.addEventListener("visibilitychange", () => {
+          clock.getDelta();
+          needsRender = true;
+        });
+
+        renderer.domElement.addEventListener("webglcontextlost", (event) => {
+          event.preventDefault();
+          console.warn("WebGL context lost.");
+        });
+
+        renderer.domElement.addEventListener("webglcontextrestored", () => {
+          console.warn("WebGL context restored. Rebuilding artwork.");
+          scheduleRebuild(20);
+        });
+      })();
     </script>
-</body>
+  </body>
 </html>

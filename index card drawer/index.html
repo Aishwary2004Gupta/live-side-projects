@@ -216,7 +216,7 @@
                 strayFibers: 0.10,
                 startFlick: false,
 
-                // ── Winder / Ribbon sketch params (inspired by the "Winders" sketch) ──
+                // ── Winder sketch params (inspired by the "Winders" sketch) ──
                 winderLines: 70,
                 winderTwist: 1.0,
                 winderRadius: 120,
@@ -225,7 +225,6 @@
                 winderThickness: 1.2,
                 winderDashRepeat: 8,
                 winderFlowSpeed: 1.0,
-                ribbonWidth: 26,
 
                 shininess: 85,
                 specularIntensity: 0.75,
@@ -264,10 +263,6 @@
             // ─── Small math helpers (replacing Maf from the reference sketch) ────────
             function mafMap(inMin, inMax, outMin, outMax, v) {
                 return outMin + (outMax - outMin) * ((v - inMin) / (inMax - inMin));
-            }
-
-            function clamp01(v) {
-                return Math.max(0, Math.min(1, v));
             }
 
             function easeInOutQuad(x) {
@@ -963,156 +958,10 @@
                 return masterGroup;
             }
 
-            // ─── SKETCH 3: Silk Orbit Ribbons ────────────────────────────────────────
-            // Same winder paths, but rendered as wide glossy silk ribbons with
-            // two-tone gradient edges instead of dashed ink lines.
-            async function buildSilkRibbonsAsync(token) {
-                const masterGroup = new THREE.Group();
-                const palette = getActivePalette();
-                const rng = makeRng(884123);
-
-                const LINES = Math.max(2, Math.round(params.winderLines));
-
-                for (let i = 0; i < LINES; i++) {
-                    if (token !== rebuildRequestId) {
-                        disposeObject(masterGroup);
-                        return null;
-                    }
-
-                    const lineT = LINES === 1 ? 0 : i / (LINES - 1);
-                    const { pts, center } = getWinderPoints(i, LINES, rng);
-
-                    const N = pts.length;
-                    const width = params.ribbonWidth * rng.range(0.7, 1.3);
-                    const sheenPhase = rng.range(0, Math.PI * 2);
-                    const liftAmp = rng.range(0.5, 2.5);
-
-                    const colorA = samplePaintColor(clamp01(lineT - 0.06), palette);
-                    const colorB = samplePaintColor(clamp01(lineT + 0.06), palette);
-                    const brightness = rng.range(0.9, 1.2);
-
-                    const verts = new Float32Array((N + 1) * 2 * 3);
-                    const norms = new Float32Array((N + 1) * 2 * 3);
-                    const cols = new Float32Array((N + 1) * 2 * 3);
-                    const indices = [];
-
-                    const tangent = new THREE.Vector3();
-                    const radial = new THREE.Vector3();
-                    const binormal = new THREE.Vector3();
-                    const fallback = new THREE.Vector3(0, 1, 0);
-                    const tmpColor = new THREE.Color();
-
-                    for (let j = 0; j <= N; j++) {
-                        const jj = j % N;
-                        const prev = pts[(jj - 1 + N) % N];
-                        const next = pts[(jj + 1) % N];
-                        const pt = pts[jj];
-
-                        tangent.subVectors(next, prev).normalize();
-                        radial.subVectors(pt, center).normalize();
-
-                        binormal.crossVectors(tangent, radial);
-                        if (binormal.lengthSq() < 0.000001) {
-                            binormal.crossVectors(tangent, fallback);
-                            if (binormal.lengthSq() < 0.000001) {
-                                binormal.set(1, 0, 0);
-                            }
-                        }
-                        binormal.normalize();
-
-                        const th = (jj / N) * Math.PI * 2;
-                        const lift = Math.sin(th * 3 + sheenPhase) * liftAmp;
-                        const sheen = 0.5 + 0.5 * Math.sin(th * 2 + sheenPhase);
-
-                        tmpColor.copy(colorA).lerp(colorB, sheen).multiplyScalar(brightness);
-
-                        const halfW = width * 0.5;
-                        const base = j * 2;
-
-                        // Edge 0 (outer)
-                        verts[base * 3]     = pt.x + binormal.x * halfW + radial.x * lift;
-                        verts[base * 3 + 1] = pt.y + binormal.y * halfW + radial.y * lift;
-                        verts[base * 3 + 2] = pt.z + binormal.z * halfW + radial.z * lift;
-
-                        // Edge 1 (inner)
-                        verts[(base + 1) * 3]     = pt.x - binormal.x * halfW + radial.x * lift;
-                        verts[(base + 1) * 3 + 1] = pt.y - binormal.y * halfW + radial.y * lift;
-                        verts[(base + 1) * 3 + 2] = pt.z - binormal.z * halfW + radial.z * lift;
-
-                        norms[base * 3] = radial.x;
-                        norms[base * 3 + 1] = radial.y;
-                        norms[base * 3 + 2] = radial.z;
-                        norms[(base + 1) * 3] = radial.x;
-                        norms[(base + 1) * 3 + 1] = radial.y;
-                        norms[(base + 1) * 3 + 2] = radial.z;
-
-                        cols[base * 3] = tmpColor.r;
-                        cols[base * 3 + 1] = tmpColor.g;
-                        cols[base * 3 + 2] = tmpColor.b;
-
-                        // Slightly darker inner edge for a silk-fold feel
-                        cols[(base + 1) * 3]     = tmpColor.r * 0.82;
-                        cols[(base + 1) * 3 + 1] = tmpColor.g * 0.82;
-                        cols[(base + 1) * 3 + 2] = tmpColor.b * 0.82;
-                    }
-
-                    for (let j = 0; j < N; j++) {
-                        const a = j * 2;
-                        const b = a + 1;
-                        const c = a + 2;
-                        const d = a + 3;
-                        indices.push(a, b, c, b, d, c);
-                    }
-
-                    const geom = new THREE.BufferGeometry();
-                    geom.setAttribute('position', new THREE.BufferAttribute(verts, 3));
-                    geom.setAttribute('normal', new THREE.BufferAttribute(norms, 3));
-                    geom.setAttribute('color', new THREE.BufferAttribute(cols, 3));
-                    geom.setIndex(indices);
-
-                    const opacityBase = rng.range(0.5, 0.85);
-
-                    const mat = new THREE.MeshPhongMaterial({
-                        vertexColors: true,
-                        specular: new THREE.Color(0xffffff).multiplyScalar(params.specularIntensity),
-                        shininess: params.shininess,
-                        transparent: true,
-                        opacity: Math.min(1, opacityBase * (params.fiberOpacity / 0.88)),
-                        side: THREE.DoubleSide,
-                        depthWrite: false
-                    });
-
-                    mat.userData.kind = 'silkRibbon';
-                    mat.userData.opacityBase = opacityBase;
-
-                    const mesh = new THREE.Mesh(geom, mat);
-                    mesh.renderOrder = 1;
-                    mesh.userData.kind = 'silkRibbon';
-                    mesh.matrixAutoUpdate = false;
-                    mesh.updateMatrix();
-
-                    masterGroup.add(mesh);
-
-                    if (i > 0 && i % 8 === 0) {
-                        await nextFrame();
-                    }
-                }
-
-                if (token !== rebuildRequestId) {
-                    disposeObject(masterGroup);
-                    return null;
-                }
-
-                return masterGroup;
-            }
-
             // ─── Sketch dispatcher ────────────────────────────────────────────────────
             function buildArtworkByMode(token) {
                 if (params.sketchMode === 'Winder Flow Lines') {
                     return buildWinderFlowAsync(token);
-                }
-                if (params.sketchMode === 'Silk Orbit Ribbons') {
-                    return buildSilkRibbonsAsync(token);
                 }
                 return buildBrushStrokeAsync(token);
             }
@@ -1169,21 +1018,6 @@
                         if (kind === 'flowLine') {
                             const opacityBase = mat.userData.opacityBase !== undefined ? mat.userData.opacityBase : mat.opacity;
                             mat.opacity = Math.min(1, opacityBase * (params.fiberOpacity / 0.88));
-                            mat.needsUpdate = true;
-                            child.visible = params.fiberOpacity > 0.001;
-                        }
-
-                        if (kind === 'silkRibbon') {
-                            const opacityBase = mat.userData.opacityBase !== undefined ? mat.userData.opacityBase : mat.opacity;
-                            mat.opacity = Math.min(1, opacityBase * (params.fiberOpacity / 0.88));
-                            mat.shininess = params.shininess;
-                            if (mat.specular) {
-                                mat.specular.setRGB(
-                                    params.specularIntensity,
-                                    params.specularIntensity,
-                                    params.specularIntensity
-                                );
-                            }
                             mat.needsUpdate = true;
                             child.visible = params.fiberOpacity > 0.001;
                         }
@@ -1316,7 +1150,7 @@
 
                         if (kind === 'ribbon') {
                             child.material.opacity = params.underRibbonOpacity * eased;
-                        } else if (kind === 'bristle' || kind === 'flowLine' || kind === 'silkRibbon') {
+                        } else if (kind === 'bristle' || kind === 'flowLine') {
                             child.material.opacity = Math.min(
                                 1,
                                 (child.material.userData.opacityBase * (params.fiberOpacity / 0.88)) * eased
@@ -1465,8 +1299,7 @@
                         label: 'Sketch Style',
                         options: {
                             'Brush Sculpture': 'Brush Sculpture',
-                            'Winder Flow Lines': 'Winder Flow Lines',
-                            'Silk Orbit Ribbons': 'Silk Orbit Ribbons'
+                            'Winder Flow Lines': 'Winder Flow Lines'
                         }
                     }).on('change', () => {
                         scheduleRebuild(20);
@@ -1553,8 +1386,8 @@
                         label: 'Brush Flicks (Top + Tail)'
                     }).on('change', rebuildArtwork);
 
-                    // 3b. Winder & Ribbon sketch controls
-                    const fWinder = pane.addFolder({ title: '🌀 Winder & Ribbon Sketches', expanded: false });
+                    // 3b. Winder sketch controls
+                    const fWinder = pane.addFolder({ title: '🌀 Winder Sketch', expanded: false });
 
                     addControl(fWinder, params, 'winderLines', {
                         min: 4,
@@ -1613,13 +1446,6 @@
                     }).on('change', () => {
                         needsRender = true;
                     });
-
-                    addControl(fWinder, params, 'ribbonWidth', {
-                        min: 6,
-                        max: 60,
-                        step: 1,
-                        label: 'Ribbon Width (Silk)'
-                    }).on('change', rebuildArtwork);
 
                     // 4. Material & Paint Surface Folder
                     const fMaterial = pane.addFolder({ title: '✨ Paint Luster & Finish', expanded: false });

@@ -1,2073 +1,1548 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>3D Oil Paint Brush Sculpture Studio</title>
     <style>
-      * {
-        margin: 0;
-        padding: 0;
-        box-sizing: border-box;
-        user-select: none;
-      }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            user-select: none;
+        }
 
-      body {
-        background: #c4bdbc;
-        overflow: hidden;
-        width: 100vw;
-        height: 100vh;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-family:
-          -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica,
-          Arial, sans-serif;
-      }
+        body {
+            background: #C4BDBC;
+            overflow: hidden;
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
 
-      #canvas-container {
-        width: 100%;
-        height: 100%;
-        position: relative;
-        background: radial-gradient(
-          circle at 50% 48%,
-          #d8d2d0 0%,
-          #c4bdbc 52%,
-          #b4acab 100%
-        );
-        transition: background 0.4s ease;
-      }
+        #canvas-container {
+            width: 100%;
+            height: 100%;
+            position: relative;
+            background: radial-gradient(circle at 50% 48%, #D8D2D0 0%, #C4BDBC 52%, #B4ACAB 100%);
+            transition: background 0.4s ease;
+        }
 
-      canvas {
-        display: block;
-        width: 100%;
-        height: 100%;
-        cursor: grab;
-        touch-action: none;
-      }
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+            cursor: grab;
+            touch-action: none;
+        }
 
-      canvas:active {
-        cursor: grabbing;
-      }
+        canvas:active {
+            cursor: grabbing;
+        }
 
-      .paper-grain {
-        position: absolute;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        pointer-events: none;
-        opacity: 0.15;
-        mix-blend-mode: multiply;
-        background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
-        transition: opacity 0.3s ease;
-      }
+        .paper-grain {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            opacity: 0.15;
+            mix-blend-mode: multiply;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+            transition: opacity 0.3s ease;
+        }
 
-      .hint {
-        position: absolute;
-        bottom: 22px;
-        left: 50%;
-        transform: translateX(-50%);
-        color: #8f7d6a;
-        font-size: 12px;
-        letter-spacing: 0.1em;
-        text-transform: uppercase;
-        font-weight: 600;
-        pointer-events: none;
-        opacity: 0.65;
-        transition:
-          opacity 0.4s ease,
-          color 0.3s ease;
-        z-index: 10;
-      }
+        .hint {
+            position: absolute;
+            bottom: 22px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: #8f7d6a;
+            font-size: 12px;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            font-weight: 600;
+            pointer-events: none;
+            opacity: 0.65;
+            transition: opacity 0.4s ease, color 0.3s ease;
+            z-index: 10;
+        }
 
-      /* Tweakpane UI Container */
-      .tp-dfwv {
-        position: fixed !important;
-        top: 14px !important;
-        right: 14px !important;
-        width: 320px !important;
-        max-height: calc(100vh - 28px) !important;
-        overflow-y: auto !important;
-        border-radius: 12px !important;
-        box-shadow:
-          0 16px 36px rgba(0, 0, 0, 0.22),
-          0 2px 8px rgba(0, 0, 0, 0.12) !important;
-        z-index: 9999 !important;
-      }
+        .tp-dfwv {
+            position: fixed !important;
+            top: 14px !important;
+            right: 14px !important;
+            width: 320px !important;
+            max-height: calc(100vh - 28px) !important;
+            overflow-y: auto !important;
+            border-radius: 12px !important;
+            box-shadow: 0 16px 36px rgba(0, 0, 0, 0.22), 0 2px 8px rgba(0, 0, 0, 0.12) !important;
+            z-index: 9999 !important;
+        }
 
-      .tp-dfwv::-webkit-scrollbar {
-        width: 5px;
-      }
-      .tp-dfwv::-webkit-scrollbar-thumb {
-        background: rgba(255, 255, 255, 0.25);
-        border-radius: 4px;
-      }
+        .tp-dfwv::-webkit-scrollbar {
+            width: 5px;
+        }
+        .tp-dfwv::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.25);
+            border-radius: 4px;
+        }
     </style>
-  </head>
+</head>
 
-  <body>
+<body>
     <div id="canvas-container">
-      <div class="paper-grain" id="paperGrain"></div>
-      <div class="hint" id="hint">Drag to inspect &bull; Scroll to zoom</div>
+        <div class="paper-grain" id="paperGrain"></div>
+        <div class="hint" id="hint">Drag to inspect &bull; Scroll to zoom</div>
     </div>
 
-    <!-- Three.js, OrbitControls & Tweakpane -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/tweakpane@3.1.10/dist/tweakpane.min.js"></script>
 
     <script>
-      (() => {
-        "use strict";
-
-        if (!window.THREE) {
-          console.error("Three.js did not load.");
-          return;
-        }
-
-        // ─── Preset Color Palette Definitions ─────────────────────────────────────
-        const PRESETS = {
-          "Cobalt & Sunset Orange": {
-            shape: "Spherical Coil",
-            colors: [
-              "#102fe0",
-              "#2a55f5",
-              "#8a10b2",
-              "#de1245",
-              "#ee400e",
-              "#f5780a",
-              "#e89e18",
-            ],
-            bgClear: "#C4BDBC",
-            turns: 4.5,
-            crestFold: 0.5,
-            width: 68,
-            fiberCount: 340,
-            shininess: 85,
-          },
-          "Lavender & Ocean Blue": {
-            shape: "Spherical Coil",
-            colors: [
-              "#a96bff",
-              "#c495ff",
-              "#e8d8ff",
-              "#8e4bf2",
-              "#3a4fe8",
-              "#1b2ad4",
-              "#0d1896",
-            ],
-            bgClear: "#ede2d6",
-            turns: 4.3,
-            crestFold: 0.6,
-            width: 70,
-            fiberCount: 350,
-            shininess: 95,
-          },
-          "Cyberpunk Neon": {
-            shape: "Spherical Coil",
-            colors: [
-              "#00f5d4",
-              "#00bbf9",
-              "#7b2cbf",
-              "#9d4edd",
-              "#f72585",
-              "#7209b7",
-              "#3a0ca3",
-            ],
-            bgClear: "#12111d",
-            turns: 4.4,
-            crestFold: 0.4,
-            width: 66,
-            fiberCount: 320,
-            shininess: 120,
-          },
-          "Sunset Ember & Gold": {
-            shape: "Spherical Coil",
-            colors: [
-              "#590d22",
-              "#800f2f",
-              "#a4133c",
-              "#c9184a",
-              "#ff4d6d",
-              "#ff758f",
-              "#ffb703",
-              "#fb8500",
-            ],
-            bgClear: "#ebded6",
-            turns: 4.2,
-            crestFold: 0.3,
-            width: 68,
-            fiberCount: 330,
-            shininess: 90,
-          },
-          "Emerald & Aureolin": {
-            shape: "Spherical Coil",
-            colors: [
-              "#081c15",
-              "#1b4332",
-              "#2d6a4f",
-              "#40916c",
-              "#52b788",
-              "#74c69d",
-              "#ffd166",
-              "#f77f00",
-            ],
-            bgClear: "#e2ece0",
-            turns: 4.3,
-            crestFold: 0.5,
-            width: 64,
-            fiberCount: 320,
-            shininess: 85,
-          },
-          "Midnight Pearl & Silver": {
-            shape: "Spherical Coil",
-            colors: [
-              "#0b132b",
-              "#1c2541",
-              "#3a506b",
-              "#5bc0be",
-              "#6fffe9",
-              "#e0fbfc",
-              "#ffffff",
-            ],
-            bgClear: "#141a24",
-            turns: 4.3,
-            crestFold: 0.4,
-            width: 62,
-            fiberCount: 320,
-            shininess: 110,
-          },
-          "Classic Rainbow Spectrum": {
-            shape: "Spherical Coil",
-            colors: [
-              "#0f2be0",
-              "#1c4ff8",
-              "#4b1bcb",
-              "#820fb0",
-              "#bf0a74",
-              "#df113d",
-              "#ee3d0c",
-              "#f4760a",
-              "#eaa014",
-            ],
-            bgClear: "#ede3d2",
-            turns: 4.35,
-            crestFold: 0.2,
-            width: 62,
-            fiberCount: 340,
-            shininess: 85,
-          },
-        };
-
-        // ─── Global State Parameters ───────────────────────────────────────────────
-        const DEFAULT_PARAMS = {
-          preset: "Cobalt & Sunset Orange",
-          sketchMode: "Brush Sculpture",
-          shape: "Spherical Coil",
-
-          c1: "#102fe0",
-          c2: "#2a55f5",
-          c3: "#8a10b2",
-          c4: "#de1245",
-          c5: "#ee400e",
-          c6: "#f5780a",
-          c7: "#e89e18",
-          invertPalette: false,
-          colorJitter: 0.05,
-
-          sphereRadius: 220,
-          turns: 4.5,
-          crestFold: 0.5,
-          width: 68,
-          thickness: 14,
-          fiberCount: 340,
-          fiberRadius: 1.15,
-          waviness: 0.8,
-          strayFibers: 0.1,
-          startFlick: false,
-
-          // ── Winder sketch params (adapted from "Winders" / inktober-2025) ──
-          winderLines: 100,
-          winderSegments: 400,
-          winderTwist: 1.0,
-          winderRadius: 120,
-          winderRadiusSpread: 18,
-          winderLineSpread: 10,
-          winderThickness: 1.2,
-          winderDashRepeat: 8,
-          winderFlowSpeed: 1.0,
-
-          shininess: 85,
-          specularIntensity: 0.75,
-          fiberOpacity: 0.88,
-          underRibbonOpacity: 0.72,
-
-          spinMode: "Downward",
-          spinSpeed: 0.35,
-          rotateClockwise: false,
-          floatingBob: true,
-          bobAmplitude: 2.0,
-          bobSpeed: 0.6,
-
-          keyLightIntensity: 1.55,
-          fillLightIntensity: 0.9,
-          rimLightIntensity: 0.85,
-          bgColor: "#C4BDBC",
-          paperGrain: true,
-          grainOpacity: 0.15,
-        };
-
-        const params = { ...DEFAULT_PARAMS };
-
-        // Fixed speed for the clockwise Z-rotation.
-        // Fully independent from params.spinSpeed — Spin Velocity never affects it.
-        const CLOCKWISE_ROTATE_SPEED = 0.25;
-
-        // How fast the sculpture swings back upright when Rotate Clockwise is unticked.
-        const ROTATE_RETURN_DAMPING = 6;
-
-        // Frame-rate independent damping helper.
-        function dampAngle(current, target, lambda, dt) {
-          return current + (target - current) * (1 - Math.exp(-lambda * dt));
-        }
-
-        // ─── Small math helpers (replacing Maf from the reference sketch) ────────
-        function mafMap(inMin, inMax, outMin, outMax, v) {
-          return outMin + (outMax - outMin) * ((v - inMin) / (inMax - inMin));
-        }
-
-        function easeInOutQuad(x) {
-          return x < 0.5 ? 2 * x * x : 1 - Math.pow(-2 * x + 2, 2) / 2;
-        }
-
-        // ─── Scene & Camera Setup ─────────────────────────────────────────────────
-        const container = document.getElementById("canvas-container");
-        const paperGrainEl = document.getElementById("paperGrain");
-        const hintEl = document.getElementById("hint");
-
-        const scene = new THREE.Scene();
-
-        const camera = new THREE.PerspectiveCamera(
-          42,
-          window.innerWidth / window.innerHeight,
-          10,
-          3000,
-        );
-        // Camera angle adjusted to match reference image
-        camera.position.set(0, 25, 680);
-
-        const renderer = new THREE.WebGLRenderer({
-          antialias: true,
-          alpha: true,
-          powerPreference: "high-performance",
-          preserveDrawingBuffer: false,
-        });
-
-        renderer.toneMapping = THREE.ACESFilmicToneMapping;
-        renderer.toneMappingExposure = 1.15;
-        renderer.setClearColor(0x000000, 0);
-
-        container.appendChild(renderer.domElement);
-
-        let needsRender = true;
-
-        function getSafePixelRatio() {
-          const dpr = window.devicePixelRatio || 1;
-          const isTouch =
-            window.matchMedia && window.matchMedia("(pointer: coarse)").matches;
-          const lowCoreDevice = (navigator.hardwareConcurrency || 8) <= 4;
-          const maxRatio = isTouch || lowCoreDevice ? 1.25 : 2;
-
-          const w = Math.max(1, window.innerWidth);
-          const h = Math.max(1, window.innerHeight);
-          const maxPixels = 5200000;
-          const budgetRatio = Math.sqrt(maxPixels / (w * h));
-
-          return Math.max(0.75, Math.min(dpr, maxRatio, budgetRatio));
-        }
-
-        function resizeRenderer() {
-          const w = Math.max(1, window.innerWidth);
-          const h = Math.max(1, window.innerHeight);
-
-          renderer.setPixelRatio(getSafePixelRatio());
-          renderer.setSize(w, h, false);
-
-          camera.aspect = w / h;
-          camera.updateProjectionMatrix();
-
-          needsRender = true;
-        }
-
-        resizeRenderer();
-
-        // ─── Orbit Controls ───────────────────────────────────────────────────────
-        let controls;
-
-        if (THREE.OrbitControls) {
-          controls = new THREE.OrbitControls(camera, renderer.domElement);
-          controls.enableDamping = true;
-          controls.dampingFactor = 0.05;
-          controls.rotateSpeed = 0.75;
-          controls.minDistance = 200;
-          controls.maxDistance = 1200;
-          controls.autoRotate = false;
-
-          controls.addEventListener("start", () => {
-            hintEl.style.opacity = "0";
-          });
-
-          controls.addEventListener("change", () => {
-            needsRender = true;
-          });
-        } else {
-          controls = {
-            update: () => false,
-            reset: () => {},
-          };
-          console.error("OrbitControls did not load.");
-        }
-
-        // ─── Lighting Rig ─────────────────────────────────────────────────────────
-        const ambientLight = new THREE.AmbientLight(0xfff5ea, 0.75);
-        scene.add(ambientLight);
-
-        const keyLight = new THREE.DirectionalLight(
-          0xfffcf0,
-          params.keyLightIntensity,
-        );
-        keyLight.position.set(280, 420, 380);
-        scene.add(keyLight);
-
-        const fillLight = new THREE.DirectionalLight(
-          0x8cb0ff,
-          params.fillLightIntensity,
-        );
-        fillLight.position.set(-360, 60, 260);
-        scene.add(fillLight);
-
-        const rimLight = new THREE.DirectionalLight(
-          0xff4477,
-          params.rimLightIntensity,
-        );
-        rimLight.position.set(60, -320, -320);
-        scene.add(rimLight);
-
-        const innerLight = new THREE.PointLight(0xff7722, 0.8, 700);
-        innerLight.position.set(0, 0, 0);
-        scene.add(innerLight);
-
-        // ─── Palette Helpers ──────────────────────────────────────────────────────
-        function setPaletteFromColors(colors) {
-          const slots = 7;
-
-          for (let i = 0; i < slots; i++) {
-            const position = (i / (slots - 1)) * (colors.length - 1);
-            const lower = Math.floor(position);
-            const upper = Math.min(colors.length - 1, lower + 1);
-            const mix = position - lower;
-
-            const color = new THREE.Color(colors[lower]).lerp(
-              new THREE.Color(colors[upper]),
-              mix,
-            );
-
-            params["c" + (i + 1)] = "#" + color.getHexString();
-          }
-        }
-
-        function applyPreset(name) {
-          const pr = PRESETS[name];
-          if (!pr) return;
-
-          params.shape = pr.shape;
-          setPaletteFromColors(pr.colors);
-          params.turns = pr.turns;
-          params.crestFold = pr.crestFold;
-          params.width = pr.width;
-          params.fiberCount = pr.fiberCount;
-          params.shininess = pr.shininess;
-          params.bgColor = pr.bgClear;
-        }
-
-        function getActivePalette() {
-          const rawColors = [
-            params.c1,
-            params.c2,
-            params.c3,
-            params.c4,
-            params.c5,
-            params.c6,
-            params.c7,
-          ];
-
-          const list = params.invertPalette
-            ? [...rawColors].reverse()
-            : rawColors;
-
-          return list.map((hex, i) => ({
-            pos: i / (list.length - 1),
-            color: new THREE.Color(hex),
-          }));
-        }
-
-        function samplePaintColor(t, palette) {
-          t = Math.max(0, Math.min(1, t));
-
-          for (let i = 0; i < palette.length - 1; i++) {
-            if (t >= palette[i].pos && t <= palette[i + 1].pos) {
-              const localT =
-                (t - palette[i].pos) / (palette[i + 1].pos - palette[i].pos);
-              return palette[i].color
-                .clone()
-                .lerp(palette[i + 1].color, localT);
-            }
-          }
-
-          return palette[palette.length - 1].color.clone();
-        }
-
-        // ─── Mathematical Spine of 3D Brush Sculpture ─────────────────────────────
-        function getSpineData(t) {
-          const turns = params.turns;
-          const theta = t * turns * Math.PI * 2 + 1.65;
-
-          const lat = 1.05 - t * 2.1;
-          const cosLat = Math.cos(lat);
-          const sinLat = Math.sin(lat);
-
-          const R = params.sphereRadius;
-          const Rx = R * (1.0 + 0.06 * Math.sin(theta * 0.5));
-          const Ry = R * 1.06;
-          const Rz = R * (1.0 + 0.05 * Math.cos(theta * 0.5));
-
-          let x = Rx * cosLat * Math.cos(theta);
-          let y = Ry * sinLat;
-          let z = Rz * cosLat * Math.sin(theta);
-
-          if (params.shape === "Hook Crest S-Loop") {
-            const fold = params.crestFold;
-
-            if (t < 0.26) {
-              const foldT = Math.sin((t / 0.26) * Math.PI);
-              x -= Math.sin(t * Math.PI * 3.5) * 35 * fold * foldT;
-              y += Math.cos(t * Math.PI * 3.5) * 25 * fold * foldT;
-              z += Math.sin(t * Math.PI * 2.0) * 30 * fold * foldT;
-            }
-          }
-
-          // Top brush flick lead-in (start of stroke)
-          if (params.startFlick && t < 0.08) {
-            const tail = Math.pow(1 - t / 0.08, 1.5);
-            x -= tail * 35;
-            y += tail * 30;
-            z -= tail * 15;
-          }
-
-          // Rear-end brush flick (end of stroke) — flicks DOWN, mirrored
-          if (params.startFlick && t > 0.92) {
-            const tail = Math.pow((t - 0.92) / 0.08, 1.5);
-            x += tail * 35;
-            y -= tail * 30;
-            z += tail * 15;
-          }
-
-          const sphereNorm = new THREE.Vector3(
-            x / Rx,
-            y / Ry,
-            z / Rz,
-          ).normalize();
-
-          return {
-            pos: new THREE.Vector3(x, y, z),
-            sphereNorm,
-          };
-        }
-
-        // ─── Winder path generator (faithful port of the "Winders" sketch) ──────
-        // Each line traces a closed winder: a circle whose phase is twisted around
-        // itself by an eased amount that grows per line index.
-        function getWinderPoints(lineIndex, lineCount, rng) {
-          const spread = params.winderLineSpread;
-
-          const t =
-            mafMap(0, lineCount, 0, 0.1, lineIndex) +
-            mafMap(0, 1, 0, 0.5, params.winderTwist);
-
-          const radius =
-            params.winderRadius +
-            mafMap(0, lineCount, 0, 24, lineIndex) +
-            rng.range(-params.winderRadiusSpread, params.winderRadiusSpread);
-
-          const lineSpread = new THREE.Vector3(
-            rng.range(-spread, spread),
-            rng.range(-spread, spread),
-            rng.range(-spread, spread),
-          );
-
-          const q = easeInOutQuad(
-            0.5 + 0.5 * Math.cos(Math.PI + t * Math.PI * 2),
-          );
-
-          const POINTS = Math.max(60, Math.round(params.winderSegments));
-          const vertices = [];
-
-          for (let j = 0; j < POINTS; j++) {
-            const tw = 2.5 * Math.PI * q;
-            const th = (j * Math.PI * 2) / POINTS;
-
-            const ph = Math.cos(th) * tw;
-            const y = radius * Math.cos(th);
-            const x = radius * Math.sin(th) * Math.cos(ph);
-            const z = radius * Math.sin(th) * Math.sin(ph);
-
-            vertices.push(new THREE.Vector3(x, y, z).add(lineSpread));
-          }
-
-          // Rotates the closed loop so the seam falls somewhere new on each
-          // line — exactly like the reference's slice-offset rotation
-          // (from 1, not 0, which would select the whole array unchanged).
-          const k = 1 + Math.floor(rng.next() * (POINTS - 1));
-          const pts = vertices.slice(k).concat(vertices.slice(0, k));
-
-          return { pts, center: lineSpread };
-        }
-
-        // ─── Procedural bristly brush-stroke alpha texture ──────────────────────
-        // Stands in for the reference's brush image assets (stroke4.jpg etc.),
-        // which can't be loaded in a single self-contained file. The stroke
-        // occupies `strokeFraction` of the texture width; the rest is transparent,
-        // which reproduces dashArray = (1, repeat - 1): ONE visible dash per loop.
-        function makeBrushStrokeTexture(strokeFraction, rng) {
-          const W = 512;
-          const H = 64;
-          const c = document.createElement("canvas");
-          c.width = W;
-          c.height = H;
-          const g = c.getContext("2d");
-
-          g.clearRect(0, 0, W, H);
-
-          const strokeW = Math.max(10, Math.floor(W * strokeFraction));
-          const cy = H / 2;
-
-          // Many jittered horizontal bristle streaks, denser at the center.
-          const BRISTLES = 110;
-          for (let b = 0; b < BRISTLES; b++) {
-            // Rough gaussian in -1..1 so bristles cluster around the middle.
-            const yOff = (rng.next() + rng.next() + rng.next() - 1.5) / 1.5;
-            const y = cy + yOff * (H * 0.34);
-            const thick = rng.range(0.5, 1.9);
-            const x0 = rng.range(0, strokeW * 0.1);
-            const x1 = strokeW - rng.range(0, strokeW * 0.22);
-            const alpha = rng.range(0.12, 0.75) * (1 - Math.abs(yOff) * 0.85);
-            const wobFreq = rng.range(0.15, 0.5);
-            const wobAmp = rng.range(0, 1.6);
-            const wobPhase = rng.range(0, Math.PI * 2);
-
-            g.strokeStyle = "rgba(255,255,255," + alpha.toFixed(3) + ")";
-            g.lineWidth = thick;
-            g.beginPath();
-
-            const SEGS = 20;
-            for (let s = 0; s <= SEGS; s++) {
-              const x = x0 + (x1 - x0) * (s / SEGS);
-              const yy = y + Math.sin(s * wobFreq + wobPhase) * wobAmp;
-              if (s === 0) g.moveTo(x, yy);
-              else g.lineTo(x, yy);
-            }
-            g.stroke();
-          }
-
-          // Ragged taper at both ends of the stroke.
-          g.globalCompositeOperation = "destination-out";
-
-          let grad = g.createLinearGradient(0, 0, strokeW * 0.2, 0);
-          grad.addColorStop(0, "rgba(0,0,0,1)");
-          grad.addColorStop(1, "rgba(0,0,0,0)");
-          g.fillStyle = grad;
-          g.fillRect(0, 0, strokeW * 0.2, H);
-
-          grad = g.createLinearGradient(strokeW * 0.72, 0, strokeW, 0);
-          grad.addColorStop(0, "rgba(0,0,0,0)");
-          grad.addColorStop(1, "rgba(0,0,0,1)");
-          g.fillStyle = grad;
-          g.fillRect(strokeW * 0.72, 0, strokeW * 0.28, H);
-
-          g.globalCompositeOperation = "source-over";
-
-          const tex = new THREE.CanvasTexture(c);
-          tex.wrapS = THREE.RepeatWrapping;
-          tex.wrapT = THREE.ClampToEdgeWrapping;
-          tex.anisotropy = Math.min(
-            8,
-            renderer.capabilities.getMaxAnisotropy(),
-          );
-          return tex;
-        }
-
-        // ─── Artwork Lifecycle Management ─────────────────────────────────────────
-        const pivotGroup = new THREE.Group();
-        // Adjusted to match reference image - more frontal, less tilt
-        pivotGroup.position.set(0, -5, 0);
-        pivotGroup.rotation.x = 0.12;
-        pivotGroup.rotation.z = 0.02;
-        pivotGroup.rotation.y = 0;
-        scene.add(pivotGroup);
-
-        let currentBrushArt = null;
-        let fadeInAnimation = null;
-
-        function disposeObject(object) {
-          object.traverse((child) => {
-            if (child.geometry) {
-              child.geometry.dispose();
-            }
-
-            if (child.material) {
-              const materials = Array.isArray(child.material)
-                ? child.material
-                : [child.material];
-              materials.forEach((material) => {
-                if (material.map) material.map.dispose();
-                material.dispose();
-              });
-            }
-          });
-        }
-
-        function nextFrame() {
-          return new Promise((resolve) => requestAnimationFrame(resolve));
-        }
-
-        // Seeded RNG factory — keeps every rebuild visually consistent.
-        function makeRng(initialSeed) {
-          let localSeed = initialSeed >>> 0;
-          return {
-            next() {
-              localSeed = (Math.imul(localSeed, 1664525) + 1013904223) >>> 0;
-              return (localSeed >>> 0) / 0xffffffff;
-            },
-            range(min, max) {
-              return min + this.next() * (max - min);
-            },
-          };
-        }
-
-        // ─── SKETCH 1: High-Fidelity 3D Brush Artwork ─────────────────────────────
-        async function buildBrushStrokeAsync(token) {
-          const masterGroup = new THREE.Group();
-          const palette = getActivePalette();
-          const rng = makeRng(884123);
-
-          const SPINE_SAMPLES = 360;
-          const spineData = [];
-          const spinePoints = [];
-
-          for (let i = 0; i <= SPINE_SAMPLES; i++) {
-            const data = getSpineData(i / SPINE_SAMPLES);
-            spineData.push(data);
-            spinePoints.push(data.pos);
-          }
-
-          const spineCurve = new THREE.CatmullRomCurve3(
-            spinePoints,
-            false,
-            "centripetal",
-            0.45,
-          );
-
-          const spineFrames = [];
-
-          for (let i = 0; i <= SPINE_SAMPLES; i++) {
-            const t = i / SPINE_SAMPLES;
-            const pt = spinePoints[i];
-            const tangent = spineCurve.getTangentAt(t).normalize();
-            const sphereNorm = spineData[i].sphereNorm;
-
-            let binormal = new THREE.Vector3().crossVectors(
-              tangent,
-              sphereNorm,
-            );
-
-            if (binormal.lengthSq() < 0.000001) {
-              binormal = new THREE.Vector3(1, 0, 0);
-            }
-
-            binormal.normalize();
-
-            const normal = new THREE.Vector3()
-              .crossVectors(binormal, tangent)
-              .normalize();
-
-            spineFrames.push({ pt, tangent, normal, binormal });
-          }
-
-          function getFrameAt(t) {
-            const idxFloat = t * SPINE_SAMPLES;
-            const idx = Math.min(Math.floor(idxFloat), SPINE_SAMPLES - 1);
-            const frac = idxFloat - idx;
-            const f1 = spineFrames[idx];
-            const f2 = spineFrames[idx + 1] || f1;
-
-            return {
-              pt: f1.pt.clone().lerp(f2.pt, frac),
-              tangent: f1.tangent.clone().lerp(f2.tangent, frac).normalize(),
-              normal: f1.normal.clone().lerp(f2.normal, frac).normalize(),
-              binormal: f1.binormal.clone().lerp(f2.binormal, frac).normalize(),
-            };
-          }
-
-          const baseWidth = params.width;
-          const baseThickness = params.thickness;
-
-          function getWidth(t) {
-            if (params.startFlick) {
-              if (t < 0.08) {
-                return baseWidth * 0.5 + (t / 0.08) * (baseWidth * 0.5);
-              }
-              if (t > 0.92) {
-                return baseWidth * 0.5 + ((1 - t) / 0.08) * (baseWidth * 0.5);
-              }
-            }
-
-            const taper = Math.sin(t * Math.PI);
-            return baseWidth * 0.85 + taper * (baseWidth * 0.35);
-          }
-
-          function getThickness(t) {
-            return (
-              baseThickness * 0.85 +
-              Math.sin(t * Math.PI) * (baseThickness * 0.45)
-            );
-          }
-
-          // 1. Under-ribbon body layers.
-          const NUM_LAYERS = 4;
-          const RIBBON_SEGS = 260;
-
-          for (let l = 0; l < NUM_LAYERS; l++) {
-            const ribbonGeom = new THREE.PlaneGeometry(1, 1, 20, RIBBON_SEGS);
-            const posAttr = ribbonGeom.attributes.position;
-            const colAttr = new Float32Array(posAttr.count * 3);
-
-            const layerH = (l - 1.5) * (baseThickness * 0.26);
-            const widthScale = 0.95 - l * 0.04;
-
-            for (let r = 0; r <= RIBBON_SEGS; r++) {
-              const t = r / RIBBON_SEGS;
-              const frame = getFrameAt(t);
-              const w = getWidth(t) * widthScale;
-
-              for (let c = 0; c <= 20; c++) {
-                const vIdx = r * 21 + c;
-                const u = (c / 20) * 2 - 1;
-
-                const vx =
-                  frame.pt.x +
-                  frame.binormal.x * (u * w * 0.5) +
-                  frame.normal.x * layerH;
-                const vy =
-                  frame.pt.y +
-                  frame.binormal.y * (u * w * 0.5) +
-                  frame.normal.y * layerH;
-                const vz =
-                  frame.pt.z +
-                  frame.binormal.z * (u * w * 0.5) +
-                  frame.normal.z * layerH;
-
-                posAttr.setXYZ(vIdx, vx, vy, vz);
-
-                const colorT = (1 - u) * 0.5;
-                const color = samplePaintColor(colorT, palette);
-
-                colAttr[vIdx * 3] = color.r;
-                colAttr[vIdx * 3 + 1] = color.g;
-                colAttr[vIdx * 3 + 2] = color.b;
-              }
-            }
-
-            ribbonGeom.setAttribute(
-              "color",
-              new THREE.BufferAttribute(colAttr, 3),
-            );
-            ribbonGeom.computeVertexNormals();
-
-            const ribbonMat = new THREE.MeshPhongMaterial({
-              vertexColors: true,
-              specular: new THREE.Color(0xffffff).multiplyScalar(
-                params.specularIntensity,
-              ),
-              shininess: params.shininess,
-              transparent: true,
-              opacity: params.underRibbonOpacity,
-              side: THREE.DoubleSide,
-              depthWrite: false,
-            });
-
-            ribbonMat.userData.kind = "ribbon";
-
-            const ribbonMesh = new THREE.Mesh(ribbonGeom, ribbonMat);
-            ribbonMesh.userData.kind = "ribbon";
-            ribbonMesh.visible = params.underRibbonOpacity > 0.001;
-            ribbonMesh.matrixAutoUpdate = false;
-            ribbonMesh.updateMatrix();
-
-            masterGroup.add(ribbonMesh);
-          }
-
-          // 2. Individual bristle strands.
-          const NUM_BRISTLES = Math.max(1, Math.round(params.fiberCount));
-          const BRISTLE_SEGS = 190;
-          const waviness = params.waviness;
-          const BRISTLE_CHUNK = 10;
-
-          for (let bi = 0; bi < NUM_BRISTLES; bi++) {
-            if (token !== rebuildRequestId) {
-              disposeObject(masterGroup);
-              return null;
-            }
-
-            const uNorm =
-              NUM_BRISTLES === 1 ? 0 : (bi / (NUM_BRISTLES - 1)) * 2 - 1;
-
-            const uOffset =
-              Math.sign(uNorm) * Math.pow(Math.abs(uNorm), 0.9) +
-              rng.range(-0.02, 0.02);
-
-            const vOffset =
-              rng.range(-0.48, 0.48) *
-              Math.sqrt(1 - Math.min(1, Math.abs(uOffset) * 0.85));
-
-            let colT = (1 - uOffset) * 0.5;
-            colT = Math.max(
-              0,
-              Math.min(
-                1,
-                colT + rng.range(-params.colorJitter, params.colorJitter),
-              ),
-            );
-
-            const bristleColor = samplePaintColor(colT, palette);
-            const brightness = rng.range(0.88, 1.3);
-            bristleColor.multiplyScalar(brightness);
-
-            const isStray = rng.next() < params.strayFibers;
-            const spread = isStray ? rng.range(1.08, 1.35) : 1.0;
-
-            const startT =
-              bi < 50 || rng.next() > 0.8 ? rng.range(0.0, 0.05) : 0.0;
-            const endT =
-              bi > NUM_BRISTLES - 50 || rng.next() > 0.82
-                ? rng.range(0.95, 1.0)
-                : 1.0;
-
-            const waveFreq = rng.range(3, 8);
-            const wavePhase = rng.range(0, Math.PI * 2);
-            const waveAmp = rng.range(0.5, 2.2) * waviness;
-
-            const points = [];
-            const steps = Math.max(
-              4,
-              Math.floor(BRISTLE_SEGS * (endT - startT)),
-            );
-
-            for (let si = 0; si <= steps; si++) {
-              const localT = si / steps;
-              const t = startT + localT * (endT - startT);
-              const frame = getFrameAt(t);
-
-              const w = getWidth(t) * spread;
-              const th = getThickness(t) * spread;
-
-              const wave =
-                Math.sin(t * Math.PI * waveFreq + wavePhase) * waveAmp;
-
-              let fanning = 1.0;
-
-              if (t < 0.08 && params.startFlick) {
-                fanning = 1.0 + Math.pow(1 - t / 0.08, 1.5) * 0.45 * uOffset;
-              }
-
-              if (t > 0.92 && params.startFlick) {
-                fanning =
-                  1.0 + Math.pow((t - 0.92) / 0.08, 1.5) * 0.45 * uOffset;
-              }
-
-              const px =
-                frame.pt.x +
-                frame.binormal.x * (uOffset * w * 0.5 * fanning + wave) +
-                frame.normal.x * (vOffset * th * 0.5);
-
-              const py =
-                frame.pt.y +
-                frame.binormal.y * (uOffset * w * 0.5 * fanning + wave) +
-                frame.normal.y * (vOffset * th * 0.5);
-
-              const pz =
-                frame.pt.z +
-                frame.binormal.z * (uOffset * w * 0.5 * fanning + wave) +
-                frame.normal.z * (vOffset * th * 0.5);
-
-              points.push(new THREE.Vector3(px, py, pz));
-            }
-
-            if (points.length > 3) {
-              const curve = new THREE.CatmullRomCurve3(
-                points,
-                false,
-                "centripetal",
-                0.4,
-              );
-
-              const radius =
-                (isStray ? rng.range(0.5, 0.85) : rng.range(0.8, 1.7)) *
-                (params.fiberRadius / 1.15);
-
-              const geom = new THREE.TubeGeometry(
-                curve,
-                Math.floor(steps * 1.35),
-                radius,
-                6,
-                false,
-              );
-
-              const opacityBase = isStray
-                ? rng.range(0.55, 0.78)
-                : rng.range(0.82, 0.98);
-              const opacity = opacityBase * (params.fiberOpacity / 0.88);
-
-              const specular = bristleColor
-                .clone()
-                .lerp(new THREE.Color(0xffffff), 0.7)
-                .multiplyScalar(params.specularIntensity);
-
-              const mat = new THREE.MeshPhongMaterial({
-                color: bristleColor,
-                specular,
-                shininess: params.shininess,
-                transparent: true,
-                opacity: Math.min(1.0, opacity),
-                depthWrite: opacity > 0.88,
-                side: THREE.FrontSide,
-              });
-
-              mat.userData.kind = "bristle";
-              mat.userData.baseColor = bristleColor.clone();
-              mat.userData.opacityBase = opacityBase;
-
-              const mesh = new THREE.Mesh(geom, mat);
-              mesh.userData.kind = "bristle";
-              mesh.matrixAutoUpdate = false;
-              mesh.updateMatrix();
-
-              masterGroup.add(mesh);
-            }
-
-            if (bi > 0 && bi % BRISTLE_CHUNK === 0) {
-              await nextFrame();
-            }
-          }
-
-          if (token !== rebuildRequestId) {
-            disposeObject(masterGroup);
-            return null;
-          }
-
-          return masterGroup;
-        }
-
-        // ─── SKETCH 2: Winder Flow Lines ─────────────────────────────────────────
-        // Faithful adaptation of "Winders" (inktober-2025):
-        //  - same winder path math + per-line seam rotation
-        //  - ONE brush-textured dash per line: dashArray (1, repeat - 1)
-        //  - per-line width / opacity / flow speed variation
-        //  - uvOffset scroll: offset.x = -(offset + speed * time), time in sec/40
-        async function buildWinderFlowAsync(token) {
-          const masterGroup = new THREE.Group();
-          const palette = getActivePalette();
-          const rng = makeRng(884123);
-
-          const LINES = Math.max(2, Math.round(params.winderLines));
-          const SEGMENTS = Math.max(60, Math.round(params.winderSegments));
-          const flowMeshes = [];
-
-          for (let i = 0; i < LINES; i++) {
-            if (token !== rebuildRequestId) {
-              disposeObject(masterGroup);
-              return null;
-            }
-
-            const { pts } = getWinderPoints(i, LINES, rng);
-
-            const curve = new THREE.CatmullRomCurve3(
-              pts,
-              true,
-              "centripetal",
-              0.5,
-            );
-
-            // lineWidth range [0.1, 0.9] × 0.5 from the reference, scaled
-            // into studio units and multiplied by the UI thickness control.
-            const widthFactor = 0.5 * rng.range(0.1, 0.9);
-            const tubeRadius =
-              widthFactor *
-              (params.winderRadius / 5) *
-              0.4 *
-              params.winderThickness;
-
-            const geom = new THREE.TubeGeometry(
-              curve,
-              SEGMENTS,
-              tubeRadius,
-              5,
-              true,
-            );
-
-            // repeat ∈ [2, winderDashRepeat], like lineRepeat [5, 10] in the
-            // reference. The stroke fills 1/repeat of the texture → one dash
-            // per loop, dashArray (1, repeat - 1) equivalent.
-            const repeat = Math.max(
-              2,
-              Math.round(rng.range(2, params.winderDashRepeat)),
-            );
-            const tex = makeBrushStrokeTexture(1 / repeat, rng);
-
-            const lineT = LINES === 1 ? 0 : i / (LINES - 1);
-            const color = samplePaintColor(lineT, palette);
-            color.multiplyScalar(rng.range(0.85, 1.15));
-
-            // opacity range [0.1, 1] like the reference's opacity param.
-            const opacityBase = rng.range(0.1, 1.0);
-
-            const mat = new THREE.MeshBasicMaterial({
-              color,
-              map: tex,
-              transparent: true,
-              opacity: Math.min(1, opacityBase * (params.fiberOpacity / 0.88)),
-              depthWrite: false,
-              side: THREE.DoubleSide,
-            });
-
-            mat.userData.kind = "flowLine";
-            mat.userData.opacityBase = opacityBase;
-
-            const mesh = new THREE.Mesh(geom, mat);
-            mesh.renderOrder = 1;
-            mesh.userData.kind = "flowLine";
-
-            // uvOffset animation state: speed = randomInRange(0.5, 1.5) * 3,
-            // offset = randomInRange(-10, 10) → normalized to loop units.
-            mesh.userData.flowSpeed = rng.range(0.5, 1.5) * 3;
-            mesh.userData.flowOffset = rng.range(0, 1);
-
-            tex.offset.x = mesh.userData.flowOffset;
-
-            mesh.matrixAutoUpdate = false;
-            mesh.updateMatrix();
-
-            masterGroup.add(mesh);
-            flowMeshes.push(mesh);
-
-            if (i > 0 && i % 6 === 0) {
-              await nextFrame();
-            }
-          }
-
-          if (token !== rebuildRequestId) {
-            disposeObject(masterGroup);
-            return null;
-          }
-
-          masterGroup.userData.flowMeshes = flowMeshes;
-          return masterGroup;
-        }
-
-        // ─── Sketch dispatcher ────────────────────────────────────────────────────
-        function buildArtworkByMode(token) {
-          if (params.sketchMode === "Winder Flow Lines") {
-            return buildWinderFlowAsync(token);
-          }
-          return buildBrushStrokeAsync(token);
-        }
-
-        function updateMaterials() {
-          if (!currentBrushArt) {
-            needsRender = true;
-            return;
-          }
-
-          currentBrushArt.traverse((child) => {
-            if (!child.material) return;
-
-            const materials = Array.isArray(child.material)
-              ? child.material
-              : [child.material];
-
-            materials.forEach((mat) => {
-              const kind = mat.userData.kind;
-
-              if (kind === "ribbon") {
-                mat.specular.setRGB(
-                  params.specularIntensity,
-                  params.specularIntensity,
-                  params.specularIntensity,
-                );
-
-                mat.shininess = params.shininess;
-                mat.opacity = params.underRibbonOpacity;
-                mat.needsUpdate = true;
-
-                child.visible = params.underRibbonOpacity > 0.001;
-              }
-
-              if (kind === "bristle") {
-                const baseColor = mat.userData.baseColor || mat.color;
-                const opacityBase =
-                  mat.userData.opacityBase !== undefined
-                    ? mat.userData.opacityBase
-                    : mat.opacity;
-
-                mat.color.copy(baseColor);
-
-                mat.specular
-                  .copy(baseColor)
-                  .lerp(new THREE.Color(0xffffff), 0.7)
-                  .multiplyScalar(params.specularIntensity);
-
-                const nextOpacity = opacityBase * (params.fiberOpacity / 0.88);
-
-                mat.shininess = params.shininess;
-                mat.opacity = Math.min(1.0, nextOpacity);
-                mat.depthWrite = nextOpacity > 0.88;
-                mat.needsUpdate = true;
-
-                child.visible = params.fiberOpacity > 0.001;
-              }
-
-              if (kind === "flowLine") {
-                const opacityBase =
-                  mat.userData.opacityBase !== undefined
-                    ? mat.userData.opacityBase
-                    : mat.opacity;
-                mat.opacity = Math.min(
-                  1,
-                  opacityBase * (params.fiberOpacity / 0.88),
-                );
-                mat.needsUpdate = true;
-                child.visible = params.fiberOpacity > 0.001;
-              }
-            });
-          });
-
-          needsRender = true;
-        }
-
-        function updateLighting() {
-          keyLight.intensity = params.keyLightIntensity;
-          fillLight.intensity = params.fillLightIntensity;
-          rimLight.intensity = params.rimLightIntensity;
-          needsRender = true;
-        }
-
-        function updateBackground() {
-          container.style.background = params.bgColor;
-          paperGrainEl.style.display = params.paperGrain ? "block" : "none";
-          paperGrainEl.style.opacity = params.grainOpacity;
-
-          const c = new THREE.Color(params.bgColor);
-          const luminance = 0.299 * c.r + 0.587 * c.g + 0.114 * c.b;
-          hintEl.style.color =
-            luminance < 0.4 ? "rgba(255,255,255,0.65)" : "#8f7d6a";
-
-          needsRender = true;
-        }
-
-        let rebuildRequestId = 0;
-        let rebuildTimer = null;
-        let buildInProgress = false;
-        let pendingBuildToken = null;
-
-        function scheduleRebuild(delay = 150) {
-          rebuildRequestId++;
-          const token = rebuildRequestId;
-
-          clearTimeout(rebuildTimer);
-
-          rebuildTimer = setTimeout(() => {
-            rebuildTimer = null;
-            startRebuild(token);
-          }, delay);
-        }
-
-        function rebuildArtwork() {
-          scheduleRebuild();
-        }
-
-        function startRebuild(token) {
-          if (token !== rebuildRequestId) return;
-
-          if (buildInProgress) {
-            pendingBuildToken = token;
-            return;
-          }
-
-          buildInProgress = true;
-
-          buildArtworkByMode(token)
-            .then((nextArt) => {
-              if (!nextArt) return;
-
-              if (token !== rebuildRequestId) {
-                disposeObject(nextArt);
+        (() => {
+            'use strict';
+
+            if (!window.THREE) {
+                console.error('Three.js did not load.');
                 return;
-              }
+            }
 
-              const previousArt = currentBrushArt;
-              // Preserve BOTH spin (Y) and clockwise rotate (Z) across rebuilds
-              const previousRotation = previousArt
-                ? previousArt.rotation.clone()
-                : new THREE.Euler(0, 0, 0);
-
-              nextArt.rotation.copy(previousRotation);
-
-              // Smooth fade-in transition
-              nextArt.traverse((child) => {
-                if (child.material) {
-                  child.material.transparent = true;
-                  child.material.opacity = 0;
-                  child.material.needsUpdate = true;
+            const PRESETS = {
+                'Cobalt & Sunset Orange': {
+                    shape: 'Spherical Coil',
+                    colors: ['#102fe0', '#2a55f5', '#8a10b2', '#de1245', '#ee400e', '#f5780a', '#e89e18'],
+                    bgClear: '#C4BDBC',
+                    turns: 4.50,
+                    crestFold: 0.5,
+                    width: 68,
+                    fiberCount: 340,
+                    shininess: 85
+                },
+                'Lavender & Ocean Blue': {
+                    shape: 'Spherical Coil',
+                    colors: ['#a96bff', '#c495ff', '#e8d8ff', '#8e4bf2', '#3a4fe8', '#1b2ad4', '#0d1896'],
+                    bgClear: '#ede2d6',
+                    turns: 4.30,
+                    crestFold: 0.6,
+                    width: 70,
+                    fiberCount: 350,
+                    shininess: 95
+                },
+                'Cyberpunk Neon': {
+                    shape: 'Spherical Coil',
+                    colors: ['#00f5d4', '#00bbf9', '#7b2cbf', '#9d4edd', '#f72585', '#7209b7', '#3a0ca3'],
+                    bgClear: '#12111d',
+                    turns: 4.40,
+                    crestFold: 0.4,
+                    width: 66,
+                    fiberCount: 320,
+                    shininess: 120
+                },
+                'Sunset Ember & Gold': {
+                    shape: 'Spherical Coil',
+                    colors: ['#590d22', '#800f2f', '#a4133c', '#c9184a', '#ff4d6d', '#ff758f', '#ffb703', '#fb8500'],
+                    bgClear: '#ebded6',
+                    turns: 4.20,
+                    crestFold: 0.3,
+                    width: 68,
+                    fiberCount: 330,
+                    shininess: 90
+                },
+                'Emerald & Aureolin': {
+                    shape: 'Spherical Coil',
+                    colors: ['#081c15', '#1b4332', '#2d6a4f', '#40916c', '#52b788', '#74c69d', '#ffd166', '#f77f00'],
+                    bgClear: '#e2ece0',
+                    turns: 4.30,
+                    crestFold: 0.5,
+                    width: 64,
+                    fiberCount: 320,
+                    shininess: 85
+                },
+                'Midnight Pearl & Silver': {
+                    shape: 'Spherical Coil',
+                    colors: ['#0b132b', '#1c2541', '#3a506b', '#5bc0be', '#6fffe9', '#e0fbfc', '#ffffff'],
+                    bgClear: '#141a24',
+                    turns: 4.30,
+                    crestFold: 0.4,
+                    width: 62,
+                    fiberCount: 320,
+                    shininess: 110
+                },
+                'Classic Rainbow Spectrum': {
+                    shape: 'Spherical Coil',
+                    colors: ['#0f2be0', '#1c4ff8', '#4b1bcb', '#820fb0', '#bf0a74', '#df113d', '#ee3d0c', '#f4760a', '#eaa014'],
+                    bgClear: '#ede3d2',
+                    turns: 4.35,
+                    crestFold: 0.2,
+                    width: 62,
+                    fiberCount: 340,
+                    shininess: 85
                 }
-              });
+            };
 
-              pivotGroup.add(nextArt);
-              currentBrushArt = nextArt;
+            const DEFAULT_PARAMS = {
+                preset: 'Cobalt & Sunset Orange',
+                sketchMode: 'Brush Sculpture',
+                shape: 'Spherical Coil',
 
-              if (previousArt) {
-                pivotGroup.remove(previousArt);
-                disposeObject(previousArt);
-              }
+                c1: '#102fe0',
+                c2: '#2a55f5',
+                c3: '#8a10b2',
+                c4: '#de1245',
+                c5: '#ee400e',
+                c6: '#f5780a',
+                c7: '#e89e18',
+                invertPalette: false,
+                colorJitter: 0.05,
 
-              // Animate fade-in
-              fadeInAnimation = {
-                object: nextArt,
-                startTime: performance.now(),
-                duration: 350,
-              };
+                sphereRadius: 220,
+                turns: 4.50,
+                crestFold: 0.5,
+                width: 68,
+                thickness: 14,
+                fiberCount: 340,
+                fiberRadius: 1.15,
+                waviness: 0.8,
+                strayFibers: 0.10,
+                startFlick: false,
 
-              needsRender = true;
-            })
-            .catch((error) => {
-              console.error("Artwork rebuild failed:", error);
-            })
-            .finally(() => {
-              buildInProgress = false;
+                lineSegments: 280,
+                dashRepeat: 8,
+                flowSpeed: 1.0,
 
-              if (pendingBuildToken !== null) {
-                const nextToken = pendingBuildToken;
-                pendingBuildToken = null;
+                shininess: 85,
+                specularIntensity: 0.75,
+                fiberOpacity: 0.88,
+                underRibbonOpacity: 0.72,
 
-                if (nextToken === rebuildRequestId) {
-                  startRebuild(nextToken);
-                }
-              }
-            });
-        }
+                spinMode: 'Downward',
+                spinSpeed: 0.35,
+                rotateClockwise: false,
+                floatingBob: true,
+                bobAmplitude: 2.0,
+                bobSpeed: 0.6,
 
-        function updateFadeIn(now) {
-          if (!fadeInAnimation) return false;
+                keyLightIntensity: 1.55,
+                fillLightIntensity: 0.90,
+                rimLightIntensity: 0.85,
+                bgColor: '#C4BDBC',
+                paperGrain: true,
+                grainOpacity: 0.15
+            };
 
-          const { object, startTime, duration } = fadeInAnimation;
-          const progress = Math.min(1, (now - startTime) / duration);
-          const eased = 1 - Math.pow(1 - progress, 3);
+            const params = { ...DEFAULT_PARAMS };
 
-          object.traverse((child) => {
-            if (child.material) {
-              const kind = child.material.userData.kind;
+            const CLOCKWISE_ROTATE_SPEED = 0.25;
+            const ROTATE_RETURN_DAMPING = 6;
 
-              if (kind === "ribbon") {
-                child.material.opacity = params.underRibbonOpacity * eased;
-              } else if (kind === "bristle" || kind === "flowLine") {
-                child.material.opacity = Math.min(
-                  1,
-                  child.material.userData.opacityBase *
-                    (params.fiberOpacity / 0.88) *
-                    eased,
-                );
-              }
-              child.material.needsUpdate = true;
-            }
-          });
-
-          if (progress >= 1) {
-            // Final update to ensure exact values
-            updateMaterials();
-            fadeInAnimation = null;
-          }
-
-          return true;
-        }
-
-        function wait(ms) {
-          return new Promise((resolve) => setTimeout(resolve, ms));
-        }
-
-        async function waitForLatestArtwork() {
-          if (rebuildTimer !== null) {
-            const token = rebuildRequestId;
-            clearTimeout(rebuildTimer);
-            rebuildTimer = null;
-            startRebuild(token);
-          }
-
-          while (buildInProgress || rebuildTimer !== null) {
-            await wait(40);
-          }
-        }
-
-        async function saveHighResArtworkPNG() {
-          await waitForLatestArtwork();
-
-          const oldSize = renderer.getSize(new THREE.Vector2());
-          const oldPixelRatio = renderer.getPixelRatio();
-          const oldAspect = camera.aspect;
-          const oldSceneBackground = scene.background;
-
-          const displayW = Math.max(1, window.innerWidth);
-          const displayH = Math.max(1, window.innerHeight);
-
-          const maxTexture = Math.min(
-            renderer.capabilities.maxTextureSize || 4096,
-            4096,
-          );
-          const maxArea = 10000000;
-
-          let scale = Math.min(
-            2,
-            maxTexture / displayW,
-            maxTexture / displayH,
-            Math.sqrt(maxArea / (displayW * displayH)),
-          );
-
-          scale = Math.max(0.75, scale);
-
-          const exportW = Math.floor(displayW * scale);
-          const exportH = Math.floor(displayH * scale);
-
-          let dataURL = null;
-
-          try {
-            scene.background = new THREE.Color(params.bgColor);
-
-            renderer.setPixelRatio(1);
-            renderer.setSize(exportW, exportH, false);
-
-            camera.aspect = exportW / exportH;
-            camera.updateProjectionMatrix();
-
-            renderer.render(scene, camera);
-            dataURL = renderer.domElement.toDataURL("image/png");
-          } catch (error) {
-            console.error("PNG export failed:", error);
-          } finally {
-            scene.background = oldSceneBackground;
-
-            renderer.setPixelRatio(oldPixelRatio);
-            renderer.setSize(oldSize.x, oldSize.y, false);
-
-            camera.aspect = oldAspect;
-            camera.updateProjectionMatrix();
-
-            needsRender = true;
-          }
-
-          if (dataURL) {
-            const link = document.createElement("a");
-            link.download = `brush-sculpture-${Date.now()}.png`;
-            link.href = dataURL;
-            document.body.appendChild(link);
-            link.click();
-            link.remove();
-          }
-        }
-
-        updateBackground();
-        updateLighting();
-        scheduleRebuild(0);
-
-        // ─── Tweakpane UI Setup ───────────────────────────────────────────────────
-        try {
-          const PaneClass =
-            (window.Tweakpane && (window.Tweakpane.Pane || window.Tweakpane)) ||
-            window.Pane;
-
-          if (PaneClass) {
-            const pane = new PaneClass({
-              title: "🎨 3D Brush Sculpture Studio",
-              expanded: true,
-            });
-
-            function addControl(parent, obj, prop, opt) {
-              if (typeof parent.addBinding === "function") {
-                return parent.addBinding(obj, prop, opt);
-              } else if (typeof parent.addInput === "function") {
-                return parent.addInput(obj, prop, opt);
-              } else {
-                return parent.add(obj, prop, opt);
-              }
+            function dampAngle(current, target, lambda, dt) {
+                return current + (target - current) * (1 - Math.exp(-lambda * dt));
             }
 
-            const presetOptions = Object.keys(PRESETS).reduce((acc, key) => {
-              acc[key] = key;
-              return acc;
-            }, {});
-
-            // 1. Presets Folder
-            const fPresets = pane.addFolder({
-              title: "🌟 Style Presets",
-              expanded: true,
-            });
-
-            addControl(fPresets, params, "preset", {
-              options: presetOptions,
-            }).on("change", (ev) => {
-              const val = ev && ev.value !== undefined ? ev.value : ev;
-
-              if (PRESETS[val]) {
-                applyPreset(val);
-                pane.refresh();
-                updateBackground();
-                updateMaterials();
-                scheduleRebuild(20);
-              }
-            });
-
-            addControl(fPresets, params, "sketchMode", {
-              label: "Sketch Style",
-              options: {
-                "Brush Sculpture": "Brush Sculpture",
-                "Winder Flow Lines": "Winder Flow Lines",
-              },
-            }).on("change", () => {
-              scheduleRebuild(20);
-            });
-
-            // 2. Palette & Pigment Folder
-            const fPalette = pane.addFolder({
-              title: "🌈 Multi-Pigment Palette",
-              expanded: false,
-            });
-
-            addControl(fPalette, params, "c1", { label: "Outer Edge" }).on(
-              "change",
-              rebuildArtwork,
-            );
-            addControl(fPalette, params, "c2", { label: "Outer Mid" }).on(
-              "change",
-              rebuildArtwork,
-            );
-            addControl(fPalette, params, "c3", { label: "Mid Purple" }).on(
-              "change",
-              rebuildArtwork,
-            );
-            addControl(fPalette, params, "c4", { label: "Core Magenta" }).on(
-              "change",
-              rebuildArtwork,
-            );
-            addControl(fPalette, params, "c5", { label: "Core Crimson" }).on(
-              "change",
-              rebuildArtwork,
-            );
-            addControl(fPalette, params, "c6", { label: "Inner Amber" }).on(
-              "change",
-              rebuildArtwork,
-            );
-            addControl(fPalette, params, "c7", { label: "Inner Gold" }).on(
-              "change",
-              rebuildArtwork,
-            );
-            addControl(fPalette, params, "invertPalette", {
-              label: "Invert Pigment",
-            }).on("change", rebuildArtwork);
-            addControl(fPalette, params, "colorJitter", {
-              min: 0.0,
-              max: 0.15,
-              step: 0.01,
-              label: "Color Striation",
-            }).on("change", rebuildArtwork);
-
-            // 3. Geometry & Sculpture Folder (Brush Sculpture sketch)
-            const fGeometry = pane.addFolder({
-              title: "📐 Geometry & Sculpture",
-              expanded: true,
-            });
-
-            addControl(fGeometry, params, "turns", {
-              min: 2.0,
-              max: 5.0,
-              step: 0.05,
-              label: "Coil Turns",
-            }).on("change", rebuildArtwork);
-
-            addControl(fGeometry, params, "sphereRadius", {
-              min: 140,
-              max: 280,
-              step: 5,
-              label: "Sphere Radius",
-            }).on("change", rebuildArtwork);
-
-            addControl(fGeometry, params, "width", {
-              min: 30,
-              max: 100,
-              step: 2,
-              label: "Stroke Width",
-            }).on("change", rebuildArtwork);
-
-            addControl(fGeometry, params, "thickness", {
-              min: 6,
-              max: 32,
-              step: 1,
-              label: "Stroke Depth",
-            }).on("change", rebuildArtwork);
-
-            addControl(fGeometry, params, "fiberCount", {
-              min: 80,
-              max: 420,
-              step: 10,
-              label: "Bristle Density",
-            }).on("change", rebuildArtwork);
-
-            addControl(fGeometry, params, "fiberRadius", {
-              min: 0.5,
-              max: 2.5,
-              step: 0.1,
-              label: "Bristle Size",
-            }).on("change", rebuildArtwork);
-
-            addControl(fGeometry, params, "waviness", {
-              min: 0.0,
-              max: 3.0,
-              step: 0.1,
-              label: "Bristle Wiggle",
-            }).on("change", rebuildArtwork);
-
-            addControl(fGeometry, params, "strayFibers", {
-              min: 0.0,
-              max: 0.35,
-              step: 0.01,
-              label: "Stray Bristles",
-            }).on("change", rebuildArtwork);
-
-            addControl(fGeometry, params, "startFlick", {
-              label: "Brush Flicks (Top + Tail)",
-            }).on("change", rebuildArtwork);
-
-            // 3b. Winder sketch controls
-            const fWinder = pane.addFolder({
-              title: "🌀 Winder Sketch",
-              expanded: false,
-            });
-
-            addControl(fWinder, params, "winderLines", {
-              min: 1,
-              max: 200,
-              step: 1,
-              label: "Line Count",
-            }).on("change", rebuildArtwork);
-
-            addControl(fWinder, params, "winderSegments", {
-              min: 120,
-              max: 600,
-              step: 10,
-              label: "Segments Per Line",
-            }).on("change", rebuildArtwork);
-
-            addControl(fWinder, params, "winderTwist", {
-              min: 0.0,
-              max: 1.0,
-              step: 0.01,
-              label: "Twist",
-            }).on("change", rebuildArtwork);
-
-            addControl(fWinder, params, "winderRadius", {
-              min: 40,
-              max: 200,
-              step: 2,
-              label: "Base Radius",
-            }).on("change", rebuildArtwork);
-
-            addControl(fWinder, params, "winderRadiusSpread", {
-              min: 0,
-              max: 60,
-              step: 1,
-              label: "Radius Spread",
-            }).on("change", rebuildArtwork);
-
-            addControl(fWinder, params, "winderLineSpread", {
-              min: 0,
-              max: 60,
-              step: 1,
-              label: "Position Spread",
-            }).on("change", rebuildArtwork);
-
-            addControl(fWinder, params, "winderThickness", {
-              min: 0.3,
-              max: 4.0,
-              step: 0.1,
-              label: "Line Thickness",
-            }).on("change", rebuildArtwork);
-
-            addControl(fWinder, params, "winderDashRepeat", {
-              min: 2,
-              max: 24,
-              step: 1,
-              label: "Dash Divisions",
-            }).on("change", rebuildArtwork);
-
-            addControl(fWinder, params, "winderFlowSpeed", {
-              min: 0.0,
-              max: 3.0,
-              step: 0.05,
-              label: "Flow Speed",
-            }).on("change", () => {
-              needsRender = true;
-            });
-
-            // 4. Material & Paint Surface Folder
-            const fMaterial = pane.addFolder({
-              title: "✨ Paint Luster & Finish",
-              expanded: false,
-            });
-
-            addControl(fMaterial, params, "shininess", {
-              min: 10,
-              max: 150,
-              step: 5,
-              label: "Wet Gloss",
-            }).on("change", updateMaterials);
-
-            addControl(fMaterial, params, "specularIntensity", {
-              min: 0.1,
-              max: 2.0,
-              step: 0.05,
-              label: "Highlights",
-            }).on("change", updateMaterials);
-
-            addControl(fMaterial, params, "fiberOpacity", {
-              min: 0.4,
-              max: 1.0,
-              step: 0.02,
-              label: "Bristle Opacity",
-            }).on("change", updateMaterials);
-
-            addControl(fMaterial, params, "underRibbonOpacity", {
-              min: 0.0,
-              max: 1.0,
-              step: 0.05,
-              label: "Under-Body Fill",
-            }).on("change", updateMaterials);
-
-            // 5. Motion & Spin Controls
-            const fMotion = pane.addFolder({
-              title: "🌪️ Motion & Spin Dynamics",
-              expanded: true,
-            });
-
-            addControl(fMotion, params, "spinMode", {
-              label: "Spin Direction",
-              options: {
-                Downward: "Downward",
-                Paused: "Paused",
-                Upward: "Upward",
-              },
-            }).on("change", () => {
-              needsRender = true;
-            });
-
-            addControl(fMotion, params, "spinSpeed", {
-              min: 0.0,
-              max: 2.0,
-              step: 0.05,
-              label: "Spin Velocity",
-            }).on("change", () => {
-              needsRender = true;
-            });
-
-            addControl(fMotion, params, "floatingBob", {
-              label: "Floating Bob",
-            }).on("change", () => {
-              needsRender = true;
-            });
-
-            // Clockwise rotate checkbox — below Floating Bob.
-            // Ticked  → rolls clockwise at its own fixed speed (Spin Velocity ignored).
-            // Unticked → sculpture smoothly returns to its original upright pose.
-            addControl(fMotion, params, "rotateClockwise", {
-              label: "Rotate Clockwise",
-            }).on("change", () => {
-              needsRender = true;
-            });
-
-            addControl(fMotion, params, "bobAmplitude", {
-              min: 0.0,
-              max: 18.0,
-              step: 0.5,
-              label: "Bob Amplitude",
-            }).on("change", () => {
-              needsRender = true;
-            });
-
-            addControl(fMotion, params, "bobSpeed", {
-              min: 0.1,
-              max: 3.0,
-              step: 0.1,
-              label: "Bob Speed",
-            }).on("change", () => {
-              needsRender = true;
-            });
-
-            // 6. Lighting & Canvas Background
-            const fEnvironment = pane.addFolder({
-              title: "💡 Lighting & Canvas",
-              expanded: false,
-            });
-
-            addControl(fEnvironment, params, "bgColor", {
-              label: "Background",
-            }).on("change", updateBackground);
-
-            addControl(fEnvironment, params, "paperGrain", {
-              label: "Canvas Texture",
-            }).on("change", updateBackground);
-
-            addControl(fEnvironment, params, "grainOpacity", {
-              min: 0.0,
-              max: 0.4,
-              step: 0.02,
-              label: "Grain Opacity",
-            }).on("change", updateBackground);
-
-            addControl(fEnvironment, params, "keyLightIntensity", {
-              min: 0.2,
-              max: 3.0,
-              step: 0.1,
-              label: "Sun Key Light",
-            }).on("change", updateLighting);
-
-            addControl(fEnvironment, params, "fillLightIntensity", {
-              min: 0.0,
-              max: 2.0,
-              step: 0.1,
-              label: "Sky Fill Light",
-            }).on("change", updateLighting);
-
-            addControl(fEnvironment, params, "rimLightIntensity", {
-              min: 0.0,
-              max: 2.0,
-              step: 0.1,
-              label: "Rim Light",
-            }).on("change", updateLighting);
-
-            // 7. Action Buttons
-            const fActions = pane.addFolder({
-              title: "⚡ Quick Actions",
-              expanded: true,
-            });
-
-            fActions
-              .addButton({ title: "🎲 Randomize Palette & Form" })
-              .on("click", () => {
-                const randomColor = () =>
-                  "#" +
-                  Math.floor(Math.random() * 16777215)
-                    .toString(16)
-                    .padStart(6, "0");
-
-                params.c1 = randomColor();
-                params.c2 = randomColor();
-                params.c3 = randomColor();
-                params.c4 = randomColor();
-                params.c5 = randomColor();
-                params.c6 = randomColor();
-                params.c7 = randomColor();
-
-                params.turns = 3.5 + Math.random() * 1.5;
-                params.crestFold = 0.2 + Math.random() * 0.8;
-                params.width = 50 + Math.random() * 25;
-                params.winderTwist = Math.random();
-
-                pane.refresh();
-                scheduleRebuild(20);
-              });
-
-            fActions
-              .addButton({ title: "📸 Save High-Res Artwork PNG" })
-              .on("click", () => {
-                saveHighResArtworkPNG();
-              });
-
-            fActions.addButton({ title: "🔄 Reset" }).on("click", () => {
-              Object.assign(params, DEFAULT_PARAMS);
-              params.preset = "Cobalt & Sunset Orange";
-              applyPreset(params.preset);
-
-              pivotGroup.position.set(0, -5, 0);
-              pivotGroup.rotation.x = 0.12;
-              pivotGroup.rotation.z = 0.02;
-              pivotGroup.rotation.y = 0;
-
-              if (currentBrushArt) {
-                currentBrushArt.rotation.set(0, 0, 0);
-              }
-
-              if (controls.reset) {
-                controls.reset();
-              }
-
-              pane.refresh();
-              updateBackground();
-              updateLighting();
-              updateMaterials();
-              scheduleRebuild(20);
-            });
-          }
-        } catch (e) {
-          console.error("Tweakpane init warning:", e);
-        }
-
-        // ─── Main Animation Loop ──────────────────────────────────────────────────
-        const clock = new THREE.Clock();
-        let flowTime = 0;
-
-        function animate() {
-          requestAnimationFrame(animate);
-
-          const delta = Math.min(clock.getDelta(), 0.05);
-          const elapsed = clock.elapsedTime;
-          const now = performance.now();
-
-          let animated = false;
-
-          // Update fade-in transition
-          if (fadeInAnimation) {
-            if (updateFadeIn(now)) {
-              animated = true;
-            }
-          }
-
-          // ── SPIN (Y-axis) ────────────────────────────────────────────────
-          // Controlled ONLY by Spin Direction + Spin Velocity.
-          // This is the only place params.spinSpeed is ever used.
-          if (
-            currentBrushArt &&
-            params.spinMode !== "Paused" &&
-            params.spinSpeed > 0
-          ) {
-            const direction = params.spinMode === "Upward" ? -1 : 1;
-            currentBrushArt.rotation.y += direction * delta * params.spinSpeed;
-            animated = true;
-          }
-
-          // ── ROTATE CLOCKWISE (Z-axis roll) ───────────────────────────────
-          // Uses its own fixed speed — Spin Velocity has zero effect here.
-          if (currentBrushArt && params.rotateClockwise) {
-            currentBrushArt.rotation.z -= delta * CLOCKWISE_ROTATE_SPEED;
-            animated = true;
-          } else if (currentBrushArt && currentBrushArt.rotation.z !== 0) {
-            // Checkbox unticked → smoothly swing the sculpture back to its
-            // original upright orientation (Z = 0) via the shortest path.
-            // The Y-axis spin above keeps running exactly as usual.
-            let z = currentBrushArt.rotation.z % (Math.PI * 2);
-            if (z > Math.PI) z -= Math.PI * 2;
-            if (z < -Math.PI) z += Math.PI * 2;
-
-            z = dampAngle(z, 0, ROTATE_RETURN_DAMPING, delta);
-
-            if (Math.abs(z) < 0.0005) z = 0;
-            currentBrushArt.rotation.z = z;
-            animated = true;
-          }
-
-          // ── FLOW (Winder dash motion) ────────────────────────────────────
-          // Faithful to the reference: uvOffset.x = -(offset + speed * time),
-          // with time accumulated in seconds / 40 — slow, elegant ink drift.
-          flowTime += delta * params.winderFlowSpeed;
-          if (
-            currentBrushArt &&
-            currentBrushArt.userData.flowMeshes &&
-            params.winderFlowSpeed > 0
-          ) {
-            const flowMeshes = currentBrushArt.userData.flowMeshes;
-
-            for (let i = 0; i < flowMeshes.length; i++) {
-              const m = flowMeshes[i];
-              if (m.material && m.material.map) {
-                m.material.map.offset.x =
-                  m.userData.flowOffset -
-                  (m.userData.flowSpeed * flowTime) / 40;
-              }
-            }
-            animated = true;
-          }
-
-          // Floating organic bob
-          if (params.floatingBob) {
-            pivotGroup.position.y =
-              -5 + Math.sin(elapsed * params.bobSpeed) * params.bobAmplitude;
-            pivotGroup.rotation.z = 0.02 + Math.sin(elapsed * 0.4) * 0.015;
-            animated = true;
-          } else {
-            if (Math.abs(pivotGroup.position.y + 5) > 0.001) {
-              pivotGroup.position.y = -5;
-              animated = true;
+            function mafMap(inMin, inMax, outMin, outMax, v) {
+                const t = (v - inMin) / (inMax - inMin);
+                return outMin + (outMax - outMin) * Math.max(0, Math.min(1, t));
             }
 
-            if (Math.abs(pivotGroup.rotation.z - 0.02) > 0.001) {
-              pivotGroup.rotation.z = 0.02;
-              animated = true;
+            function easeInOutQuad(x) {
+                return x < 0.5 ? 2 * x * x : 1 - Math.pow(-2 * x + 2, 2) / 2;
             }
-          }
 
-          const controlsChanged = controls.update ? controls.update() : false;
+            // Shared geometry mapping so both sketches use the same sliders.
+            function getWinderLineCount() {
+                return Math.max(4, Math.round(mafMap(80, 420, 18, 140, params.fiberCount)));
+            }
 
-          if (animated || controlsChanged || needsRender) {
-            renderer.render(scene, camera);
-            needsRender = false;
-          }
-        }
+            function getWinderRadius() {
+                return params.sphereRadius * 0.55;
+            }
 
-        animate();
+            function getWinderTwist() {
+                return Math.max(0, Math.min(1, (params.turns - 2) / 3));
+            }
 
-        // ─── Responsive Window Resize ─────────────────────────────────────────────
-        let resizeFrame = null;
+            function getWinderRadiusSpread() {
+                return 4 + params.strayFibers * 90 + params.waviness * 6;
+            }
 
-        window.addEventListener("resize", () => {
-          if (resizeFrame !== null) {
-            cancelAnimationFrame(resizeFrame);
-          }
+            function getWinderLineSpread() {
+                return 2 + params.waviness * 10;
+            }
 
-          resizeFrame = requestAnimationFrame(() => {
-            resizeFrame = null;
+            function getWinderThicknessScale() {
+                return params.fiberRadius * (params.thickness / 14) * (params.width / 68);
+            }
+
+            const container = document.getElementById('canvas-container');
+            const paperGrainEl = document.getElementById('paperGrain');
+            const hintEl = document.getElementById('hint');
+
+            const scene = new THREE.Scene();
+
+            const camera = new THREE.PerspectiveCamera(
+                42,
+                window.innerWidth / window.innerHeight,
+                10,
+                3000
+            );
+            camera.position.set(0, 25, 680);
+
+            const renderer = new THREE.WebGLRenderer({
+                antialias: true,
+                alpha: true,
+                powerPreference: 'high-performance',
+                preserveDrawingBuffer: false
+            });
+
+            renderer.toneMapping = THREE.ACESFilmicToneMapping;
+            renderer.toneMappingExposure = 1.15;
+            renderer.setClearColor(0x000000, 0);
+            container.appendChild(renderer.domElement);
+
+            let needsRender = true;
+
+            function getSafePixelRatio() {
+                const dpr = window.devicePixelRatio || 1;
+                const isTouch = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
+                const lowCoreDevice = (navigator.hardwareConcurrency || 8) <= 4;
+                const maxRatio = (isTouch || lowCoreDevice) ? 1.25 : 2;
+
+                const w = Math.max(1, window.innerWidth);
+                const h = Math.max(1, window.innerHeight);
+                const maxPixels = 5200000;
+                const budgetRatio = Math.sqrt(maxPixels / (w * h));
+
+                return Math.max(0.75, Math.min(dpr, maxRatio, budgetRatio));
+            }
+
+            function resizeRenderer() {
+                const w = Math.max(1, window.innerWidth);
+                const h = Math.max(1, window.innerHeight);
+
+                renderer.setPixelRatio(getSafePixelRatio());
+                renderer.setSize(w, h, false);
+
+                camera.aspect = w / h;
+                camera.updateProjectionMatrix();
+                needsRender = true;
+            }
+
             resizeRenderer();
-          });
-        });
 
-        document.addEventListener("visibilitychange", () => {
-          clock.getDelta();
-          needsRender = true;
-        });
+            let controls;
 
-        renderer.domElement.addEventListener("webglcontextlost", (event) => {
-          event.preventDefault();
-          console.warn("WebGL context lost.");
-        });
+            if (THREE.OrbitControls) {
+                controls = new THREE.OrbitControls(camera, renderer.domElement);
+                controls.enableDamping = true;
+                controls.dampingFactor = 0.05;
+                controls.rotateSpeed = 0.75;
+                controls.minDistance = 200;
+                controls.maxDistance = 1200;
+                controls.autoRotate = false;
 
-        renderer.domElement.addEventListener("webglcontextrestored", () => {
-          console.warn("WebGL context restored. Rebuilding artwork.");
-          scheduleRebuild(20);
-        });
-      })();
+                controls.addEventListener('start', () => {
+                    hintEl.style.opacity = '0';
+                });
+
+                controls.addEventListener('change', () => {
+                    needsRender = true;
+                });
+            } else {
+                controls = { update: () => false, reset: () => {} };
+                console.error('OrbitControls did not load.');
+            }
+
+            const ambientLight = new THREE.AmbientLight(0xfff5ea, 0.75);
+            scene.add(ambientLight);
+
+            const keyLight = new THREE.DirectionalLight(0xfffcf0, params.keyLightIntensity);
+            keyLight.position.set(280, 420, 380);
+            scene.add(keyLight);
+
+            const fillLight = new THREE.DirectionalLight(0x8cb0ff, params.fillLightIntensity);
+            fillLight.position.set(-360, 60, 260);
+            scene.add(fillLight);
+
+            const rimLight = new THREE.DirectionalLight(0xff4477, params.rimLightIntensity);
+            rimLight.position.set(60, -320, -320);
+            scene.add(rimLight);
+
+            const innerLight = new THREE.PointLight(0xff7722, 0.8, 700);
+            innerLight.position.set(0, 0, 0);
+            scene.add(innerLight);
+
+            function setPaletteFromColors(colors) {
+                const slots = 7;
+
+                for (let i = 0; i < slots; i++) {
+                    const position = (i / (slots - 1)) * (colors.length - 1);
+                    const lower = Math.floor(position);
+                    const upper = Math.min(colors.length - 1, lower + 1);
+                    const mix = position - lower;
+
+                    const color = new THREE.Color(colors[lower]).lerp(
+                        new THREE.Color(colors[upper]),
+                        mix
+                    );
+
+                    params['c' + (i + 1)] = '#' + color.getHexString();
+                }
+            }
+
+            function applyPreset(name) {
+                const pr = PRESETS[name];
+                if (!pr) return;
+
+                params.shape = pr.shape;
+                setPaletteFromColors(pr.colors);
+                params.turns = pr.turns;
+                params.crestFold = pr.crestFold;
+                params.width = pr.width;
+                params.fiberCount = pr.fiberCount;
+                params.shininess = pr.shininess;
+                params.bgColor = pr.bgClear;
+            }
+
+            function getActivePalette() {
+                const rawColors = [
+                    params.c1, params.c2, params.c3, params.c4,
+                    params.c5, params.c6, params.c7
+                ];
+
+                const list = params.invertPalette ? [...rawColors].reverse() : rawColors;
+
+                return list.map((hex, i) => ({
+                    pos: i / (list.length - 1),
+                    color: new THREE.Color(hex)
+                }));
+            }
+
+            function samplePaintColor(t, palette) {
+                t = Math.max(0, Math.min(1, t));
+
+                for (let i = 0; i < palette.length - 1; i++) {
+                    if (t >= palette[i].pos && t <= palette[i + 1].pos) {
+                        const localT = (t - palette[i].pos) / (palette[i + 1].pos - palette[i].pos);
+                        return palette[i].color.clone().lerp(palette[i + 1].color, localT);
+                    }
+                }
+
+                return palette[palette.length - 1].color.clone();
+            }
+
+            function getSpineData(t) {
+                const turns = params.turns;
+                const theta = t * turns * Math.PI * 2 + 1.65;
+
+                const lat = 1.05 - t * 2.10;
+                const cosLat = Math.cos(lat);
+                const sinLat = Math.sin(lat);
+
+                const R = params.sphereRadius;
+                const Rx = R * (1.0 + 0.06 * Math.sin(theta * 0.5));
+                const Ry = R * 1.06;
+                const Rz = R * (1.0 + 0.05 * Math.cos(theta * 0.5));
+
+                let x = Rx * cosLat * Math.cos(theta);
+                let y = Ry * sinLat;
+                let z = Rz * cosLat * Math.sin(theta);
+
+                if (params.shape === 'Hook Crest S-Loop') {
+                    const fold = params.crestFold;
+
+                    if (t < 0.26) {
+                        const foldT = Math.sin((t / 0.26) * Math.PI);
+                        x -= Math.sin(t * Math.PI * 3.5) * 35 * fold * foldT;
+                        y += Math.cos(t * Math.PI * 3.5) * 25 * fold * foldT;
+                        z += Math.sin(t * Math.PI * 2.0) * 30 * fold * foldT;
+                    }
+                }
+
+                if (params.startFlick && t < 0.08) {
+                    const tail = Math.pow(1 - t / 0.08, 1.5);
+                    x -= tail * 35;
+                    y += tail * 30;
+                    z -= tail * 15;
+                }
+
+                if (params.startFlick && t > 0.92) {
+                    const tail = Math.pow((t - 0.92) / 0.08, 1.5);
+                    x += tail * 35;
+                    y -= tail * 30;
+                    z += tail * 15;
+                }
+
+                const sphereNorm = new THREE.Vector3(x / Rx, y / Ry, z / Rz).normalize();
+
+                return {
+                    pos: new THREE.Vector3(x, y, z),
+                    sphereNorm
+                };
+            }
+
+            function getWinderPoints(lineIndex, lineCount, rng) {
+                const spread = getWinderLineSpread();
+                const twist = getWinderTwist();
+
+                const t =
+                    mafMap(0, lineCount, 0, 0.1, lineIndex) +
+                    mafMap(0, 1, 0, 0.5, twist);
+
+                const radius =
+                    getWinderRadius() +
+                    mafMap(0, lineCount, 0, 24, lineIndex) +
+                    rng.range(-getWinderRadiusSpread(), getWinderRadiusSpread());
+
+                const lineSpread = new THREE.Vector3(
+                    rng.range(-spread, spread),
+                    rng.range(-spread, spread),
+                    rng.range(-spread, spread)
+                );
+
+                const q = easeInOutQuad(0.5 + 0.5 * Math.cos(Math.PI + t * Math.PI * 2));
+                const POINTS = Math.max(80, Math.round(params.lineSegments));
+                const vertices = [];
+
+                for (let j = 0; j < POINTS; j++) {
+                    const tw = 2.5 * Math.PI * q;
+                    const th = (j * Math.PI * 2) / POINTS;
+                    const ph = Math.cos(th) * tw;
+
+                    const y = radius * Math.cos(th);
+                    const x = radius * Math.sin(th) * Math.cos(ph);
+                    const z = radius * Math.sin(th) * Math.sin(ph);
+
+                    vertices.push(new THREE.Vector3(x, y, z).add(lineSpread));
+                }
+
+                const k = 1 + Math.floor(rng.next() * (POINTS - 1));
+                const pts = vertices.slice(k).concat(vertices.slice(0, k));
+
+                return { pts, center: lineSpread };
+            }
+
+            function makeBrushStrokeTexture(strokeFraction, rng) {
+                const W = 512;
+                const H = 64;
+                const c = document.createElement('canvas');
+                c.width = W;
+                c.height = H;
+                const g = c.getContext('2d');
+
+                g.clearRect(0, 0, W, H);
+
+                const strokeW = Math.max(10, Math.floor(W * strokeFraction));
+                const cy = H / 2;
+
+                for (let b = 0; b < 110; b++) {
+                    const yOff = (rng.next() + rng.next() + rng.next() - 1.5) / 1.5;
+                    const y = cy + yOff * (H * 0.34);
+                    const thick = rng.range(0.5, 1.9);
+                    const x0 = rng.range(0, strokeW * 0.10);
+                    const x1 = strokeW - rng.range(0, strokeW * 0.22);
+                    const alpha = rng.range(0.12, 0.75) * (1 - Math.abs(yOff) * 0.85);
+                    const wobFreq = rng.range(0.15, 0.5);
+                    const wobAmp = rng.range(0, 1.6);
+                    const wobPhase = rng.range(0, Math.PI * 2);
+
+                    g.strokeStyle = 'rgba(255,255,255,' + alpha.toFixed(3) + ')';
+                    g.lineWidth = thick;
+                    g.beginPath();
+
+                    const SEGS = 20;
+                    for (let s = 0; s <= SEGS; s++) {
+                        const x = x0 + (x1 - x0) * (s / SEGS);
+                        const yy = y + Math.sin(s * wobFreq + wobPhase) * wobAmp;
+                        if (s === 0) g.moveTo(x, yy);
+                        else g.lineTo(x, yy);
+                    }
+                    g.stroke();
+                }
+
+                g.globalCompositeOperation = 'destination-out';
+
+                let grad = g.createLinearGradient(0, 0, strokeW * 0.2, 0);
+                grad.addColorStop(0, 'rgba(0,0,0,1)');
+                grad.addColorStop(1, 'rgba(0,0,0,0)');
+                g.fillStyle = grad;
+                g.fillRect(0, 0, strokeW * 0.2, H);
+
+                grad = g.createLinearGradient(strokeW * 0.72, 0, strokeW, 0);
+                grad.addColorStop(0, 'rgba(0,0,0,0)');
+                grad.addColorStop(1, 'rgba(0,0,0,1)');
+                g.fillStyle = grad;
+                g.fillRect(strokeW * 0.72, 0, strokeW * 0.28, H);
+
+                g.globalCompositeOperation = 'source-over';
+
+                const tex = new THREE.CanvasTexture(c);
+                tex.wrapS = THREE.RepeatWrapping;
+                tex.wrapT = THREE.ClampToEdgeWrapping;
+                tex.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy());
+                return tex;
+            }
+
+            const pivotGroup = new THREE.Group();
+            pivotGroup.position.set(0, -5, 0);
+            pivotGroup.rotation.x = 0.12;
+            pivotGroup.rotation.z = 0.02;
+            pivotGroup.rotation.y = 0;
+            scene.add(pivotGroup);
+
+            let currentBrushArt = null;
+            let fadeInAnimation = null;
+
+            function disposeObject(object) {
+                object.traverse(child => {
+                    if (child.geometry) child.geometry.dispose();
+
+                    if (child.material) {
+                        const materials = Array.isArray(child.material) ? child.material : [child.material];
+                        materials.forEach(material => {
+                            if (material.map) material.map.dispose();
+                            material.dispose();
+                        });
+                    }
+                });
+            }
+
+            function nextFrame() {
+                return new Promise(resolve => requestAnimationFrame(resolve));
+            }
+
+            function makeRng(initialSeed) {
+                let localSeed = initialSeed >>> 0;
+                return {
+                    next() {
+                        localSeed = (Math.imul(localSeed, 1664525) + 1013904223) >>> 0;
+                        return (localSeed >>> 0) / 0xffffffff;
+                    },
+                    range(min, max) {
+                        return min + this.next() * (max - min);
+                    }
+                };
+            }
+
+            async function buildBrushStrokeAsync(token) {
+                const masterGroup = new THREE.Group();
+                const palette = getActivePalette();
+                const rng = makeRng(884123);
+
+                const SPINE_SAMPLES = 360;
+                const spineData = [];
+                const spinePoints = [];
+
+                for (let i = 0; i <= SPINE_SAMPLES; i++) {
+                    const data = getSpineData(i / SPINE_SAMPLES);
+                    spineData.push(data);
+                    spinePoints.push(data.pos);
+                }
+
+                const spineCurve = new THREE.CatmullRomCurve3(spinePoints, false, 'centripetal', 0.45);
+                const spineFrames = [];
+
+                for (let i = 0; i <= SPINE_SAMPLES; i++) {
+                    const t = i / SPINE_SAMPLES;
+                    const pt = spinePoints[i];
+                    const tangent = spineCurve.getTangentAt(t).normalize();
+                    const sphereNorm = spineData[i].sphereNorm;
+
+                    let binormal = new THREE.Vector3().crossVectors(tangent, sphereNorm);
+                    if (binormal.lengthSq() < 0.000001) binormal = new THREE.Vector3(1, 0, 0);
+                    binormal.normalize();
+
+                    const normal = new THREE.Vector3().crossVectors(binormal, tangent).normalize();
+                    spineFrames.push({ pt, tangent, normal, binormal });
+                }
+
+                function getFrameAt(t) {
+                    const idxFloat = t * SPINE_SAMPLES;
+                    const idx = Math.min(Math.floor(idxFloat), SPINE_SAMPLES - 1);
+                    const frac = idxFloat - idx;
+                    const f1 = spineFrames[idx];
+                    const f2 = spineFrames[idx + 1] || f1;
+
+                    return {
+                        pt: f1.pt.clone().lerp(f2.pt, frac),
+                        tangent: f1.tangent.clone().lerp(f2.tangent, frac).normalize(),
+                        normal: f1.normal.clone().lerp(f2.normal, frac).normalize(),
+                        binormal: f1.binormal.clone().lerp(f2.binormal, frac).normalize()
+                    };
+                }
+
+                const baseWidth = params.width;
+                const baseThickness = params.thickness;
+
+                function getWidth(t) {
+                    if (params.startFlick) {
+                        if (t < 0.08) return (baseWidth * 0.5) + (t / 0.08) * (baseWidth * 0.5);
+                        if (t > 0.92) return (baseWidth * 0.5) + ((1 - t) / 0.08) * (baseWidth * 0.5);
+                    }
+
+                    const taper = Math.sin(t * Math.PI);
+                    return baseWidth * 0.85 + taper * (baseWidth * 0.35);
+                }
+
+                function getThickness(t) {
+                    return baseThickness * 0.85 + Math.sin(t * Math.PI) * (baseThickness * 0.45);
+                }
+
+                const NUM_LAYERS = 4;
+                const RIBBON_SEGS = 260;
+
+                for (let l = 0; l < NUM_LAYERS; l++) {
+                    const ribbonGeom = new THREE.PlaneGeometry(1, 1, 20, RIBBON_SEGS);
+                    const posAttr = ribbonGeom.attributes.position;
+                    const colAttr = new Float32Array(posAttr.count * 3);
+
+                    const layerH = (l - 1.5) * (baseThickness * 0.26);
+                    const widthScale = 0.95 - l * 0.04;
+
+                    for (let r = 0; r <= RIBBON_SEGS; r++) {
+                        const t = r / RIBBON_SEGS;
+                        const frame = getFrameAt(t);
+                        const w = getWidth(t) * widthScale;
+
+                        for (let c = 0; c <= 20; c++) {
+                            const vIdx = r * 21 + c;
+                            const u = (c / 20) * 2 - 1;
+
+                            posAttr.setXYZ(
+                                vIdx,
+                                frame.pt.x + frame.binormal.x * (u * w * 0.5) + frame.normal.x * layerH,
+                                frame.pt.y + frame.binormal.y * (u * w * 0.5) + frame.normal.y * layerH,
+                                frame.pt.z + frame.binormal.z * (u * w * 0.5) + frame.normal.z * layerH
+                            );
+
+                            const color = samplePaintColor((1 - u) * 0.5, palette);
+                            colAttr[vIdx * 3] = color.r;
+                            colAttr[vIdx * 3 + 1] = color.g;
+                            colAttr[vIdx * 3 + 2] = color.b;
+                        }
+                    }
+
+                    ribbonGeom.setAttribute('color', new THREE.BufferAttribute(colAttr, 3));
+                    ribbonGeom.computeVertexNormals();
+
+                    const ribbonMat = new THREE.MeshPhongMaterial({
+                        vertexColors: true,
+                        specular: new THREE.Color(0xffffff).multiplyScalar(params.specularIntensity),
+                        shininess: params.shininess,
+                        transparent: true,
+                        opacity: params.underRibbonOpacity,
+                        side: THREE.DoubleSide,
+                        depthWrite: false
+                    });
+
+                    ribbonMat.userData.kind = 'ribbon';
+
+                    const ribbonMesh = new THREE.Mesh(ribbonGeom, ribbonMat);
+                    ribbonMesh.userData.kind = 'ribbon';
+                    ribbonMesh.visible = params.underRibbonOpacity > 0.001;
+                    ribbonMesh.matrixAutoUpdate = false;
+                    ribbonMesh.updateMatrix();
+                    masterGroup.add(ribbonMesh);
+                }
+
+                const NUM_BRISTLES = Math.max(1, Math.round(params.fiberCount));
+                const BRISTLE_SEGS = Math.max(40, Math.round(params.lineSegments * 0.55));
+                const waviness = params.waviness;
+                const BRISTLE_CHUNK = 10;
+
+                for (let bi = 0; bi < NUM_BRISTLES; bi++) {
+                    if (token !== rebuildRequestId) {
+                        disposeObject(masterGroup);
+                        return null;
+                    }
+
+                    const uNorm = NUM_BRISTLES === 1 ? 0 : (bi / (NUM_BRISTLES - 1)) * 2 - 1;
+                    const uOffset = Math.sign(uNorm) * Math.pow(Math.abs(uNorm), 0.90) + rng.range(-0.02, 0.02);
+                    const vOffset = rng.range(-0.48, 0.48) * Math.sqrt(1 - Math.min(1, Math.abs(uOffset) * 0.85));
+
+                    let colT = (1 - uOffset) * 0.5;
+                    colT = Math.max(0, Math.min(1, colT + rng.range(-params.colorJitter, params.colorJitter)));
+
+                    const bristleColor = samplePaintColor(colT, palette);
+                    const brightness = rng.range(0.88, 1.30);
+                    bristleColor.multiplyScalar(brightness);
+
+                    const isStray = rng.next() < params.strayFibers;
+                    const spread = isStray ? rng.range(1.08, 1.35) : 1.0;
+
+                    const startT = (bi < 50 || rng.next() > 0.80) ? rng.range(0.0, 0.05) : 0.0;
+                    const endT = (bi > NUM_BRISTLES - 50 || rng.next() > 0.82) ? rng.range(0.95, 1.0) : 1.0;
+
+                    const waveFreq = rng.range(3, 8);
+                    const wavePhase = rng.range(0, Math.PI * 2);
+                    const waveAmp = rng.range(0.5, 2.2) * waviness;
+
+                    const points = [];
+                    const steps = Math.max(4, Math.floor(BRISTLE_SEGS * (endT - startT)));
+
+                    for (let si = 0; si <= steps; si++) {
+                        const localT = si / steps;
+                        const t = startT + localT * (endT - startT);
+                        const frame = getFrameAt(t);
+
+                        const w = getWidth(t) * spread;
+                        const th = getThickness(t) * spread;
+                        const wave = Math.sin(t * Math.PI * waveFreq + wavePhase) * waveAmp;
+
+                        let fanning = 1.0;
+                        if (t < 0.08 && params.startFlick) fanning = 1.0 + Math.pow(1 - t / 0.08, 1.5) * 0.45 * uOffset;
+                        if (t > 0.92 && params.startFlick) fanning = 1.0 + Math.pow((t - 0.92) / 0.08, 1.5) * 0.45 * uOffset;
+
+                        points.push(new THREE.Vector3(
+                            frame.pt.x + frame.binormal.x * (uOffset * w * 0.5 * fanning + wave) + frame.normal.x * (vOffset * th * 0.5),
+                            frame.pt.y + frame.binormal.y * (uOffset * w * 0.5 * fanning + wave) + frame.normal.y * (vOffset * th * 0.5),
+                            frame.pt.z + frame.binormal.z * (uOffset * w * 0.5 * fanning + wave) + frame.normal.z * (vOffset * th * 0.5)
+                        ));
+                    }
+
+                    if (points.length > 3) {
+                        const curve = new THREE.CatmullRomCurve3(points, false, 'centripetal', 0.4);
+                        const radius = (isStray ? rng.range(0.5, 0.85) : rng.range(0.8, 1.7)) * (params.fiberRadius / 1.15);
+                        const geom = new THREE.TubeGeometry(curve, Math.floor(steps * 1.35), radius, 6, false);
+
+                        const opacityBase = isStray ? rng.range(0.55, 0.78) : rng.range(0.82, 0.98);
+                        const opacity = opacityBase * (params.fiberOpacity / 0.88);
+                        const specular = bristleColor.clone().lerp(new THREE.Color(0xffffff), 0.70).multiplyScalar(params.specularIntensity);
+
+                        const mat = new THREE.MeshPhongMaterial({
+                            color: bristleColor,
+                            specular,
+                            shininess: params.shininess,
+                            transparent: true,
+                            opacity: Math.min(1.0, opacity),
+                            depthWrite: opacity > 0.88,
+                            side: THREE.FrontSide
+                        });
+
+                        mat.userData.kind = 'bristle';
+                        mat.userData.baseColor = bristleColor.clone();
+                        mat.userData.opacityBase = opacityBase;
+                        mat.userData.colT = colT;
+                        mat.userData.brightness = brightness;
+
+                        const mesh = new THREE.Mesh(geom, mat);
+                        mesh.userData.kind = 'bristle';
+                        mesh.matrixAutoUpdate = false;
+                        mesh.updateMatrix();
+                        masterGroup.add(mesh);
+                    }
+
+                    if (bi > 0 && bi % BRISTLE_CHUNK === 0) await nextFrame();
+                }
+
+                if (token !== rebuildRequestId) {
+                    disposeObject(masterGroup);
+                    return null;
+                }
+
+                return masterGroup;
+            }
+
+            async function buildWinderFlowAsync(token) {
+                const masterGroup = new THREE.Group();
+                const palette = getActivePalette();
+                const rng = makeRng(884123);
+
+                const LINES = getWinderLineCount();
+                const SEGMENTS = Math.max(80, Math.round(params.lineSegments));
+                const thicknessScale = getWinderThicknessScale();
+                const flowMeshes = [];
+
+                for (let i = 0; i < LINES; i++) {
+                    if (token !== rebuildRequestId) {
+                        disposeObject(masterGroup);
+                        return null;
+                    }
+
+                    const { pts } = getWinderPoints(i, LINES, rng);
+                    const curve = new THREE.CatmullRomCurve3(pts, true, 'centripetal', 0.5);
+
+                    const widthFactor = 0.5 * rng.range(0.1, 0.9);
+                    const tubeRadius = Math.max(0.25, widthFactor * (getWinderRadius() / 5) * 0.4 * thicknessScale);
+                    const geom = new THREE.TubeGeometry(curve, SEGMENTS, tubeRadius, 5, true);
+
+                    const repeat = Math.max(2, Math.round(rng.range(2, params.dashRepeat)));
+                    const tex = makeBrushStrokeTexture(1 / repeat, rng);
+
+                    const lineT = LINES === 1 ? 0 : i / (LINES - 1);
+                    const jitteredT = Math.max(0, Math.min(1, lineT + rng.range(-params.colorJitter, params.colorJitter)));
+                    const brightness = rng.range(0.85, 1.15);
+                    const color = samplePaintColor(jitteredT, palette).multiplyScalar(brightness);
+                    const opacityBase = rng.range(0.1, 1.0);
+
+                    const mat = new THREE.MeshPhongMaterial({
+                        color,
+                        map: tex,
+                        transparent: true,
+                        opacity: Math.min(1, opacityBase * (params.fiberOpacity / 0.88)),
+                        shininess: params.shininess,
+                        specular: new THREE.Color(0xffffff).multiplyScalar(params.specularIntensity),
+                        depthWrite: false,
+                        side: THREE.DoubleSide
+                    });
+
+                    mat.userData.kind = 'flowLine';
+                    mat.userData.opacityBase = opacityBase;
+                    mat.userData.colT = jitteredT;
+                    mat.userData.brightness = brightness;
+
+                    const mesh = new THREE.Mesh(geom, mat);
+                    mesh.renderOrder = 1;
+                    mesh.userData.kind = 'flowLine';
+                    mesh.userData.flowSpeed = rng.range(0.5, 1.5) * 3;
+                    mesh.userData.flowOffset = rng.range(0, 1);
+                    tex.offset.x = mesh.userData.flowOffset;
+                    mesh.matrixAutoUpdate = false;
+                    mesh.updateMatrix();
+
+                    masterGroup.add(mesh);
+                    flowMeshes.push(mesh);
+
+                    if (i > 0 && i % 6 === 0) await nextFrame();
+                }
+
+                if (token !== rebuildRequestId) {
+                    disposeObject(masterGroup);
+                    return null;
+                }
+
+                masterGroup.userData.flowMeshes = flowMeshes;
+                return masterGroup;
+            }
+
+            function buildArtworkByMode(token) {
+                if (params.sketchMode === 'Winder Flow Lines') return buildWinderFlowAsync(token);
+                return buildBrushStrokeAsync(token);
+            }
+
+            function applyPaintColor(mat, palette) {
+                const colT = mat.userData.colT;
+                if (colT === undefined) return;
+
+                const brightness = mat.userData.brightness !== undefined ? mat.userData.brightness : 1;
+                const color = samplePaintColor(colT, palette).multiplyScalar(brightness);
+
+                mat.color.copy(color);
+                if (mat.userData.baseColor) mat.userData.baseColor.copy(color);
+
+                if (mat.userData.kind === 'bristle') {
+                    mat.specular.copy(color).lerp(new THREE.Color(0xffffff), 0.70).multiplyScalar(params.specularIntensity);
+                }
+            }
+
+            function updateLiveColors() {
+                if (!currentBrushArt) {
+                    needsRender = true;
+                    return;
+                }
+
+                const palette = getActivePalette();
+
+                currentBrushArt.traverse(child => {
+                    if (!child.material) return;
+
+                    const materials = Array.isArray(child.material) ? child.material : [child.material];
+
+                    materials.forEach(mat => {
+                        if (mat.userData.kind === 'bristle' || mat.userData.kind === 'flowLine') {
+                            applyPaintColor(mat, palette);
+                            mat.needsUpdate = true;
+                        }
+
+                        if (mat.userData.kind === 'ribbon' && child.geometry && child.geometry.attributes.color) {
+                            const colAttr = child.geometry.attributes.color;
+                            const count = colAttr.count;
+
+                            for (let vIdx = 0; vIdx < count; vIdx++) {
+                                const c = vIdx % 21;
+                                const u = (c / 20) * 2 - 1;
+                                const color = samplePaintColor((1 - u) * 0.5, palette);
+                                colAttr.setXYZ(vIdx, color.r, color.g, color.b);
+                            }
+
+                            colAttr.needsUpdate = true;
+                        }
+                    });
+                });
+
+                needsRender = true;
+            }
+
+            function updateMaterials() {
+                if (!currentBrushArt) {
+                    needsRender = true;
+                    return;
+                }
+
+                currentBrushArt.traverse(child => {
+                    if (!child.material) return;
+
+                    const materials = Array.isArray(child.material) ? child.material : [child.material];
+
+                    materials.forEach(mat => {
+                        const kind = mat.userData.kind;
+
+                        if (kind === 'ribbon') {
+                            mat.specular.setRGB(params.specularIntensity, params.specularIntensity, params.specularIntensity);
+                            mat.shininess = params.shininess;
+                            mat.opacity = params.underRibbonOpacity;
+                            mat.needsUpdate = true;
+                            child.visible = params.underRibbonOpacity > 0.001;
+                        }
+
+                        if (kind === 'bristle') {
+                            const opacityBase = mat.userData.opacityBase !== undefined ? mat.userData.opacityBase : mat.opacity;
+                            const nextOpacity = opacityBase * (params.fiberOpacity / 0.88);
+
+                            mat.shininess = params.shininess;
+                            mat.opacity = Math.min(1.0, nextOpacity);
+                            mat.depthWrite = nextOpacity > 0.88;
+                            mat.needsUpdate = true;
+                            child.visible = params.fiberOpacity > 0.001;
+                        }
+
+                        if (kind === 'flowLine') {
+                            const opacityBase = mat.userData.opacityBase !== undefined ? mat.userData.opacityBase : mat.opacity;
+                            mat.opacity = Math.min(1, opacityBase * (params.fiberOpacity / 0.88));
+                            mat.shininess = params.shininess;
+                            if (mat.specular) {
+                                mat.specular.setRGB(params.specularIntensity, params.specularIntensity, params.specularIntensity);
+                            }
+                            mat.needsUpdate = true;
+                            child.visible = params.fiberOpacity > 0.001;
+                        }
+                    });
+                });
+
+                needsRender = true;
+            }
+
+            function updateLighting() {
+                keyLight.intensity = params.keyLightIntensity;
+                fillLight.intensity = params.fillLightIntensity;
+                rimLight.intensity = params.rimLightIntensity;
+                needsRender = true;
+            }
+
+            function updateBackground() {
+                container.style.background = params.bgColor;
+                paperGrainEl.style.display = params.paperGrain ? 'block' : 'none';
+                paperGrainEl.style.opacity = params.grainOpacity;
+
+                const c = new THREE.Color(params.bgColor);
+                const luminance = 0.299 * c.r + 0.587 * c.g + 0.114 * c.b;
+                hintEl.style.color = luminance < 0.4 ? 'rgba(255,255,255,0.65)' : '#8f7d6a';
+                needsRender = true;
+            }
+
+            let rebuildRequestId = 0;
+            let rebuildTimer = null;
+            let buildInProgress = false;
+            let pendingBuildToken = null;
+
+            function scheduleRebuild(delay) {
+                rebuildRequestId++;
+                const token = rebuildRequestId;
+                const waitMs = delay !== undefined ? delay : (params.sketchMode === 'Winder Flow Lines' ? 40 : 90);
+
+                clearTimeout(rebuildTimer);
+
+                rebuildTimer = setTimeout(() => {
+                    rebuildTimer = null;
+                    startRebuild(token);
+                }, waitMs);
+            }
+
+            function rebuildArtwork() {
+                scheduleRebuild();
+            }
+
+            function startRebuild(token) {
+                if (token !== rebuildRequestId) return;
+
+                if (buildInProgress) {
+                    pendingBuildToken = token;
+                    return;
+                }
+
+                buildInProgress = true;
+
+                buildArtworkByMode(token)
+                    .then(nextArt => {
+                        if (!nextArt) return;
+                        if (token !== rebuildRequestId) {
+                            disposeObject(nextArt);
+                            return;
+                        }
+
+                        const previousArt = currentBrushArt;
+                        const previousRotation = previousArt
+                            ? previousArt.rotation.clone()
+                            : new THREE.Euler(0, 0, 0);
+
+                        nextArt.rotation.copy(previousRotation);
+
+                        nextArt.traverse(child => {
+                            if (child.material) {
+                                child.material.transparent = true;
+                                child.material.opacity = 0;
+                                child.material.needsUpdate = true;
+                            }
+                        });
+
+                        pivotGroup.add(nextArt);
+                        currentBrushArt = nextArt;
+
+                        if (previousArt) {
+                            pivotGroup.remove(previousArt);
+                            disposeObject(previousArt);
+                        }
+
+                        fadeInAnimation = {
+                            object: nextArt,
+                            startTime: performance.now(),
+                            duration: 280
+                        };
+
+                        needsRender = true;
+                    })
+                    .catch(error => {
+                        console.error('Artwork rebuild failed:', error);
+                    })
+                    .finally(() => {
+                        buildInProgress = false;
+
+                        if (pendingBuildToken !== null) {
+                            const nextToken = pendingBuildToken;
+                            pendingBuildToken = null;
+                            if (nextToken === rebuildRequestId) startRebuild(nextToken);
+                        }
+                    });
+            }
+
+            function updateFadeIn(now) {
+                if (!fadeInAnimation) return false;
+
+                const { object, startTime, duration } = fadeInAnimation;
+                const progress = Math.min(1, (now - startTime) / duration);
+                const eased = 1 - Math.pow(1 - progress, 3);
+
+                object.traverse(child => {
+                    if (child.material) {
+                        const kind = child.material.userData.kind;
+
+                        if (kind === 'ribbon') {
+                            child.material.opacity = params.underRibbonOpacity * eased;
+                        } else if (kind === 'bristle' || kind === 'flowLine') {
+                            child.material.opacity = Math.min(
+                                1,
+                                (child.material.userData.opacityBase * (params.fiberOpacity / 0.88)) * eased
+                            );
+                        }
+                        child.material.needsUpdate = true;
+                    }
+                });
+
+                if (progress >= 1) {
+                    updateMaterials();
+                    fadeInAnimation = null;
+                }
+
+                return true;
+            }
+
+            function wait(ms) {
+                return new Promise(resolve => setTimeout(resolve, ms));
+            }
+
+            async function waitForLatestArtwork() {
+                if (rebuildTimer !== null) {
+                    const token = rebuildRequestId;
+                    clearTimeout(rebuildTimer);
+                    rebuildTimer = null;
+                    startRebuild(token);
+                }
+
+                while (buildInProgress || rebuildTimer !== null) {
+                    await wait(40);
+                }
+            }
+
+            async function saveHighResArtworkPNG() {
+                await waitForLatestArtwork();
+
+                const oldSize = renderer.getSize(new THREE.Vector2());
+                const oldPixelRatio = renderer.getPixelRatio();
+                const oldAspect = camera.aspect;
+                const oldSceneBackground = scene.background;
+
+                const displayW = Math.max(1, window.innerWidth);
+                const displayH = Math.max(1, window.innerHeight);
+                const maxTexture = Math.min(renderer.capabilities.maxTextureSize || 4096, 4096);
+                const maxArea = 10000000;
+
+                let scale = Math.min(2, maxTexture / displayW, maxTexture / displayH, Math.sqrt(maxArea / (displayW * displayH)));
+                scale = Math.max(0.75, scale);
+
+                const exportW = Math.floor(displayW * scale);
+                const exportH = Math.floor(displayH * scale);
+                let dataURL = null;
+
+                try {
+                    scene.background = new THREE.Color(params.bgColor);
+                    renderer.setPixelRatio(1);
+                    renderer.setSize(exportW, exportH, false);
+                    camera.aspect = exportW / exportH;
+                    camera.updateProjectionMatrix();
+                    renderer.render(scene, camera);
+                    dataURL = renderer.domElement.toDataURL('image/png');
+                } catch (error) {
+                    console.error('PNG export failed:', error);
+                } finally {
+                    scene.background = oldSceneBackground;
+                    renderer.setPixelRatio(oldPixelRatio);
+                    renderer.setSize(oldSize.x, oldSize.y, false);
+                    camera.aspect = oldAspect;
+                    camera.updateProjectionMatrix();
+                    needsRender = true;
+                }
+
+                if (dataURL) {
+                    const link = document.createElement('a');
+                    link.download = `brush-sculpture-${Date.now()}.png`;
+                    link.href = dataURL;
+                    document.body.appendChild(link);
+                    link.click();
+                    link.remove();
+                }
+            }
+
+            updateBackground();
+            updateLighting();
+            scheduleRebuild(0);
+
+            try {
+                const PaneClass = (window.Tweakpane && (window.Tweakpane.Pane || window.Tweakpane)) || window.Pane;
+
+                if (PaneClass) {
+                    const pane = new PaneClass({
+                        title: '🎨 3D Brush Sculpture Studio',
+                        expanded: true
+                    });
+
+                    function addControl(parent, obj, prop, opt) {
+                        if (typeof parent.addBinding === 'function') return parent.addBinding(obj, prop, opt);
+                        if (typeof parent.addInput === 'function') return parent.addInput(obj, prop, opt);
+                        return parent.add(obj, prop, opt);
+                    }
+
+                    const presetOptions = Object.keys(PRESETS).reduce((acc, key) => {
+                        acc[key] = key;
+                        return acc;
+                    }, {});
+
+                    const onLiveColor = () => updateLiveColors();
+                    const onLiveMaterial = () => updateMaterials();
+                    const onGeometry = () => scheduleRebuild();
+
+                    const fPresets = pane.addFolder({ title: '🌟 Style Presets', expanded: true });
+
+                    addControl(fPresets, params, 'preset', { options: presetOptions }).on('change', ev => {
+                        const val = ev && ev.value !== undefined ? ev.value : ev;
+                        if (PRESETS[val]) {
+                            applyPreset(val);
+                            pane.refresh();
+                            updateBackground();
+                            updateLiveColors();
+                            updateMaterials();
+                            scheduleRebuild(20);
+                        }
+                    });
+
+                    addControl(fPresets, params, 'sketchMode', {
+                        label: 'Sketch Style',
+                        options: {
+                            'Brush Sculpture': 'Brush Sculpture',
+                            'Winder Flow Lines': 'Winder Flow Lines'
+                        }
+                    }).on('change', () => scheduleRebuild(0));
+
+                    const fPalette = pane.addFolder({ title: '🌈 Multi-Pigment Palette', expanded: false });
+
+                    addControl(fPalette, params, 'c1', { label: 'Outer Edge' }).on('change', onLiveColor);
+                    addControl(fPalette, params, 'c2', { label: 'Outer Mid' }).on('change', onLiveColor);
+                    addControl(fPalette, params, 'c3', { label: 'Mid Purple' }).on('change', onLiveColor);
+                    addControl(fPalette, params, 'c4', { label: 'Core Magenta' }).on('change', onLiveColor);
+                    addControl(fPalette, params, 'c5', { label: 'Core Crimson' }).on('change', onLiveColor);
+                    addControl(fPalette, params, 'c6', { label: 'Inner Amber' }).on('change', onLiveColor);
+                    addControl(fPalette, params, 'c7', { label: 'Inner Gold' }).on('change', onLiveColor);
+                    addControl(fPalette, params, 'invertPalette', { label: 'Invert Pigment' }).on('change', onLiveColor);
+                    addControl(fPalette, params, 'colorJitter', {
+                        min: 0.0, max: 0.15, step: 0.01, label: 'Color Striation'
+                    }).on('change', onGeometry);
+
+                    const fGeometry = pane.addFolder({ title: '📐 Form & Density', expanded: true });
+
+                    addControl(fGeometry, params, 'fiberCount', {
+                        min: 80, max: 420, step: 10, label: 'Density'
+                    }).on('change', onGeometry);
+
+                    addControl(fGeometry, params, 'sphereRadius', {
+                        min: 140, max: 280, step: 5, label: 'Radius'
+                    }).on('change', onGeometry);
+
+                    addControl(fGeometry, params, 'turns', {
+                        min: 2.0, max: 5.0, step: 0.05, label: 'Turns / Twist'
+                    }).on('change', onGeometry);
+
+                    addControl(fGeometry, params, 'width', {
+                        min: 30, max: 100, step: 2, label: 'Stroke / Line Width'
+                    }).on('change', onGeometry);
+
+                    addControl(fGeometry, params, 'thickness', {
+                        min: 6, max: 32, step: 1, label: 'Depth / Thickness'
+                    }).on('change', onGeometry);
+
+                    addControl(fGeometry, params, 'fiberRadius', {
+                        min: 0.5, max: 2.5, step: 0.1, label: 'Strand Size'
+                    }).on('change', onGeometry);
+
+                    addControl(fGeometry, params, 'waviness', {
+                        min: 0.0, max: 3.0, step: 0.1, label: 'Wiggle / Spread'
+                    }).on('change', onGeometry);
+
+                    addControl(fGeometry, params, 'strayFibers', {
+                        min: 0.0, max: 0.35, step: 0.01, label: 'Stray / Radius Jitter'
+                    }).on('change', onGeometry);
+
+                    addControl(fGeometry, params, 'lineSegments', {
+                        min: 80, max: 600, step: 10, label: 'Line Detail'
+                    }).on('change', onGeometry);
+
+                    addControl(fGeometry, params, 'dashRepeat', {
+                        min: 2, max: 24, step: 1, label: 'Dash Divisions'
+                    }).on('change', onGeometry);
+
+                    addControl(fGeometry, params, 'flowSpeed', {
+                        min: 0.0, max: 3.0, step: 0.05, label: 'Ink Flow Speed'
+                    }).on('change', () => { needsRender = true; });
+
+                    addControl(fGeometry, params, 'startFlick', {
+                        label: 'Brush Flicks (Top + Tail)'
+                    }).on('change', onGeometry);
+
+                    const fMaterial = pane.addFolder({ title: '✨ Paint Luster & Finish', expanded: false });
+
+                    addControl(fMaterial, params, 'shininess', {
+                        min: 10, max: 150, step: 5, label: 'Wet Gloss'
+                    }).on('change', onLiveMaterial);
+
+                    addControl(fMaterial, params, 'specularIntensity', {
+                        min: 0.1, max: 2.0, step: 0.05, label: 'Highlights'
+                    }).on('change', onLiveMaterial);
+
+                    addControl(fMaterial, params, 'fiberOpacity', {
+                        min: 0.4, max: 1.0, step: 0.02, label: 'Stroke Opacity'
+                    }).on('change', onLiveMaterial);
+
+                    addControl(fMaterial, params, 'underRibbonOpacity', {
+                        min: 0.0, max: 1.0, step: 0.05, label: 'Under-Body Fill'
+                    }).on('change', onLiveMaterial);
+
+                    const fMotion = pane.addFolder({ title: '🌪️ Motion & Spin Dynamics', expanded: true });
+
+                    addControl(fMotion, params, 'spinMode', {
+                        label: 'Spin Direction',
+                        options: { 'Downward': 'Downward', 'Paused': 'Paused', 'Upward': 'Upward' }
+                    }).on('change', () => { needsRender = true; });
+
+                    addControl(fMotion, params, 'spinSpeed', {
+                        min: 0.0, max: 2.0, step: 0.05, label: 'Spin Velocity'
+                    }).on('change', () => { needsRender = true; });
+
+                    addControl(fMotion, params, 'floatingBob', {
+                        label: 'Floating Bob'
+                    }).on('change', () => { needsRender = true; });
+
+                    addControl(fMotion, params, 'rotateClockwise', {
+                        label: 'Rotate Clockwise'
+                    }).on('change', () => { needsRender = true; });
+
+                    addControl(fMotion, params, 'bobAmplitude', {
+                        min: 0.0, max: 18.0, step: 0.5, label: 'Bob Amplitude'
+                    }).on('change', () => { needsRender = true; });
+
+                    addControl(fMotion, params, 'bobSpeed', {
+                        min: 0.1, max: 3.0, step: 0.1, label: 'Bob Speed'
+                    }).on('change', () => { needsRender = true; });
+
+                    const fEnvironment = pane.addFolder({ title: '💡 Lighting & Canvas', expanded: false });
+
+                    addControl(fEnvironment, params, 'bgColor', { label: 'Background' }).on('change', updateBackground);
+                    addControl(fEnvironment, params, 'paperGrain', { label: 'Canvas Texture' }).on('change', updateBackground);
+                    addControl(fEnvironment, params, 'grainOpacity', {
+                        min: 0.0, max: 0.4, step: 0.02, label: 'Grain Opacity'
+                    }).on('change', updateBackground);
+                    addControl(fEnvironment, params, 'keyLightIntensity', {
+                        min: 0.2, max: 3.0, step: 0.1, label: 'Sun Key Light'
+                    }).on('change', updateLighting);
+                    addControl(fEnvironment, params, 'fillLightIntensity', {
+                        min: 0.0, max: 2.0, step: 0.1, label: 'Sky Fill Light'
+                    }).on('change', updateLighting);
+                    addControl(fEnvironment, params, 'rimLightIntensity', {
+                        min: 0.0, max: 2.0, step: 0.1, label: 'Rim Light'
+                    }).on('change', updateLighting);
+
+                    const fActions = pane.addFolder({ title: '⚡ Quick Actions', expanded: true });
+
+                    fActions.addButton({ title: '🎲 Randomize Palette & Form' }).on('click', () => {
+                        const randomColor = () =>
+                            '#' + Math.floor(Math.random() * 16777215).toString(16).padStart(6, '0');
+
+                        params.c1 = randomColor();
+                        params.c2 = randomColor();
+                        params.c3 = randomColor();
+                        params.c4 = randomColor();
+                        params.c5 = randomColor();
+                        params.c6 = randomColor();
+                        params.c7 = randomColor();
+                        params.turns = 3.5 + Math.random() * 1.5;
+                        params.crestFold = 0.2 + Math.random() * 0.8;
+                        params.width = 50 + Math.random() * 25;
+
+                        pane.refresh();
+                        scheduleRebuild(20);
+                    });
+
+                    fActions.addButton({ title: '📸 Save High-Res Artwork PNG' }).on('click', () => {
+                        saveHighResArtworkPNG();
+                    });
+
+                    fActions.addButton({ title: '🔄 Reset' }).on('click', () => {
+                        Object.assign(params, DEFAULT_PARAMS);
+                        params.preset = 'Cobalt & Sunset Orange';
+                        applyPreset(params.preset);
+
+                        pivotGroup.position.set(0, -5, 0);
+                        pivotGroup.rotation.x = 0.12;
+                        pivotGroup.rotation.z = 0.02;
+                        pivotGroup.rotation.y = 0;
+
+                        if (currentBrushArt) currentBrushArt.rotation.set(0, 0, 0);
+                        if (controls.reset) controls.reset();
+
+                        pane.refresh();
+                        updateBackground();
+                        updateLighting();
+                        updateMaterials();
+                        scheduleRebuild(20);
+                    });
+                }
+            } catch (e) {
+                console.error('Tweakpane init warning:', e);
+            }
+
+            const clock = new THREE.Clock();
+            let flowTime = 0;
+
+            function animate() {
+                requestAnimationFrame(animate);
+
+                const delta = Math.min(clock.getDelta(), 0.05);
+                const elapsed = clock.elapsedTime;
+                const now = performance.now();
+                let animated = false;
+
+                if (fadeInAnimation && updateFadeIn(now)) animated = true;
+
+                if (currentBrushArt && params.spinMode !== 'Paused' && params.spinSpeed > 0) {
+                    const direction = params.spinMode === 'Upward' ? -1 : 1;
+                    currentBrushArt.rotation.y += direction * delta * params.spinSpeed;
+                    animated = true;
+                }
+
+                if (currentBrushArt && params.rotateClockwise) {
+                    currentBrushArt.rotation.z -= delta * CLOCKWISE_ROTATE_SPEED;
+                    animated = true;
+                } else if (currentBrushArt && currentBrushArt.rotation.z !== 0) {
+                    let z = currentBrushArt.rotation.z % (Math.PI * 2);
+                    if (z > Math.PI) z -= Math.PI * 2;
+                    if (z < -Math.PI) z += Math.PI * 2;
+                    z = dampAngle(z, 0, ROTATE_RETURN_DAMPING, delta);
+                    if (Math.abs(z) < 0.0005) z = 0;
+                    currentBrushArt.rotation.z = z;
+                    animated = true;
+                }
+
+                flowTime += delta * params.flowSpeed;
+                if (currentBrushArt && currentBrushArt.userData.flowMeshes && params.flowSpeed > 0) {
+                    const flowMeshes = currentBrushArt.userData.flowMeshes;
+                    for (let i = 0; i < flowMeshes.length; i++) {
+                        const m = flowMeshes[i];
+                        if (m.material && m.material.map) {
+                            m.material.map.offset.x = m.userData.flowOffset - (m.userData.flowSpeed * flowTime) / 40;
+                        }
+                    }
+                    animated = true;
+                }
+
+                if (params.floatingBob) {
+                    pivotGroup.position.y = -5 + Math.sin(elapsed * params.bobSpeed) * params.bobAmplitude;
+                    pivotGroup.rotation.z = 0.02 + Math.sin(elapsed * 0.4) * 0.015;
+                    animated = true;
+                } else {
+                    if (Math.abs(pivotGroup.position.y + 5) > 0.001) {
+                        pivotGroup.position.y = -5;
+                        animated = true;
+                    }
+                    if (Math.abs(pivotGroup.rotation.z - 0.02) > 0.001) {
+                        pivotGroup.rotation.z = 0.02;
+                        animated = true;
+                    }
+                }
+
+                const controlsChanged = controls.update ? controls.update() : false;
+
+                if (animated || controlsChanged || needsRender) {
+                    renderer.render(scene, camera);
+                    needsRender = false;
+                }
+            }
+
+            animate();
+
+            let resizeFrame = null;
+            window.addEventListener('resize', () => {
+                if (resizeFrame !== null) cancelAnimationFrame(resizeFrame);
+                resizeFrame = requestAnimationFrame(() => {
+                    resizeFrame = null;
+                    resizeRenderer();
+                });
+            });
+
+            document.addEventListener('visibilitychange', () => {
+                clock.getDelta();
+                needsRender = true;
+            });
+
+            renderer.domElement.addEventListener('webglcontextlost', event => {
+                event.preventDefault();
+            });
+
+            renderer.domElement.addEventListener('webglcontextrestored', () => {
+                scheduleRebuild(20);
+            });
+        })();
     </script>
-  </body>
+</body>
 </html>

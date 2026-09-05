@@ -38,6 +38,9 @@
     </div>
     <script type="x-shader/x-fragment">
       #version 300 es
+      /*********
+      * made by Matthias Hurrle (@atzedent)
+      */
       precision highp float;
       out vec4 O;
       uniform float time;
@@ -46,160 +49,93 @@
       uniform vec2 wheel;
       #define FC gl_FragCoord.xy
       #define R resolution
-      #define T (25.0 + time)
+      #define T (25.+time)
+      #define S smoothstep
       #define N normalize
-      #define MN min(R.x, R.y)
-      #define rnd(p) fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453)
-      #define rot(a) mat2(cos((a) - vec4(0.0, 11.0, 33.0, 0.0)))
-
-      float box(vec3 p, vec3 s) {
-        vec3 q = abs(p) - s;
-        return length(max(q, 0.0)) + min(0.0, max(max(q.x, q.y), q.z));
+      #define MN min(R.x,R.y)
+      #define rnd(p) fract(sin(dot(p,vec2(12.9898,78.233)))*345678.)
+      #define rot(a) mat2(cos((a)-vec4(0,11,33,0)))
+      float box(vec3 p, vec3 s, float r) {
+      	p=abs(p)-s+r;
+      	return length(max(p,.0))+min(.0,max(max(p.x,p.y),p.z))-r;
       }
-
-      void cell(vec3 p, out vec3 q, out vec2 id) {
-        vec2 grid = vec2(3.15, 2.8);
-        id = floor((p.xy + grid * 0.5) / grid);
-        q = p;
-        q.xy = mod(p.xy + grid * 0.5, grid) - grid * 0.5;
-      }
-
-      float structure(vec3 p) {
-        vec3 q; vec2 id;
-        cell(p, q, id);
-        float d = 1e5;
-        d = min(d, box(q - vec3(-1.47, 0.0, 0.0), vec3(0.11, 1.42, 0.34)));
-        d = min(d, box(q - vec3( 1.47, 0.0, 0.0), vec3(0.11, 1.42, 0.34)));
-        d = min(d, box(q - vec3(0.0, -1.36, 0.0), vec3(1.48, 0.10, 0.34)));
-        d = min(d, box(q - vec3(0.0,  1.36, 0.0), vec3(1.48, 0.10, 0.34)));
-        d = min(d, box(q - vec3(0.0, 0.0, 0.40), vec3(1.48, 1.40, 0.08)));
-        return d;
-      }
-
-      float windowScene(vec3 p) {
-        vec3 q; vec2 id;
-        cell(p, q, id);
-        float window = step(0.48, rnd(id + 4.7));
-        float d = box(q - vec3(0.0, 0.05, -0.05), vec3(0.92, 0.92, 0.12));
-        return mix(1e5, d, window);
-      }
-
-      float bookScene(vec3 p) {
-        vec3 q; vec2 id;
-        cell(p, q, id);
-        float d = 1e5;
-        float window = step(0.48, rnd(id + 4.7));
-        for (int i = 0; i < 7; i++) {
-          float row = float(i);
-          float y = -1.08 + row * 0.34;
-          float width = 0.82 + 0.42 * rnd(id + row * 3.1);
-          float height = 0.10 + 0.045 * rnd(id + row * 8.3);
-          float lean = (rnd(id + row * 12.7) - 0.5) * 0.10;
-          vec2 xy = rot(lean) * vec2(q.x, q.y - y);
-          d = min(d, box(vec3(xy.x, xy.y, q.z + 0.05), vec3(width, height, 0.48)));
-        }
-        return mix(d, 1e5, window);
-      }
-
-      float lightScene(vec3 p) {
-        vec3 q; vec2 id;
-        cell(p, q, id);
-        float window = step(0.48, rnd(id + 4.7));
-        float lit = step(0.64, rnd(id + 18.2));
-        float d = box(q - vec3(0.0, 0.05, -0.19), vec3(0.72, 0.69, 0.03));
-        return mix(1e5, d, window * lit);
-      }
-
       float map(vec3 p) {
-        p.x += sin(floor(p.y / 2.8) * 1.7) * 0.18;
-        p.z += T * 0.025;
-        return min(min(structure(p), bookScene(p)), min(windowScene(p), lightScene(p)));
+      	vec3 q=cos(p*1.8+5e2);
+      	float s=sign(p.y);
+      	p.y=abs(p.y)-2.5;
+      	vec2 id=floor(p.xz-s);
+      	if (mod(id.y,2.)==.0) {
+      		p.x-=T*.5;
+      		id.x=floor(p.x-s);
+      	}
+      	float f=1.-dot(abs(fract(p*42.)-.5)-.25,vec3(1))*.5;
+      	p.xz=fract(p.xz-s)-.5;
+      	return box(p,vec3(.1+.3*rnd(id),2.-.6*rnd(id),.2),f*f*.0125)-1e-3*f;
       }
       vec3 norm(vec3 p) {
-        float h = 1e-3; vec2 k = vec2(-1.0, 1.0);
-        return N(k.xyy * map(p + k.xyy * h) +
-          k.yxy * map(p + k.yxy * h) +
-          k.yyx * map(p + k.yyx * h) +
-          k.xxx * map(p + k.xxx * h));
+      	float h=1e-3; vec2 k=vec2(-1,1);
+      	return N(
+      		k.xyy*map(p+k.xyy*h)+
+      		k.yxy*map(p+k.yxy*h)+
+      		k.yyx*map(p+k.yyx*h)+
+      		k.xxx*map(p+k.xxx*h)
+      	);
       }
       bool march(inout vec3 p, vec3 rd, out float dd) {
-        dd = 0.0;
-        for (int i = 0; i < 400; i++) {
-          float d = map(p);
-          if (abs(d) < 1e-3) return true;
-          if (dd > 45.0) return false;
-          p += rd * d * 0.55;
-          dd += d * 0.55;
-        }
-        return false;
+      	for (int i; i++<400;) {
+      		float d=map(p);
+      		if (abs(d)<1e-3) return true;
+      		if (dd>15.) return false;
+      		p+=rd*d*.5;
+      		dd+=d*.5;
+      	}
       }
       float occ(vec3 p, vec3 n, float d) {
-        return clamp(map(p + n * d) / d, 0.0, 1.0);
+      	return clamp(map(p+n*d)/d,.0,1.);
       }
       vec3 dir(vec2 uv, vec3 p, vec3 t, float z) {
-        vec3 up = vec3(0.0, 1.0, 0.0);
-        vec3 f = N(t - p);
-        vec3 r = N(cross(up, f));
-        vec3 u = N(cross(f, r));
-        return mat3(r, u, f) * N(vec3(uv, z));
+      	vec3 up=vec3(0,1,0),
+      	f=N(t-p),
+      	r=N(cross(up,f)),
+      	u=N(cross(f,r));
+      	return mat3(r,u,f)*N(vec3(uv,z));
       }
       void cam(inout vec3 p) {
-        p.xz *= rot(0.12 - move.x / MN + sin(T * 0.04) * 0.015);
-        p.xy *= rot(0.02 + move.y / MN);
-      }
-      vec3 materialAt(vec3 p) {
-        vec3 sceneP = p;
-        sceneP.z += T * 0.025;
-        float sd = structure(sceneP);
-        float bd = bookScene(sceneP);
-        float wd = windowScene(sceneP);
-        float ld = lightScene(sceneP);
-        if (ld < sd && ld < bd && ld < wd) return vec3(1.8, 0.42, 0.06);
-        if (wd < sd && wd < bd) return vec3(0.015, 0.025, 0.028);
-        if (bd < sd) {
-          vec3 q; vec2 id;
-          cell(sceneP, q, id);
-          float row = floor((q.y + 1.08) / 0.34);
-          float palette = rnd(id + row * 6.3);
-          if (palette < 0.25) return vec3(0.32, 0.42, 0.45);
-          if (palette < 0.50) return vec3(0.72, 0.25, 0.12);
-          if (palette < 0.75) return vec3(0.48, 0.54, 0.50);
-          return vec3(0.86, 0.58, 0.30);
-        }
-        return vec3(0.10, 0.13, 0.14);
+      	p.xz*=rot(.2-move.x/MN+.2*T*.01);
       }
       vec3 render(vec2 uv) {
-        vec3 col = vec3(0.002, 0.004, 0.006);
-        vec3 p = vec3(0.0, 0.0, -18.0 - wheel.y / MN);
-        cam(p);
-        vec3 rd = dir(uv, p, vec3(0.0, 0.0, 1.5), 1.15);
-        vec3 lp = vec3(-5.0, 7.0, -7.0);
-        float dd;
-        if (march(p, rd, dd)) {
-          vec3 n = norm(p);
-          vec3 l = N(lp - p);
-          vec3 mat = materialAt(p);
-          float dif = clamp(dot(l, n), 0.0, 1.0);
-          float rim = pow(1.0 - clamp(dot(n, -rd), 0.0, 1.0), 2.0);
-          float spe = pow(clamp(dot(N(lp - rd), n), 0.0, 1.0), 24.0);
-          float ao = occ(p, n, 0.45) * 0.82 * occ(p, n, 1.0);
-          float ld = distance(lp, p);
-          float atten = 1.0 / (1.0 + ld * 0.18 + ld * ld * 0.05);
-          col += mat * (0.20 + dif * 1.45 * ao * atten);
-          col += spe * vec3(0.8, 0.9, 0.85) * atten;
-          col += rim * mat * 0.18;
-        }
-        col = mix(vec3(0.004, 0.008, 0.012), col, exp(-0.00018 * dd * dd * dd));
-        col = col * 1.35 / (1.0 + abs(col * 1.35));
-        col = sqrt(max(col, 0.0));
-        vec2 c = FC / R;
-        c *= 1.0 - c.yx;
-        col *= pow(c.x * c.y * 25.0, 0.35);
-        return col;
+      	vec3 col=vec3(0),
+      	p=vec3(0,-.3,-23.5-wheel.y/MN-1e2*sin(T*5e-3));
+      	cam(p);
+      	vec3 rd=dir(uv,p,vec3(0,5.5,0),1.2), lp=p;
+      	lp.z+=.5;
+      	float dd;
+      	if (march(p,rd,dd)) {
+      		vec3 n=norm(p), l=N(lp-p);
+      		float dif=clamp(dot(l,n),.0,1.),
+      		spe=pow(clamp(dot(N(lp-rd),n),.0,1.),21.),
+      		ao=occ(p,n,.5)*.8*occ(p,n,1.),
+      		ld=distance(lp,p), atten=1./(1.+ld*.25+ld*ld*.125);
+      		vec3 mat=vec3(4,1.6,.6);
+      		col+=.08+dif*mat*ao*atten;
+      		col+=spe*atten;
+      	}
+      	col=mix(vec3(0),col,exp(-125e-5*dd*dd*dd));
+      	col=tanh(col*col);
+      	col=sqrt(col);
+      	col=mix(vec3(0),col,min(time*.3,1.));
+      	// vignette
+      	vec2 c=FC/R;
+      	c*=1.-c.yx;
+      	float vig=c.x*c.y*25.;
+      	vig=pow(vig,.5);
+      	col*=vig;
+      	return col;
       }
       void main() {
-        vec2 uv = (FC - 0.5 * R) / MN;
-        O = vec4(render(uv), 1.0);
+      	vec2 uv=(FC-.5*R)/MN;
+      	vec3 col=render(uv);
+        O=vec4(col,1);
       }
     </script>
   </body>

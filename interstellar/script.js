@@ -26,7 +26,6 @@ function toggleView() {
 function reset() {
     let shader = source
     editor.text = shader ? shader.textContent : renderer.defaultSource
-    store.putShaderSource(shaderId, editor.text)
     renderThis()
 }
 function toggleResolution() {
@@ -47,14 +46,14 @@ function loop(now) {
 }
 function renderThis() {
     editor.clearError()
-    store.putShaderSource(shaderId, editor.text)
+    const shaderSource = editor.text.replace(/^\s*(#version)/, '$1')
 
-    const result = renderer.test(editor.text)
+    const result = renderer.test(shaderSource)
 
     if (result) {
         editor.setError(result)
     } else {
-        renderer.updateShader(editor.text)
+        renderer.updateShader(shaderSource)
     }
     cancelAnimationFrame(frm) // Always cancel the previous frame!
     loop(0)
@@ -69,6 +68,11 @@ const debounce = (fn, delay) => {
 const render = debounce(renderThis, renderDelay)
 function init() {
     source = document.querySelector("script[type='x-shader/x-fragment']")
+
+    codeEditor.addEventListener('input', render)
+    btnToggleView.addEventListener('change', toggleView)
+    btnToggleResolution.addEventListener('change', toggleResolution)
+    btnReset.addEventListener('click', reset)
 
     document.title = "Elevator Visual"
 

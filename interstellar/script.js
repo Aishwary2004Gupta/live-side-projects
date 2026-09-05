@@ -46,7 +46,7 @@ function loop(now) {
 }
 function renderThis() {
     editor.clearError()
-    const shaderSource = editor.text.replace(/^\s*(#version)/, '$1')
+    const shaderSource = normalizeShaderSource(editor.text)
 
     const result = renderer.test(shaderSource)
 
@@ -57,6 +57,9 @@ function renderThis() {
     }
     cancelAnimationFrame(frm) // Always cancel the previous frame!
     loop(0)
+}
+function normalizeShaderSource(shaderSource) {
+    return shaderSource.replace(/^\s*(#version)/, '$1')
 }
 const debounce = (fn, delay) => {
     let timerId
@@ -95,8 +98,9 @@ function init() {
 
     resize()
 
-    if (renderer.test(source.textContent) === null) {
-        renderer.updateShader(source.textContent)
+    const shaderSource = normalizeShaderSource(source.textContent)
+    if (renderer.test(shaderSource) === null) {
+        renderer.updateShader(shaderSource)
     }
     loop(0)
     window.onresize = resize

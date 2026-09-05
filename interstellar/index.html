@@ -46,267 +46,267 @@
       </div>
     </div>
     <script type="x-shader/x-fragment">
-      #version 300 es
-precision highp float;
+            #version 300 es
+      precision highp float;
 
-out vec4 O;
+      out vec4 O;
 
-uniform float time;
-uniform vec2 resolution;
-uniform vec2 move;
-uniform vec2 wheel;
+      uniform float time;
+      uniform vec2 resolution;
+      uniform vec2 move;
+      uniform vec2 wheel;
 
-#define FC gl_FragCoord.xy
-#define R resolution
-#define T (25.0 + time)
-#define S smoothstep
-#define N normalize
-#define MN min(R.x, R.y)
+      #define FC gl_FragCoord.xy
+      #define R resolution
+      #define T (25.0 + time)
+      #define S smoothstep
+      #define N normalize
+      #define MN min(R.x, R.y)
 
-#define MODULE_W 4.8
-#define MODULE_H 5.2
-#define MODULE_D 3.6
+      #define MODULE_W 4.8
+      #define MODULE_H 5.2
+      #define MODULE_D 3.6
 
-float rnd(vec2 p) {
-  return fract(sin(dot(p, vec2(12.9898, 78.233))) * 345678.0);
-}
+      float rnd(vec2 p) {
+        return fract(sin(dot(p, vec2(12.9898, 78.233))) * 345678.0);
+      }
 
-mat2 rot(float a) {
-  float c = cos(a);
-  float s = sin(a);
-  return mat2(c, -s, s, c);
-}
+      mat2 rot(float a) {
+        float c = cos(a);
+        float s = sin(a);
+        return mat2(c, -s, s, c);
+      }
 
-float box(vec3 p, vec3 s) {
-  vec3 q = abs(p) - s;
-  return length(max(q, 0.0)) + min(0.0, max(max(q.x, q.y), q.z));
-}
+      float box(vec3 p, vec3 s) {
+        vec3 q = abs(p) - s;
+        return length(max(q, 0.0)) + min(0.0, max(max(q.x, q.y), q.z));
+      }
 
-void repeatSpace(vec3 p, out vec3 q, out vec2 id) {
-  vec2 grid = vec2(MODULE_W, MODULE_D);
-  id = floor((p.xz + grid * 0.5) / grid);
+      void repeatSpace(vec3 p, out vec3 q, out vec2 id) {
+        vec2 grid = vec2(MODULE_W, MODULE_D);
+        id = floor((p.xz + grid * 0.5) / grid);
 
-  q = p;
-  q.xz = mod(p.xz + grid * 0.5, grid) - grid * 0.5;
-  q.y = mod(p.y + MODULE_H * 0.5, MODULE_H) - MODULE_H * 0.5;
-}
+        q = p;
+        q.xz = mod(p.xz + grid * 0.5, grid) - grid * 0.5;
+        q.y = mod(p.y + MODULE_H * 0.5, MODULE_H) - MODULE_H * 0.5;
+      }
 
-float frameScene(vec3 p) {
-  vec3 q;
-  vec2 id;
-  repeatSpace(p, q, id);
+      float frameScene(vec3 p) {
+        vec3 q;
+        vec2 id;
+        repeatSpace(p, q, id);
 
-  float d = 1e5;
+        float d = 1e5;
 
-  // Tall side posts and a central divider give each module the heavy
-  // industrial steel silhouette from the reference image.
-  d = min(d, box(q - vec3(-2.18, 0.0, 0.0), vec3(0.13, 2.50, 1.58)));
-  d = min(d, box(q - vec3( 2.18, 0.0, 0.0), vec3(0.13, 2.50, 1.58)));
-  d = min(d, box(q - vec3( 0.0, 0.0, 1.50), vec3(2.20, 2.48, 0.07)));
+        // Tall side posts and a central divider give each module the heavy
+        // industrial steel silhouette from the reference image.
+        d = min(d, box(q - vec3(-2.18, 0.0, 0.0), vec3(0.13, 2.50, 1.58)));
+        d = min(d, box(q - vec3( 2.18, 0.0, 0.0), vec3(0.13, 2.50, 1.58)));
+        d = min(d, box(q - vec3( 0.0, 0.0, 1.50), vec3(2.20, 2.48, 0.07)));
 
-  // Five shelf levels create the regular bookshelf rhythm.
-  for (int i = 0; i < 5; i++) {
-    float y = -2.10 + float(i) * 1.05;
-    d = min(d, box(q - vec3(0.0, y, 0.0), vec3(2.22, 0.075, 1.62)));
+        // Five shelf levels create the regular bookshelf rhythm.
+        for (int i = 0; i < 5; i++) {
+          float y = -2.10 + float(i) * 1.05;
+          d = min(d, box(q - vec3(0.0, y, 0.0), vec3(2.22, 0.075, 1.62)));
 
-    // Narrow rear braces break up the depth without closing the cubbies.
-    d = min(d, box(q - vec3(-1.35, y + 0.38, 1.37), vec3(0.045, 0.38, 0.045)));
-    d = min(d, box(q - vec3( 1.35, y + 0.38, 1.37), vec3(0.045, 0.38, 0.045)));
-  }
+          // Narrow rear braces break up the depth without closing the cubbies.
+          d = min(d, box(q - vec3(-1.35, y + 0.38, 1.37), vec3(0.045, 0.38, 0.045)));
+          d = min(d, box(q - vec3( 1.35, y + 0.38, 1.37), vec3(0.045, 0.38, 0.045)));
+        }
 
-  // Offset modules alternate slightly, producing the suspended, impossible
-  // depth of the tesseract library instead of one flat wall.
-  float offsetBrace = step(0.55, rnd(id + 19.7));
-  d = min(d, box(
-    q - vec3(0.0, -2.45 + offsetBrace * 0.10, -1.48),
-    vec3(2.18, 0.07, 0.07)
-  ));
+        // Offset modules alternate slightly, producing the suspended, impossible
+        // depth of the tesseract library instead of one flat wall.
+        float offsetBrace = step(0.55, rnd(id + 19.7));
+        d = min(d, box(
+          q - vec3(0.0, -2.45 + offsetBrace * 0.10, -1.48),
+          vec3(2.18, 0.07, 0.07)
+        ));
 
-  return d;
-}
+        return d;
+      }
 
-float bookScene(vec3 p) {
-  vec3 q;
-  vec2 id;
-  repeatSpace(p, q, id);
+      float bookScene(vec3 p) {
+        vec3 q;
+        vec2 id;
+        repeatSpace(p, q, id);
 
-  float d = 1e5;
-  float moduleSeed = dot(id, vec2(7.13, 31.71));
+        float d = 1e5;
+        float moduleSeed = dot(id, vec2(7.13, 31.71));
 
-  // Each shelf has its own row of individually seeded books. The fixed
-  // horizontal stride keeps the books packed while their heights, lean, and
-  // occupancy vary enough to avoid a procedural-tile look.
-  for (int i = 0; i < 5; i++) {
-    float row = float(i);
-    float shelfY = -2.10 + row * 1.05;
-    float occupied = step(0.10, rnd(vec2(moduleSeed, row * 5.31 + 4.0)));
+        // Each shelf has its own row of individually seeded books. The fixed
+        // horizontal stride keeps the books packed while their heights, lean, and
+        // occupancy vary enough to avoid a procedural-tile look.
+        for (int i = 0; i < 5; i++) {
+          float row = float(i);
+          float shelfY = -2.10 + row * 1.05;
+          float occupied = step(0.10, rnd(vec2(moduleSeed, row * 5.31 + 4.0)));
 
-    if (occupied > 0.5) {
-      float bookId = floor((q.x + 2.08) / 0.34);
-      float bookX = mod(q.x + 2.08, 0.34) - 0.17;
-      vec2 seed = vec2(bookId + moduleSeed * 0.17, row * 23.0 + moduleSeed);
+          if (occupied > 0.5) {
+            float bookId = floor((q.x + 2.08) / 0.34);
+            float bookX = mod(q.x + 2.08, 0.34) - 0.17;
+            vec2 seed = vec2(bookId + moduleSeed * 0.17, row * 23.0 + moduleSeed);
 
-      float height = 0.42 + 0.43 * rnd(seed);
-      float lean = (rnd(seed + 8.0) - 0.5) * 0.16;
-      float width = 0.115 + 0.035 * rnd(seed + 16.0);
-      float depth = 0.54 + 0.34 * rnd(seed + 24.0);
-      float zJitter = (rnd(seed + 32.0) - 0.5) * 0.14;
+            float height = 0.42 + 0.43 * rnd(seed);
+            float lean = (rnd(seed + 8.0) - 0.5) * 0.16;
+            float width = 0.115 + 0.035 * rnd(seed + 16.0);
+            float depth = 0.54 + 0.34 * rnd(seed + 24.0);
+            float zJitter = (rnd(seed + 32.0) - 0.5) * 0.14;
 
-      vec2 xy = rot(lean) * vec2(bookX, q.y - (shelfY + 0.08 + height * 0.5));
-      vec3 bookP = vec3(xy.x, xy.y, q.z + 0.24 + zJitter);
-      d = min(d, box(bookP, vec3(width, height * 0.5, depth)));
+            vec2 xy = rot(lean) * vec2(bookX, q.y - (shelfY + 0.08 + height * 0.5));
+            vec3 bookP = vec3(xy.x, xy.y, q.z + 0.24 + zJitter);
+            d = min(d, box(bookP, vec3(width, height * 0.5, depth)));
 
-      // Occasional thin spine highlight, like reflected light on a worn book.
-      float spine = box(
-        vec3(bookP.x + width * 0.72, bookP.y, bookP.z + depth * 0.82),
-        vec3(0.012, height * 0.37, 0.012)
-      );
-      d = min(d, spine);
-    }
-  }
+            // Occasional thin spine highlight, like reflected light on a worn book.
+            float spine = box(
+              vec3(bookP.x + width * 0.72, bookP.y, bookP.z + depth * 0.82),
+              vec3(0.012, height * 0.37, 0.012)
+            );
+            d = min(d, spine);
+          }
+        }
 
-  return d;
-}
+        return d;
+      }
 
-float lightScene(vec3 p) {
-  vec3 q;
-  vec2 id;
-  repeatSpace(p, q, id);
+      float lightScene(vec3 p) {
+        vec3 q;
+        vec2 id;
+        repeatSpace(p, q, id);
 
-  float d = 1e5;
-  for (int i = 0; i < 5; i++) {
-    float y = -2.10 + float(i) * 1.05 + 0.12;
-    d = min(d, box(q - vec3(0.0, y, -1.53), vec3(2.0, 0.018, 0.035)));
-  }
-  return d;
-}
+        float d = 1e5;
+        for (int i = 0; i < 5; i++) {
+          float y = -2.10 + float(i) * 1.05 + 0.12;
+          d = min(d, box(q - vec3(0.0, y, -1.53), vec3(2.0, 0.018, 0.035)));
+        }
+        return d;
+      }
 
-float map(vec3 p) {
-  // The slow drift makes the shelving field feel infinite while retaining
-  // the original shader's motion.
-  p.z += T * 0.16;
-  return min(min(frameScene(p), bookScene(p)), lightScene(p));
-}
+      float map(vec3 p) {
+        // The slow drift makes the shelving field feel infinite while retaining
+        // the original shader's motion.
+        p.z += T * 0.16;
+        return min(min(frameScene(p), bookScene(p)), lightScene(p));
+      }
 
-vec3 norm(vec3 p) {
-  float h = 1e-3;
-  vec2 k = vec2(-1.0, 1.0);
-  return N(
-    k.xyy * map(p + k.xyy * h) +
-    k.yxy * map(p + k.yxy * h) +
-    k.yyx * map(p + k.yyx * h) +
-    k.xxx * map(p + k.xxx * h)
-  );
-}
+      vec3 norm(vec3 p) {
+        float h = 1e-3;
+        vec2 k = vec2(-1.0, 1.0);
+        return N(
+          k.xyy * map(p + k.xyy * h) +
+          k.yxy * map(p + k.yxy * h) +
+          k.yyx * map(p + k.yyx * h) +
+          k.xxx * map(p + k.xxx * h)
+        );
+      }
 
-bool march(inout vec3 p, vec3 rd, out float dd) {
-  dd = 0.0;
-  for (int i = 0; i < 420; i++) {
-    float d = map(p);
-    if (abs(d) < 1e-3) return true;
-    if (dd > 42.0) return false;
-    p += rd * d * 0.55;
-    dd += d * 0.55;
-  }
-  return false;
-}
+      bool march(inout vec3 p, vec3 rd, out float dd) {
+        dd = 0.0;
+        for (int i = 0; i < 420; i++) {
+          float d = map(p);
+          if (abs(d) < 1e-3) return true;
+          if (dd > 42.0) return false;
+          p += rd * d * 0.55;
+          dd += d * 0.55;
+        }
+        return false;
+      }
 
-float occ(vec3 p, vec3 n, float d) {
-  return clamp(map(p + n * d) / d, 0.0, 1.0);
-}
+      float occ(vec3 p, vec3 n, float d) {
+        return clamp(map(p + n * d) / d, 0.0, 1.0);
+      }
 
-vec3 dir(vec2 uv, vec3 p, vec3 t, float z) {
-  vec3 up = vec3(0.0, 1.0, 0.0);
-  vec3 f = N(t - p);
-  vec3 r = N(cross(up, f));
-  vec3 u = N(cross(f, r));
-  return mat3(r, u, f) * N(vec3(uv, z));
-}
+      vec3 dir(vec2 uv, vec3 p, vec3 t, float z) {
+        vec3 up = vec3(0.0, 1.0, 0.0);
+        vec3 f = N(t - p);
+        vec3 r = N(cross(up, f));
+        vec3 u = N(cross(f, r));
+        return mat3(r, u, f) * N(vec3(uv, z));
+      }
 
-void cam(inout vec3 p) {
-  p.xz *= rot(0.16 - move.x / MN + sin(T * 0.08) * 0.015);
-  p.xy *= rot(0.025 + move.y / MN);
-}
+      void cam(inout vec3 p) {
+        p.xz *= rot(0.16 - move.x / MN + sin(T * 0.08) * 0.015);
+        p.xy *= rot(0.025 + move.y / MN);
+      }
 
-vec3 materialAt(vec3 p) {
-  // Keep material lookup in the same drifting coordinate space as map().
-  vec3 sceneP = p;
-  sceneP.z += T * 0.16;
-  float fd = frameScene(sceneP);
-  float bd = bookScene(sceneP);
-  float ld = lightScene(sceneP);
+      vec3 materialAt(vec3 p) {
+        // Keep material lookup in the same drifting coordinate space as map().
+        vec3 sceneP = p;
+        sceneP.z += T * 0.16;
+        float fd = frameScene(sceneP);
+        float bd = bookScene(sceneP);
+        float ld = lightScene(sceneP);
 
-  if (ld < fd && ld < bd) {
-    return vec3(0.72, 0.94, 0.84);
-  }
+        if (ld < fd && ld < bd) {
+          return vec3(0.72, 0.94, 0.84);
+        }
 
-  if (bd < fd) {
-    vec3 q;
-    vec2 id;
-    repeatSpace(sceneP, q, id);
-    float row = clamp(floor((q.y + 2.02) / 1.05), 0.0, 4.0);
-    float bookId = floor((q.x + 2.08) / 0.34);
-    float palette = rnd(vec2(bookId + row * 17.0, dot(id, vec2(3.0, 11.0))));
+        if (bd < fd) {
+          vec3 q;
+          vec2 id;
+          repeatSpace(sceneP, q, id);
+          float row = clamp(floor((q.y + 2.02) / 1.05), 0.0, 4.0);
+          float bookId = floor((q.x + 2.08) / 0.34);
+          float palette = rnd(vec2(bookId + row * 17.0, dot(id, vec2(3.0, 11.0))));
 
-    vec3 ochre = vec3(0.56, 0.27, 0.10);
-    vec3 teal = vec3(0.12, 0.34, 0.32);
-    vec3 moss = vec3(0.32, 0.39, 0.22);
-    vec3 paper = vec3(0.68, 0.54, 0.31);
+          vec3 ochre = vec3(0.56, 0.27, 0.10);
+          vec3 teal = vec3(0.12, 0.34, 0.32);
+          vec3 moss = vec3(0.32, 0.39, 0.22);
+          vec3 paper = vec3(0.68, 0.54, 0.31);
 
-    if (palette < 0.25) return ochre;
-    if (palette < 0.50) return teal;
-    if (palette < 0.75) return moss;
-    return paper;
-  }
+          if (palette < 0.25) return ochre;
+          if (palette < 0.50) return teal;
+          if (palette < 0.75) return moss;
+          return paper;
+        }
 
-  // Dark gunmetal frames with just enough green-blue reflection to separate
-  // beams from the black voids between modules.
-  return vec3(0.13, 0.17, 0.17);
-}
+        // Dark gunmetal frames with just enough green-blue reflection to separate
+        // beams from the black voids between modules.
+        return vec3(0.13, 0.17, 0.17);
+      }
 
-vec3 render(vec2 uv) {
-  vec3 col = vec3(0.002, 0.004, 0.006);
-  vec3 p = vec3(0.0, 0.15, -21.5 - wheel.y / MN);
-  cam(p);
+      vec3 render(vec2 uv) {
+        vec3 col = vec3(0.002, 0.004, 0.006);
+        vec3 p = vec3(0.0, 0.15, -21.5 - wheel.y / MN);
+        cam(p);
 
-  vec3 rd = dir(uv, p, vec3(0.0, 0.35, 4.0), 1.15);
-  vec3 lp = vec3(-4.0, 7.0, -6.0);
-  float dd;
+        vec3 rd = dir(uv, p, vec3(0.0, 0.35, 4.0), 1.15);
+        vec3 lp = vec3(-4.0, 7.0, -6.0);
+        float dd;
 
-  if (march(p, rd, dd)) {
-    vec3 n = norm(p);
-    vec3 l = N(lp - p);
-    vec3 mat = materialAt(p);
+        if (march(p, rd, dd)) {
+          vec3 n = norm(p);
+          vec3 l = N(lp - p);
+          vec3 mat = materialAt(p);
 
-    float dif = clamp(dot(l, n), 0.0, 1.0);
-    float rim = pow(1.0 - clamp(dot(n, -rd), 0.0, 1.0), 2.0);
-    float spe = pow(clamp(dot(N(lp - rd), n), 0.0, 1.0), 28.0);
-    float ao = occ(p, n, 0.45) * 0.82 * occ(p, n, 1.0);
-    float ld = distance(lp, p);
-    float atten = 1.0 / (1.0 + ld * 0.20 + ld * ld * 0.07);
+          float dif = clamp(dot(l, n), 0.0, 1.0);
+          float rim = pow(1.0 - clamp(dot(n, -rd), 0.0, 1.0), 2.0);
+          float spe = pow(clamp(dot(N(lp - rd), n), 0.0, 1.0), 28.0);
+          float ao = occ(p, n, 0.45) * 0.82 * occ(p, n, 1.0);
+          float ld = distance(lp, p);
+          float atten = 1.0 / (1.0 + ld * 0.20 + ld * ld * 0.07);
 
-    col += mat * (0.055 + dif * 1.15 * ao * atten);
-    col += spe * vec3(0.75, 0.90, 0.84) * atten;
-    col += rim * mat * 0.16;
-  }
+          col += mat * (0.055 + dif * 1.15 * ao * atten);
+          col += spe * vec3(0.75, 0.90, 0.84) * atten;
+          col += rim * mat * 0.16;
+        }
 
-  // A subtle blue haze preserves the endless-space feeling behind the
-  // shelves, while keeping the foreground almost black.
-  col = mix(vec3(0.001, 0.004, 0.008), col, exp(-0.00042 * dd * dd * dd));
-  col = tanh(col * 1.35);
-  col = sqrt(max(col, 0.0));
+        // A subtle blue haze preserves the endless-space feeling behind the
+        // shelves, while keeping the foreground almost black.
+        col = mix(vec3(0.001, 0.004, 0.008), col, exp(-0.00042 * dd * dd * dd));
+        col = tanh(col * 1.35);
+        col = sqrt(max(col, 0.0));
 
-  vec2 c = FC / R;
-  c *= 1.0 - c.yx;
-  float vig = pow(c.x * c.y * 25.0, 0.52);
-  col *= vig;
-  return col;
-}
+        vec2 c = FC / R;
+        c *= 1.0 - c.yx;
+        float vig = pow(c.x * c.y * 25.0, 0.52);
+        col *= vig;
+        return col;
+      }
 
-void main() {
-  vec2 uv = (FC - 0.5 * R) / MN;
-  O = vec4(render(uv), 1.0);
-}
+      void main() {
+        vec2 uv = (FC - 0.5 * R) / MN;
+        O = vec4(render(uv), 1.0);
+      }
     </script>
   </body>
 </html>

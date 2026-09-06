@@ -40,776 +40,102 @@
 
     <script type="x-shader/x-fragment">
       #version 300 es
-
-precision highp float;
-
-out vec4 O;
-
-uniform float time;
-uniform vec2 resolution;
-uniform vec2 move;
-uniform vec2 wheel;
-
-#define FC gl_FragCoord.xy
-#define MN min(resolution.x, resolution.y)
-
-const float SHELF_H       = 1.72;
-const float BOOK_SLOT     = 0.235;
-const float POST_SPACING  = 6.2;
-const float LIGHT_SPACING = 1.5;
-
-/* --------------------------------------------------------- */
-/* Hash functions                                             */
-/* --------------------------------------------------------- */
-
-float hash21(vec2 p)
-{
-    return fract(
-        sin(dot(p, vec2(127.1, 311.7))) *
-        43758.5453123
-    );
-}
-
-vec3 hash31(vec2 p)
-{
-    return fract(
-        sin(vec3(
-            dot(p, vec2(127.1, 311.7)),
-            dot(p, vec2(269.5, 183.3)),
-            dot(p, vec2(419.2, 371.9))
-        )) * 43758.5453123
-    );
-}
-
-/* --------------------------------------------------------- */
-/* Signed distance functions                                  */
-/* --------------------------------------------------------- */
-
-float sdBox(vec3 p, vec3 b)
-{
-    vec3 q = abs(p) - b;
-
-    return length(max(q, vec3(0.0))) +
-           min(max(q.x, max(q.y, q.z)), 0.0);
-}
-
-float sdRoundBox(vec3 p, vec3 b, float r)
-{
-    vec3 q = abs(p) - b + r;
-
-    return length(max(q, vec3(0.0))) +
-           min(max(q.x, max(q.y, q.z)), 0.0) - r;
-}
-
-vec3 rotateBook(vec3 p, float a)
-{
-    float c = cos(a);
-    float s = sin(a);
-
-    vec2 xz = vec2(
-        c * p.x - s * p.z,
-        s * p.x + c * p.z
-    );
-
-    p.xz = xz;
-    return p;
-}
-
-/* --------------------------------------------------------- */
-/* Book colors                                                */
-/* --------------------------------------------------------- */
-
-vec3 bookColour(vec2 id, vec3 randomValue)
-{
-    float palette = hash21(id + vec2(7.3, 2.1));
-    vec3 color;
-
-    if (palette < 0.28)
-    {
-        color = vec3(0.32, 0.045, 0.028);
-    }
-    else if (palette < 0.48)
-    {
-        color = vec3(0.48, 0.16, 0.055);
-    }
-    else if (palette < 0.67)
-    {
-        color = vec3(0.30, 0.18, 0.075);
-    }
-    else if (palette < 0.82)
-    {
-        color = vec3(0.52, 0.38, 0.19);
-    }
-    else if (palette < 0.92)
-    {
-        color = vec3(0.045, 0.13, 0.095);
-    }
-    else
-    {
-        color = vec3(0.055, 0.10, 0.19);
-    }
-
-    color *= 0.70 + randomValue.x * 0.45;
-
-    return color;
-}
-
-/* Select the closest object and its material. */
-void takeMaterial(
-    float newDistance,
-    vec3 newMaterial,
-    float newEmission,
-    inout float distanceValue,
-    inout vec3 material,
-    inout float emission
-)
-{
-    if (newDistance < distanceValue)
-    {
-        distanceValue = newDistance;
-        material = newMaterial;
-        emission = newEmission;
-    }
-}
-
-/* --------------------------------------------------------- */
-/* Library scene                                              */
-/* --------------------------------------------------------- */
-
-float scene(
-    vec3 p,
-    out vec3 material,
-    out float emission
-)
-{
-    float d = 100000.0;
-
-    material = vec3(0.0);
-    emission = 0.0;
-
-    /* Shelf row index */
-    float shelfIndex = floor(p.y / SHELF_H);
-    float localY = p.y - shelfIndex * SHELF_H;
-
-    /* Back wall */
-    float backWall = sdBox(
-        p - vec3(0.0, 0.0, 0.78),
-        vec3(1000.0, 1000.0, 0.055)
-    );
-
-    takeMaterial(
-        backWall,
-        vec3(0.018, 0.014, 0.011),
-        0.0,
-        d,
-        material,
-        emission
-    );
-
-    /* Repeating horizontal wooden shelves */
-    float nearestShelfY =
-        floor(p.y / SHELF_H + 0.5) * SHELF_H + 0.035;
-
-    float shelf = sdRoundBox(
-        p - vec3(0.0, nearestShelfY, -0.035),
-        vec3(1000.0, 0.075, 0.72),
-        0.025
-    );
-
-    takeMaterial(
-        shelf,
-        vec3(0.035, 0.019, 0.012),
-        0.0,
-        d,
-        material,
-        emission
-    );
-
-    /* Individual book slot */
-    float columnIndex = floor(p.x / BOOK_SLOT);
-
-    float localX =
-        p.x - (columnIndex + 0.5) * BOOK_SLOT;
-
-    vec2 bookId = vec2(columnIndex, shelfIndex);
-    vec3 randomValue = hash31(bookId);
-
-    float bookHeight = mix(0.94, 1.46, randomValue.x);
-
-    float bookWidth =
-        BOOK_SLOT * (0.39 + 0.07 * randomValue.z);
-
-    float bookHalfDepth =
-        mix(0.31, 0.39, randomValue.y);
-
-    float frontPosition =
-        -0.57 + randomValue.y * 0.075;
-
-    float bookCenterZ =
-        frontPosition + bookHalfDepth;
-
-    float bookBaseY =
-        shelfIndex * SHELF_H + 0.115;
-
-    vec3 bookCenter = vec3(
-        (columnIndex + 0.5) * BOOK_SLOT,
-        bookBaseY + bookHeight * 0.5,
-        bookCenterZ
-    );
-
-    vec3 bookPoint = p - bookCenter;
-
-    float bookRotation =
-        mix(-0.045, 0.045, randomValue.z);
-
-    bookPoint = rotateBook(bookPoint, bookRotation);
-
-    float book = sdRoundBox(
-        bookPoint,
-        vec3(bookWidth, bookHeight * 0.5, bookHalfDepth),
-        0.012
-    );
-
-    vec3 bookMaterial =
-        bookColour(bookId, randomValue);
-
-    takeMaterial(
-        book,
-        bookMaterial,
-        0.0,
-        d,
-        material,
-        emission
-    );
-
-    /*
-       Spine details. They are only evaluated close to the
-       actual book to reduce shader cost.
-    */
-    if (book < 0.22)
-    {
-        /* Gold line near the bottom of the spine */
-        float lowerBand = sdRoundBox(
-            bookPoint - vec3(
-                0.0,
-                -bookHeight * 0.5 + bookHeight * 0.13,
-                -bookHalfDepth - 0.008
-            ),
-            vec3(bookWidth * 0.78, 0.010, 0.016),
-            0.003
-        );
-
-        takeMaterial(
-            lowerBand,
-            vec3(0.67, 0.38, 0.12),
-            0.0,
-            d,
-            material,
-            emission
-        );
-
-        /* Gold line near the top of the spine */
-        float upperBand = sdRoundBox(
-            bookPoint - vec3(
-                0.0,
-                bookHeight * 0.5 - bookHeight * 0.15,
-                -bookHalfDepth - 0.008
-            ),
-            vec3(bookWidth * 0.78, 0.010, 0.016),
-            0.003
-        );
-
-        takeMaterial(
-            upperBand,
-            vec3(0.72, 0.43, 0.15),
-            0.0,
-            d,
-            material,
-            emission
-        );
-
-        /* Narrow vertical spine seam */
-        if (randomValue.z > 0.12)
-        {
-            float seam = sdBox(
-                bookPoint - vec3(
-                    -bookWidth * 0.57,
-                    0.0,
-                    -bookHalfDepth - 0.007
-                ),
-                vec3(0.007, bookHeight * 0.36, 0.014)
-            );
-
-            takeMaterial(
-                seam,
-                vec3(0.12, 0.055, 0.025),
-                0.0,
-                d,
-                material,
-                emission
-            );
-        }
-
-        /* Pale page block visible on the top of some books */
-        if (randomValue.x > 0.12)
-        {
-            float pageTop = sdBox(
-                bookPoint - vec3(
-                    0.0,
-                    bookHeight * 0.5 - 0.002,
-                    0.0
-                ),
-                vec3(
-                    bookWidth * 0.80,
-                    0.009,
-                    bookHalfDepth * 0.80
-                )
-            );
-
-            takeMaterial(
-                pageTop,
-                vec3(0.48, 0.36, 0.20),
-                0.0,
-                d,
-                material,
-                emission
-            );
-        }
-    }
-
-    /* 
-       Large black vertical frame posts.
-       Shifted by 0.5 * POST_SPACING so the camera at x=0 starts 
-       directly in the middle of a bay, preventing left-side blockage.
-    */
-    float postCell = floor(p.x / POST_SPACING);
-    float postX = p.x - (postCell + 0.5) * POST_SPACING;
-
-    float post = sdRoundBox(
-        p - vec3(postX, 0.0, -0.055),
-        vec3(0.12, 1000.0, 0.76),
-        0.025
-    );
-
-    takeMaterial(
-        post,
-        vec3(0.012, 0.010, 0.009),
-        0.0,
-        d,
-        material,
-        emission
-    );
-
-    /*
-       Individual warm light fixtures underneath each shelf.
-       Centered nicely within the shifted bay.
-    */
-    float lampCell = floor(p.x / LIGHT_SPACING + 0.5);
-    float lampX = p.x - lampCell * LIGHT_SPACING;
-
-    float lampY =
-        (shelfIndex + 1.0) * SHELF_H - 0.135;
-
-    float lamp = sdRoundBox(
-        p - vec3(lampX, lampY, -0.59),
-        vec3(0.40, 0.035, 0.050),
-        0.018
-    );
-
-    takeMaterial(
-        lamp,
-        vec3(1.0, 0.68, 0.35),
-        1.0,
-        d,
-        material,
-        emission
-    );
-
-    return d;
-}
-
-/* Distance-only scene function for shadows, normals and AO. */
-float sceneDistance(vec3 p)
-{
-    vec3 material;
-    float emission;
-
-    return scene(p, material, emission);
-}
-
-/* --------------------------------------------------------- */
-/* Normals and lighting helpers                               */
-/* --------------------------------------------------------- */
-
-vec3 sceneNormal(vec3 p)
-{
-    vec2 e = vec2(0.0012, 0.0);
-
-    return normalize(vec3(
-        sceneDistance(p + e.xyy) -
-        sceneDistance(p - e.xyy),
-
-        sceneDistance(p + e.yxy) -
-        sceneDistance(p - e.yxy),
-
-        sceneDistance(p + e.yyx) -
-        sceneDistance(p - e.yyx)
-    ));
-}
-
-float ambientOcclusion(vec3 p, vec3 n)
-{
-    float result = 0.0;
-    float weight = 1.0;
-
-    for (int i = 0; i < 5; i++)
-    {
-        float distanceAlongNormal =
-            0.025 + 0.055 * float(i);
-
-        float sceneValue =
-            sceneDistance(p + n * distanceAlongNormal);
-
-        result +=
-            (distanceAlongNormal - sceneValue) * weight;
-
-        weight *= 0.72;
-    }
-
-    return clamp(1.0 - result * 2.4, 0.25, 1.0);
-}
-
-float softShadow(
-    vec3 rayOrigin,
-    vec3 rayDirection,
-    float minimumDistance,
-    float maximumDistance
-)
-{
-    float result = 1.0;
-    float t = minimumDistance;
-
-    for (int i = 0; i < 32; i++)
-    {
-        float h = sceneDistance(
-            rayOrigin + rayDirection * t
-        );
-
-        result = min(result, 18.0 * h / max(t, 0.001));
-
-        if (h < 0.001)
-        {
-            return 0.0;
-        }
-
-        t += clamp(h, 0.015, 0.24);
-
-        if (t > maximumDistance)
-        {
-            break;
-        }
-    }
-
-    return clamp(result, 0.0, 1.0);
-}
-
-/* --------------------------------------------------------- */
-/* Ray marcher                                                */
-/* --------------------------------------------------------- */
-
-bool trace(
-    vec3 rayOrigin,
-    vec3 rayDirection,
-    out float distanceTravelled,
-    out vec3 material,
-    out float emission
-)
-{
-    distanceTravelled = 0.0;
-    material = vec3(0.0);
-    emission = 0.0;
-
-    for (int i = 0; i < 230; i++)
-    {
-        vec3 currentMaterial;
-        float currentEmission;
-
-        vec3 p =
-            rayOrigin + rayDirection * distanceTravelled;
-
-        float d = scene(
-            p,
-            currentMaterial,
-            currentEmission
-        );
-
-        if (d < 0.0008)
-        {
-            material = currentMaterial;
-            emission = currentEmission;
-            return true;
-        }
-
-        distanceTravelled += max(d * 0.72, 0.0025);
-
-        if (distanceTravelled > 75.0)
-        {
-            break;
-        }
-    }
-
-    return false;
-}
-
-/* --------------------------------------------------------- */
-/* Camera                                                     */
-/* --------------------------------------------------------- */
-
-void createCamera(
-    vec2 uv,
-    out vec3 rayOrigin,
-    out vec3 rayDirection
-)
-{
-    float mn = min(resolution.x, resolution.y);
-
-    float verticalScroll =
-        wheel.y / mn * 1.8;
-
-    float horizontalPan =
-        move.x / mn * 1.7;
-
-    float yaw =
-        0.10 + move.x / mn * 0.22;
-
-    float pitch =
-        clamp(move.y / mn * 0.15, -0.18, 0.18);
-
-    rayOrigin = vec3(
-        horizontalPan,
-        2.35 - verticalScroll,
-        -7.2
-    );
-
-    vec3 target = vec3(
-        horizontalPan + sin(yaw) * 2.2,
-        5.15 - verticalScroll + pitch,
-        0.15
-    );
-
-    vec3 forward =
-        normalize(target - rayOrigin);
-
-    vec3 right =
-        normalize(cross(vec3(0.0, 1.0, 0.0), forward));
-
-    vec3 up =
-        cross(forward, right);
-
-    rayDirection = normalize(
-        right * uv.x +
-        up * uv.y +
-        forward * 1.25
-    );
-}
-
-/* --------------------------------------------------------- */
-/* Rendering                                                   */
-/* --------------------------------------------------------- */
-
-vec3 render(vec2 uv)
-{
-    vec3 rayOrigin;
-    vec3 rayDirection;
-
-    createCamera(
-        uv,
-        rayOrigin,
-        rayDirection
-    );
-
-    float distanceTravelled;
-    vec3 material;
-    float emission;
-
-    bool hit = trace(
-        rayOrigin,
-        rayDirection,
-        distanceTravelled,
-        material,
-        emission
-    );
-
-    vec3 background =
-        mix(
-            vec3(0.004, 0.005, 0.009),
-            vec3(0.025, 0.022, 0.020),
-            clamp(rayDirection.y * 0.5 + 0.5, 0.0, 1.0)
-        );
-
-    if (!hit)
-    {
-        return background;
-    }
-
-    vec3 p =
-        rayOrigin + rayDirection * distanceTravelled;
-
-    vec3 normal = sceneNormal(p);
-
-    vec3 color;
-
-    /* Light fixtures are self-illuminated */
-    if (emission > 0.5)
-    {
-        color = material * 2.5;
-    }
-    else
-    {
-        float shelfIndex =
-            floor(p.y / SHELF_H);
-
-        float lampY =
-            (shelfIndex + 1.0) * SHELF_H - 0.135;
-
-        float lampX =
-            floor(p.x / LIGHT_SPACING + 0.5)
-            * LIGHT_SPACING;
-
-        vec3 lightPosition = vec3(
-            lampX,
-            lampY,
-            -0.59
-        );
-
-        vec3 toLight =
-            lightPosition - p;
-
-        float lightDistance =
-            length(toLight);
-
-        vec3 lightDirection =
-            toLight / max(lightDistance, 0.001);
-
-        float diffuse =
-            max(dot(normal, lightDirection), 0.0);
-
-        float shadow = softShadow(
-            p + normal * 0.014,
-            lightDirection,
-            0.025,
-            lightDistance
-        );
-
-        float attenuation =
-            4.0 /
-            (
-                1.0 +
-                lightDistance * 0.75 +
-                lightDistance * lightDistance * 0.30
-            );
-
-        float ao =
-            ambientOcclusion(p, normal);
-
-        vec3 warmLight =
-            vec3(1.0, 0.68, 0.40);
-
-        vec3 ambient =
-            vec3(0.042, 0.031, 0.025);
-
-        color =
-            material *
-            (
-                ambient +
-                warmLight *
-                diffuse *
-                attenuation *
-                shadow *
-                ao
-            );
-
-        /* Subtle cool reflected fill light */
-        color +=
-            material *
-            vec3(0.012, 0.017, 0.026) *
-            max(-normal.z, 0.0);
-
-        /* Specular highlight on wood and glossy covers */
-        vec3 halfVector =
-            normalize(lightDirection - rayDirection);
-
-        float specular =
-            pow(
-                max(dot(normal, halfVector), 0.0),
-                52.0
-            );
-
-        color +=
-            warmLight *
-            specular *
-            attenuation *
-            shadow *
-            0.18;
-    }
-
-    /* Distance haze */
-    float fog =
-        1.0 - exp(
-            -0.006 * distanceTravelled * distanceTravelled
-        );
-
-    color =
-        mix(color, background, fog * 0.24);
-
-    /* Exposure and gamma correction */
-    color =
-        vec3(1.0) - exp(-color * 1.35);
-
-    color =
-        pow(
-            max(color, vec3(0.0)),
-            vec3(0.4545)
-        );
-
-    /* Vignette */
-    vec2 screenPosition =
-        FC / resolution;
-
-    vec2 vignettePosition =
-        screenPosition * (1.0 - screenPosition.yx);
-
-    float vignette =
-        pow(
-            clamp(
-                vignettePosition.x *
-                vignettePosition.y *
-                24.0,
-                0.0,
-                1.0
-            ),
-            0.30
-        );
-
-    color *= vignette;
-
-    /* Very subtle film grain */
-    float grain =
-        hash21(FC) - 0.5;
-
-    color += grain * 0.003;
-
-    return color;
-}
-
-void main()
-{
-    vec2 uv =
-        (FC - 0.5 * resolution) /
-        MN;
-
-    O = vec4(render(uv), 1.0);
-}
+      precision highp float;
+      out vec4 O;
+      uniform float time;
+      uniform vec2 resolution;
+      uniform vec2 move;
+      uniform vec2 wheel;
+      #define FC gl_FragCoord.xy
+      #define R resolution
+      #define T (25.+time)
+      #define S smoothstep
+      #define N normalize
+      #define MN min(R.x,R.y)
+      #define rnd(p) fract(sin(dot(p,vec2(12.9898,78.233)))*345678.)
+      #define rot(a) mat2(cos((a)-vec4(0,11,33,0)))
+      float box(vec3 p, vec3 s, float r) {
+      	p=abs(p)-s+r;
+      	return length(max(p,.0))+min(.0,max(max(p.x,p.y),p.z))-r;
+      }
+      float map(vec3 p) {
+      	vec3 q=cos(p*1.8+5e2);
+      	float s=sign(p.y);
+      	p.y=abs(p.y)-2.5;
+      	vec2 id=floor(p.xz-s);
+      	if (mod(id.y,2.)==.0) {
+      		p.x-=T*.5;
+      		id.x=floor(p.x-s);
+      	}
+      	float f=1.-dot(abs(fract(p*42.)-.5)-.25,vec3(1))*.5;
+      	p.xz=fract(p.xz-s)-.5;
+      	return box(p,vec3(.1+.3*rnd(id),2.-.6*rnd(id),.2),f*f*.0125)-1e-3*f;
+      }
+      vec3 norm(vec3 p) {
+      	float h=1e-3; vec2 k=vec2(-1,1);
+      	return N(
+      		k.xyy*map(p+k.xyy*h)+
+      		k.yxy*map(p+k.yxy*h)+
+      		k.yyx*map(p+k.yyx*h)+
+      		k.xxx*map(p+k.xxx*h)
+      	);
+      }
+      bool march(inout vec3 p, vec3 rd, out float dd) {
+      	for (int i; i++<400;) {
+      		float d=map(p);
+      		if (abs(d)<1e-3) return true;
+      		if (dd>15.) return false;
+      		p+=rd*d*.5;
+      		dd+=d*.5;
+      	}
+      }
+      float occ(vec3 p, vec3 n, float d) {
+      	return clamp(map(p+n*d)/d,.0,1.);
+      }
+      vec3 dir(vec2 uv, vec3 p, vec3 t, float z) {
+      	vec3 up=vec3(0,1,0),
+      	f=N(t-p),
+      	r=N(cross(up,f)),
+      	u=N(cross(f,r));
+      	return mat3(r,u,f)*N(vec3(uv,z));
+      }
+      void cam(inout vec3 p) {
+      	p.xz*=rot(.2-move.x/MN+.2*T*.01);
+      }
+      vec3 render(vec2 uv) {
+      	vec3 col=vec3(0),
+      	p=vec3(0,-.3,-23.5-wheel.y/MN-1e2*sin(T*5e-3));
+      	cam(p);
+      	vec3 rd=dir(uv,p,vec3(0,5.5,0),1.2), lp=p;
+      	lp.z+=.5;
+      	float dd;
+      	if (march(p,rd,dd)) {
+      		vec3 n=norm(p), l=N(lp-p);
+      		float dif=clamp(dot(l,n),.0,1.),
+      		spe=pow(clamp(dot(N(lp-rd),n),.0,1.),21.),
+      		ao=occ(p,n,.5)*.8*occ(p,n,1.),
+      		ld=distance(lp,p), atten=1./(1.+ld*.25+ld*ld*.125);
+      		vec3 mat=vec3(4,1.6,.6);
+      		col+=.08+dif*mat*ao*atten;
+      		col+=spe*atten;
+      	}
+      	col=mix(vec3(0),col,exp(-125e-5*dd*dd*dd));
+      	col=tanh(col*col);
+      	col=sqrt(col);
+      	col=mix(vec3(0),col,min(time*.3,1.));
+      	// vignette
+      	vec2 c=FC/R;
+      	c*=1.-c.yx;
+      	float vig=c.x*c.y*25.;
+      	vig=pow(vig,.5);
+      	col*=vig;
+      	return col;
+      }
+      void main() {
+      	vec2 uv=(FC-.5*R)/MN;
+      	vec3 col=render(uv);
+        O=vec4(col,1);
+      }
     </script>
   </body>
 </html>

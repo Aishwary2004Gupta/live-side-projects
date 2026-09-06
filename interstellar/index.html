@@ -1,141 +1,398 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Interstellar</title>
-    <link rel="stylesheet" href="style.css" />
-    <script type="module" src="script.js" defer></script>
-  </head>
-  <body>
-    <canvas id="canvas"></canvas>
-    <textarea
-      id="codeEditor"
-      class="editor"
-      spellcheck="false"
-      autocorrect="off"
-      autocapitalize="off"
-      translate="no"
-    ></textarea>
-    <pre id="error"></pre>
-    <div id="indicator"></div>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Infinite Bookshelf City</title>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background: #000;
+            font-family: sans-serif;
+        }
+        canvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+        /* Style for the Pause / Play Control Button */
+        #controls {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 10;
+            background: rgba(20, 20, 25, 0.85);
+            padding: 10px 24px;
+            border-radius: 30px;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            backdrop-filter: blur(10px);
+            cursor: pointer;
+            color: #fff;
+            font-size: 14px;
+            font-weight: 600;
+            letter-spacing: 1px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        #controls:hover {
+            background: rgba(40, 40, 50, 0.95);
+            border-color: rgba(255, 255, 255, 0.3);
+            transform: translateX(-50%) scale(1.05);
+        }
+        #controls:active {
+            transform: translateX(-50%) scale(0.98);
+        }
+        .dot {
+            width: 8px;
+            height: 8px;
+            background-color: #4cd137;
+            border-radius: 50%;
+            box-shadow: 0 0 8px #4cd137;
+            transition: background-color 0.2s;
+        }
+        .paused .dot {
+            background-color: #e84118;
+            box-shadow: 0 0 8px #e84118;
+        }
+    </style>
+</head>
+<body>
 
-    <div id="controls">
-      <div class="controls">
-        <input
-          id="btnToggleView"
-          class="icon"
-          type="checkbox"
-          name="toggleView"
-        />
-        <input
-          id="btnToggleResolution"
-          class="icon"
-          type="checkbox"
-          name="toggleResolution"
-        />
-        <input id="btnReset" class="icon" type="checkbox" name="reset" />
-      </div>
-    </div>
+    <button id="controls" onclick="togglePause()">
+        <div class="dot" id="statusDot"></div>
+        <span id="btnText">PAUSE</span>
+    </button>
 
-    <script type="x-shader/x-fragment">
-      #version 300 es
-      precision highp float;
-      out vec4 O;
-      uniform float time;
-      uniform vec2 resolution;
-      uniform vec2 move;
-      uniform vec2 wheel;
-      #define FC gl_FragCoord.xy
-      #define R resolution
-      #define T (25.+time)
-      #define S smoothstep
-      #define N normalize
-      #define MN min(R.x,R.y)
-      #define rnd(p) fract(sin(dot(p,vec2(12.9898,78.233)))*345678.)
-      #define rot(a) mat2(cos((a)-vec4(0,11,33,0)))
-      float box(vec3 p, vec3 s, float r) {
-      	p=abs(p)-s+r;
-      	return length(max(p,.0))+min(.0,max(max(p.x,p.y),p.z))-r;
-      }
-      float map(vec3 p) {
-      	vec3 q=cos(p*1.8+5e2);
-      	float s=sign(p.y);
-      	p.y=abs(p.y)-2.5;
-      	vec2 id=floor(p.xz-s);
-      	if (mod(id.y,2.)==.0) {
-      		p.x-=T*.5;
-      		id.x=floor(p.x-s);
-      	}
-      	float f=1.-dot(abs(fract(p*42.)-.5)-.25,vec3(1))*.5;
-      	p.xz=fract(p.xz-s)-.5;
-      	return box(p,vec3(.1+.3*rnd(id),2.-.6*rnd(id),.2),f*f*.0125)-1e-3*f;
-      }
-      vec3 norm(vec3 p) {
-      	float h=1e-3; vec2 k=vec2(-1,1);
-      	return N(
-      		k.xyy*map(p+k.xyy*h)+
-      		k.yxy*map(p+k.yxy*h)+
-      		k.yyx*map(p+k.yyx*h)+
-      		k.xxx*map(p+k.xxx*h)
-      	);
-      }
-      bool march(inout vec3 p, vec3 rd, out float dd) {
-      	for (int i; i++<400;) {
-      		float d=map(p);
-      		if (abs(d)<1e-3) return true;
-      		if (dd>15.) return false;
-      		p+=rd*d*.5;
-      		dd+=d*.5;
-      	}
-      }
-      float occ(vec3 p, vec3 n, float d) {
-      	return clamp(map(p+n*d)/d,.0,1.);
-      }
-      vec3 dir(vec2 uv, vec3 p, vec3 t, float z) {
-      	vec3 up=vec3(0,1,0),
-      	f=N(t-p),
-      	r=N(cross(up,f)),
-      	u=N(cross(f,r));
-      	return mat3(r,u,f)*N(vec3(uv,z));
-      }
-      void cam(inout vec3 p) {
-      	p.xz*=rot(.2-move.x/MN+.2*T*.01);
-      }
-      vec3 render(vec2 uv) {
-      	vec3 col=vec3(0),
-      	p=vec3(0,-.3,-23.5-wheel.y/MN-1e2*sin(T*5e-3));
-      	cam(p);
-      	vec3 rd=dir(uv,p,vec3(0,5.5,0),1.2), lp=p;
-      	lp.z+=.5;
-      	float dd;
-      	if (march(p,rd,dd)) {
-      		vec3 n=norm(p), l=N(lp-p);
-      		float dif=clamp(dot(l,n),.0,1.),
-      		spe=pow(clamp(dot(N(lp-rd),n),.0,1.),21.),
-      		ao=occ(p,n,.5)*.8*occ(p,n,1.),
-      		ld=distance(lp,p), atten=1./(1.+ld*.25+ld*ld*.125);
-      		vec3 mat=vec3(4,1.6,.6);
-      		col+=.08+dif*mat*ao*atten;
-      		col+=spe*atten;
-      	}
-      	col=mix(vec3(0),col,exp(-125e-5*dd*dd*dd));
-      	col=tanh(col*col);
-      	col=sqrt(col);
-      	col=mix(vec3(0),col,min(time*.3,1.));
-      	// vignette
-      	vec2 c=FC/R;
-      	c*=1.-c.yx;
-      	float vig=c.x*c.y*25.;
-      	vig=pow(vig,.5);
-      	col*=vig;
-      	return col;
-      }
-      void main() {
-      	vec2 uv=(FC-.5*R)/MN;
-      	vec3 col=render(uv);
-        O=vec4(col,1);
-      }
+    <canvas id="glCanvas"></canvas>
+
+    <script>
+        const canvas = document.getElementById('glCanvas');
+        const gl = canvas.getContext('webgl2');
+
+        if (!gl) {
+            alert('WebGL 2 not supported!');
+        }
+
+        // Vertex Shader
+        const vsSource = `#version 300 es
+            in vec2 position;
+            void main() {
+                gl_Position = vec4(position, 0.0, 1.0);
+            }
+        `;
+
+        // Fragment Shader (Your Bookshelf City Shader)
+        const fsSource = `#version 300 es
+            precision highp float;
+            out vec4 O;
+            uniform float time;
+            uniform vec2 resolution;
+            uniform vec2 move;
+            uniform vec2 wheel;
+
+            #define FC gl_FragCoord.xy
+            #define R resolution
+            #define MN min(R.x, R.y)
+
+            vec3 g_col;
+            float g_glow;
+
+            float hash21(vec2 p) {
+                return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
+            }
+
+            float sdBox(vec3 p, vec3 b, float r) {
+                vec3 q = abs(p) - b + vec3(r);
+                return length(max(q, vec3(0.0))) + min(max(q.x, max(q.y, q.z)), 0.0) - r;
+            }
+
+            vec3 bookColour(vec2 id, float variation) {
+                float c = hash21(id);
+                vec3 col;
+                if      (c < 0.20) col = vec3(0.78, 0.14, 0.10); // Rich red
+                else if (c < 0.40) col = vec3(0.12, 0.42, 0.22); // Forest green
+                else if (c < 0.60) col = vec3(0.10, 0.25, 0.62); // Deep blue
+                else if (c < 0.80) col = vec3(0.65, 0.38, 0.12); // Leather brown
+                else               col = vec3(0.90, 0.85, 0.72); // Antique cream
+                return col * (0.75 + 0.35 * variation);
+            }
+
+            float map(vec3 p) {
+                g_col = vec3(0.08, 0.07, 0.06);
+                g_glow = 0.0;
+
+                float ground = p.y;
+                float d = ground;
+
+                float cellSize = 4.0;
+                vec2 id = floor(p.xz / cellSize);
+                vec2 localXZ = mod(p.xz, cellSize) - cellSize * 0.5;
+
+                float hRand = hash21(id);
+                float towerH = 5.0 + hRand * 7.0;
+                float W = 1.1;
+                float D = 1.1;
+
+                vec3 q = vec3(localXZ.x, p.y - towerH, localXZ.y);
+                float towerBox = sdBox(q, vec3(W, towerH, D), 0.03);
+
+                if (towerBox > 0.5) {
+                    return min(d, towerBox);
+                }
+
+                d = min(d, towerBox);
+                g_col = vec3(0.05, 0.03, 0.015);
+
+                vec3 f = q;
+                float faceW = W;
+                float faceD = D;
+                if (abs(q.x) > abs(q.z)) {
+                    f = vec3(q.z, q.y, q.x);
+                    faceW = D;
+                    faceD = W;
+                }
+                f.z = abs(f.z) - faceD;
+
+                float shelfH = 0.48; 
+                float shelfY = mod(f.y + towerH, shelfH);
+                float shelfIdx = floor((f.y + towerH) / shelfH);
+
+                if (f.y > -towerH + 0.1 && f.y < towerH - 0.1) {
+                    float board = sdBox(vec3(f.x, shelfY - 0.015, f.z + 0.16), vec3(faceW - 0.04, 0.015, 0.22), 0.005);
+                    if (board < d) {
+                        d = board;
+                        g_col = vec3(0.09, 0.05, 0.025);
+                    }
+
+                    float lightStrip = sdBox(vec3(f.x, shelfY - shelfH + 0.035, f.z + 0.08), vec3(faceW * 0.82, 0.01, 0.06), 0.002);
+                    if (lightStrip < d) {
+                        d = lightStrip;
+                        g_col = vec3(2.5, 1.8, 0.9);
+                        g_glow = 1.0;
+                    }
+
+                    float bookW = 0.095;
+                    float offset = f.x + faceW - 0.04;
+                    float bIdx = floor(offset / bookW);
+                    float bX = mod(offset, bookW) - bookW * 0.5;
+
+                    if (offset > 0.0 && offset < (faceW - 0.04) * 2.0) {
+                        vec2 bID = id * 13.1 + vec2(shelfIdx, bIdx);
+                        float r1 = hash21(bID);
+                        float r2 = hash21(bID + 1.23);
+
+                        if (r1 > 0.05) {
+                            float bH = shelfH * (0.62 + 0.32 * r2);
+                            float bD = 0.28 + 0.12 * r1;
+                            float bW_half = bookW * 0.43;
+
+                            vec3 bPos = vec3(bX, shelfY - 0.015 - bH * 0.5, f.z + 0.16 + bD * 0.5 - 0.06);
+                            float book = sdBox(bPos, vec3(bW_half, bH * 0.5, bD * 0.5), 0.004);
+
+                            if (book < d) {
+                                d = book;
+                                g_col = bookColour(bID, r2);
+                            }
+                        }
+                    }
+                }
+
+                return d;
+            }
+
+            vec3 calcNormal(vec3 p) {
+                float e = 0.001;
+                return normalize(vec3(
+                    map(p + vec3(e, 0, 0)) - map(p - vec3(e, 0, 0)),
+                    map(p + vec3(0, e, 0)) - map(p - vec3(0, e, 0)),
+                    map(p + vec3(0, 0, e)) - map(p - vec3(0, 0, e))
+                ));
+            }
+
+            bool march(inout vec3 p, vec3 rd, out float dd) {
+                dd = 0.0;
+                for (int i = 0; i < 250; i++) {
+                    float d = map(p);
+                    if (abs(d) < 0.001) return true;
+                    
+                    float stepSize = max(d * 0.35, 0.0012);
+                    p += rd * stepSize;
+                    dd += stepSize;
+
+                    if (dd > 45.0) break;
+                }
+                return false;
+            }
+
+            vec3 render(vec2 uv) {
+                float camDist = 14.0 + wheel.y * 0.01;
+                float camAngle = time * 0.15 + move.x * 0.005;
+                
+                vec3 ro = vec3(sin(camAngle) * camDist, 3.5 + move.y * 0.005, cos(camAngle) * camDist);
+                vec3 target = vec3(0.0, 4.0, 0.0);
+                
+                vec3 forward = normalize(target - ro);
+                vec3 right = normalize(cross(vec3(0.0, 1.0, 0.0), forward));
+                vec3 up = cross(forward, right);
+                vec3 rd = normalize(right * uv.x + up * uv.y + forward * 1.3);
+
+                vec3 sky = mix(vec3(0.35, 0.42, 0.52), vec3(0.85, 0.90, 0.95), clamp(rd.y * 0.5 + 0.5, 0.0, 1.0));
+                vec3 col = sky;
+
+                float dd;
+                vec3 p = ro;
+
+                if (march(p, rd, dd)) {
+                    vec3 n = calcNormal(p);
+                    map(p);
+
+                    vec3 mat = g_col;
+                    float glow = g_glow;
+
+                    if (glow > 0.5) {
+                        col = mat * 2.0;
+                    } else {
+                        vec3 sunDir = normalize(vec3(-0.5, 0.8, -0.4));
+                        vec3 sunCol = vec3(1.3, 1.2, 1.0);
+
+                        float diff = max(dot(n, sunDir), 0.0);
+                        float hemi = clamp(n.y * 0.5 + 0.5, 0.0, 1.0);
+                        float ao = clamp(map(p + n * 0.1) / 0.1, 0.1, 1.0) * clamp(map(p + n * 0.3) / 0.3, 0.3, 1.0);
+
+                        vec3 lighting = vec3(0.2) + sunCol * diff * 0.9 + vec3(0.3, 0.35, 0.45) * hemi * 0.4;
+                        col = mat * lighting * ao;
+                    }
+
+                    float fog = exp(-0.0012 * dd * dd);
+                    col = mix(sky, col, fog);
+                }
+
+                col = vec3(1.0) - exp(-col * 1.2);
+                col = pow(max(col, vec3(0.0)), vec3(0.4545));
+
+                vec2 c = FC / R;
+                c *= 1.0 - c.yx;
+                col *= pow(clamp(c.x * c.y * 20.0, 0.0, 1.0), 0.25);
+
+                return col;
+            }
+
+            void main() {
+                vec2 uv = (FC - 0.5 * R) / MN;
+                O = vec4(render(uv), 1.0);
+            }
+        `;
+
+        // Shader compilation helper
+        function createShader(gl, type, source) {
+            const shader = gl.createShader(type);
+            gl.shaderSource(shader, source);
+            gl.compileShader(shader);
+            if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+                console.error(gl.getShaderInfoLog(shader));
+                gl.deleteShader(shader);
+                return null;
+            }
+            return shader;
+        }
+
+        const vertShader = createShader(gl, gl.VERTEX_SHADER, vsSource);
+        const fragShader = createShader(gl, gl.FRAGMENT_SHADER, fsSource);
+        const program = gl.createProgram();
+        gl.attachShader(program, vertShader);
+        gl.attachShader(program, fragShader);
+        gl.linkProgram(program);
+
+        // Quad setup
+        const positionBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
+            -1, -1,  1, -1, -1,  1,
+            -1,  1,  1, -1,  1,  1,
+        ]), gl.STATIC_DRAW);
+
+        const posAttrLoc = gl.getAttribLocation(program, "position");
+        const timeLoc = gl.getUniformLocation(program, "time");
+        const resLoc = gl.getUniformLocation(program, "resolution");
+        const moveLoc = gl.getUniformLocation(program, "move");
+        const wheelLoc = gl.getUniformLocation(program, "wheel");
+
+        let mouseX = 0, mouseY = 0, wheelY = 0;
+        let isDragging = false;
+
+        window.addEventListener('mousedown', e => { isDragging = true; });
+        window.addEventListener('mouseup', e => { isDragging = false; });
+        window.addEventListener('mousemove', e => {
+            if (isDragging) {
+                mouseX += e.movementX;
+                mouseY -= e.movementY;
+            }
+        });
+        window.addEventListener('wheel', e => {
+            wheelY += e.deltaY;
+        });
+
+        // Pause/Play Logic
+        let isPaused = false;
+        let lastTime = 0;
+        let accumulatedTime = 0;
+
+        function togglePause() {
+            isPaused = !isPaused;
+            const btn = document.getElementById('controls');
+            const btnText = document.getElementById('btnText');
+            if (isPaused) {
+                btn.classList.add('paused');
+                btnText.textContent = "PLAY";
+            } else {
+                btn.classList.remove('paused');
+                btnText.textContent = "PAUSE";
+            }
+        }
+
+        function resize() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            gl.viewport(0, 0, canvas.width, canvas.height);
+        }
+        window.addEventListener('resize', resize);
+        resize();
+
+        function render(currentTime) {
+            currentTime *= 0.001; // convert to seconds
+            if (!lastTime) lastTime = currentTime;
+            
+            const deltaTime = currentTime - lastTime;
+            lastTime = currentTime;
+
+            if (!isPaused) {
+                accumulatedTime += deltaTime;
+            }
+
+            gl.useProgram(program);
+
+            gl.uniform1f(timeLoc, accumulatedTime);
+            gl.uniform2f(resLoc, canvas.width, canvas.height);
+            gl.uniform2f(moveLoc, mouseX, mouseY);
+            gl.uniform2f(wheelLoc, 0.0, wheelY);
+
+            gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+            gl.enableVertexAttribArray(posAttrLoc);
+            gl.vertexAttribPointer(posAttrLoc, 2, gl.FLOAT, false, 0, 0);
+
+            gl.drawArrays(gl.TRIANGLES, 0, 6);
+            requestAnimationFrame(render);
+        }
+
+        requestAnimationFrame(render);
     </script>
-  </body>
+</body>
 </html>

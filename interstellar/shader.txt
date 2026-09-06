@@ -1050,3 +1050,386 @@ void main() {
     vec2 uv = (FC - 0.5 * R) / MN;
     O = vec4(render(uv), 1.0);
 }
+
+this looks nice -----------------------------------------------------------------------------------------------------------------------
+
+#version 300 es
+precision highp float;
+
+out vec4 O;
+
+uniform float time;
+uniform vec2 resolution;
+uniform vec2 move;
+uniform vec2 wheel;
+
+#define FC gl_FragCoord.xy
+#define R resolution
+#define T (25.0 + time)
+#define MN min(R.x, R.y)
+#define rnd(p) fract(sin(dot(p, vec2(12.9898, 78.233))) * 345678.0)
+#define rot(a) mat2(cos((a) - vec4(0, 11, 33, 0)))
+
+/* --------------------------------------------------------- */
+/* Primitives                                                 */
+/* --------------------------------------------------------- */
+
+float sdBox(vec3 p, vec3 b, float r)
+{
+    vec3 q = abs(p) - b;
+    return length(max(q, vec3(0.0))) + min(max(q.x, max(q.y, q.z)), 0.0) - r;
+}
+
+/* --------------------------------------------------------- */
+/* Tower cell setup (shared)                                  */
+/* --------------------------------------------------------- */
+
+struct Tower
+{
+    vec3  p;      // local position inside the cell
+    vec2  id;     // cell id
+    float W;      // half width  (x)
+    float H;      // half height (y)
+    float D;      // half depth  (z)
+};
+
+Tower getTower(vec3 p)
+{
+    Tower t;
+
+    float s = sign(p.y);
+    p.y = abs(p.y) - 2.5;
+
+    vec2 id = floor(p.xz - s);
+    if (mod(id.y, 2.0) == 0.0)
+    {
+        p.x -= T * 0.5;
+        id.x = floor(p.x - s);
+    }
+
+    p.xz = fract(p.xz - s) - 0.5;
+
+    float r1 = rnd(id);
+    float r2 = rnd(id + 7.31);
+
+    t.p  = p;
+    t.id = id;
+    t.W  = 0.14 + 0.26 * r1;
+    t.D  = 0.16 + 0.10 * r2;
+    t.H  = max(1.25, 1.85 - 0.55 * rnd(id + 12.35));
+
+    return t;
+}
+
+/* --------------------------------------------------------- */
+/* Facade: decides frame / shelf / lamp / book                */
+/* Shared by geometry AND shading -> no tearing               */
+/* --------------------------------------------------------- */
+
+struct Facade
+{
+    vec3  col;    // surface colour
+    float inset;  // how far the surface is recessed from the outer box
+    float glow;   // 1 = emissive lamp
+    float lit;    // warm shelf-light amount
+};
+
+Facade facade(vec2 uv, float halfW, float H, vec2 id, float faceSeed)
+{
+    Facade f;
+
+    float r1 = rnd(id);
+
+    vec3 frameCol = mix(vec3(0.14, 0.075, 0.035), vec3(0.24, 0.13, 0.065), r1)
+                  + vec3(0.04, 0.02, 0.01) * rnd(id + 3.7);
+
+    /* defaults: outer frame */
+    f.col   = frameCol;
+    f.inset = 0.0;
+    f.glow  = 0.0;
+    f.lit   = 0.0;
+
+    /* vertical side pillars */
+    float pillarW = 0.024;
+    if (abs(uv.x) > halfW - pillarW)
+    {
+        f.col = vec3(0.06, 0.035, 0.02);
+        return f;
+    }
+
+    /* top / bottom caps */
+    if (abs(uv.y) > H - 0.03)
+    {
+        return f;
+    }
+
+    /* shelf compartments */
+    float sh        = 0.34;
+    float yLocal    = uv.y + H;
+    float shelfIdx  = floor(yLocal / sh);
+    float yInShelf  = mod(yLocal, sh);
+
+    /* thick shelf board at the bottom of each compartment */
+    if (yInShelf < 0.026)
+    {
+        f.col   = frameCol * 0.7;
+        f.inset = 0.004;
+        return f;
+    }
+
+    /* warm lamp strip at the top of each compartment */
+    if (yInShelf > sh - 0.028)
+    {
+        f.col   = vec3(4.0, 2.6, 1.2);
+        f.glow  = 1.0;
+        f.inset = 0.012;
+        return f;
+    }
+
+    /* light falloff from lamp to the books below */
+    f.lit = exp(-3.2 * length(vec2(uv.x * 0.35, yInShelf - sh)));
+
+    /* books */
+    float bookW      = 0.052;
+    float xStart     = -halfW + pillarW;
+    float bookOffset = uv.x - xStart;
+    float bookIdx    = floor(bookOffset / bookW);
+    float xInBook    = mod(bookOffset, bookW) - bookW * 0.5;
+
+    vec2 bookId = vec2(
+        shelfIdx * 37.13 + bookIdx + faceSeed * 91.7,
+        id.x * 17.29 - bookIdx + id.y * 5.3
+    );
+
+    float b1 = rnd(bookId);
+    float b2 = rnd(bookId + 5.77);
+    float b3 = rnd(bookId + 11.33);
+    float b4 = rnd(bookId + 19.91);
+
+    /* empty slot -> recessed dark back wall */
+    if (b1 < 0.08)
+    {
+        f.col   = vec3(0.035, 0.022, 0.014);
+        f.inset = 0.06;
+        return f;
+    }
+
+    float bookH     = (sh - 0.054) * (0.72 + 0.26 * b2);
+    float bookHalfW = bookW * (0.42 + 0.08 * b1);
+
+    vec2 bp = vec2(xInBook, yInShelf - 0.026 - bookH * 0.5);
+
+    /* a few gently leaning books */
+    if (b3 > 0.74)
+    {
+        float a  = (b2 - 0.5) * 0.14;
+        float cs = cos(a), sn = sin(a);
+        bp = mat2(cs, -sn, sn, cs) * bp;
+    }
+
+    bool inX = abs(bp.x) < bookHalfW;
+    bool inY = abs(bp.y) < bookH * 0.5;
+
+    /* above the book or in the gap between books -> back wall */
+    if (!(inX && inY))
+    {
+        f.col   = vec3(0.035, 0.022, 0.014);
+        f.inset = 0.06;
+        return f;
+    }
+
+    /* book spine colour */
+    vec3 bcol;
+    float sel = rnd(bookId + 2.11);
+    if      (sel < 0.16) bcol = vec3(0.85, 0.18, 0.12);
+    else if (sel < 0.32) bcol = vec3(0.15, 0.32, 0.62);
+    else if (sel < 0.48) bcol = vec3(0.20, 0.48, 0.28);
+    else if (sel < 0.66) bcol = vec3(0.75, 0.52, 0.18);
+    else if (sel < 0.84) bcol = vec3(0.62, 0.28, 0.42);
+    else                 bcol = vec3(0.92, 0.88, 0.76);
+
+    bcol *= 0.95 + 0.35 * rnd(bookId + 8.44);
+
+    /* gold bands */
+    if (b4 > 0.5 && abs(bp.y) < bookH * 0.38)
+    {
+        float band = step(0.88, cos(bp.y * 58.0 + b1 * 6.28));
+        bcol = mix(bcol, vec3(1.0, 0.9, 0.4), band * 0.85);
+    }
+
+    /* pale page block right at the top edge of the spine */
+    if (bp.y > bookH * 0.5 - 0.008)
+    {
+        bcol = vec3(0.93, 0.89, 0.78);
+    }
+
+    f.col   = bcol;
+    f.inset = 0.010 + 0.014 * b3;   // books sit slightly behind the frame
+    return f;
+}
+
+/* Pick the facade for whichever side of the tower we are on */
+Facade towerFacade(Tower t)
+{
+    vec3 p = t.p;
+
+    /* which face is closest? */
+    float fx = abs(p.x) / t.W;
+    float fz = abs(p.z) / t.D;
+
+    if (fz >= fx)
+    {
+        /* front / back faces: horizontal coord is x */
+        return facade(vec2(p.x, p.y), t.W, t.H, t.id, sign(p.z));
+    }
+    else
+    {
+        /* left / right faces: horizontal coord is z */
+        return facade(vec2(p.z, p.y), t.D, t.H, t.id, 2.0 + sign(p.x));
+    }
+}
+
+/* --------------------------------------------------------- */
+/* Distance field                                             */
+/* --------------------------------------------------------- */
+
+float map(vec3 p)
+{
+    Tower t = getTower(p);
+
+    float d = sdBox(t.p, vec3(t.W, t.H, t.D), 0.008);
+
+    /* only add facade relief close to the surface */
+    if (d < 0.12)
+    {
+        Facade f = towerFacade(t);
+        d += f.inset;
+    }
+
+    return d;
+}
+
+vec3 calcNormal(vec3 p)
+{
+    float e = 0.0015;
+    vec2 k = vec2(-1.0, 1.0);
+    return normalize(
+        k.xyy * map(p + k.xyy * e) +
+        k.yxy * map(p + k.yxy * e) +
+        k.yyx * map(p + k.yyx * e) +
+        k.xxx * map(p + k.xxx * e)
+    );
+}
+
+bool march(inout vec3 p, vec3 rd, out float dd)
+{
+    dd = 0.0;
+    for (int i = 0; i < 400; i++)
+    {
+        float d = map(p);
+        if (d < 0.0012) return true;
+        if (dd > 25.0)  return false;
+
+        float st = max(d * 0.55, 0.0015);
+        p  += rd * st;
+        dd += st;
+    }
+    return false;
+}
+
+float calcAO(vec3 p, vec3 n)
+{
+    float occ = 0.0;
+    float sca = 1.0;
+    for (int i = 0; i < 4; i++)
+    {
+        float h = 0.015 + 0.065 * float(i);
+        float d = map(p + n * h);
+        occ += (h - d) * sca;
+        sca *= 0.55;
+    }
+    return clamp(1.0 - 1.5 * occ, 0.15, 1.0);
+}
+
+vec3 camDir(vec2 uv, vec3 ro, vec3 target, float fl)
+{
+    vec3 f = normalize(target - ro);
+    vec3 r = normalize(cross(vec3(0.0, 1.0, 0.0), f));
+    vec3 u = cross(f, r);
+    return normalize(r * uv.x + u * uv.y + f * fl);
+}
+
+/* --------------------------------------------------------- */
+/* Render                                                     */
+/* --------------------------------------------------------- */
+
+vec3 render(vec2 uv)
+{
+    vec3 ro = vec3(0.0, -0.3, -23.5 - wheel.y / MN - 100.0 * sin(T * 0.005));
+
+    float ang = 0.20 - move.x / MN + 0.20 * T * 0.01;
+    ro.xz = rot(ang) * ro.xz;
+
+    vec3 rd = camDir(uv, ro, vec3(0.0, 5.5, 0.0), 1.2);
+    vec3 lp = ro + vec3(0.0, 2.0, 4.0);
+
+    vec3 fogCol = vec3(0.06, 0.07, 0.09);
+    vec3 col    = fogCol;
+
+    float dd = 0.0;
+    vec3  p  = ro;
+
+    if (march(p, rd, dd))
+    {
+        vec3 n = calcNormal(p);
+
+        /* material evaluated ONCE at the hit point */
+        Facade f = towerFacade(getTower(p));
+
+        vec3 l = normalize(lp - p);
+
+        float dif = clamp(dot(n, l), 0.0, 1.0);
+        float spe = pow(clamp(dot(normalize(l - rd), n), 0.0, 1.0), 24.0);
+        float ao  = calcAO(p, n);
+
+        float ld    = distance(lp, p);
+        float atten = 1.0 / (1.0 + ld * 0.15 + ld * ld * 0.08);
+
+        if (f.glow > 0.5)
+        {
+            col = f.col * 1.8;
+        }
+        else
+        {
+            vec3 warmLamp = vec3(1.4, 0.95, 0.58) * f.lit * 3.5;
+            vec3 amb      = vec3(0.18, 0.16, 0.14);
+
+            col  = amb * f.col;
+            col += dif * f.col * ao * atten * 1.6;
+            col += warmLamp * f.col * ao * 1.2;
+            col += spe * atten * vec3(1.0, 0.95, 0.8) * 0.4;
+
+            float rim = pow(1.0 - max(dot(n, -rd), 0.0), 4.0) * 0.25;
+            col += rim * vec3(0.4, 0.45, 0.55);
+        }
+    }
+
+    col = mix(fogCol, col, exp(-125e-5 * dd * dd * dd));
+
+    col = vec3(1.0) - exp(-col * 2.0);
+    col = pow(max(col, vec3(0.0)), vec3(0.4545));
+
+    col = mix(vec3(0.0), col, smoothstep(0.0, 0.3, time));
+
+    vec2 c = FC / R;
+    c *= 1.0 - c.yx;
+    col *= pow(c.x * c.y * 25.0, 0.22);
+
+    return col;
+}
+
+void main()
+{
+    vec2 uv = (FC - 0.5 * R) / MN;
+    O = vec4(render(uv), 1.0);
+}

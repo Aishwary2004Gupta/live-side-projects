@@ -40,150 +40,102 @@
 
     <script type="x-shader/x-fragment">
       #version 300 es
-precision highp float;
-out vec4 O;
-uniform float time;
-uniform vec2 resolution;
-uniform vec2 move;
-uniform vec2 wheel;
-#define FC gl_FragCoord.xy
-#define R resolution
-#define T time
-#define S smoothstep
-#define N normalize
-#define MN min(R.x,R.y)
-
-#define rnd(p) fract(sin(dot(p,vec2(12.9898,78.233)))*345678.)
-
-float box(vec3 p, vec3 s, float r) {
-    p = abs(p) - s + r;
-    return length(max(p, 0.0)) + min(0.0, max(max(p.x, p.y), p.z)) - r;
-}
-
-// Library scene
-float map(vec3 p) {
-    float d = 1e9;
-    float shelfH = 1.85;
-    float shelfId = floor(p.y / shelfH);
-    float ly = p.y - shelfId * shelfH;
-
-    // Back wall
-    float back = box(vec3(p.x, p.y, p.z - 0.82), vec3(800.0, 800.0, 0.04), 0.0);
-    if (back < d) d = back;
-
-    // Wooden shelf board
-    float shelf = box(vec3(p.x, ly - 0.08, p.z - 0.12), vec3(800.0, 0.09, 0.68), 0.02);
-    if (shelf < d) d = shelf;
-
-    // Individual books
-    float bookW = 0.19;
-    float colId = floor(p.x / bookW);
-    float lx = p.x - colId * bookW - bookW * 0.5;
-    vec2 id = vec2(colId, shelfId);
-    float h = 0.95 + 0.65 * rnd(id + 3.7);
-    float depth = 0.29 + 0.22 * rnd(id + 1.3);
-    float front = -0.52 + 0.09 * rnd(id + 7.1);
-    float b = box(vec3(lx, ly - 0.12 - h * 0.5, p.z - (front + depth * 0.5)),
-                  vec3(bookW * 0.42, h * 0.5, depth * 0.5), 0.008);
-    if (b < d) d = b;
-
-    // Vertical dark supports (building-like structure)
-    float bay = 5.8;
-    float px = mod(p.x + bay * 0.5, bay) - bay * 0.5;
-    float post = box(vec3(px, p.y, p.z - 0.18), vec3(0.13, 800.0, 0.72), 0.02);
-    if (post < d) d = post;
-
-    // Warm light strip at top of each shelf level
-    float light = box(vec3(p.x, ly - (shelfH - 0.09), p.z - 0.48), vec3(800.0, 0.03, 0.04), 0.01);
-    if (light < d) d = light;
-
-    return d;
-}
-
-vec3 norm(vec3 p) {
-    float h = 1e-3;
-    vec2 k = vec2(-1, 1);
-    return N(
-        k.xyy * map(p + k.xyy * h) +
-        k.yxy * map(p + k.yxy * h) +
-        k.yyx * map(p + k.yyx * h) +
-        k.xxx * map(p + k.xxx * h)
-    );
-}
-
-bool march(inout vec3 p, vec3 rd, out float dd) {
-    dd = 0.0;
-    for (int i = 0; i++ < 380;) {
-        float d = map(p);
-        if (abs(d) < 1e-3) return true;
-        if (dd > 22.0) return false;
-        p += rd * d * 0.55;
-        dd += d * 0.55;
-    }
-    return false;
-}
-
-float occ(vec3 p, vec3 n, float d) {
-    return clamp(map(p + n * d) / d, 0.0, 1.0);
-}
-
-vec3 dir(vec2 uv, vec3 p, vec3 t, float z) {
-    vec3 up = vec3(0, 1, 0),
-         f = N(t - p),
-         r = N(cross(up, f)),
-         u = N(cross(f, r));
-    return mat3(r, u, f) * N(vec3(uv, z));
-}
-
-void cam(inout vec3 p) {
-    p.xz *= mat2(cos(0.12 - move.x / MN * 0.6), sin(0.12 - move.x / MN * 0.6),
-                 -sin(0.12 - move.x / MN * 0.6), cos(0.12 - move.x / MN * 0.6));
-}
-
-vec3 render(vec2 uv) {
-    vec3 col = vec3(0),
-         p = vec3(move.x * 0.8, 3.2 - wheel.y / MN * 1.4, -8.5);
-    cam(p);
-    vec3 rd = dir(uv, p, vec3(move.x * 0.8, 9.5 - wheel.y / MN * 1.4, 0.0), 1.35),
-         lp = p + vec3(0, 3.8, 0.6);
-
-    float dd;
-    if (march(p, rd, dd)) {
-        vec3 n = norm(p), l = N(lp - p);
-        float dif = clamp(dot(l, n), 0.0, 1.0),
-              spe = pow(clamp(dot(N(lp - rd), n), 0.0, 1.0), 26.0),
-              ao = occ(p, n, 0.4) * 0.75 * occ(p, n, 0.9),
-              ld = distance(lp, p),
-              atten = 1.0 / (1.0 + ld * 0.28 + ld * ld * 0.11);
-
-        // Book / wood / light material
-        vec3 mat = vec3(0.38, 0.22, 0.11);
-        col += 0.06 + dif * mat * ao * atten * 1.8;
-        col += spe * atten * 0.7;
-
-        // Warm shelf lighting contribution
-        float shelfLight = max(0.0, 1.0 - abs(fract(p.y / 1.85 + 0.5) - 0.5) * 3.2);
-        col += vec3(1.0, 0.72, 0.38) * shelfLight * 0.09 * ao;
-    }
-
-    col = mix(vec3(0.008), col, exp(-0.0009 * dd * dd * dd));
-    col = tanh(col * col * 1.15);
-    col = sqrt(col);
-    col = mix(vec3(0), col, min(time * 0.35, 1.0));
-
-    // Vignette
-    vec2 c = FC / R;
-    c *= 1.0 - c.yx;
-    float vig = pow(c.x * c.y * 26.0, 0.45);
-    col *= vig;
-
-    return col;
-}
-
-void main() {
-    vec2 uv = (FC - 0.5 * R) / MN;
-    O = vec4(render(uv), 1.0);
-}
+      precision highp float;
+      out vec4 O;
+      uniform float time;
+      uniform vec2 resolution;
+      uniform vec2 move;
+      uniform vec2 wheel;
+      #define FC gl_FragCoord.xy
+      #define R resolution
+      #define T (25.+time)
+      #define S smoothstep
+      #define N normalize
+      #define MN min(R.x,R.y)
+      #define rnd(p) fract(sin(dot(p,vec2(12.9898,78.233)))*345678.)
+      #define rot(a) mat2(cos((a)-vec4(0,11,33,0)))
+      float box(vec3 p, vec3 s, float r) {
+      	p=abs(p)-s+r;
+      	return length(max(p,.0))+min(.0,max(max(p.x,p.y),p.z))-r;
+      }
+      float map(vec3 p) {
+      	vec3 q=cos(p*1.8+5e2);
+      	float s=sign(p.y);
+      	p.y=abs(p.y)-2.5;
+      	vec2 id=floor(p.xz-s);
+      	if (mod(id.y,2.)==.0) {
+      		p.x-=T*.5;
+      		id.x=floor(p.x-s);
+      	}
+      	float f=1.-dot(abs(fract(p*42.)-.5)-.25,vec3(1))*.5;
+      	p.xz=fract(p.xz-s)-.5;
+      	return box(p,vec3(.1+.3*rnd(id),2.-.6*rnd(id),.2),f*f*.0125)-1e-3*f;
+      }
+      vec3 norm(vec3 p) {
+      	float h=1e-3; vec2 k=vec2(-1,1);
+      	return N(
+      		k.xyy*map(p+k.xyy*h)+
+      		k.yxy*map(p+k.yxy*h)+
+      		k.yyx*map(p+k.yyx*h)+
+      		k.xxx*map(p+k.xxx*h)
+      	);
+      }
+      bool march(inout vec3 p, vec3 rd, out float dd) {
+      	for (int i; i++<400;) {
+      		float d=map(p);
+      		if (abs(d)<1e-3) return true;
+      		if (dd>15.) return false;
+      		p+=rd*d*.5;
+      		dd+=d*.5;
+      	}
+      }
+      float occ(vec3 p, vec3 n, float d) {
+      	return clamp(map(p+n*d)/d,.0,1.);
+      }
+      vec3 dir(vec2 uv, vec3 p, vec3 t, float z) {
+      	vec3 up=vec3(0,1,0),
+      	f=N(t-p),
+      	r=N(cross(up,f)),
+      	u=N(cross(f,r));
+      	return mat3(r,u,f)*N(vec3(uv,z));
+      }
+      void cam(inout vec3 p) {
+      	p.xz*=rot(.2-move.x/MN+.2*T*.01);
+      }
+      vec3 render(vec2 uv) {
+      	vec3 col=vec3(0),
+      	p=vec3(0,-.3,-23.5-wheel.y/MN-1e2*sin(T*5e-3));
+      	cam(p);
+      	vec3 rd=dir(uv,p,vec3(0,5.5,0),1.2), lp=p;
+      	lp.z+=.5;
+      	float dd;
+      	if (march(p,rd,dd)) {
+      		vec3 n=norm(p), l=N(lp-p);
+      		float dif=clamp(dot(l,n),.0,1.),
+      		spe=pow(clamp(dot(N(lp-rd),n),.0,1.),21.),
+      		ao=occ(p,n,.5)*.8*occ(p,n,1.),
+      		ld=distance(lp,p), atten=1./(1.+ld*.25+ld*ld*.125);
+      		vec3 mat=vec3(4,1.6,.6);
+      		col+=.08+dif*mat*ao*atten;
+      		col+=spe*atten;
+      	}
+      	col=mix(vec3(0),col,exp(-125e-5*dd*dd*dd));
+      	col=tanh(col*col);
+      	col=sqrt(col);
+      	col=mix(vec3(0),col,min(time*.3,1.));
+      	// vignette
+      	vec2 c=FC/R;
+      	c*=1.-c.yx;
+      	float vig=c.x*c.y*25.;
+      	vig=pow(vig,.5);
+      	col*=vig;
+      	return col;
+      }
+      void main() {
+      	vec2 uv=(FC-.5*R)/MN;
+      	vec3 col=render(uv);
+        O=vec4(col,1);
+      }
     </script>
   </body>
 </html>

@@ -1,0 +1,499 @@
+# Book Shelf 
+
+#version 300 es
+precision highp float;
+
+out vec4 O;
+
+uniform float time;
+uniform vec2 resolution;
+uniform vec2 move;
+uniform vec2 wheel;
+
+#define FC gl_FragCoord.xy
+#define R resolution
+#define MN min(R.x, R.y)
+
+vec3 g_col;
+float g_glow;
+float g_local_lit;
+
+/* --------------------------------------------------------- */
+/* Utility                                                    */
+/* --------------------------------------------------------- */
+
+float hash21(vec2 p)
+{
+    return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
+}
+
+float sdBox(vec3 p, vec3 b, float r)
+{
+    vec3 q = abs(p) - b + vec3(r);
+
+    return length(max(q, vec3(0.0))) +
+           min(max(q.x, max(q.y, q.z)), 0.0) - r;
+}
+
+vec3 bookColour(vec2 id, float variation)
+{
+    float c = hash21(id + vec2(4.7, 8.3));
+    vec3 col;
+
+    if (c < 0.18)
+    {
+        col = vec3(0.65, 0.12, 0.07);   // red
+    }
+    else if (c < 0.35)
+    {
+        col = vec3(0.12, 0.25, 0.16);   // green
+    }
+    else if (c < 0.50)
+    {
+        col = vec3(0.10, 0.18, 0.38);   // blue
+    }
+    else if (c < 0.70)
+    {
+        col = vec3(0.52, 0.30, 0.12);   // brown
+    }
+    else if (c < 0.84)
+    {
+        col = vec3(0.68, 0.48, 0.22);   // ochre
+    }
+    else
+    {
+        col = vec3(0.78, 0.72, 0.57);   // cream
+
+    }
+
+    col *= 0.82 + variation * 0.32;
+
+    return col;
+}
+
+/* --------------------------------------------------------- */
+/* Infinite bookshelf-building city                           */
+/* --------------------------------------------------------- */
+
+float map(vec3 p)
+{
+    g_col = vec3(0.05, 0.03, 0.015);
+    g_glow = 0.0;
+    g_local_lit = 0.0;
+
+    /* Infinite city grid */
+    float cellSize = 1.25;
+
+    float row = floor(p.z / cellSize);
+    float stagger = mod(row, 2.0) * cellSize * 0.5;
+
+    vec2 id = vec2(
+        floor((p.x + stagger) / cellSize),
+        row
+    );
+
+    float localX = mod(p.x + stagger, cellSize) - cellSize * 0.5;
+    float localZ = mod(p.z, cellSize) - cellSize * 0.5;
+
+    float r1 = hash21(id);
+    float r2 = hash21(id + vec2(12.3, 4.6));
+
+    /* Each city object is a tall bookshelf tower */
+    float W = 0.30 + r1 * 0.12;
+    float D = 0.30 + r2 * 0.10;
+    float H = 2.10 + hash21(id + vec2(8.4, 17.2)) * 2.10;
+
+    /* Building starts at ground level */
+    vec3 q = vec3(localX, p.y - H, localZ);
+
+    float tower = sdBox(q, vec3(W, H, D), 0.012);
+
+    /* Fast exit when far from a tower */
+    if (tower > 0.14)
+    {
+        return tower;
+    }
+
+    float d = tower;
+
+    vec3 darkWood = vec3(0.075, 0.034, 0.014);
+    g_col = darkWood;
+
+    /*
+       Choose the closest vertical face.
+       This puts bookshelf details on all four building sides.
+    */
+    vec3 f = q;
+    float faceW = W;
+    float faceD = D;
+
+    if (abs(q.x) > abs(q.z))
+    {
+        f = vec3(q.z, q.y, q.x);
+        faceW = D;
+        faceD = W;
+    }
+
+    /* f.z = 0 near an outside facade */
+    f.z = abs(f.z) - faceD;
+
+    float shelfHeight = 0.285;
+    float shelfIndex = floor((f.y + H) / shelfHeight);
+    float shelfY = mod(f.y + H, shelfHeight);
+
+    /* Strong outer vertical bookshelf frame */
+    float sideFrame = sdBox(
+        vec3(
+            abs(f.x) - (faceW - 0.018),
+            f.y,
+            f.z + 0.030
+        ),
+        vec3(0.020, H, 0.060),
+        0.004
+    );
+
+    if (sideFrame < d)
+    {
+        d = sideFrame;
+        g_col = vec3(0.045, 0.018, 0.008);
+    }
+
+    /* Do shelves only between base and top of the tower */
+    if (f.y > -H + 0.02 && f.y < H - 0.02)
+    {
+        /* Thick horizontal wooden shelf boards */
+        float shelfBoard = sdBox(
+            vec3(
+                f.x,
+                shelfY - 0.010,
+                f.z + 0.035
+            ),
+            vec3(faceW - 0.028, 0.012, 0.060),
+            0.003
+        );
+
+        if (shelfBoard < d)
+        {
+            d = shelfBoard;
+            g_col = vec3(0.10, 0.045, 0.017);
+        }
+
+        /* Small warm light strip under each shelf */
+        float lamp = sdBox(
+            vec3(
+                f.x,
+                shelfY - (shelfHeight - 0.022),
+                f.z + 0.006
+            ),
+            vec3(faceW * 0.72, 0.006, 0.012),
+            0.003
+        );
+
+        if (lamp < d)
+        {
+            d = lamp;
+            g_col = vec3(2.2, 1.25, 0.42);
+            g_glow = 1.0;
+        }
+
+        /* Warm light reaches the books underneath */
+        float lampDistance = length(
+            vec3(
+                f.x * 0.7,
+                shelfY - shelfHeight,
+                f.z * 0.7
+            )
+        );
+
+        g_local_lit = exp(-3.2 * lampDistance);
+
+        /* Individual books */
+        float bookPitch = 0.052;
+        float availableWidth = 2.0 * (faceW - 0.030);
+
+        float bookOffset = f.x + faceW - 0.030;
+        float bookIndex = floor(bookOffset / bookPitch);
+        float bookX = mod(bookOffset, bookPitch) - bookPitch * 0.5;
+
+        if (bookOffset > 0.0 && bookOffset < availableWidth)
+        {
+            vec2 bookID = id + vec2(
+                shelfIndex * 19.31 + bookIndex * 0.71,
+                shelfIndex * 7.17 - bookIndex * 2.13
+            );
+
+            float b1 = hash21(bookID);
+            float b2 = hash21(bookID + vec2(5.3, 9.1));
+            float b3 = hash21(bookID + vec2(11.7, 2.4));
+            float b4 = hash21(bookID + vec2(3.6, 15.8));
+
+            /* Leave occasional small gaps */
+            if (b1 > 0.055)
+            {
+                float bookHeight =
+                    (shelfHeight - 0.040) *
+                    (0.64 + 0.31 * b2);
+
+                float bookDepth =
+                    0.045 + 0.026 * b3;
+
+                float bookHalfWidth =
+                    bookPitch *
+                    (0.40 + 0.08 * b1);
+
+                /*
+                   Book rests on the shelf.
+                   It protrudes slightly so it is visible
+                   over the darker tower wall behind it.
+                */
+                vec2 bookPos = vec2(
+                    bookX,
+                    shelfY - (0.020 + bookHeight * 0.5)
+                );
+
+                /* A few natural leaning books */
+                if (b3 > 0.82)
+                {
+                    float angle = (b2 - 0.5) * 0.16;
+                    float cs = cos(angle);
+                    float sn = sin(angle);
+
+                    bookPos = mat2(
+                        cs, -sn,
+                        sn,  cs
+                    ) * bookPos;
+                }
+
+                float book = sdBox(
+                    vec3(
+                        bookPos.x,
+                        bookPos.y,
+                        f.z + bookDepth * 0.5 - 0.010
+                    ),
+                    vec3(
+                        bookHalfWidth,
+                        bookHeight * 0.5,
+                        bookDepth * 0.5
+                    ),
+                    0.003
+                );
+
+                if (book < d)
+                {
+                    d = book;
+
+                    vec3 bcol = bookColour(bookID, b2);
+
+                    /* Gold title bands on selected book spines */
+                    if (b4 > 0.68)
+                    {
+                        float stripe = step(
+                            0.90,
+                            fract(
+                                (bookPos.y + bookHeight * 0.5) *
+                                23.0 +
+                                b1
+                            )
+                        );
+
+                        bcol = mix(
+                            bcol,
+                            vec3(0.95, 0.67, 0.16),
+                            stripe * 0.75
+                        );
+                    }
+
+                    g_col = bcol;
+                }
+            }
+        }
+    }
+
+    return d;
+}
+
+/* --------------------------------------------------------- */
+/* Raymarch helpers                                           */
+/* --------------------------------------------------------- */
+
+vec3 normal(vec3 p)
+{
+    float e = 0.0012;
+
+    return normalize(vec3(
+        map(p + vec3(e, 0.0, 0.0)) -
+        map(p - vec3(e, 0.0, 0.0)),
+
+        map(p + vec3(0.0, e, 0.0)) -
+        map(p - vec3(0.0, e, 0.0)),
+
+        map(p + vec3(0.0, 0.0, e)) -
+        map(p - vec3(0.0, 0.0, e))
+    ));
+}
+
+bool march(inout vec3 p, vec3 rd, out float dd)
+{
+    dd = 0.0; /* Important: old code did not initialize this */
+
+    for (int i = 0; i < 280; i++)
+    {
+        float d = map(p);
+
+        if (d < 0.0012)
+        {
+            return true;
+        }
+
+        float stepSize = max(d * 0.65, 0.003);
+
+        p += rd * stepSize;
+        dd += stepSize;
+
+        if (dd > 35.0)
+        {
+            return false;
+        }
+    }
+
+    return false;
+}
+
+float occ(vec3 p, vec3 n, float h)
+{
+    return clamp(map(p + n * h) / h, 0.0, 1.0);
+}
+
+vec3 cameraDir(vec2 uv, vec3 ro, vec3 target, float focalLength)
+{
+    vec3 forward = normalize(target - ro);
+    vec3 right = normalize(cross(vec3(0.0, 1.0, 0.0), forward));
+    vec3 up = cross(forward, right);
+
+    return normalize(
+        right * uv.x +
+        up * uv.y +
+        forward * focalLength
+    );
+}
+
+/* --------------------------------------------------------- */
+/* Render                                                     */
+/* --------------------------------------------------------- */
+
+vec3 render(vec2 uv)
+{
+    float lift = wheel.y / MN * 1.1;
+
+    /* Closer, centered camera for clear bookshelf detail */
+    vec3 ro = vec3(
+        0.0,
+        1.55 + lift,
+        -9.0
+    );
+
+    vec3 target = vec3(
+        move.x / MN * 2.0,
+        2.45 + lift,
+        0.0
+    );
+
+    vec3 rd = cameraDir(uv, ro, target, 1.32);
+
+    /* Brighter daylight sky */
+    float skyAmount = clamp(rd.y * 0.55 + 0.50, 0.0, 1.0);
+
+    vec3 sky = mix(
+        vec3(0.25, 0.32, 0.42),
+        vec3(0.77, 0.84, 0.92),
+        skyAmount
+    );
+
+    vec3 col = sky;
+
+    float dd;
+    vec3 p = ro;
+
+    if (march(p, rd, dd))
+    {
+        vec3 n = normal(p);
+
+        /* Restore material data after normal() calls map() */
+        map(p);
+
+        vec3 mat = g_col;
+        float glow = g_glow;
+        float shelfLight = g_local_lit;
+
+        if (glow > 0.5)
+        {
+            col = mat * 1.75;
+        }
+        else
+        {
+            /* Outdoor sunlight, from top-left/front */
+            vec3 sunDir = normalize(vec3(-0.65, 0.85, -0.45));
+            vec3 sunCol = vec3(1.20, 1.06, 0.84);
+
+            float sunlight = max(dot(n, sunDir), 0.0);
+            float skylight = clamp(n.y * 0.5 + 0.5, 0.0, 1.0);
+
+            /* Small camera fill makes front-facing books clear */
+            vec3 cameraLight = normalize(ro - p);
+            float frontFill = max(dot(n, cameraLight), 0.0);
+
+            float ao =
+                occ(p, n, 0.045) *
+                occ(p, n, 0.160);
+
+            vec3 ambient = vec3(0.18, 0.23, 0.31);
+            vec3 warmShelf = vec3(1.0, 0.58, 0.22);
+
+            vec3 lighting =
+                ambient +
+                sunCol * sunlight +
+                vec3(0.28, 0.36, 0.50) * skylight +
+                vec3(0.45, 0.38, 0.30) * frontFill +
+                warmShelf * shelfLight * 0.55;
+
+            col = mat * lighting * ao;
+
+            vec3 halfVec = normalize(sunDir - rd);
+
+            float specular = pow(
+                max(dot(n, halfVec), 0.0),
+                24.0
+            );
+
+            col += sunCol * specular * 0.11;
+        }
+
+        /* Softer distance fog, so buildings stay visible */
+        float fog = exp(-0.0009 * dd * dd);
+        col = mix(sky, col, fog);
+    }
+
+    /* Clearer tone mapping than tanh(col * col) */
+    col = vec3(1.0) - exp(-col * 1.25);
+    col = pow(max(col, vec3(0.0)), vec3(0.4545));
+
+    /* Very subtle vignette: edges do not become black */
+    float vignette = clamp(
+        1.0 - 0.16 * dot(uv, uv),
+        0.78,
+        1.0
+    );
+
+    col *= vignette;
+
+    return col;
+}
+
+void main()
+{
+    vec2 uv = (FC - 0.5 * R) / MN;
+
+    O = vec4(render(uv), 1.0);
+}
+
+

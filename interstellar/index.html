@@ -39,162 +39,162 @@
     </div>
 
     <script type="x-shader/x-fragment">
-      #version 300 es
-precision highp float;
-out vec4 O;
-uniform float time;
-uniform vec2 resolution;
-uniform vec2 move;
-uniform vec2 wheel;
-#define FC gl_FragCoord.xy
-#define R resolution
-#define T time
-#define S smoothstep
-#define N normalize
-#define MN min(R.x,R.y)
+            #version 300 es
+      precision highp float;
+      out vec4 O;
+      uniform float time;
+      uniform vec2 resolution;
+      uniform vec2 move;
+      uniform vec2 wheel;
+      #define FC gl_FragCoord.xy
+      #define R resolution
+      #define T time
+      #define S smoothstep
+      #define N normalize
+      #define MN min(R.x,R.y)
 
-float hash(vec2 p){ return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453); }
-vec3 hash3(vec2 p){
-    return fract(sin(vec3(
-        dot(p,vec2(127.1,311.7)),
-        dot(p,vec2(269.5,183.3)),
-        dot(p,vec2(419.2,371.9))))*43758.5453);
-}
+      float hash(vec2 p){ return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453); }
+      vec3 hash3(vec2 p){
+          return fract(sin(vec3(
+              dot(p,vec2(127.1,311.7)),
+              dot(p,vec2(269.5,183.3)),
+              dot(p,vec2(419.2,371.9))))*43758.5453);
+      }
 
-float box(vec3 p, vec3 s){
-    vec3 q=abs(p)-s;
-    return length(max(q,0.))+min(0.,max(q.x,max(q.y,q.z)));
-}
+      float box(vec3 p, vec3 s){
+          vec3 q=abs(p)-s;
+          return length(max(q,0.))+min(0.,max(q.x,max(q.y,q.z)));
+      }
 
-const float SH = 2.4;
-const float BW = 0.17;
+      const float SH = 2.4;
+      const float BW = 0.17;
 
-// returns distance; outMat = color, outEmit = emissive flag
-float map(vec3 p, out vec3 outMat, out float outEmit){
-    float d = 1e9;
-    outMat = vec3(0.0);
-    outEmit = 0.0;
+      // returns distance; outMat = color, outEmit = emissive flag
+      float map(vec3 p, out vec3 outMat, out float outEmit){
+          float d = 1e9;
+          outMat = vec3(0.0);
+          outEmit = 0.0;
 
-    float shelfId = floor(p.y/SH);
-    float ly = p.y - shelfId*SH;
+          float shelfId = floor(p.y/SH);
+          float ly = p.y - shelfId*SH;
 
-    // back wall
-    float back = box(vec3(p.x, p.y, p.z-0.85), vec3(60.,200.,0.05));
-    if(back<d){ d=back; outMat=vec3(0.015,0.012,0.01); outEmit=0.0; }
+          // back wall
+          float back = box(vec3(p.x, p.y, p.z-0.85), vec3(60.,200.,0.05));
+          if(back<d){ d=back; outMat=vec3(0.015,0.012,0.01); outEmit=0.0; }
 
-    // shelf board
-    float board = box(vec3(p.x, ly-0.05, p.z-0.15), vec3(60.,0.09,0.75));
-    if(board<d){ d=board; outMat=vec3(0.04,0.025,0.018); outEmit=0.0; }
+          // shelf board
+          float board = box(vec3(p.x, ly-0.05, p.z-0.15), vec3(60.,0.09,0.75));
+          if(board<d){ d=board; outMat=vec3(0.04,0.025,0.018); outEmit=0.0; }
 
-    // individual books
-    float colId = floor(p.x/BW);
-    float lx = p.x - colId*BW - BW*0.5;
-    vec2 id = vec2(colId, shelfId);
-    vec3 rr = hash3(id);
-    float bh = 1.15 + rr.x*0.85;
-    float bd = 0.28 + rr.y*0.30;
-    float w  = BW*0.5*(0.72+0.22*rr.z);
-    float front = -rr.z*0.10;
-    float book = box(vec3(lx, ly-0.03-bh*0.5, p.z-(front+bd*0.5)),
-                     vec3(w, bh*0.5, bd*0.5));
-    if(book<d){
-        d=book;
-        float c = hash(id+7.3);
-        vec3 bc;
-        if      (c<0.38) bc=vec3(0.38,0.09,0.06);
-        else if (c<0.62) bc=vec3(0.42,0.26,0.12);
-        else if (c<0.82) bc=vec3(0.55,0.46,0.30);
-        else if (c<0.92) bc=vec3(0.10,0.20,0.13);
-        else             bc=vec3(0.12,0.15,0.28);
-        bc *= 0.55+0.55*hash(id+2.1);
-        outMat=bc; outEmit=0.0;
-    }
+          // individual books
+          float colId = floor(p.x/BW);
+          float lx = p.x - colId*BW - BW*0.5;
+          vec2 id = vec2(colId, shelfId);
+          vec3 rr = hash3(id);
+          float bh = 1.15 + rr.x*0.85;
+          float bd = 0.28 + rr.y*0.30;
+          float w  = BW*0.5*(0.72+0.22*rr.z);
+          float front = -rr.z*0.10;
+          float book = box(vec3(lx, ly-0.03-bh*0.5, p.z-(front+bd*0.5)),
+                           vec3(w, bh*0.5, bd*0.5));
+          if(book<d){
+              d=book;
+              float c = hash(id+7.3);
+              vec3 bc;
+              if      (c<0.38) bc=vec3(0.38,0.09,0.06);
+              else if (c<0.62) bc=vec3(0.42,0.26,0.12);
+              else if (c<0.82) bc=vec3(0.55,0.46,0.30);
+              else if (c<0.92) bc=vec3(0.10,0.20,0.13);
+              else             bc=vec3(0.12,0.15,0.28);
+              bc *= 0.55+0.55*hash(id+2.1);
+              outMat=bc; outEmit=0.0;
+          }
 
-    // vertical pillars
-    float bay = 6.4;
-    float px = mod(p.x+bay*0.5, bay)-bay*0.5;
-    float pillar = box(vec3(px, p.y, p.z-0.25), vec3(0.16,200.,0.85));
-    if(pillar<d){ d=pillar; outMat=vec3(0.02,0.018,0.016); outEmit=0.0; }
+          // vertical pillars
+          float bay = 6.4;
+          float px = mod(p.x+bay*0.5, bay)-bay*0.5;
+          float pillar = box(vec3(px, p.y, p.z-0.25), vec3(0.16,200.,0.85));
+          if(pillar<d){ d=pillar; outMat=vec3(0.02,0.018,0.016); outEmit=0.0; }
 
-    // light strip at top of each shelf
-    float light = box(vec3(p.x, ly-(SH-0.12), p.z+0.30), vec3(60.,0.05,0.05));
-    if(light<d){ d=light; outMat=vec3(1.0,0.8,0.5); outEmit=1.0; }
+          // light strip at top of each shelf
+          float light = box(vec3(p.x, ly-(SH-0.12), p.z+0.30), vec3(60.,0.05,0.05));
+          if(light<d){ d=light; outMat=vec3(1.0,0.8,0.5); outEmit=1.0; }
 
-    return d;
-}
+          return d;
+      }
 
-// distance-only wrapper (for normals)
-float mapD(vec3 p){
-    vec3 m; float e;
-    return map(p,m,e);
-}
+      // distance-only wrapper (for normals)
+      float mapD(vec3 p){
+          vec3 m; float e;
+          return map(p,m,e);
+      }
 
-vec3 calcNormal(vec3 p){
-    vec2 e=vec2(0.0012,0.);
-    return N(vec3(
-        mapD(p+e.xyy)-mapD(p-e.xyy),
-        mapD(p+e.yxy)-mapD(p-e.yxy),
-        mapD(p+e.yyx)-mapD(p-e.yyx)));
-}
+      vec3 calcNormal(vec3 p){
+          vec2 e=vec2(0.0012,0.);
+          return N(vec3(
+              mapD(p+e.xyy)-mapD(p-e.xyy),
+              mapD(p+e.yxy)-mapD(p-e.yxy),
+              mapD(p+e.yyx)-mapD(p-e.yyx)));
+      }
 
-vec3 render(vec2 uv){
-    float scroll = T*0.3 + move.x*0.005;
-    float rise   = 4.0 - wheel.y*0.01;
-    vec3 ro=vec3(scroll, rise, -7.0);
-    vec3 ta=vec3(scroll, rise+6.0, 4.0);
-    vec3 f=N(ta-ro);
-    vec3 r=N(cross(vec3(0.,1.,0.),f));
-    vec3 u=cross(f,r);
-    vec3 rd=N(uv.x*r + uv.y*u + 1.4*f);
+      vec3 render(vec2 uv){
+          float scroll = T*0.3 + move.x*0.005;
+          float rise   = 4.0 - wheel.y*0.01;
+          vec3 ro=vec3(scroll, rise, -7.0);
+          vec3 ta=vec3(scroll, rise+6.0, 4.0);
+          vec3 f=N(ta-ro);
+          vec3 r=N(cross(vec3(0.,1.,0.),f));
+          vec3 u=cross(f,r);
+          vec3 rd=N(uv.x*r + uv.y*u + 1.4*f);
 
-    float t=0.0;
-    vec3 p=ro;
-    vec3 mat=vec3(0.0);
-    float emit=0.0;
-    bool hit=false;
+          float t=0.0;
+          vec3 p=ro;
+          vec3 mat=vec3(0.0);
+          float emit=0.0;
+          bool hit=false;
 
-    for(int i=0;i<256;i++){
-        p=ro+rd*t;
-        float d=map(p,mat,emit);
-        if(d<0.001){ hit=true; break; }
-        t+=d;
-        if(t>90.0) break;
-    }
+          for(int i=0;i<256;i++){
+              p=ro+rd*t;
+              float d=map(p,mat,emit);
+              if(d<0.001){ hit=true; break; }
+              t+=d;
+              if(t>90.0) break;
+          }
 
-    vec3 col=vec3(0.008,0.008,0.012);
-    if(hit){
-        if(emit>0.5){
-            col=mat*1.7;
-        }else{
-            vec3 n=calcNormal(p);
-            float shelfId=floor(p.y/SH);
-            float ly=p.y-shelfId*SH;
-            vec3 lpos=vec3(p.x, shelfId*SH+SH-0.12, -0.5);
-            vec3 l=N(lpos-p);
-            float ld=length(lpos-p);
-            float dif=max(dot(n,l),0.0);
-            float att=1.0/(1.0+ld*1.2+ld*ld*0.8);
-            float topglow=S(0.0,SH*0.9,ly);
-            vec3 lc=vec3(1.0,0.78,0.5);
-            col=mat*(0.03 + dif*att*8.0*lc + topglow*0.25*lc);
-            vec3 h=N(l-rd);
-            col+=pow(max(dot(n,h),0.0),24.0)*att*lc*0.35;
-        }
-    }
+          vec3 col=vec3(0.008,0.008,0.012);
+          if(hit){
+              if(emit>0.5){
+                  col=mat*1.7;
+              }else{
+                  vec3 n=calcNormal(p);
+                  float shelfId=floor(p.y/SH);
+                  float ly=p.y-shelfId*SH;
+                  vec3 lpos=vec3(p.x, shelfId*SH+SH-0.12, -0.5);
+                  vec3 l=N(lpos-p);
+                  float ld=length(lpos-p);
+                  float dif=max(dot(n,l),0.0);
+                  float att=1.0/(1.0+ld*1.2+ld*ld*0.8);
+                  float topglow=S(0.0,SH*0.9,ly);
+                  vec3 lc=vec3(1.0,0.78,0.5);
+                  col=mat*(0.03 + dif*att*8.0*lc + topglow*0.25*lc);
+                  vec3 h=N(l-rd);
+                  col+=pow(max(dot(n,h),0.0),24.0)*att*lc*0.35;
+              }
+          }
 
-    col=mix(col, vec3(0.008,0.008,0.012), 1.0-exp(-0.0009*t*t));
-    col=col/(1.0+col);              // reinhard instead of tanh
-    col=pow(col, vec3(0.4545));
+          col=mix(col, vec3(0.008,0.008,0.012), 1.0-exp(-0.0009*t*t));
+          col=col/(1.0+col);              // reinhard instead of tanh
+          col=pow(col, vec3(0.4545));
 
-    vec2 c=FC/R; c*=1.0-c.yx;
-    col*=pow(c.x*c.y*25.0, 0.35);
-    return col;
-}
+          vec2 c=FC/R; c*=1.0-c.yx;
+          col*=pow(c.x*c.y*25.0, 0.35);
+          return col;
+      }
 
-void main(){
-    vec2 uv=(FC-0.5*R)/MN;
-    O=vec4(render(uv),1.0);
-}
+      void main(){
+          vec2 uv=(FC-0.5*R)/MN;
+          O=vec4(render(uv),1.0);
+      }
     </script>
   </body>
 </html>

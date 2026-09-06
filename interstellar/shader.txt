@@ -497,3 +497,245 @@ void main()
 }
 
 
+# Make this better buildings + Shelf but the visibilty of the the building is not good 
+
+#version 300 es
+      precision highp float;
+      out vec4 O;
+      uniform float time;
+      uniform vec2 resolution;
+      uniform vec2 move;
+      uniform vec2 wheel;
+      #define FC gl_FragCoord.xy
+      #define R resolution
+      #define T (25.+time)
+      #define S smoothstep
+      #define N normalize
+      #define MN min(R.x,R.y)
+      #define rnd(p) fract(sin(dot(p,vec2(12.9898,78.233)))*345678.)
+      #define rot(a) mat2(cos((a)-vec4(0,11,33,0)))
+
+      // Global variables to pass procedural book/shelf properties to the renderer
+      vec3 g_col;
+      float g_glow;
+      float g_local_lit;
+
+      float box(vec3 p, vec3 s, float r) {
+      	p=abs(p)-s+r;
+      	return length(max(p,.0))+min(.0,max(max(p.x,p.y),p.z))-r;
+      }
+
+      float map(vec3 p) {
+      	float s=sign(p.y);
+      	p.y=abs(p.y)-2.5;
+      	vec2 id=floor(p.xz-s);
+      	if (mod(id.y,2.)==.0) {
+      		p.x-=T*.5;
+      		id.x=floor(p.x-s);
+      	}
+      	p.xz=fract(p.xz-s)-.5;
+
+        // Randomized dimensions for each unique bookshelf building
+        float r = rnd(id);
+        float W = 0.24 + 0.12 * r;                  // Cabinet Width
+        float H = 1.9 - 0.5 * rnd(id + 12.35);      // Cabinet Height
+        float D = 0.18;                             // Cabinet Depth
+
+        float d_box = box(p, vec3(W, H, D), 0.015);
+
+        // Set default void/background values
+        g_col = vec3(0.01);
+        g_glow = 0.0;
+        g_local_lit = 0.0;
+
+        // Hierarchical bounding-box check to optimize performance
+        if (d_box > 0.15) {
+            return d_box;
+        }
+
+        float d = d_box;
+
+        // Outer Dark Wood Cabinet Frame
+        float d_sides = min(
+            box(p - vec3(-W, 0., 0.), vec3(0.012, H, D * 1.02), 0.003),
+            box(p - vec3(W, 0., 0.), vec3(0.012, H, D * 1.02), 0.003)
+        );
+        float d_back = box(p, vec3(W - 0.01, H - 0.01, 0.01), 0.0);
+        d = min(d_sides, d_back);
+
+        vec3 c_frame = vec3(0.05, 0.035, 0.018) * (0.6 + 0.4 * r); // Dark rich wood
+        g_col = c_frame;
+
+        // Horizontal shelves segmentation
+        float sh = 0.35; // Height of each individual shelf
+        float y_local = p.y + H;
+        float shelf_idx = floor(y_local / sh);
+        float y_in_shelf = mod(y_local, sh);
+
+        if (y_local > 0.0 && y_local < 2.0 * H) {
+            // Horizontal Shelf Boards
+            float d_board = box(p - vec3(0.0, -H + shelf_idx * sh + 0.01, 0.0), vec3(W - 0.01, 0.008, D - 0.01), 0.002);
+            if (d_board < d) {
+                d = d_board;
+                g_col = c_frame * 0.6;
+            }
+
+            // Golden lighting strip at the top of each shelf segment
+            float d_light = box(vec3(p.x, y_in_shelf - (sh - 0.025), abs(p.z) - (D - 0.04)), vec3(W * 0.85, 0.008, 0.012), 0.002);
+            if (d_light < d) {
+                d = d_light;
+                g_col = vec3(2.5, 1.7, 0.9); // Emissive light strip color
+                g_glow = 1.0;
+            }
+
+            // Compute local spotlight attenuation for shelf contents
+            float dist_to_light = length(vec3(p.x * 0.4, y_in_shelf - sh, abs(p.z) - D));
+            g_local_lit = exp(-4.5 * dist_to_light);
+
+            // Individual Books
+            float book_w = 0.035;
+            float x_local = p.x + W - 0.015;
+            float book_idx = floor(x_local / book_w);
+            float x_in_book = mod(x_local, book_w) - book_w * 0.5;
+
+            // Render books inside the physical boundaries of the cabinet
+            if (x_local > 0.0 && x_local < 2.0 * W - 0.03) {
+                vec2 b_id = vec2(shelf_idx, book_idx) + rnd(id) * 45.2;
+                float b_rand = rnd(b_id);
+                float b_rand2 = rnd(b_id + 7.4);
+
+                float b_h = sh * (0.55 + 0.32 * b_rand);  // Random book height
+                float b_d = D * (0.65 + 0.3 * b_rand2);  // Random book depth
+
+                // Rich library color palette
+                vec3 b_color = vec3(0.1);
+                float col_sel = rnd(b_id + 3.2);
+                if (col_sel < 0.22) b_color = vec3(0.38, 0.06, 0.04);       // Deep burgundy red
+                else if (col_sel < 0.44) b_color = vec3(0.06, 0.12, 0.26);  // Vintage leather blue
+                else if (col_sel < 0.65) b_color = vec3(0.08, 0.22, 0.12);  // Library green
+                else if (col_sel < 0.85) b_color = vec3(0.48, 0.32, 0.15);  // Aged brown parchment
+                else b_color = vec3(0.55, 0.48, 0.35);                      // Antique paper
+
+                b_color *= (0.65 + 0.35 * rnd(b_id + 9.1));
+
+                // Tilt some books slightly for a natural, dusty library feel
+                float tilt = (rnd(b_id + 14.3) - 0.5) * 0.18;
+                vec2 rotated_xy = vec2(x_in_book, y_in_shelf - 0.015 - b_h * 0.5);
+                if (rnd(b_id + 19.8) > 0.72) {
+                    float cos_t = cos(tilt);
+                    float sin_t = sin(tilt);
+                    rotated_xy = mat2(cos_t, -sin_t, sin_t, cos_t) * rotated_xy;
+                }
+
+                // Place the books sitting nicely on the shelves
+                vec3 book_pos = vec3(rotated_xy.x, rotated_xy.y, abs(p.z) - (D - b_d * 0.5));
+                float d_book = box(book_pos, vec3(book_w * 0.42, b_h * 0.5, b_d * 0.5), 0.003);
+
+                if (d_book < d) {
+                    d = d_book;
+                    g_col = b_color;
+
+                    // Add golden decorative stripes/gilding to the spines
+                    float has_gilding = step(0.68, rnd(b_id + 11.2));
+                    if (has_gilding > 0.5 && abs(book_pos.y) < b_h * 0.4) {
+                        float bands = step(0.88, cos(book_pos.y * 70.0));
+                        g_col = mix(g_col, vec3(0.85, 0.65, 0.2), bands);
+                    }
+                }
+            }
+        }
+
+        return d;
+      }
+
+      vec3 norm(vec3 p) {
+      	float h=1e-3; vec2 k=vec2(-1,1);
+      	return N(
+      		k.xyy*map(p+k.xyy*h)+
+      		k.yxy*map(p+k.yxy*h)+
+      		k.yyx*map(p+k.yyx*h)+
+      		k.xxx*map(p+k.xxx*h)
+      	);
+      }
+
+      bool march(inout vec3 p, vec3 rd, out float dd) {
+      	for (int i = 0; i < 300; i++) {
+      		float d=map(p);
+      		if (abs(d)<1e-3) return true;
+      		if (dd>15.) return false;
+      		p+=rd*d*.5;
+      		dd+=d*.5;
+      	}
+        return false;
+      }
+
+      float occ(vec3 p, vec3 n, float d) {
+      	return clamp(map(p+n*d)/d,.0,1.);
+      }
+
+      vec3 dir(vec2 uv, vec3 p, vec3 t, float z) {
+      	vec3 up=vec3(0,1,0),
+      	f=N(t-p),
+      	r=N(cross(up,f)),
+      	u=N(cross(f,r));
+      	return mat3(r,u,f)*N(vec3(uv,z));
+      }
+
+      void cam(inout vec3 p) {
+      	p.xz*=rot(.2-move.x/MN+.2*T*.01);
+      }
+
+      vec3 render(vec2 uv) {
+      	vec3 col=vec3(0),
+      	p=vec3(0,-.3,-23.5-wheel.y/MN-1e2*sin(T*5e-3));
+      	cam(p);
+      	vec3 rd=dir(uv,p,vec3(0,5.5,0),1.2), lp=p;
+      	lp.z+=.5;
+      	float dd;
+      	if (march(p,rd,dd)) {
+      		vec3 n=norm(p);
+            
+            // Re-evaluate map at the hitpoint to restore procedural color properties
+            map(p); 
+            
+            vec3 l=N(lp-p);
+      		float dif=clamp(dot(l,n),.0,1.),
+      		spe=pow(clamp(dot(N(lp-rd),n),.0,1.),21.),
+      		ao=occ(p,n,.5)*.8*occ(p,n,1.),
+      		ld=distance(lp,p), atten=1./(1.+ld*.25+ld*ld*.125);
+      		
+            vec3 mat=g_col;
+            float glow=g_glow;
+            float local_lit=g_local_lit;
+
+            // Combine screen-space headlamp with cozy warm shelf light projection
+            vec3 warm_lamp = vec3(1.2, 0.85, 0.5) * local_lit * 2.8;
+            vec3 diffuse_illum = mat * (dif * atten + warm_lamp);
+
+            col += 0.025 * mat;             // Low ambient base
+            col += diffuse_illum * ao;     // Ambient Occlusion + Diffuse Lighting
+            col += spe * atten * 0.3;      // Specular glare on cover/woods
+
+            // Ensure our emissive lights glow brightly
+            if (glow > 0.5) {
+                col = mat;
+            }
+      	}
+      	col=mix(vec3(0),col,exp(-125e-5*dd*dd*dd));
+      	col=tanh(col*col);
+      	col=sqrt(col);
+      	col=mix(vec3(0),col,min(time*.3,1.));
+      	// vignette
+      	vec2 c=FC/R;
+      	c*=1.-c.yx;
+      	float vig=c.x*c.y*25.;
+      	vig=pow(vig,.5);
+      	col*=vig;
+      	return col;
+      }
+
+      void main() {
+      	vec2 uv=(FC-.5*R)/MN;
+      	vec3 col=render(uv);
+        O=vec4(col,1);
+      }

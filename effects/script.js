@@ -960,8 +960,8 @@ const MODELS = {
     },
     try: {
         url: "https://raw.githubusercontent.com/Aishwary2004Gupta/models/cloud/octopus_plush.glb",
-        scale: 0.07,
-        rotation: { x: 0, y: Math.PI + 1, z: 0 },
+        scale: 0.7,
+        rotation: { x: 0, y: Math.PI, z: 0 },
         position: { x: 0, y: -0.5, z: 0 },
     },
 };

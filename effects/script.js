@@ -952,7 +952,7 @@ const MODELS = {
         rotation: { x: -1.6, y: 0, z: 0 },
         position: { x: 0, y: -0.2, z: 0 },
     },
-    try: {
+    ice_truck: {
         url: "https://raw.githubusercontent.com/Aishwary2004Gupta/models/cloud/box-truck.glb",
         scale: 0.07,
         rotation: { x: 0, y: Math.PI + 1, z: 0 },

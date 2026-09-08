@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Interstellar</title>
+    <title>Interstellar Library</title>
     <link rel="stylesheet" href="style.css" />
     <script type="module" src="script.js" defer></script>
   </head>
@@ -29,6 +29,12 @@
           name="toggleView"
         />
         <input
+          id="btnTogglePause"
+          class="icon"
+          type="checkbox"
+          name="togglePause"
+        />
+        <input
           id="btnToggleResolution"
           class="icon"
           type="checkbox"
@@ -39,299 +45,304 @@
     </div>
 
     <script type="x-shader/x-fragment">
-
-      
-
       #version 300 es
-precision highp float;
+      precision highp float;
 
-out vec4 O;
+      out vec4 O;
 
-uniform float time;
-uniform vec2 resolution;
-uniform vec2 move;
-uniform vec2 wheel;
+      uniform float time;
+      uniform vec2 resolution;
+      uniform vec2 move;
+      uniform vec2 wheel;
 
-#define FC gl_FragCoord.xy
-#define R resolution
-#define T (25.0 + time)
-#define MN min(R.x, R.y)
-#define rnd(p) fract(sin(dot(p, vec2(12.9898, 78.233))) * 345678.0)
-#define rot(a) mat2(cos((a) - vec4(0, 11, 33, 0)))
+      #define FC gl_FragCoord.xy
+      #define R resolution
+      #define T (25.0 + time)
+      #define MN min(R.x, R.y)
+      #define rnd(p) fract(sin(dot(p, vec2(12.9898, 78.233))) * 345678.0)
+      #define rot(a) mat2(cos((a) - vec4(0, 11, 33, 0)))
 
-const float SHELF_H = 0.180;
-const float BOOK_W  = 0.022;
-const float POST_W  = 0.024;
+      const float SHELF_H = 0.180;
+      const float BOOK_W  = 0.022;
+      const float POST_W  = 0.024;
 
-float sdBox(vec3 p, vec3 b, float r)
-{
-    vec3 q = abs(p) - b;
-    return length(max(q, vec3(0.0))) + min(max(q.x, max(q.y, q.z)), 0.0) - r;
-}
+      float sdBox(vec3 p, vec3 b, float r)
+      {
+          vec3 q = abs(p) - b;
+          return length(max(q, vec3(0.0))) + min(max(q.x, max(q.y, q.z)), 0.0) - r;
+      }
 
-struct Tower
-{
-    vec3  p;
-    vec2  id;
-    float W, H, D, sy;
-};
+      struct Tower
+      {
+          vec3  p;
+          vec2  id;
+          float W, H, D, sy;
+      };
 
-Tower getTower(vec3 p)
-{
-    Tower t;
-    float sy = p.y < 0.0 ? -1.0 : 1.0;
-    p.y = abs(p.y) - 2.5;
+      Tower getTower(vec3 p)
+      {
+          Tower t;
+          float sy = p.y < 0.0 ? -1.0 : 1.0;
+          p.y = abs(p.y) - 2.5;
 
-    vec2 id = floor(p.xz - sy);
-    if (mod(id.y, 2.0) == 0.0) { p.x -= T * 0.5; id.x = floor(p.x - sy); }
-    p.xz = fract(p.xz - sy) - 0.5;
+          vec2 id = floor(p.xz - sy);
+          if (mod(id.y, 2.0) == 0.0) { p.x -= T * 0.5; id.x = floor(p.x - sy); }
+          p.xz = fract(p.xz - sy) - 0.5;
 
-    float r1 = rnd(id);
-    float r2 = rnd(id + 7.31);
+          float r1 = rnd(id);
+          float r2 = rnd(id + 7.31);
 
-    t.p  = p;
-    t.id = id;
-    t.sy = sy;
-    t.W  = 0.150 + 0.160 * r1;
-    t.D  = 0.140 + 0.120 * r2;
-    t.H  = max(1.35, 2.05 - 0.55 * rnd(id + 12.35));
-    return t;
-}
+          t.p  = p;
+          t.id = id;
+          t.sy = sy;
+          t.W  = 0.150 + 0.160 * r1;
+          t.D  = 0.140 + 0.120 * r2;
+          t.H  = max(1.35, 2.05 - 0.55 * rnd(id + 12.35));
+          return t;
+      }
 
-struct Facade { vec3 col; float inset; float glow; float lit; };
+      struct Facade { vec3 col; float inset; float glow; float lit; };
 
-vec3 bookPalette(vec2 id)
-{
-    float sel = rnd(id + 2.11);
-    if      (sel < 0.20) return vec3(0.55, 0.13, 0.08);
-    else if (sel < 0.38) return vec3(0.34, 0.20, 0.10);
-    else if (sel < 0.53) return vec3(0.14, 0.25, 0.16);
-    else if (sel < 0.66) return vec3(0.10, 0.16, 0.32);
-    else if (sel < 0.80) return vec3(0.63, 0.43, 0.18);
-    else if (sel < 0.92) return vec3(0.48, 0.22, 0.30);
-    else                 return vec3(0.78, 0.71, 0.55);
-}
+      vec3 bookPalette(vec2 id)
+      {
+          float sel = rnd(id + 2.11);
+          if      (sel < 0.20) return vec3(0.55, 0.13, 0.08);
+          else if (sel < 0.38) return vec3(0.34, 0.20, 0.10);
+          else if (sel < 0.53) return vec3(0.14, 0.25, 0.16);
+          else if (sel < 0.66) return vec3(0.10, 0.16, 0.32);
+          else if (sel < 0.80) return vec3(0.63, 0.43, 0.18);
+          else if (sel < 0.92) return vec3(0.48, 0.22, 0.30);
+          else                 return vec3(0.78, 0.71, 0.55);
+      }
 
-Facade facade(vec2 uv, float halfW, float H, vec2 id, float faceSeed)
-{
-    Facade f;
-    float r1 = rnd(id);
-    vec3 frameCol = mix(vec3(0.055, 0.035, 0.022), vec3(0.120, 0.070, 0.038), r1);
+      Facade facade(vec2 uv, float halfW, float H, vec2 id, float faceSeed, float worldDist)
+      {
+          Facade f;
+          float r1 = rnd(id);
+          vec3 frameCol = mix(vec3(0.055, 0.035, 0.022), vec3(0.120, 0.070, 0.038), r1);
 
-    f.col = frameCol; f.inset = 0.0; f.glow = 0.0; f.lit = 0.0;
+          f.col = frameCol; f.inset = 0.0; f.glow = 0.0; f.lit = 0.0;
 
-    if (abs(uv.x) > halfW - POST_W) { f.col = frameCol * 0.45; return f; }
-    if (uv.y > H - 0.035) { f.col = frameCol * 0.75; return f; }
-    if (uv.y < -H + 0.040) { f.col = frameCol * 0.55; return f; }
+          if (abs(uv.x) > halfW - POST_W) { f.col = frameCol * 0.45; return f; }
+          if (uv.y > H - 0.035) { f.col = frameCol * 0.75; return f; }
+          if (uv.y < -H + 0.040) { f.col = frameCol * 0.55; return f; }
 
-    float yLocal   = uv.y + H;
-    float shelfIdx = floor(yLocal / SHELF_H);
-    float yInShelf = mod(yLocal, SHELF_H);
-    float boardT   = 0.017;
+          float yLocal   = uv.y + H;
+          float shelfIdx = floor(yLocal / SHELF_H);
+          float yInShelf = mod(yLocal, SHELF_H);
+          float boardT   = 0.017;
 
-    if (yInShelf < boardT) { f.col = frameCol * 0.58; f.inset = 0.001; return f; }
-    if (yInShelf > SHELF_H - 0.012) { f.col = vec3(2.20, 1.38, 0.58); f.glow = 1.0; f.inset = 0.003; return f; }
+          if (yInShelf < boardT) { f.col = frameCol * 0.58; f.inset = 0.001; return f; }
+          if (yInShelf > SHELF_H - 0.012) { f.col = vec3(2.20, 1.38, 0.58); f.glow = 1.0; f.inset = 0.003; return f; }
 
-    f.lit = exp(-5.5 * (SHELF_H - yInShelf));
+          f.lit = exp(-5.5 * (SHELF_H - yInShelf));
 
-    float xStart = -halfW + POST_W;
-    float off    = uv.x - xStart;
-    if (off < 0.0 || off > (halfW - POST_W) * 2.0) { f.col = frameCol * 0.40; f.inset = 0.020; return f; }
+          /* DISTANCE LOD: Prevents pixel breaking & shimmering on distant books */
+          float lod = smoothstep(8.0, 18.0, worldDist);
+          if (lod > 0.85) {
+              f.col = mix(frameCol * 0.7, vec3(0.35, 0.20, 0.12), fract(shelfIdx * 0.3));
+              f.inset = 0.015;
+              return f;
+          }
 
-    float bookIdx = floor(off / BOOK_W);
-    float xInBook = mod(off, BOOK_W) - BOOK_W * 0.5;
+          float xStart = -halfW + POST_W;
+          float off    = uv.x - xStart;
+          if (off < 0.0 || off > (halfW - POST_W) * 2.0) { f.col = frameCol * 0.40; f.inset = 0.020; return f; }
 
-    vec2 bId = vec2(shelfIdx * 39.17 + bookIdx + faceSeed * 97.3, id.x * 21.71 + id.y * 5.91 - bookIdx * 1.37);
-    float b1 = rnd(bId), b2 = rnd(bId + 5.77), b3 = rnd(bId + 11.33), b4 = rnd(bId + 19.91), b5 = rnd(bId + 31.44);
+          float bookIdx = floor(off / BOOK_W);
+          float xInBook = mod(off, BOOK_W) - BOOK_W * 0.5;
 
-    if (b1 < 0.055) { f.col = vec3(0.022, 0.015, 0.010); f.inset = 0.050; return f; }
+          vec2 bId = vec2(shelfIdx * 39.17 + bookIdx + faceSeed * 97.3, id.x * 21.71 + id.y * 5.91 - bookIdx * 1.37);
+          float b1 = rnd(bId), b2 = rnd(bId + 5.77), b3 = rnd(bId + 11.33), b4 = rnd(bId + 19.91), b5 = rnd(bId + 31.44);
 
-    float bookBase = boardT + 0.002;
-    float bookH    = (SHELF_H - bookBase - 0.014) * (0.58 + 0.38 * b2);
-    float bookHalfW = BOOK_W * (0.34 + 0.14 * b1);
-    float bookCenterY = bookBase + bookH * 0.5;
+          if (b1 < 0.055) { f.col = vec3(0.022, 0.015, 0.010); f.inset = 0.050; return f; }
 
-    vec2 bp = vec2(xInBook, yInShelf - bookCenterY);
+          float bookBase = boardT + 0.002;
+          float bookH    = (SHELF_H - bookBase - 0.014) * (0.58 + 0.38 * b2);
+          float bookHalfW = BOOK_W * (0.34 + 0.14 * b1);
+          float bookCenterY = bookBase + bookH * 0.5;
 
-    if (b3 > 0.86) {
-        float a = (b2 - 0.5) * 0.12;
-        float cs = cos(a), sn = sin(a);
-        bp = mat2(cs, -sn, sn, cs) * bp;
-    }
+          vec2 bp = vec2(xInBook, yInShelf - bookCenterY);
 
-    if (!(abs(bp.x) < bookHalfW && abs(bp.y) < bookH * 0.5)) {
-        f.col = vec3(0.024, 0.016, 0.011); f.inset = 0.045; return f;
-    }
+          if (b3 > 0.86) {
+              float a = (b2 - 0.5) * 0.12;
+              float cs = cos(a), sn = sin(a);
+              bp = mat2(cs, -sn, sn, cs) * bp;
+          }
 
-    vec3 bcol = bookPalette(bId) * (0.82 + 0.36 * b5);
+          if (!(abs(bp.x) < bookHalfW && abs(bp.y) < bookH * 0.5)) {
+              f.col = vec3(0.024, 0.016, 0.011); f.inset = 0.045; return f;
+          }
 
-    float edge = smoothstep(0.55, 0.98, abs(bp.x) / max(bookHalfW, 0.0001));
-    bcol *= 1.0 - edge * 0.28;
+          vec3 bcol = bookPalette(bId) * (0.82 + 0.36 * b5);
 
-    float groove = 1.0 - smoothstep(0.001, 0.004, abs(abs(bp.x) - bookHalfW * 0.72));
-    bcol *= 1.0 - groove * 0.18;
+          float edge = smoothstep(0.55, 0.98, abs(bp.x) / max(bookHalfW, 0.0001));
+          bcol *= 1.0 - edge * 0.28;
 
-    float contact = 1.0 - smoothstep(0.000, 0.014, bp.y + bookH * 0.5);
-    bcol *= 1.0 - contact * 0.38;
+          float groove = 1.0 - smoothstep(0.001, 0.004, abs(abs(bp.x) - bookHalfW * 0.72));
+          bcol *= 1.0 - groove * 0.18;
 
-    float topLight = 1.0 - smoothstep(0.000, 0.010, bookH * 0.5 - bp.y);
-    bcol = mix(bcol, bcol + vec3(0.10, 0.08, 0.04), topLight * 0.45);
+          float contact = 1.0 - smoothstep(0.000, 0.014, bp.y + bookH * 0.5);
+          bcol *= 1.0 - contact * 0.38;
 
-    if (b4 > 0.50) {
-        float band1 = 1.0 - smoothstep(0.001, 0.005, abs(bp.y - bookH * 0.25));
-        float band2 = 1.0 - smoothstep(0.001, 0.005, abs(bp.y + bookH * 0.25));
-        bcol = mix(bcol, vec3(0.90, 0.70, 0.28), max(band1, band2) * 0.80);
-    }
+          float topLight = 1.0 - smoothstep(0.000, 0.010, bookH * 0.5 - bp.y);
+          bcol = mix(bcol, bcol + vec3(0.10, 0.08, 0.04), topLight * 0.45);
 
-    if (b4 > 0.78) {
-        float lx = 1.0 - smoothstep(bookHalfW * 0.42, bookHalfW * 0.58, abs(bp.x));
-        float ly = 1.0 - smoothstep(bookH * 0.08, bookH * 0.16, abs(bp.y));
-        bcol = mix(bcol, vec3(0.82, 0.74, 0.55), lx * ly * 0.65);
-    }
+          if (b4 > 0.50) {
+              float band1 = 1.0 - smoothstep(0.001, 0.005, abs(bp.y - bookH * 0.25));
+              float band2 = 1.0 - smoothstep(0.001, 0.005, abs(bp.y + bookH * 0.25));
+              bcol = mix(bcol, vec3(0.90, 0.70, 0.28), max(band1, band2) * 0.80);
+          }
 
-    if (bp.y > bookH * 0.5 - 0.006)
-        bcol = mix(bcol, vec3(0.88, 0.82, 0.68), 0.85);
+          if (b4 > 0.78) {
+              float lx = 1.0 - smoothstep(bookHalfW * 0.42, bookHalfW * 0.58, abs(bp.x));
+              float ly = 1.0 - smoothstep(bookH * 0.08, bookH * 0.16, abs(bp.y));
+              bcol = mix(bcol, vec3(0.82, 0.74, 0.55), lx * ly * 0.65);
+          }
 
-    bcol += vec3(0.16, 0.08, 0.025) * f.lit;
+          if (bp.y > bookH * 0.5 - 0.006)
+              bcol = mix(bcol, vec3(0.88, 0.82, 0.68), 0.85);
 
-    f.col = bcol;
-    f.inset = 0.004 + 0.010 * b3;
-    return f;
-}
+          bcol += vec3(0.16, 0.08, 0.025) * f.lit;
 
-Facade towerFacade(Tower t)
-{
-    vec3 p = t.p;
-    float uprightY = p.y * t.sy;
-    float fx = abs(p.x) / t.W;
-    float fz = abs(p.z) / t.D;
+          f.col = bcol;
+          f.inset = 0.004 + 0.010 * b3;
+          return f;
+      }
 
-    if (fz >= fx)
-        return facade(vec2(p.x, uprightY), t.W, t.H, t.id, sign(p.z));
-    else
-        return facade(vec2(p.z, uprightY), t.D, t.H, t.id, 2.0 + sign(p.x));
-}
+      Facade towerFacade(Tower t, float worldDist)
+      {
+          vec3 p = t.p;
+          float uprightY = p.y * t.sy;
+          float fx = abs(p.x) / t.W;
+          float fz = abs(p.z) / t.D;
 
-float map(vec3 p)
-{
-    Tower t = getTower(p);
-    float d = sdBox(t.p, vec3(t.W, t.H, t.D), 0.006);
-    if (d < 0.080) d += towerFacade(t).inset;
-    return d;
-}
+          if (fz >= fx)
+              return facade(vec2(p.x, uprightY), t.W, t.H, t.id, sign(p.z), worldDist);
+          else
+              return facade(vec2(p.z, uprightY), t.D, t.H, t.id, 2.0 + sign(p.x), worldDist);
+      }
 
-vec3 calcNormal(vec3 p)
-{
-    float e = 0.0012;
-    vec2 k = vec2(-1.0, 1.0);
-    return normalize(
-        k.xyy * map(p + k.xyy * e) + k.yxy * map(p + k.yxy * e) +
-        k.yyx * map(p + k.yyx * e) + k.xxx * map(p + k.xxx * e));
-}
+      float map(vec3 p)
+      {
+          Tower t = getTower(p);
+          float d = sdBox(t.p, vec3(t.W, t.H, t.D), 0.006);
+          if (d < 0.080) {
+              Facade f = towerFacade(t, length(p));
+              d += f.inset;
+          }
+          return d;
+      }
 
-bool march(inout vec3 p, vec3 rd, out float dd)
-{
-    dd = 0.0;
-    for (int i = 0; i < 430; i++) {
-        float d = map(p);
-        if (d < 0.0010) return true;
-        if (dd > 26.0) return false;
-        float st = max(d * 0.48, 0.0012);
-        p += rd * st; dd += st;
-    }
-    return false;
-}
+      vec3 calcNormal(vec3 p)
+      {
+          float e = 0.0012;
+          vec2 k = vec2(-1.0, 1.0);
+          return normalize(
+              k.xyy * map(p + k.xyy * e) + k.yxy * map(p + k.yxy * e) +
+              k.yyx * map(p + k.yyx * e) + k.xxx * map(p + k.xxx * e));
+      }
 
-float calcAO(vec3 p, vec3 n)
-{
-    float occ = 0.0, sca = 1.0;
-    for (int i = 0; i < 4; i++) {
-        float h = 0.010 + 0.045 * float(i);
-        occ += (h - map(p + n * h)) * sca;
-        sca *= 0.60;
-    }
-    return clamp(1.0 - 1.8 * occ, 0.14, 1.0);
-}
+      bool march(inout vec3 p, vec3 rd, out float dd)
+      {
+          dd = 0.0;
+          for (int i = 0; i < 430; i++) {
+              float d = map(p);
+              if (d < 0.0010) return true;
+              if (dd > 26.0) return false;
+              float st = max(d * 0.40, 0.0010);
+              p += rd * st; dd += st;
+          }
+          return false;
+      }
 
-vec3 camDir(vec2 uv, vec3 ro, vec3 target, float fl)
-{
-    vec3 f = normalize(target - ro);
-    vec3 r = normalize(cross(vec3(0.0, 1.0, 0.0), f));
-    vec3 u = cross(f, r);
-    return normalize(r * uv.x + u * uv.y + f * fl);
-}
+      float calcAO(vec3 p, vec3 n)
+      {
+          float occ = 0.0, sca = 1.0;
+          for (int i = 0; i < 4; i++) {
+              float h = 0.010 + 0.045 * float(i);
+              occ += (h - map(p + n * h)) * sca;
+              sca *= 0.60;
+          }
+          return clamp(1.0 - 1.8 * occ, 0.14, 1.0);
+      }
 
-vec3 render(vec2 uv)
-{
-    vec3 ro = vec3(0.0, -0.3, -23.5 - wheel.y / MN - 100.0 * sin(T * 0.005));
-    float ang = 0.20 - move.x / MN + 0.20 * T * 0.01;
-    ro.xz = rot(ang) * ro.xz;
+      vec3 camDir(vec2 uv, vec3 ro, vec3 target, float fl)
+      {
+          vec3 f = normalize(target - ro);
+          vec3 r = normalize(cross(vec3(0.0, 1.0, 0.0), f));
+          vec3 u = cross(f, r);
+          return normalize(r * uv.x + u * uv.y + f * fl);
+      }
 
-    vec3 rd = camDir(uv, ro, vec3(0.0, 5.5, 0.0), 1.2);
+      vec3 render(vec2 uv)
+      {
+          vec3 ro = vec3(0.0, -0.3, -23.5 - wheel.y / MN - 100.0 * sin(T * 0.005));
+          float ang = 0.20 - move.x / MN + 0.20 * T * 0.01;
+          ro.xz = rot(ang) * ro.xz;
 
-    /* PURE BLACK BACKGROUND like your original shader */
-    vec3 sky = vec3(0.0);
-    vec3 col = sky;
+          vec3 rd = camDir(uv, ro, vec3(0.0, 5.5, 0.0), 1.2);
+          vec3 sky = vec3(0.0);
+          vec3 col = sky;
 
-    float dd = 0.0;
-    vec3 p = ro;
+          float dd = 0.0;
+          vec3 p = ro;
 
-    if (march(p, rd, dd))
-    {
-        vec3 n = calcNormal(p);
-        Facade f = towerFacade(getTower(p));
+          if (march(p, rd, dd))
+          {
+              vec3 n = calcNormal(p);
+              Facade f = towerFacade(getTower(p), dd);
 
-        if (f.glow > 0.5)
-        {
-            col = f.col * 1.55;
-        }
-        else
-        {
-            vec3 sunDir = normalize(vec3(-0.55, 0.72, -0.40));
-            vec3 sunCol = vec3(1.30, 1.16, 0.95);
+              if (f.glow > 0.5)
+              {
+                  col = f.col * 1.55;
+              }
+              else
+              {
+                  vec3 sunDir = normalize(vec3(-0.55, 0.72, -0.40));
+                  vec3 sunCol = vec3(1.30, 1.16, 0.95);
 
-            float dif       = max(dot(n, sunDir), 0.0);
-            float skylight  = clamp(n.y * 0.5 + 0.5, 0.0, 1.0);
-            float frontFill = max(dot(n, normalize(ro - p)), 0.0);
-            float ao        = calcAO(p, n);
+                  float dif       = max(dot(n, sunDir), 0.0);
+                  float skylight  = clamp(n.y * 0.5 + 0.5, 0.0, 1.0);
+                  float frontFill = max(dot(n, normalize(ro - p)), 0.0);
+                  float ao        = calcAO(p, n);
 
-            vec3 light =
-                vec3(0.32, 0.34, 0.40) +
-                sunCol * dif * 1.20 +
-                vec3(0.28, 0.32, 0.40) * skylight * 0.45 +
-                vec3(0.46, 0.40, 0.32) * frontFill * 0.62 +
-                vec3(1.40, 0.88, 0.40) * f.lit * 1.00;
+                  vec3 light =
+                      vec3(0.32, 0.34, 0.40) +
+                      sunCol * dif * 1.20 +
+                      vec3(0.28, 0.32, 0.40) * skylight * 0.45 +
+                      vec3(0.46, 0.40, 0.32) * frontFill * 0.62 +
+                      vec3(1.40, 0.88, 0.40) * f.lit * 1.00;
 
-            col = f.col * light * ao;
+                  col = f.col * light * ao;
 
-            vec3 h = normalize(sunDir - rd);
-            col += sunCol * pow(max(dot(n, h), 0.0), 28.0) * 0.12 * ao;
+                  vec3 h = normalize(sunDir - rd);
+                  col += sunCol * pow(max(dot(n, h), 0.0), 28.0) * 0.12 * ao;
 
-            float rim = pow(1.0 - max(dot(n, -rd), 0.0), 4.0);
-            col += vec3(0.28, 0.32, 0.40) * rim * 0.20;
-        }
-    }
+                  float rim = pow(1.0 - max(dot(n, -rd), 0.0), 4.0);
+                  col += vec3(0.28, 0.32, 0.40) * rim * 0.20;
+              }
+          }
 
-    /* Black fog (same style as your original) */
-    col = mix(sky, col, exp(-125e-5 * dd * dd * dd));
+          col = mix(sky, col, exp(-125e-5 * dd * dd * dd));
 
-    col = vec3(1.0) - exp(-col * 1.55);
-    col = pow(max(col, vec3(0.0)), vec3(0.4545));
+          col = vec3(1.0) - exp(-col * 1.55);
+          col = pow(max(col, vec3(0.0)), vec3(0.4545));
 
-    col = mix(vec3(0.0), col, smoothstep(0.0, 0.3, time));
+          col = mix(vec3(0.0), col, smoothstep(0.0, 0.3, time));
 
-    vec2 c = FC / R;
-    c *= 1.0 - c.yx;
-    col *= pow(clamp(c.x * c.y * 25.0, 0.0, 1.0), 0.14);
+          vec2 c = FC / R;
+          c *= 1.0 - c.yx;
+          col *= pow(clamp(c.x * c.y * 25.0, 0.0, 1.0), 0.14);
 
-    return col;
-}
+          return col;
+      }
 
-void main()
-{
-    vec2 uv = (FC - 0.5 * R) / MN;
-    O = vec4(render(uv), 1.0);
-}
+      void main()
+      {
+          vec2 uv = (FC - 0.5 * R) / MN;
+          O = vec4(render(uv), 1.0);
+      }
     </script>
   </body>
 </html>

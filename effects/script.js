@@ -958,7 +958,7 @@ const MODELS = {
         rotation: { x: 0, y: Math.PI + 1, z: 0 },
         position: { x: 0, y: -0.8, z: 0 },
     },
-    try: {
+    octopus_plush: {
         url: "https://raw.githubusercontent.com/Aishwary2004Gupta/models/cloud/octopus_plush.glb",
         scale: 1,
         rotation: { x: -0.1, y: 1.5, z: 0 },

@@ -966,7 +966,7 @@ const MODELS = {
     },
     try: {
         url: "https://raw.githubusercontent.com/Aishwary2004Gupta/models/cloud/low_poly_treehouse.glb",
-        scale: 1,
+        scale: 0.01,
         rotation: { x: -0.1, y: 1.5, z: 0 },
         position: { x: 0, y: -0.7, z: 0 },
     },

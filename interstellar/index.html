@@ -1,552 +1,1022 @@
 <!doctype html>
 <html lang="en">
-<head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Book Buildings</title>
-<style>
-::-webkit-scrollbar{width:.625rem;height:.625rem}
-::-webkit-scrollbar-thumb{background:#111;border-radius:.3125rem;box-shadow:inset .125rem .125rem .125rem rgba(255,255,255,.25),inset -.125rem -.125rem .125rem rgba(0,0,0,.25);cursor:default}
-::-webkit-scrollbar-track{background:#333}
-::selection{background:#fff;color:#333}
-html,body{height:100vh;height:100dvh;margin:0;overflow:hidden}
-body{display:grid;grid-template-rows:calc(100dvh - 4rem) 4rem;font-family:system-ui,sans-serif}
-canvas,.editor,#controls{grid-row:1;grid-column:1}
-canvas{--canvas-z-index:-1;width:100%;height:100%;object-fit:fill;display:block;background:black;touch-action:none;z-index:var(--canvas-z-index)}
-.editor,.overlay,#error{font-family:'Courier New',Courier,monospace;background:repeating-linear-gradient(0deg,#000a,#1119,#000a .25rem);padding:1em}
-.editor{color:#fefefe;tab-size:2;border:none;resize:none}
-.editor:focus{outline:none}
-#error{grid-row:2;grid-column:1;margin:0;padding-block:0;padding-top:.5em;color:firebrick;overflow:auto;text-wrap:pretty}
-#indicator{visibility:hidden;position:absolute;top:calc(var(--top,0px) - var(--scroll-top,0px));width:0;height:0;border-top:10px solid transparent;border-bottom:10px solid transparent;border-left:10px solid firebrick;transform:translateY(-25%)}
-.overlay{position:absolute;top:0;left:0;right:0;margin:0}
-.editor,.overlay{font-size:1rem;line-height:1.2;white-space:pre}
-#controls{position:fixed;top:1em;right:2em}
-.controls{position:relative;display:flex;gap:1.5em;padding:.5em 1.25em;background:#1111;border-radius:4px}
-.controls::before,.controls::after{content:'';position:absolute;z-index:-1;inset:0;transform:scale(.95);border-radius:inherit;opacity:0}
-.controls::before{background:#aef;animation:pulse 2s infinite}
-.controls::after{background:#fefefe66;transition:transform 200ms ease-in-out}
-.controls:hover::before,.controls:hover::after{opacity:1}
-.controls:hover::before{transform:scale(.98);filter:blur(2px)}
-.controls:hover::after{transform:scale(1.025,1.1)}
-.controls:hover{background:#111f}
-@keyframes pulse{0%{transform:scale(1)}50%{transform:scale(1.0125)}100%{transform:scale(1)}}
-.hidden{display:none!important}
-.opaque{opacity:1!important;background:#111!important}
-input{all:unset;opacity:.2;filter:saturate(0) invert(1);cursor:pointer;transition:opacity 200ms ease-in-out;padding:.25em .5em}
-input:hover{opacity:1}
-.icon{text-align:center;line-height:1}
-#btnToggleView{width:1.25em}
-#btnToggleView::after{content:'👁'}
-#btnToggleView:checked::after{content:'✏️'}
-#btnPause::after{content:'⏸️'}
-#btnPause:checked::after{content:'▶️'}
-#btnToggleResolution::after{content:'1️⃣'}
-#btnToggleResolution:checked::after{content:'2️⃣'}
-#btnReset::after{content:'⏮️'}
-</style>
-</head>
-<body>
-<canvas id="canvas"></canvas>
-<textarea id="codeEditor" class="editor" spellcheck="false" autocorrect="off" autocapitalize="off" translate="no"></textarea>
-<pre id="error"></pre>
-<div id="indicator"></div>
-<div id="controls">
-<div class="controls">
-<input id="btnToggleView" class="icon" type="checkbox" name="toggleView" title="View/Edit" />
-<input id="btnPause" class="icon" type="checkbox" name="pause" title="Pause" />
-<input id="btnToggleResolution" class="icon" type="checkbox" name="toggleResolution" title="Resolution" />
-<input id="btnReset" class="icon" type="checkbox" name="reset" title="Reset" />
-</div>
-</div>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Book Buildings</title>
+    <style>
+      ::-webkit-scrollbar {
+        width: 0.625rem;
+        height: 0.625rem;
+      }
+      ::-webkit-scrollbar-thumb {
+        background: #111;
+        border-radius: 0.3125rem;
+        box-shadow:
+          inset 0.125rem 0.125rem 0.125rem rgba(255, 255, 255, 0.25),
+          inset -0.125rem -0.125rem 0.125rem rgba(0, 0, 0, 0.25);
+        cursor: default;
+      }
+      ::-webkit-scrollbar-track {
+        background: #333;
+      }
+      ::selection {
+        background: #fff;
+        color: #333;
+      }
+      html,
+      body {
+        height: 100vh;
+        height: 100dvh;
+        margin: 0;
+        overflow: hidden;
+      }
+      body {
+        display: grid;
+        grid-template-rows: calc(100dvh - 4rem) 4rem;
+        font-family: system-ui, sans-serif;
+      }
+      canvas,
+      .editor,
+      #controls {
+        grid-row: 1;
+        grid-column: 1;
+      }
+      canvas {
+        --canvas-z-index: -1;
+        width: 100%;
+        height: 100%;
+        object-fit: fill;
+        display: block;
+        background: black;
+        touch-action: none;
+        z-index: var(--canvas-z-index);
+      }
+      .editor,
+      .overlay,
+      #error {
+        font-family: "Courier New", Courier, monospace;
+        background: repeating-linear-gradient(
+          0deg,
+          #000a,
+          #1119,
+          #000a 0.25rem
+        );
+        padding: 1em;
+      }
+      .editor {
+        color: #fefefe;
+        tab-size: 2;
+        border: none;
+        resize: none;
+      }
+      .editor:focus {
+        outline: none;
+      }
+      #error {
+        grid-row: 2;
+        grid-column: 1;
+        margin: 0;
+        padding-block: 0;
+        padding-top: 0.5em;
+        color: firebrick;
+        overflow: auto;
+        text-wrap: pretty;
+      }
+      #indicator {
+        visibility: hidden;
+        position: absolute;
+        top: calc(var(--top, 0px) - var(--scroll-top, 0px));
+        width: 0;
+        height: 0;
+        border-top: 10px solid transparent;
+        border-bottom: 10px solid transparent;
+        border-left: 10px solid firebrick;
+        transform: translateY(-25%);
+      }
+      .overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        margin: 0;
+      }
+      .editor,
+      .overlay {
+        font-size: 1rem;
+        line-height: 1.2;
+        white-space: pre;
+      }
+      #controls {
+        position: fixed;
+        top: 1em;
+        right: 2em;
+      }
+      .controls {
+        position: relative;
+        display: flex;
+        gap: 1.5em;
+        padding: 0.5em 1.25em;
+        background: #1111;
+        border-radius: 4px;
+      }
+      .controls::before,
+      .controls::after {
+        content: "";
+        position: absolute;
+        z-index: -1;
+        inset: 0;
+        transform: scale(0.95);
+        border-radius: inherit;
+        opacity: 0;
+      }
+      .controls::before {
+        background: #aef;
+        animation: pulse 2s infinite;
+      }
+      .controls::after {
+        background: #fefefe66;
+        transition: transform 200ms ease-in-out;
+      }
+      .controls:hover::before,
+      .controls:hover::after {
+        opacity: 1;
+      }
+      .controls:hover::before {
+        transform: scale(0.98);
+        filter: blur(2px);
+      }
+      .controls:hover::after {
+        transform: scale(1.025, 1.1);
+      }
+      .controls:hover {
+        background: #111f;
+      }
+      @keyframes pulse {
+        0% {
+          transform: scale(1);
+        }
+        50% {
+          transform: scale(1.0125);
+        }
+        100% {
+          transform: scale(1);
+        }
+      }
+      .hidden {
+        display: none !important;
+      }
+      .opaque {
+        opacity: 1 !important;
+        background: #111 !important;
+      }
+      input {
+        all: unset;
+        opacity: 0.2;
+        filter: saturate(0) invert(1);
+        cursor: pointer;
+        transition: opacity 200ms ease-in-out;
+        padding: 0.25em 0.5em;
+      }
+      input:hover {
+        opacity: 1;
+      }
+      .icon {
+        text-align: center;
+        line-height: 1;
+      }
+      #btnToggleView {
+        width: 1.25em;
+      }
+      #btnToggleView::after {
+        content: "👁";
+      }
+      #btnToggleView:checked::after {
+        content: "✏️";
+      }
+      #btnPause::after {
+        content: "⏸️";
+      }
+      #btnPause:checked::after {
+        content: "▶️";
+      }
+      #btnToggleResolution::after {
+        content: "1️⃣";
+      }
+      #btnToggleResolution:checked::after {
+        content: "2️⃣";
+      }
+      #btnReset::after {
+        content: "⏮️";
+      }
+    </style>
+  </head>
+  <body>
+    <canvas id="canvas"></canvas>
+    <textarea
+      id="codeEditor"
+      class="editor"
+      spellcheck="false"
+      autocorrect="off"
+      autocapitalize="off"
+      translate="no"
+    ></textarea>
+    <pre id="error"></pre>
+    <div id="indicator"></div>
+    <div id="controls">
+      <div class="controls">
+        <input
+          id="btnToggleView"
+          class="icon"
+          type="checkbox"
+          name="toggleView"
+          title="View/Edit"
+        />
+        <input
+          id="btnPause"
+          class="icon"
+          type="checkbox"
+          name="pause"
+          title="Pause"
+        />
+        <input
+          id="btnToggleResolution"
+          class="icon"
+          type="checkbox"
+          name="toggleResolution"
+          title="Resolution"
+        />
+        <input
+          id="btnReset"
+          class="icon"
+          type="checkbox"
+          name="reset"
+          title="Reset"
+        />
+      </div>
+    </div>
 
-<script type="x-shader/x-fragment">
-#version 300 es
-precision highp float;
-out vec4 O;
-uniform float time;
-uniform vec2 resolution;
-uniform vec2 move;
-uniform vec2 wheel;
-#define FC gl_FragCoord.xy
-#define R resolution
-#define T (25.0+time)
-#define MN min(R.x,R.y)
-#define rnd(p) fract(sin(dot(p,vec2(12.9898,78.233)))*345678.0)
-#define rot(a) mat2(cos((a)-vec4(0,11,33,0)))
+    <script type="x-shader/x-fragment">
+      #version 300 es
+      precision highp float;
+      out vec4 O;
+      uniform float time;
+      uniform vec2 resolution;
+      uniform vec2 move;
+      uniform vec2 wheel;
+      #define FC gl_FragCoord.xy
+      #define R resolution
+      #define T (25.0+time)
+      #define MN min(R.x,R.y)
+      #define rnd(p) fract(sin(dot(p,vec2(12.9898,78.233)))*345678.0)
+      #define rot(a) mat2(cos((a)-vec4(0,11,33,0)))
 
-const float SHELF_H = 0.19;
-const float BOOK_W = 0.024;
-const float POST_W = 0.024;
+      const float SHELF_H = 0.19;
+      const float BOOK_W = 0.024;
+      const float POST_W = 0.024;
 
-float sdBox(vec3 p, vec3 b, float r){
-  vec3 q = abs(p)-b;
-  return length(max(q,vec3(0.0))) + min(max(q.x,max(q.y,q.z)),0.0) - r;
-}
-struct Tower{ vec3 p; vec2 id; float W; float H; float D; float sy; };
-Tower getTower(vec3 p){
-  Tower t;
-  float sy = p.y < 0.0 ? -1.0 : 1.0;
-  p.y = abs(p.y)-2.5;
-  vec2 id = floor(p.xz - sy);
-  if(mod(id.y,2.0) < 0.5){ p.x -= T*0.5; id.x = floor(p.x - sy); }
-  p.xz = fract(p.xz - sy)-0.5;
-  float r1 = rnd(id);
-  float r2 = rnd(id+7.31);
-  t.p=p; t.id=id; t.sy=sy;
-  t.W = 0.15+0.16*r1;
-  t.D = 0.14+0.12*r2;
-  t.H = max(1.35, 2.05-0.55*rnd(id+12.35));
-  return t;
-}
-struct Facade{ vec3 col; float glow; float lit; };
-vec3 bookPalette(vec2 id){
-  float s = rnd(id+2.11);
-  if(s<0.20) return vec3(0.55,0.13,0.08);
-  else if(s<0.38) return vec3(0.34,0.20,0.10);
-  else if(s<0.53) return vec3(0.14,0.25,0.16);
-  else if(s<0.66) return vec3(0.10,0.16,0.32);
-  else if(s<0.80) return vec3(0.63,0.43,0.18);
-  else if(s<0.92) return vec3(0.48,0.22,0.30);
-  else return vec3(0.78,0.71,0.55);
-}
-// low-frequency only for stable raymarching - no per-book hash here
-float geometryInset(vec2 uv, float halfW, float H){
-  if(abs(uv.x) > halfW-POST_W) return 0.0;
-  if(uv.y > H-0.035) return 0.0;
-  if(uv.y < -H+0.04) return 0.0;
-  float yInShelf = mod(uv.y+H, SHELF_H);
-  if(yInShelf < 0.017) return 0.001;
-  if(yInShelf > SHELF_H-0.012) return 0.003;
-  return 0.008;
-}
-float map(vec3 p){
-  Tower t = getTower(p);
-  float d = sdBox(t.p, vec3(t.W,t.H,t.D), 0.006);
-  if(d < 0.08){
-    float uy = t.p.y*t.sy;
-    float fx = abs(t.p.x)/t.W;
-    float fz = abs(t.p.z)/t.D;
-    vec2 fuv; float halfW;
-    if(fz >= fx){ fuv = vec2(t.p.x,uy); halfW = t.W; }
-    else{ fuv = vec2(t.p.z,uy); halfW = t.D; }
-    d += geometryInset(fuv, halfW, t.H);
-  }
-  return d;
-}
-vec3 calcNormal(vec3 p, float dd){
-  float e = max(0.0012, min(0.006, 0.0012+dd*0.0011));
-  vec2 k = vec2(-1.0,1.0);
-  return normalize(
-    k.xyy*map(p+k.xyy*e)+k.yxy*map(p+k.yxy*e)+
-    k.yyx*map(p+k.yyx*e)+k.xxx*map(p+k.xxx*e));
-}
-bool march(inout vec3 p, vec3 rd, out float dd){
-  dd = 0.0;
-  for(int i=0;i<380;i++){
-    float d = map(p);
-    float eps = max(0.001, min(0.0045, 0.001+dd*0.0009));
-    if(d < eps) return true;
-    if(dd > 26.0) return false;
-    float st = max(d*0.55, eps*0.7);
-    p += rd*st; dd += st;
-  }
-  return false;
-}
-float calcAO(vec3 p, vec3 n, float dd){
-  float occ=0.0, sca=1.0;
-  float mul = 1.0+dd*0.06;
-  for(int i=0;i<4;i++){
-    float h = (0.010+0.045*float(i))*mul;
-    occ += (h-map(p+n*h))*sca; sca*=0.6;
-  }
-  return clamp(1.0-1.8*occ,0.14,1.0);
-}
-// full book color with distance LOD - kills subpixel shimmer
-Facade shadeFacade(vec2 uv, float halfW, float H, vec2 id, float faceSeed, float dd){
-  Facade f;
-  float r1 = rnd(id);
-  vec3 frameCol = mix(vec3(0.055,0.035,0.022), vec3(0.12,0.07,0.038), r1);
-  f.col=frameCol; f.glow=0.0; f.lit=0.0;
-  vec3 avgBook = vec3(0.36,0.22,0.11);
-  float lodBook = 1.0-smoothstep(7.0,16.0,dd);
-  float lodLamp = 1.0-smoothstep(9.0,20.0,dd);
-  float lodFine = smoothstep(0.05,0.6,lodBook);
-  float lodBoard = 1.0-smoothstep(14.0,24.0,dd);
-  if(abs(uv.x) > halfW-POST_W){ f.col=frameCol*0.45; return f; }
-  if(uv.y > H-0.035){ f.col=frameCol*0.75; return f; }
-  if(uv.y < -H+0.04){ f.col=frameCol*0.55; return f; }
-  float yLocal = uv.y+H;
-  float shelfIdx = floor(yLocal/SHELF_H);
-  float yInShelf = mod(yLocal,SHELF_H);
-  float boardT = 0.017;
-  f.lit = exp(-5.5*(SHELF_H-yInShelf));
-  if(yInShelf < boardT){
-    vec3 bc = frameCol*0.58;
-    bc = mix(avgBook*0.55, bc, clamp(lodBoard*1.5,0.0,1.0));
-    f.col=bc; return f;
-  }
-  if(yInShelf > SHELF_H-0.012){
-    vec3 hot = vec3(2.2,1.38,0.58);
-    vec3 far = avgBook*1.1+vec3(0.25,0.12,0.04);
-    f.col = mix(far, hot, clamp(lodLamp*1.3,0.0,1.0));
-    f.glow = lodLamp>0.35?1.0:0.0;
-    f.lit=1.0; return f;
-  }
-  if(lodBook < 0.06){
-    float sv = rnd(vec2(shelfIdx, floor(faceSeed*10.0)+id.x*0.37));
-    vec3 avg = avgBook*(0.85+0.30*sv);
-    avg *= 0.85+0.30*clamp(1.0-yInShelf/SHELF_H,0.0,1.0);
-    avg += vec3(0.16,0.08,0.025)*f.lit;
-    f.col=avg; return f;
-  }
-  float xStart = -halfW+POST_W;
-  float off = uv.x-xStart;
-  float totalW = (halfW-POST_W)*2.0;
-  if(off<0.0||off>totalW){ f.col=frameCol*0.4; return f; }
-  float bookIdx = floor(off/BOOK_W);
-  float xInBook = mod(off,BOOK_W)-BOOK_W*0.5;
-  vec2 bId = vec2(shelfIdx*39.17+bookIdx+faceSeed*97.3, id.x*21.71+id.y*5.91-bookIdx*1.37);
-  float b1=rnd(bId), b2=rnd(bId+5.77), b3=rnd(bId+11.33), b4=rnd(bId+19.91), b5=rnd(bId+31.44);
-  if(b1<0.055){
-    if(lodBook<0.35){ f.col=avgBook*(0.85+0.30*b5)+vec3(0.16,0.08,0.025)*f.lit; return f; }
-    f.col=vec3(0.022,0.015,0.01); return f;
-  }
-  float bookBase = boardT+0.002;
-  float bookH = (SHELF_H-bookBase-0.014)*(0.58+0.38*b2);
-  float bookHalfW = BOOK_W*(0.34+0.14*b1);
-  vec2 bp = vec2(xInBook, yInShelf-(bookBase+bookH*0.5));
-  if(b3>0.86 && lodBook>0.5){
-    float a=(b2-0.5)*0.12, cs=cos(a), sn=sin(a);
-    bp = mat2(cs,-sn,sn,cs)*bp;
-  }
-  bool inside = abs(bp.x)<bookHalfW && abs(bp.y)<bookH*0.5;
-  if(!inside){
-    if(lodBook<0.35){ f.col=avgBook*(0.85+0.30*b5)+vec3(0.16,0.08,0.025)*f.lit; return f; }
-    f.col=vec3(0.024,0.016,0.011); return f;
-  }
-  vec3 bcol = bookPalette(bId)*(0.82+0.36*b5);
-  float edge = smoothstep(0.55,0.98,abs(bp.x)/max(bookHalfW,0.0001))*lodFine;
-  bcol *= 1.0-edge*0.28;
-  float groove = (1.0-smoothstep(0.001,0.004,abs(abs(bp.x)-bookHalfW*0.72)))*lodFine;
-  bcol *= 1.0-groove*0.18;
-  float contact = 1.0-smoothstep(0.0,0.014,bp.y+bookH*0.5);
-  bcol *= 1.0-contact*0.38;
-  float topLight = (1.0-smoothstep(0.0,0.010,bookH*0.5-bp.y))*lodFine;
-  bcol = mix(bcol, bcol+vec3(0.10,0.08,0.04), topLight*0.45);
-  if(b4>0.50){
-    float band1 = 1.0-smoothstep(0.001,0.005,abs(bp.y-bookH*0.25));
-    float band2 = 1.0-smoothstep(0.001,0.005,abs(bp.y+bookH*0.25));
-    bcol = mix(bcol, vec3(0.90,0.70,0.28), max(band1,band2)*lodFine*0.80);
-  }
-  if(b4>0.78){
-    float lx = 1.0-smoothstep(bookHalfW*0.42,bookHalfW*0.58,abs(bp.x));
-    float ly = 1.0-smoothstep(bookH*0.08,bookH*0.16,abs(bp.y));
-    bcol = mix(bcol, vec3(0.82,0.74,0.55), lx*ly*lodFine*0.65);
-  }
-  if(bp.y > bookH*0.5-0.006) bcol = mix(bcol, vec3(0.88,0.82,0.68), 0.85*lodFine);
-  bcol += vec3(0.16,0.08,0.025)*f.lit;
-  vec3 avgT = avgBook*(0.85+0.30*b5)+vec3(0.16,0.08,0.025)*f.lit;
-  bcol = mix(avgT, bcol, clamp(lodFine*1.2,0.0,1.0));
-  f.col=bcol; return f;
-}
-Facade towerShade(Tower t, float dd){
-  float uy = t.p.y*t.sy;
-  float fx = abs(t.p.x)/t.W;
-  float fz = abs(t.p.z)/t.D;
-  if(fz>=fx) return shadeFacade(vec2(t.p.x,uy),t.W,t.H,t.id,sign(t.p.z),dd);
-  else return shadeFacade(vec2(t.p.z,uy),t.D,t.H,t.id,2.0+sign(t.p.x),dd);
-}
-vec3 camDir(vec2 uv, vec3 ro, vec3 ta, float fl){
-  vec3 f=normalize(ta-ro);
-  vec3 r=normalize(cross(vec3(0.0,1.0,0.0),f));
-  return normalize(r*uv.x+cross(f,r)*uv.y+f*fl);
-}
-vec3 render(vec2 uv){
-  vec3 ro=vec3(0.0,-0.3,-23.5-wheel.y/MN-100.0*sin(T*0.005));
-  ro.xz = rot(0.20-move.x/MN+0.20*T*0.01)*ro.xz;
-  vec3 rd=camDir(uv,ro,vec3(0.0,5.5,0.0),1.2);
-  vec3 sky=vec3(0.0);
-  vec3 col=sky;
-  float dd=0.0; vec3 p=ro;
-  if(march(p,rd,dd)){
-    vec3 n=calcNormal(p,dd);
-    Facade f=towerShade(getTower(p),dd);
-    if(f.glow>0.5) col=f.col*1.55;
-    else{
-      vec3 sunDir=normalize(vec3(-0.55,0.72,-0.40));
-      vec3 sunCol=vec3(1.30,1.16,0.95);
-      float dif=max(dot(n,sunDir),0.0);
-      float skyl=clamp(n.y*0.5+0.5,0.0,1.0);
-      float fill=max(dot(n,normalize(ro-p)),0.0);
-      float ao=calcAO(p,n,dd);
-      vec3 light = vec3(0.32,0.34,0.40)+sunCol*dif*1.2
-        +vec3(0.28,0.32,0.40)*skyl*0.45
-        +vec3(0.46,0.40,0.32)*fill*0.62
-        +vec3(1.40,0.88,0.40)*f.lit*1.0;
-      col=f.col*light*ao;
-      vec3 h=normalize(sunDir-rd);
-      col+=sunCol*pow(max(dot(n,h),0.0),28.0)*0.12*ao;
-      col+=vec3(0.28,0.32,0.40)*pow(1.0-max(dot(n,-rd),0.0),4.0)*0.20;
-    }
-  }
-  col=mix(sky,col,exp(-125e-5*dd*dd*dd));
-  col=vec3(1.0)-exp(-col*1.55);
-  col=pow(max(col,vec3(0.0)),vec3(0.4545));
-  col=mix(vec3(0.0),col,smoothstep(0.0,0.3,time));
-  float dith=fract(sin(dot(FC,vec2(12.9898,78.233)))*43758.5453);
-  col+=(dith-0.5)*0.008;
-  vec2 c=FC/R; c*=1.0-c.yx;
-  col*=pow(clamp(c.x*c.y*25.0,0.0,1.0),0.14);
-  return col;
-}
-void main(){ vec2 uv=(FC-0.5*R)/MN; O=vec4(render(uv),1.0); }
-</script>
+      float sdBox(vec3 p, vec3 b, float r){
+        vec3 q = abs(p)-b;
+        return length(max(q,vec3(0.0))) + min(max(q.x,max(q.y,q.z)),0.0) - r;
+      }
+      struct Tower{ vec3 p; vec2 id; float W; float H; float D; float sy; };
+      Tower getTower(vec3 p){
+        Tower t;
+        float sy = p.y < 0.0 ? -1.0 : 1.0;
+        p.y = abs(p.y)-2.5;
+        vec2 id = floor(p.xz - sy);
+        if(mod(id.y,2.0) < 0.5){ p.x -= T*0.5; id.x = floor(p.x - sy); }
+        p.xz = fract(p.xz - sy)-0.5;
+        float r1 = rnd(id);
+        float r2 = rnd(id+7.31);
+        t.p=p; t.id=id; t.sy=sy;
+        t.W = 0.15+0.16*r1;
+        t.D = 0.14+0.12*r2;
+        t.H = max(1.35, 2.05-0.55*rnd(id+12.35));
+        return t;
+      }
+      struct Facade{ vec3 col; float glow; float lit; };
+      vec3 bookPalette(vec2 id){
+        float s = rnd(id+2.11);
+        if(s<0.20) return vec3(0.55,0.13,0.08);
+        else if(s<0.38) return vec3(0.34,0.20,0.10);
+        else if(s<0.53) return vec3(0.14,0.25,0.16);
+        else if(s<0.66) return vec3(0.10,0.16,0.32);
+        else if(s<0.80) return vec3(0.63,0.43,0.18);
+        else if(s<0.92) return vec3(0.48,0.22,0.30);
+        else return vec3(0.78,0.71,0.55);
+      }
+      // low-frequency only for stable raymarching - no per-book hash here
+      float geometryInset(vec2 uv, float halfW, float H){
+        if(abs(uv.x) > halfW-POST_W) return 0.0;
+        if(uv.y > H-0.035) return 0.0;
+        if(uv.y < -H+0.04) return 0.0;
+        float yInShelf = mod(uv.y+H, SHELF_H);
+        if(yInShelf < 0.017) return 0.001;
+        if(yInShelf > SHELF_H-0.012) return 0.003;
+        return 0.008;
+      }
+      float map(vec3 p){
+        Tower t = getTower(p);
+        float d = sdBox(t.p, vec3(t.W,t.H,t.D), 0.006);
+        if(d < 0.08){
+          float uy = t.p.y*t.sy;
+          float fx = abs(t.p.x)/t.W;
+          float fz = abs(t.p.z)/t.D;
+          vec2 fuv; float halfW;
+          if(fz >= fx){ fuv = vec2(t.p.x,uy); halfW = t.W; }
+          else{ fuv = vec2(t.p.z,uy); halfW = t.D; }
+          d += geometryInset(fuv, halfW, t.H);
+        }
+        return d;
+      }
+      vec3 calcNormal(vec3 p, float dd){
+        float e = max(0.0012, min(0.006, 0.0012+dd*0.0011));
+        vec2 k = vec2(-1.0,1.0);
+        return normalize(
+          k.xyy*map(p+k.xyy*e)+k.yxy*map(p+k.yxy*e)+
+          k.yyx*map(p+k.yyx*e)+k.xxx*map(p+k.xxx*e));
+      }
+      bool march(inout vec3 p, vec3 rd, out float dd){
+        dd = 0.0;
+        for(int i=0;i<380;i++){
+          float d = map(p);
+          float eps = max(0.001, min(0.0045, 0.001+dd*0.0009));
+          if(d < eps) return true;
+          if(dd > 26.0) return false;
+          float st = max(d*0.55, eps*0.7);
+          p += rd*st; dd += st;
+        }
+        return false;
+      }
+      float calcAO(vec3 p, vec3 n, float dd){
+        float occ=0.0, sca=1.0;
+        float mul = 1.0+dd*0.06;
+        for(int i=0;i<4;i++){
+          float h = (0.010+0.045*float(i))*mul;
+          occ += (h-map(p+n*h))*sca; sca*=0.6;
+        }
+        return clamp(1.0-1.8*occ,0.14,1.0);
+      }
+      // full book color with distance LOD - kills subpixel shimmer
+      Facade shadeFacade(vec2 uv, float halfW, float H, vec2 id, float faceSeed, float dd){
+        Facade f;
+        float r1 = rnd(id);
+        vec3 frameCol = mix(vec3(0.055,0.035,0.022), vec3(0.12,0.07,0.038), r1);
+        f.col=frameCol; f.glow=0.0; f.lit=0.0;
+        vec3 avgBook = vec3(0.36,0.22,0.11);
+        float lodBook = 1.0-smoothstep(7.0,16.0,dd);
+        float lodLamp = 1.0-smoothstep(9.0,20.0,dd);
+        float lodFine = smoothstep(0.05,0.6,lodBook);
+        float lodBoard = 1.0-smoothstep(14.0,24.0,dd);
+        if(abs(uv.x) > halfW-POST_W){ f.col=frameCol*0.45; return f; }
+        if(uv.y > H-0.035){ f.col=frameCol*0.75; return f; }
+        if(uv.y < -H+0.04){ f.col=frameCol*0.55; return f; }
+        float yLocal = uv.y+H;
+        float shelfIdx = floor(yLocal/SHELF_H);
+        float yInShelf = mod(yLocal,SHELF_H);
+        float boardT = 0.017;
+        f.lit = exp(-5.5*(SHELF_H-yInShelf));
+        if(yInShelf < boardT){
+          vec3 bc = frameCol*0.58;
+          bc = mix(avgBook*0.55, bc, clamp(lodBoard*1.5,0.0,1.0));
+          f.col=bc; return f;
+        }
+        if(yInShelf > SHELF_H-0.012){
+          vec3 hot = vec3(2.2,1.38,0.58);
+          vec3 far = avgBook*1.1+vec3(0.25,0.12,0.04);
+          f.col = mix(far, hot, clamp(lodLamp*1.3,0.0,1.0));
+          f.glow = lodLamp>0.35?1.0:0.0;
+          f.lit=1.0; return f;
+        }
+        if(lodBook < 0.06){
+          float sv = rnd(vec2(shelfIdx, floor(faceSeed*10.0)+id.x*0.37));
+          vec3 avg = avgBook*(0.85+0.30*sv);
+          avg *= 0.85+0.30*clamp(1.0-yInShelf/SHELF_H,0.0,1.0);
+          avg += vec3(0.16,0.08,0.025)*f.lit;
+          f.col=avg; return f;
+        }
+        float xStart = -halfW+POST_W;
+        float off = uv.x-xStart;
+        float totalW = (halfW-POST_W)*2.0;
+        if(off<0.0||off>totalW){ f.col=frameCol*0.4; return f; }
+        float bookIdx = floor(off/BOOK_W);
+        float xInBook = mod(off,BOOK_W)-BOOK_W*0.5;
+        vec2 bId = vec2(shelfIdx*39.17+bookIdx+faceSeed*97.3, id.x*21.71+id.y*5.91-bookIdx*1.37);
+        float b1=rnd(bId), b2=rnd(bId+5.77), b3=rnd(bId+11.33), b4=rnd(bId+19.91), b5=rnd(bId+31.44);
+        if(b1<0.055){
+          if(lodBook<0.35){ f.col=avgBook*(0.85+0.30*b5)+vec3(0.16,0.08,0.025)*f.lit; return f; }
+          f.col=vec3(0.022,0.015,0.01); return f;
+        }
+        float bookBase = boardT+0.002;
+        float bookH = (SHELF_H-bookBase-0.014)*(0.58+0.38*b2);
+        float bookHalfW = BOOK_W*(0.34+0.14*b1);
+        vec2 bp = vec2(xInBook, yInShelf-(bookBase+bookH*0.5));
+        if(b3>0.86 && lodBook>0.5){
+          float a=(b2-0.5)*0.12, cs=cos(a), sn=sin(a);
+          bp = mat2(cs,-sn,sn,cs)*bp;
+        }
+        bool inside = abs(bp.x)<bookHalfW && abs(bp.y)<bookH*0.5;
+        if(!inside){
+          if(lodBook<0.35){ f.col=avgBook*(0.85+0.30*b5)+vec3(0.16,0.08,0.025)*f.lit; return f; }
+          f.col=vec3(0.024,0.016,0.011); return f;
+        }
+        vec3 bcol = bookPalette(bId)*(0.82+0.36*b5);
+        float edge = smoothstep(0.55,0.98,abs(bp.x)/max(bookHalfW,0.0001))*lodFine;
+        bcol *= 1.0-edge*0.28;
+        float groove = (1.0-smoothstep(0.001,0.004,abs(abs(bp.x)-bookHalfW*0.72)))*lodFine;
+        bcol *= 1.0-groove*0.18;
+        float contact = 1.0-smoothstep(0.0,0.014,bp.y+bookH*0.5);
+        bcol *= 1.0-contact*0.38;
+        float topLight = (1.0-smoothstep(0.0,0.010,bookH*0.5-bp.y))*lodFine;
+        bcol = mix(bcol, bcol+vec3(0.10,0.08,0.04), topLight*0.45);
+        if(b4>0.50){
+          float band1 = 1.0-smoothstep(0.001,0.005,abs(bp.y-bookH*0.25));
+          float band2 = 1.0-smoothstep(0.001,0.005,abs(bp.y+bookH*0.25));
+          bcol = mix(bcol, vec3(0.90,0.70,0.28), max(band1,band2)*lodFine*0.80);
+        }
+        if(b4>0.78){
+          float lx = 1.0-smoothstep(bookHalfW*0.42,bookHalfW*0.58,abs(bp.x));
+          float ly = 1.0-smoothstep(bookH*0.08,bookH*0.16,abs(bp.y));
+          bcol = mix(bcol, vec3(0.82,0.74,0.55), lx*ly*lodFine*0.65);
+        }
+        if(bp.y > bookH*0.5-0.006) bcol = mix(bcol, vec3(0.88,0.82,0.68), 0.85*lodFine);
+        bcol += vec3(0.16,0.08,0.025)*f.lit;
+        vec3 avgT = avgBook*(0.85+0.30*b5)+vec3(0.16,0.08,0.025)*f.lit;
+        bcol = mix(avgT, bcol, clamp(lodFine*1.2,0.0,1.0));
+        f.col=bcol; return f;
+      }
+      Facade towerShade(Tower t, float dd){
+        float uy = t.p.y*t.sy;
+        float fx = abs(t.p.x)/t.W;
+        float fz = abs(t.p.z)/t.D;
+        if(fz>=fx) return shadeFacade(vec2(t.p.x,uy),t.W,t.H,t.id,sign(t.p.z),dd);
+        else return shadeFacade(vec2(t.p.z,uy),t.D,t.H,t.id,2.0+sign(t.p.x),dd);
+      }
+      vec3 camDir(vec2 uv, vec3 ro, vec3 ta, float fl){
+        vec3 f=normalize(ta-ro);
+        vec3 r=normalize(cross(vec3(0.0,1.0,0.0),f));
+        return normalize(r*uv.x+cross(f,r)*uv.y+f*fl);
+      }
+      vec3 render(vec2 uv){
+        vec3 ro=vec3(0.0,-0.3,-23.5-wheel.y/MN-100.0*sin(T*0.005));
+        ro.xz = rot(0.20-move.x/MN+0.20*T*0.01)*ro.xz;
+        vec3 rd=camDir(uv,ro,vec3(0.0,5.5,0.0),1.2);
+        vec3 sky=vec3(0.0);
+        vec3 col=sky;
+        float dd=0.0; vec3 p=ro;
+        if(march(p,rd,dd)){
+          vec3 n=calcNormal(p,dd);
+          Facade f=towerShade(getTower(p),dd);
+          if(f.glow>0.5) col=f.col*1.55;
+          else{
+            vec3 sunDir=normalize(vec3(-0.55,0.72,-0.40));
+            vec3 sunCol=vec3(1.30,1.16,0.95);
+            float dif=max(dot(n,sunDir),0.0);
+            float skyl=clamp(n.y*0.5+0.5,0.0,1.0);
+            float fill=max(dot(n,normalize(ro-p)),0.0);
+            float ao=calcAO(p,n,dd);
+            vec3 light = vec3(0.32,0.34,0.40)+sunCol*dif*1.2
+              +vec3(0.28,0.32,0.40)*skyl*0.45
+              +vec3(0.46,0.40,0.32)*fill*0.62
+              +vec3(1.40,0.88,0.40)*f.lit*1.0;
+            col=f.col*light*ao;
+            vec3 h=normalize(sunDir-rd);
+            col+=sunCol*pow(max(dot(n,h),0.0),28.0)*0.12*ao;
+            col+=vec3(0.28,0.32,0.40)*pow(1.0-max(dot(n,-rd),0.0),4.0)*0.20;
+          }
+        }
+        col=mix(sky,col,exp(-125e-5*dd*dd*dd));
+        col=vec3(1.0)-exp(-col*1.55);
+        col=pow(max(col,vec3(0.0)),vec3(0.4545));
+        col=mix(vec3(0.0),col,smoothstep(0.0,0.3,time));
+        float dith=fract(sin(dot(FC,vec2(12.9898,78.233)))*43758.5453);
+        col+=(dith-0.5)*0.008;
+        vec2 c=FC/R; c*=1.0-c.yx;
+        col*=pow(clamp(c.x*c.y*25.0,0.0,1.0),0.14);
+        return col;
+      }
+      void main(){ vec2 uv=(FC-0.5*R)/MN; O=vec4(render(uv),1.0); }
+    </script>
 
-<script>
-let editMode = false;
-let resolution = 1;
-let renderDelay = 800;
-let dpr = Math.max(1, resolution * window.devicePixelRatio);
-let frm = 0, source, editor, renderer, pointers;
-let isPaused = false, shaderTime = 0, lastFrame = 0;
-window.onload = init;
-function resize(){
-  const canvasEl = document.getElementById('canvas');
-  const {innerWidth:width, innerHeight:height} = window;
-  canvasEl.width = Math.floor(width*dpr);
-  canvasEl.height = Math.floor(height*dpr);
-  if(renderer) renderer.updateScale(dpr);
-}
-function toggleView(){
-  const btn = document.getElementById('btnToggleView');
-  const cv = document.getElementById('canvas');
-  editor.hidden = btn.checked;
-  cv.style.setProperty('--canvas-z-index', btn.checked ? 0 : -1);
-}
-function togglePause(){ isPaused = document.getElementById('btnPause').checked; }
-function reset(){
-  editor.text = source ? source.textContent : renderer.defaultSource;
-  renderThis();
-}
-function toggleResolution(){
-  const btn = document.getElementById('btnToggleResolution');
-  resolution = btn.checked ? .5 : 1;
-  dpr = Math.max(1, resolution*window.devicePixelRatio);
-  pointers.updateScale(dpr);
-  resize();
-}
-function loop(now){
-  if(!lastFrame) lastFrame = now;
-  let dt = (now-lastFrame)/1000;
-  lastFrame = now;
-  if(dt<0) dt=0; if(dt>0.1) dt=0.1;
-  if(!isPaused) shaderTime += dt;
-  renderer.updateMouse(pointers.first);
-  renderer.updatePointerCount(pointers.count);
-  renderer.updatePointerCoords(pointers.coords);
-  renderer.updateMove(pointers.move);
-  renderer.updateZoom(pointers.zoomed);
-  renderer.updateWheel(pointers.wheel);
-  renderer.render(shaderTime*1000);
-  frm = requestAnimationFrame(loop);
-}
-function renderThis(){
-  editor.clearError();
-  const shaderSource = normalizeShaderSource(editor.text);
-  const result = renderer.test(shaderSource);
-  if(result) editor.setError(result);
-  else renderer.updateShader(shaderSource);
-}
-function normalizeShaderSource(s){ return s.replace(/^\s*(#version)/,'$1'); }
-const debounce=(fn,delay)=>{let t;return(...a)=>{clearTimeout(t);t=setTimeout(()=>fn.apply(this,a),delay);};};
-const render = debounce(renderThis, renderDelay);
-function init(){
-  source = document.querySelector("script[type='x-shader/x-fragment']");
-  const codeEditorEl = document.getElementById('codeEditor');
-  const canvasEl = document.getElementById('canvas');
-  codeEditorEl.addEventListener('input', render);
-  document.getElementById('btnToggleView').addEventListener('change', toggleView);
-  document.getElementById('btnPause').addEventListener('change', togglePause);
-  document.getElementById('btnToggleResolution').addEventListener('change', toggleResolution);
-  document.getElementById('btnReset').addEventListener('click', reset);
-  document.title = "Book Buildings";
-  renderer = new Renderer(canvasEl, dpr);
-  pointers = new PointerHandler(canvasEl, dpr);
-  editor = new Editor(codeEditorEl, document.getElementById('error'), document.getElementById('indicator'));
-  editor.text = source.textContent;
-  renderer.setup(); renderer.init();
-  if(!editMode){ document.getElementById('btnToggleView').checked=true; toggleView(); }
-  document.getElementById('btnToggleResolution').checked = (resolution===.5);
-  canvasEl.addEventListener('shader-error', e=>editor.setError(e.detail));
-  resize();
-  const ss = normalizeShaderSource(source.textContent);
-  if(renderer.test(ss)===null) renderer.updateShader(ss);
-  lastFrame=0; shaderTime=0;
-  loop(performance.now());
-  window.onresize = resize;
-  window.addEventListener("keydown", e=>{
-    if(e.key==="L"&&e.ctrlKey){ e.preventDefault(); const b=document.getElementById('btnToggleView'); b.checked=!b.checked; toggleView(); }
-    if(e.code==="Space" && document.activeElement!==codeEditorEl && e.target!==codeEditorEl){ e.preventDefault(); const pb=document.getElementById('btnPause'); pb.checked=!pb.checked; togglePause(); }
-  });
-}
-class Renderer{
-  #vertexSrc = "#version 300 es\nprecision highp float;\nin vec4 position;\nvoid main(){gl_Position=position;}";
-  #fragmtSrc = "#version 300 es\nprecision highp float;\nout vec4 O;\nuniform float time;\nuniform vec2 resolution;\nvoid main(){\nvec2 uv=gl_FragCoord.xy/resolution;\nO=vec4(uv,sin(time)*.5+.5,1);\n}";
-  #vertices = [-1,1,-1,-1,1,1,1,-1];
-  constructor(canvas,scale){
-    this.canvas=canvas; this.scale=scale;
-    this.gl=canvas.getContext("webgl2",{antialias:false});
-    this.gl.viewport(0,0,canvas.width,canvas.height);
-    this.shaderSource=this.#fragmtSrc;
-    this.mouseMove=[0,0]; this.mouseCoords=[0,0]; this.pointerCoords=[0,0];
-    this.nbrOfPointers=0; this.zoom=0; this.wheel=[0,0]; this.startRandom=Math.random();
-  }
-  get defaultSource(){ return this.#fragmtSrc; }
-  updateShader(source){ this.reset(); this.shaderSource=source; this.setup(); this.init(); }
-  updateMove(d){ this.mouseMove=d; }
-  updateZoom(z){ this.zoom=z; }
-  updateWheel(w){ this.wheel=w; }
-  updateMouse(c){ this.mouseCoords=c; }
-  updatePointerCoords(c){ this.pointerCoords=c; }
-  updatePointerCount(n){ this.nbrOfPointers=n; }
-  updateScale(scale){ this.scale=scale; this.gl.viewport(0,0,this.canvas.width,this.canvas.height); }
-  compile(shader,src){
-    const gl=this.gl; gl.shaderSource(shader,src); gl.compileShader(shader);
-    if(!gl.getShaderParameter(shader,gl.COMPILE_STATUS)){
-      console.error(gl.getShaderInfoLog(shader));
-      this.canvas.dispatchEvent(new CustomEvent('shader-error',{detail:gl.getShaderInfoLog(shader)}));
-    }
-  }
-  test(src){
-    let r=null; const gl=this.gl;
-    const sh=gl.createShader(gl.FRAGMENT_SHADER);
-    gl.shaderSource(sh,src); gl.compileShader(sh);
-    if(!gl.getShaderParameter(sh,gl.COMPILE_STATUS)) r=gl.getShaderInfoLog(sh);
-    gl.deleteShader(sh); return r;
-  }
-  reset(){
-    const {gl,program,vs,fs}=this;
-    if(!program||gl.getProgramParameter(program,gl.DELETE_STATUS)) return;
-    try{ gl.detachShader(program,vs); gl.deleteShader(vs); }catch(e){}
-    try{ gl.detachShader(program,fs); gl.deleteShader(fs); }catch(e){}
-    gl.deleteProgram(program);
-  }
-  setup(){
-    const gl=this.gl;
-    this.vs=gl.createShader(gl.VERTEX_SHADER);
-    this.fs=gl.createShader(gl.FRAGMENT_SHADER);
-    this.compile(this.vs,this.#vertexSrc);
-    this.compile(this.fs,this.shaderSource);
-    this.program=gl.createProgram();
-    gl.attachShader(this.program,this.vs);
-    gl.attachShader(this.program,this.fs);
-    gl.linkProgram(this.program);
-    if(!gl.getProgramParameter(this.program,gl.LINK_STATUS)) console.error(gl.getProgramInfoLog(this.program));
-  }
-  init(){
-    const {gl,program}=this;
-    this.buffer=gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER,this.buffer);
-    gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(this.#vertices),gl.STATIC_DRAW);
-    const pos=gl.getAttribLocation(program,"position");
-    gl.enableVertexAttribArray(pos);
-    gl.vertexAttribPointer(pos,2,gl.FLOAT,false,0,0);
-    program.resolution=gl.getUniformLocation(program,"resolution");
-    program.time=gl.getUniformLocation(program,"time");
-    program.move=gl.getUniformLocation(program,"move");
-    program.touch=gl.getUniformLocation(program,"touch");
-    program.pointerCount=gl.getUniformLocation(program,"pointerCount");
-    program.pointers=gl.getUniformLocation(program,"pointers");
-    program.zoom=gl.getUniformLocation(program,"zoom");
-    program.wheel=gl.getUniformLocation(program,"wheel");
-    program.startRandom=gl.getUniformLocation(program,"startRandom");
-  }
-  render(now=0){
-    const {gl,program,buffer,canvas,mouseMove,mouseCoords,pointerCoords,nbrOfPointers,zoom,wheel,startRandom}=this;
-    if(!program||gl.getProgramParameter(program,gl.DELETE_STATUS)) return;
-    gl.clearColor(0,0,0,1); gl.clear(gl.COLOR_BUFFER_BIT);
-    gl.useProgram(program); gl.bindBuffer(gl.ARRAY_BUFFER,buffer);
-    gl.uniform2f(program.resolution,canvas.width,canvas.height);
-    gl.uniform1f(program.time,now*1e-3);
-    gl.uniform2f(program.move,...mouseMove);
-    gl.uniform2f(program.touch,...mouseCoords);
-    gl.uniform1i(program.pointerCount,nbrOfPointers);
-    gl.uniform2fv(program.pointers,pointerCoords);
-    gl.uniform1f(program.zoom,zoom);
-    gl.uniform2f(program.wheel,...wheel);
-    gl.uniform1f(program.startRandom,startRandom);
-    gl.drawArrays(gl.TRIANGLE_STRIP,0,4);
-  }
-}
-class PointerHandler{
-  constructor(element,scale){
-    this.scale=scale; this.active=false; this.pointers=new Map();
-    this.lastCoords=[0,0]; this.moves=[0,0]; this.zoom=0;
-    this.wheelDelta=0; this.wheelOffset=0; this.ex=0; this.ey=0;
-    const map=(el,s,x,y)=>[x*s, el.height-y*s];
-    element.addEventListener("pointerdown",(e)=>{ this.active=true; this.pointers.set(e.pointerId,map(element,this.getScale(),e.clientX,e.clientY)); this.ex=e.clientX; this.ey=e.clientY; });
-    element.addEventListener("pointerup",(e)=>{ if(this.count===1) this.lastCoords=this.first; this.pointers.delete(e.pointerId); this.active=this.pointers.size>0; });
-    element.addEventListener("pointerleave",(e)=>{ if(this.count===1) this.lastCoords=this.first; this.pointers.delete(e.pointerId); this.active=this.pointers.size>0; });
-    element.addEventListener("pointermove",(e)=>{ if(!this.active) return; this.lastCoords=[e.clientX,e.clientY]; this.pointers.set(e.pointerId,map(element,this.getScale(),e.clientX,e.clientY)); this.moves=[this.moves[0]+(e.clientX-this.ex), this.moves[1]+(this.ey-e.clientY)]; this.ex=e.clientX; this.ey=e.clientY; });
-    element.addEventListener("wheel",(e)=>{ this.zoom=lerp(this.zoom,Math.max(-1,Math.min(1,this.zoom+e.deltaY)),.05); if(this.wheelDelta*e.deltaY<0) this.wheelDelta=e.deltaY; else this.wheelDelta=lerp(this.wheelDelta,e.deltaY,.05); this.wheelOffset+=this.wheelDelta; },{passive:true});
-  }
-  getScale(){ return this.scale; }
-  updateScale(s){ this.scale=s; }
-  get count(){ return this.pointers.size; }
-  get move(){ return this.moves; }
-  get zoomed(){ return this.zoom; }
-  get wheel(){ return [this.wheelDelta,this.wheelOffset]||[0,0]; }
-  get coords(){ return this.pointers.size>0?Array.from(this.pointers.values()).map(p=>[...p]).flat():[0,0]; }
-  get first(){ return this.pointers.values().next().value||this.lastCoords; }
-}
-function lerp(a,b,t){ return a+(b-a)*t; }
-class Editor{
-  constructor(textarea,errorfield,errorindicator){
-    this.textarea=textarea; this.errorfield=errorfield; this.errorindicator=errorindicator;
-    textarea.addEventListener('keydown',this.handleKeydown.bind(this));
-    textarea.addEventListener('scroll',this.handleScroll.bind(this));
-  }
-  get hidden(){ return this.textarea.classList.contains('hidden'); }
-  set hidden(v){ v?this.#hide():this.#show(); }
-  get text(){ return this.textarea.value; }
-  set text(v){ this.textarea.value=v; }
-  setError(m){
-    this.errorfield.innerHTML=m; this.errorfield.classList.add('opaque');
-    const match=m.match(/ERROR: \d+:(\d+):/);
-    const ln=match?parseInt(match[1]):0;
-    const overlay=document.createElement('pre');
-    overlay.classList.add('overlay'); overlay.textContent='\n'.repeat(ln);
-    document.body.appendChild(overlay);
-    const oh=parseInt(getComputedStyle(overlay).height);
-    this.errorindicator.style.setProperty('--top',oh+'px');
-    this.errorindicator.style.visibility='visible';
-    document.body.removeChild(overlay);
-  }
-  clearError(){ this.errorfield.textContent=''; this.errorfield.classList.remove('opaque'); this.errorfield.blur(); this.errorindicator.style.visibility='hidden'; }
-  focus(){ this.textarea.focus(); }
-  #hide(){ for(const el of [this.errorindicator,this.errorfield,this.textarea]) el.classList.add('hidden'); }
-  #show(){ for(const el of [this.errorindicator,this.errorfield,this.textarea]) el.classList.remove('hidden'); this.focus(); }
-  handleScroll(){ this.errorindicator.style.setProperty('--scroll-top',`${this.textarea.scrollTop}px`); }
-  handleKeydown(e){
-    if(e.key==="Tab"){ e.preventDefault(); this.handleTabKey(e.shiftKey); }
-    else if(e.key==="Enter"){ e.preventDefault(); this.handleEnterKey(); }
-  }
-  handleTabKey(sp){
-    if(this.#getSelectedText()!==""){ if(sp){ this.#unindentSelectedText(); return; } this.#indentSelectedText(); }
-    else this.#indentAtCursor();
-  }
-  #getSelectedText(){ const ed=this.textarea; return ed.value.substring(ed.selectionStart,ed.selectionEnd); }
-  #indentAtCursor(){ const ed=this.textarea; const cp=ed.selectionStart; document.execCommand('insertText',false,'\t'); ed.selectionStart=ed.selectionEnd=cp+1; }
-  #indentSelectedText(){ const ed=this.textarea; const cp=ed.selectionStart; const t=this.#getSelectedText().split('\n').map(l=>'\t'+l).join('\n'); document.execCommand('insertText',false,t); ed.selectionStart=cp; }
-  #unindentSelectedText(){ const ed=this.textarea; const cp=ed.selectionStart; const t=this.#getSelectedText().split('\n').map(l=>l.replace(/^\t/,'').replace(/^ /,'')).join('\n'); document.execCommand('insertText',false,t); ed.selectionStart=cp; }
-  handleEnterKey(){
-    const ed=this.textarea; const vt=ed.scrollTop; const cp=ed.selectionStart;
-    let s=cp-1; while(s>=0&&ed.value[s]!=='\n') s--;
-    let nl=''; while(s<cp-1&&(ed.value[s+1]===' '||ed.value[s+1]==='\t')){ nl+=ed.value[s+1]; s++; }
-    document.execCommand('insertText',false,'\n'+nl);
-    ed.selectionStart=ed.selectionEnd=cp+1+nl.length; ed.scrollTop=vt;
-  }
-}
-</script>
-</body>
+    <script>
+      let editMode = false;
+      let resolution = 1;
+      let renderDelay = 800;
+      let dpr = Math.max(1, resolution * window.devicePixelRatio);
+      let frm = 0,
+        source,
+        editor,
+        renderer,
+        pointers;
+      let isPaused = false,
+        shaderTime = 0,
+        lastFrame = 0;
+      window.onload = init;
+      function resize() {
+        const canvasEl = document.getElementById("canvas");
+        const { innerWidth: width, innerHeight: height } = window;
+        canvasEl.width = Math.floor(width * dpr);
+        canvasEl.height = Math.floor(height * dpr);
+        if (renderer) renderer.updateScale(dpr);
+      }
+      function toggleView() {
+        const btn = document.getElementById("btnToggleView");
+        const cv = document.getElementById("canvas");
+        editor.hidden = btn.checked;
+        cv.style.setProperty("--canvas-z-index", btn.checked ? 0 : -1);
+      }
+      function togglePause() {
+        isPaused = document.getElementById("btnPause").checked;
+      }
+      function reset() {
+        editor.text = source ? source.textContent : renderer.defaultSource;
+        renderThis();
+      }
+      function toggleResolution() {
+        const btn = document.getElementById("btnToggleResolution");
+        resolution = btn.checked ? 0.5 : 1;
+        dpr = Math.max(1, resolution * window.devicePixelRatio);
+        pointers.updateScale(dpr);
+        resize();
+      }
+      function loop(now) {
+        if (!lastFrame) lastFrame = now;
+        let dt = (now - lastFrame) / 1000;
+        lastFrame = now;
+        if (dt < 0) dt = 0;
+        if (dt > 0.1) dt = 0.1;
+        if (!isPaused) shaderTime += dt;
+        renderer.updateMouse(pointers.first);
+        renderer.updatePointerCount(pointers.count);
+        renderer.updatePointerCoords(pointers.coords);
+        renderer.updateMove(pointers.move);
+        renderer.updateZoom(pointers.zoomed);
+        renderer.updateWheel(pointers.wheel);
+        renderer.render(shaderTime * 1000);
+        frm = requestAnimationFrame(loop);
+      }
+      function renderThis() {
+        editor.clearError();
+        const shaderSource = normalizeShaderSource(editor.text);
+        const result = renderer.test(shaderSource);
+        if (result) editor.setError(result);
+        else renderer.updateShader(shaderSource);
+      }
+      function normalizeShaderSource(s) {
+        return s.replace(/^\s*(#version)/, "$1");
+      }
+      const debounce = (fn, delay) => {
+        let t;
+        return (...a) => {
+          clearTimeout(t);
+          t = setTimeout(() => fn.apply(this, a), delay);
+        };
+      };
+      const render = debounce(renderThis, renderDelay);
+      function init() {
+        source = document.querySelector("script[type='x-shader/x-fragment']");
+        const codeEditorEl = document.getElementById("codeEditor");
+        const canvasEl = document.getElementById("canvas");
+        codeEditorEl.addEventListener("input", render);
+        document
+          .getElementById("btnToggleView")
+          .addEventListener("change", toggleView);
+        document
+          .getElementById("btnPause")
+          .addEventListener("change", togglePause);
+        document
+          .getElementById("btnToggleResolution")
+          .addEventListener("change", toggleResolution);
+        document.getElementById("btnReset").addEventListener("click", reset);
+        document.title = "Book Buildings";
+        renderer = new Renderer(canvasEl, dpr);
+        pointers = new PointerHandler(canvasEl, dpr);
+        editor = new Editor(
+          codeEditorEl,
+          document.getElementById("error"),
+          document.getElementById("indicator"),
+        );
+        editor.text = source.textContent;
+        renderer.setup();
+        renderer.init();
+        if (!editMode) {
+          document.getElementById("btnToggleView").checked = true;
+          toggleView();
+        }
+        document.getElementById("btnToggleResolution").checked =
+          resolution === 0.5;
+        canvasEl.addEventListener("shader-error", (e) =>
+          editor.setError(e.detail),
+        );
+        resize();
+        const ss = normalizeShaderSource(source.textContent);
+        if (renderer.test(ss) === null) renderer.updateShader(ss);
+        lastFrame = 0;
+        shaderTime = 0;
+        loop(performance.now());
+        window.onresize = resize;
+        window.addEventListener("keydown", (e) => {
+          if (e.key === "L" && e.ctrlKey) {
+            e.preventDefault();
+            const b = document.getElementById("btnToggleView");
+            b.checked = !b.checked;
+            toggleView();
+          }
+          if (
+            e.code === "Space" &&
+            document.activeElement !== codeEditorEl &&
+            e.target !== codeEditorEl
+          ) {
+            e.preventDefault();
+            const pb = document.getElementById("btnPause");
+            pb.checked = !pb.checked;
+            togglePause();
+          }
+        });
+      }
+      class Renderer {
+        #vertexSrc =
+          "#version 300 es\nprecision highp float;\nin vec4 position;\nvoid main(){gl_Position=position;}";
+        #fragmtSrc =
+          "#version 300 es\nprecision highp float;\nout vec4 O;\nuniform float time;\nuniform vec2 resolution;\nvoid main(){\nvec2 uv=gl_FragCoord.xy/resolution;\nO=vec4(uv,sin(time)*.5+.5,1);\n}";
+        #vertices = [-1, 1, -1, -1, 1, 1, 1, -1];
+        constructor(canvas, scale) {
+          this.canvas = canvas;
+          this.scale = scale;
+          this.gl = canvas.getContext("webgl2", { antialias: false });
+          this.gl.viewport(0, 0, canvas.width, canvas.height);
+          this.shaderSource = this.#fragmtSrc;
+          this.mouseMove = [0, 0];
+          this.mouseCoords = [0, 0];
+          this.pointerCoords = [0, 0];
+          this.nbrOfPointers = 0;
+          this.zoom = 0;
+          this.wheel = [0, 0];
+          this.startRandom = Math.random();
+        }
+        get defaultSource() {
+          return this.#fragmtSrc;
+        }
+        updateShader(source) {
+          this.reset();
+          this.shaderSource = source;
+          this.setup();
+          this.init();
+        }
+        updateMove(d) {
+          this.mouseMove = d;
+        }
+        updateZoom(z) {
+          this.zoom = z;
+        }
+        updateWheel(w) {
+          this.wheel = w;
+        }
+        updateMouse(c) {
+          this.mouseCoords = c;
+        }
+        updatePointerCoords(c) {
+          this.pointerCoords = c;
+        }
+        updatePointerCount(n) {
+          this.nbrOfPointers = n;
+        }
+        updateScale(scale) {
+          this.scale = scale;
+          this.gl.viewport(0, 0, this.canvas.width, this.canvas.height);
+        }
+        compile(shader, src) {
+          const gl = this.gl;
+          gl.shaderSource(shader, src);
+          gl.compileShader(shader);
+          if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+            console.error(gl.getShaderInfoLog(shader));
+            this.canvas.dispatchEvent(
+              new CustomEvent("shader-error", {
+                detail: gl.getShaderInfoLog(shader),
+              }),
+            );
+          }
+        }
+        test(src) {
+          let r = null;
+          const gl = this.gl;
+          const sh = gl.createShader(gl.FRAGMENT_SHADER);
+          gl.shaderSource(sh, src);
+          gl.compileShader(sh);
+          if (!gl.getShaderParameter(sh, gl.COMPILE_STATUS))
+            r = gl.getShaderInfoLog(sh);
+          gl.deleteShader(sh);
+          return r;
+        }
+        reset() {
+          const { gl, program, vs, fs } = this;
+          if (!program || gl.getProgramParameter(program, gl.DELETE_STATUS))
+            return;
+          try {
+            gl.detachShader(program, vs);
+            gl.deleteShader(vs);
+          } catch (e) {}
+          try {
+            gl.detachShader(program, fs);
+            gl.deleteShader(fs);
+          } catch (e) {}
+          gl.deleteProgram(program);
+        }
+        setup() {
+          const gl = this.gl;
+          this.vs = gl.createShader(gl.VERTEX_SHADER);
+          this.fs = gl.createShader(gl.FRAGMENT_SHADER);
+          this.compile(this.vs, this.#vertexSrc);
+          this.compile(this.fs, this.shaderSource);
+          this.program = gl.createProgram();
+          gl.attachShader(this.program, this.vs);
+          gl.attachShader(this.program, this.fs);
+          gl.linkProgram(this.program);
+          if (!gl.getProgramParameter(this.program, gl.LINK_STATUS))
+            console.error(gl.getProgramInfoLog(this.program));
+        }
+        init() {
+          const { gl, program } = this;
+          this.buffer = gl.createBuffer();
+          gl.bindBuffer(gl.ARRAY_BUFFER, this.buffer);
+          gl.bufferData(
+            gl.ARRAY_BUFFER,
+            new Float32Array(this.#vertices),
+            gl.STATIC_DRAW,
+          );
+          const pos = gl.getAttribLocation(program, "position");
+          gl.enableVertexAttribArray(pos);
+          gl.vertexAttribPointer(pos, 2, gl.FLOAT, false, 0, 0);
+          program.resolution = gl.getUniformLocation(program, "resolution");
+          program.time = gl.getUniformLocation(program, "time");
+          program.move = gl.getUniformLocation(program, "move");
+          program.touch = gl.getUniformLocation(program, "touch");
+          program.pointerCount = gl.getUniformLocation(program, "pointerCount");
+          program.pointers = gl.getUniformLocation(program, "pointers");
+          program.zoom = gl.getUniformLocation(program, "zoom");
+          program.wheel = gl.getUniformLocation(program, "wheel");
+          program.startRandom = gl.getUniformLocation(program, "startRandom");
+        }
+        render(now = 0) {
+          const {
+            gl,
+            program,
+            buffer,
+            canvas,
+            mouseMove,
+            mouseCoords,
+            pointerCoords,
+            nbrOfPointers,
+            zoom,
+            wheel,
+            startRandom,
+          } = this;
+          if (!program || gl.getProgramParameter(program, gl.DELETE_STATUS))
+            return;
+          gl.clearColor(0, 0, 0, 1);
+          gl.clear(gl.COLOR_BUFFER_BIT);
+          gl.useProgram(program);
+          gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+          gl.uniform2f(program.resolution, canvas.width, canvas.height);
+          gl.uniform1f(program.time, now * 1e-3);
+          gl.uniform2f(program.move, ...mouseMove);
+          gl.uniform2f(program.touch, ...mouseCoords);
+          gl.uniform1i(program.pointerCount, nbrOfPointers);
+          gl.uniform2fv(program.pointers, pointerCoords);
+          gl.uniform1f(program.zoom, zoom);
+          gl.uniform2f(program.wheel, ...wheel);
+          gl.uniform1f(program.startRandom, startRandom);
+          gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+        }
+      }
+      class PointerHandler {
+        constructor(element, scale) {
+          this.scale = scale;
+          this.active = false;
+          this.pointers = new Map();
+          this.lastCoords = [0, 0];
+          this.moves = [0, 0];
+          this.zoom = 0;
+          this.wheelDelta = 0;
+          this.wheelOffset = 0;
+          this.ex = 0;
+          this.ey = 0;
+          const map = (el, s, x, y) => [x * s, el.height - y * s];
+          element.addEventListener("pointerdown", (e) => {
+            this.active = true;
+            this.pointers.set(
+              e.pointerId,
+              map(element, this.getScale(), e.clientX, e.clientY),
+            );
+            this.ex = e.clientX;
+            this.ey = e.clientY;
+          });
+          element.addEventListener("pointerup", (e) => {
+            if (this.count === 1) this.lastCoords = this.first;
+            this.pointers.delete(e.pointerId);
+            this.active = this.pointers.size > 0;
+          });
+          element.addEventListener("pointerleave", (e) => {
+            if (this.count === 1) this.lastCoords = this.first;
+            this.pointers.delete(e.pointerId);
+            this.active = this.pointers.size > 0;
+          });
+          element.addEventListener("pointermove", (e) => {
+            if (!this.active) return;
+            this.lastCoords = [e.clientX, e.clientY];
+            this.pointers.set(
+              e.pointerId,
+              map(element, this.getScale(), e.clientX, e.clientY),
+            );
+            this.moves = [
+              this.moves[0] + (e.clientX - this.ex),
+              this.moves[1] + (this.ey - e.clientY),
+            ];
+            this.ex = e.clientX;
+            this.ey = e.clientY;
+          });
+          element.addEventListener(
+            "wheel",
+            (e) => {
+              this.zoom = lerp(
+                this.zoom,
+                Math.max(-1, Math.min(1, this.zoom + e.deltaY)),
+                0.05,
+              );
+              if (this.wheelDelta * e.deltaY < 0) this.wheelDelta = e.deltaY;
+              else this.wheelDelta = lerp(this.wheelDelta, e.deltaY, 0.05);
+              this.wheelOffset += this.wheelDelta;
+            },
+            { passive: true },
+          );
+        }
+        getScale() {
+          return this.scale;
+        }
+        updateScale(s) {
+          this.scale = s;
+        }
+        get count() {
+          return this.pointers.size;
+        }
+        get move() {
+          return this.moves;
+        }
+        get zoomed() {
+          return this.zoom;
+        }
+        get wheel() {
+          return [this.wheelDelta, this.wheelOffset] || [0, 0];
+        }
+        get coords() {
+          return this.pointers.size > 0
+            ? Array.from(this.pointers.values())
+                .map((p) => [...p])
+                .flat()
+            : [0, 0];
+        }
+        get first() {
+          return this.pointers.values().next().value || this.lastCoords;
+        }
+      }
+      function lerp(a, b, t) {
+        return a + (b - a) * t;
+      }
+      class Editor {
+        constructor(textarea, errorfield, errorindicator) {
+          this.textarea = textarea;
+          this.errorfield = errorfield;
+          this.errorindicator = errorindicator;
+          textarea.addEventListener("keydown", this.handleKeydown.bind(this));
+          textarea.addEventListener("scroll", this.handleScroll.bind(this));
+        }
+        get hidden() {
+          return this.textarea.classList.contains("hidden");
+        }
+        set hidden(v) {
+          v ? this.#hide() : this.#show();
+        }
+        get text() {
+          return this.textarea.value;
+        }
+        set text(v) {
+          this.textarea.value = v;
+        }
+        setError(m) {
+          this.errorfield.innerHTML = m;
+          this.errorfield.classList.add("opaque");
+          const match = m.match(/ERROR: \d+:(\d+):/);
+          const ln = match ? parseInt(match[1]) : 0;
+          const overlay = document.createElement("pre");
+          overlay.classList.add("overlay");
+          overlay.textContent = "\n".repeat(ln);
+          document.body.appendChild(overlay);
+          const oh = parseInt(getComputedStyle(overlay).height);
+          this.errorindicator.style.setProperty("--top", oh + "px");
+          this.errorindicator.style.visibility = "visible";
+          document.body.removeChild(overlay);
+        }
+        clearError() {
+          this.errorfield.textContent = "";
+          this.errorfield.classList.remove("opaque");
+          this.errorfield.blur();
+          this.errorindicator.style.visibility = "hidden";
+        }
+        focus() {
+          this.textarea.focus();
+        }
+        #hide() {
+          for (const el of [
+            this.errorindicator,
+            this.errorfield,
+            this.textarea,
+          ])
+            el.classList.add("hidden");
+        }
+        #show() {
+          for (const el of [
+            this.errorindicator,
+            this.errorfield,
+            this.textarea,
+          ])
+            el.classList.remove("hidden");
+          this.focus();
+        }
+        handleScroll() {
+          this.errorindicator.style.setProperty(
+            "--scroll-top",
+            `${this.textarea.scrollTop}px`,
+          );
+        }
+        handleKeydown(e) {
+          if (e.key === "Tab") {
+            e.preventDefault();
+            this.handleTabKey(e.shiftKey);
+          } else if (e.key === "Enter") {
+            e.preventDefault();
+            this.handleEnterKey();
+          }
+        }
+        handleTabKey(sp) {
+          if (this.#getSelectedText() !== "") {
+            if (sp) {
+              this.#unindentSelectedText();
+              return;
+            }
+            this.#indentSelectedText();
+          } else this.#indentAtCursor();
+        }
+        #getSelectedText() {
+          const ed = this.textarea;
+          return ed.value.substring(ed.selectionStart, ed.selectionEnd);
+        }
+        #indentAtCursor() {
+          const ed = this.textarea;
+          const cp = ed.selectionStart;
+          document.execCommand("insertText", false, "\t");
+          ed.selectionStart = ed.selectionEnd = cp + 1;
+        }
+        #indentSelectedText() {
+          const ed = this.textarea;
+          const cp = ed.selectionStart;
+          const t = this.#getSelectedText()
+            .split("\n")
+            .map((l) => "\t" + l)
+            .join("\n");
+          document.execCommand("insertText", false, t);
+          ed.selectionStart = cp;
+        }
+        #unindentSelectedText() {
+          const ed = this.textarea;
+          const cp = ed.selectionStart;
+          const t = this.#getSelectedText()
+            .split("\n")
+            .map((l) => l.replace(/^\t/, "").replace(/^ /, ""))
+            .join("\n");
+          document.execCommand("insertText", false, t);
+          ed.selectionStart = cp;
+        }
+        handleEnterKey() {
+          const ed = this.textarea;
+          const vt = ed.scrollTop;
+          const cp = ed.selectionStart;
+          let s = cp - 1;
+          while (s >= 0 && ed.value[s] !== "\n") s--;
+          let nl = "";
+          while (
+            s < cp - 1 &&
+            (ed.value[s + 1] === " " || ed.value[s + 1] === "\t")
+          ) {
+            nl += ed.value[s + 1];
+            s++;
+          }
+          document.execCommand("insertText", false, "\n" + nl);
+          ed.selectionStart = ed.selectionEnd = cp + 1 + nl.length;
+          ed.scrollTop = vt;
+        }
+      }
+    </script>
+  </body>
 </html>

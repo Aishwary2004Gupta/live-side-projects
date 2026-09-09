@@ -1,348 +1,742 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Interstellar Library</title>
-    <link rel="stylesheet" href="style.css" />
-    <script type="module" src="script.js" defer></script>
-  </head>
-  <body>
-    <canvas id="canvas"></canvas>
+<head>
+  <meta charset="UTF-8" />
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0"
+  />
+
+  <title>Interstellar Library</title>
+
+  <link rel="stylesheet" href="style.css" />
+  <script type="module" src="script.js"></script>
+</head>
+
+<body>
+  <canvas
+    id="canvas"
+    aria-label="Animated bookshelf buildings"
+  ></canvas>
+
+  <section id="editorPanel" hidden>
+    <header class="editor-heading">
+      <strong>Shader editor</strong>
+      <span>
+        Changes apply automatically · Ctrl/⌘ + Enter to compile
+      </span>
+    </header>
+
     <textarea
       id="codeEditor"
-      class="editor"
+      aria-label="Fragment shader source"
       spellcheck="false"
       autocorrect="off"
       autocapitalize="off"
       translate="no"
     ></textarea>
-    <pre id="error"></pre>
-    <div id="indicator"></div>
+  </section>
 
-    <div id="controls">
-      <div class="controls">
-        <input
-          id="btnToggleView"
-          class="icon"
-          type="checkbox"
-          name="toggleView"
-        />
-        <input
-          id="btnTogglePause"
-          class="icon"
-          type="checkbox"
-          name="togglePause"
-        />
-        <input
-          id="btnToggleResolution"
-          class="icon"
-          type="checkbox"
-          name="toggleResolution"
-        />
-        <input id="btnReset" class="icon" type="checkbox" name="reset" />
-      </div>
-    </div>
+  <pre id="error" role="alert" hidden></pre>
 
-    <script type="x-shader/x-fragment">
-      #version 300 es
-      precision highp float;
+  <div id="controls" role="group" aria-label="Shader controls">
+    <button
+      id="btnToggleView"
+      type="button"
+      aria-controls="editorPanel"
+      aria-expanded="false"
+      title="Show shader editor"
+    >
+      ✎ Edit
+    </button>
 
-      out vec4 O;
+    <button
+      id="btnTogglePause"
+      type="button"
+      aria-pressed="false"
+      title="Pause animation — Space"
+    >
+      ⏸ Pause
+    </button>
 
-      uniform float time;
-      uniform vec2 resolution;
-      uniform vec2 move;
-      uniform vec2 wheel;
+    <button
+      id="btnReset"
+      type="button"
+      title="Restore the bookshelf shader and reset the camera"
+    >
+      ↺ Reset
+    </button>
+  </div>
 
-      #define FC gl_FragCoord.xy
-      #define R resolution
-      #define T (25.0 + time)
-      #define MN min(R.x, R.y)
-      #define rnd(p) fract(sin(dot(p, vec2(12.9898, 78.233))) * 345678.0)
-      #define rot(a) mat2(cos((a) - vec4(0, 11, 33, 0)))
+  <!-- Default shader: bookshelf buildings -->
+  <script id="fragmentShader" type="x-shader/x-fragment">
+#version 300 es
+precision highp float;
 
-      const float SHELF_H = 0.180;
-      const float BOOK_W  = 0.022;
-      const float POST_W  = 0.024;
+out vec4 O;
 
-      float sdBox(vec3 p, vec3 b, float r)
-      {
-          vec3 q = abs(p) - b;
-          return length(max(q, vec3(0.0))) + min(max(q.x, max(q.y, q.z)), 0.0) - r;
-      }
+uniform float time;
+uniform vec2 resolution;
+uniform vec2 move;
+uniform vec2 wheel;
 
-      struct Tower
-      {
-          vec3  p;
-          vec2  id;
-          float W, H, D, sy;
-      };
+#define FC gl_FragCoord.xy
+#define T (25.0 + time)
+#define MN max(min(resolution.x, resolution.y), 1.0)
 
-      Tower getTower(vec3 p)
-      {
-          Tower t;
-          float sy = p.y < 0.0 ? -1.0 : 1.0;
-          p.y = abs(p.y) - 2.5;
+const float SHELF_H = 0.180;
+const float BOOK_W = 0.022;
+const float POST_W = 0.024;
+const float MAX_DISTANCE = 26.0;
 
-          vec2 id = floor(p.xz - sy);
-          if (mod(id.y, 2.0) == 0.0) { p.x -= T * 0.5; id.x = floor(p.x - sy); }
-          p.xz = fract(p.xz - sy) - 0.5;
+float random21(vec2 p)
+{
+    return fract(
+        sin(dot(p, vec2(12.9898, 78.233))) * 345678.0
+    );
+}
 
-          float r1 = rnd(id);
-          float r2 = rnd(id + 7.31);
+mat2 rotation(float angle)
+{
+    float c = cos(angle);
+    float s = sin(angle);
+    return mat2(c, -s, s, c);
+}
 
-          t.p  = p;
-          t.id = id;
-          t.sy = sy;
-          t.W  = 0.150 + 0.160 * r1;
-          t.D  = 0.140 + 0.120 * r2;
-          t.H  = max(1.35, 2.05 - 0.55 * rnd(id + 12.35));
-          return t;
-      }
+float sdBox(vec3 p, vec3 halfSize, float radius)
+{
+    vec3 q = abs(p) - halfSize;
 
-      struct Facade { vec3 col; float inset; float glow; float lit; };
+    return length(max(q, vec3(0.0))) +
+           min(max(q.x, max(q.y, q.z)), 0.0) -
+           radius;
+}
 
-      vec3 bookPalette(vec2 id)
-      {
-          float sel = rnd(id + 2.11);
-          if      (sel < 0.20) return vec3(0.55, 0.13, 0.08);
-          else if (sel < 0.38) return vec3(0.34, 0.20, 0.10);
-          else if (sel < 0.53) return vec3(0.14, 0.25, 0.16);
-          else if (sel < 0.66) return vec3(0.10, 0.16, 0.32);
-          else if (sel < 0.80) return vec3(0.63, 0.43, 0.18);
-          else if (sel < 0.92) return vec3(0.48, 0.22, 0.30);
-          else                 return vec3(0.78, 0.71, 0.55);
-      }
+struct Tower
+{
+    vec3 p;
+    vec2 id;
+    float W;
+    float H;
+    float D;
+    float sy;
+};
 
-      Facade facade(vec2 uv, float halfW, float H, vec2 id, float faceSeed, float worldDist)
-      {
-          Facade f;
-          float r1 = rnd(id);
-          vec3 frameCol = mix(vec3(0.055, 0.035, 0.022), vec3(0.120, 0.070, 0.038), r1);
+Tower getTower(vec3 p)
+{
+    Tower tower;
 
-          f.col = frameCol; f.inset = 0.0; f.glow = 0.0; f.lit = 0.0;
+    float sy = p.y < 0.0 ? -1.0 : 1.0;
+    p.y = abs(p.y) - 2.5;
 
-          if (abs(uv.x) > halfW - POST_W) { f.col = frameCol * 0.45; return f; }
-          if (uv.y > H - 0.035) { f.col = frameCol * 0.75; return f; }
-          if (uv.y < -H + 0.040) { f.col = frameCol * 0.55; return f; }
+    vec2 id = floor(p.xz - sy);
 
-          float yLocal   = uv.y + H;
-          float shelfIdx = floor(yLocal / SHELF_H);
-          float yInShelf = mod(yLocal, SHELF_H);
-          float boardT   = 0.017;
+    if (mod(id.y, 2.0) == 0.0)
+    {
+        p.x -= T * 0.5;
+        id.x = floor(p.x - sy);
+    }
 
-          if (yInShelf < boardT) { f.col = frameCol * 0.58; f.inset = 0.001; return f; }
-          if (yInShelf > SHELF_H - 0.012) { f.col = vec3(2.20, 1.38, 0.58); f.glow = 1.0; f.inset = 0.003; return f; }
+    p.xz = fract(p.xz - sy) - 0.5;
 
-          f.lit = exp(-5.5 * (SHELF_H - yInShelf));
+    float r1 = random21(id);
+    float r2 = random21(id + vec2(7.31));
 
-          /* DISTANCE LOD: Prevents pixel breaking & shimmering on distant books */
-          float lod = smoothstep(8.0, 18.0, worldDist);
-          if (lod > 0.85) {
-              f.col = mix(frameCol * 0.7, vec3(0.35, 0.20, 0.12), fract(shelfIdx * 0.3));
-              f.inset = 0.015;
-              return f;
-          }
+    tower.p = p;
+    tower.id = id;
+    tower.sy = sy;
 
-          float xStart = -halfW + POST_W;
-          float off    = uv.x - xStart;
-          if (off < 0.0 || off > (halfW - POST_W) * 2.0) { f.col = frameCol * 0.40; f.inset = 0.020; return f; }
+    tower.W = 0.150 + 0.160 * r1;
+    tower.D = 0.140 + 0.120 * r2;
 
-          float bookIdx = floor(off / BOOK_W);
-          float xInBook = mod(off, BOOK_W) - BOOK_W * 0.5;
+    tower.H = max(
+        1.35,
+        2.05 - 0.55 * random21(id + vec2(12.35))
+    );
 
-          vec2 bId = vec2(shelfIdx * 39.17 + bookIdx + faceSeed * 97.3, id.x * 21.71 + id.y * 5.91 - bookIdx * 1.37);
-          float b1 = rnd(bId), b2 = rnd(bId + 5.77), b3 = rnd(bId + 11.33), b4 = rnd(bId + 19.91), b5 = rnd(bId + 31.44);
+    return tower;
+}
 
-          if (b1 < 0.055) { f.col = vec3(0.022, 0.015, 0.010); f.inset = 0.050; return f; }
+struct Facade
+{
+    vec3 col;
+    float inset;
+    float glow;
+    float lit;
+};
 
-          float bookBase = boardT + 0.002;
-          float bookH    = (SHELF_H - bookBase - 0.014) * (0.58 + 0.38 * b2);
-          float bookHalfW = BOOK_W * (0.34 + 0.14 * b1);
-          float bookCenterY = bookBase + bookH * 0.5;
+vec3 bookPalette(vec2 id)
+{
+    float selector = random21(id + vec2(2.11));
 
-          vec2 bp = vec2(xInBook, yInShelf - bookCenterY);
+    if (selector < 0.20)
+        return vec3(0.55, 0.13, 0.08);
 
-          if (b3 > 0.86) {
-              float a = (b2 - 0.5) * 0.12;
-              float cs = cos(a), sn = sin(a);
-              bp = mat2(cs, -sn, sn, cs) * bp;
-          }
+    if (selector < 0.38)
+        return vec3(0.34, 0.20, 0.10);
 
-          if (!(abs(bp.x) < bookHalfW && abs(bp.y) < bookH * 0.5)) {
-              f.col = vec3(0.024, 0.016, 0.011); f.inset = 0.045; return f;
-          }
+    if (selector < 0.53)
+        return vec3(0.14, 0.25, 0.16);
 
-          vec3 bcol = bookPalette(bId) * (0.82 + 0.36 * b5);
+    if (selector < 0.66)
+        return vec3(0.10, 0.16, 0.32);
 
-          float edge = smoothstep(0.55, 0.98, abs(bp.x) / max(bookHalfW, 0.0001));
-          bcol *= 1.0 - edge * 0.28;
+    if (selector < 0.80)
+        return vec3(0.63, 0.43, 0.18);
 
-          float groove = 1.0 - smoothstep(0.001, 0.004, abs(abs(bp.x) - bookHalfW * 0.72));
-          bcol *= 1.0 - groove * 0.18;
+    if (selector < 0.92)
+        return vec3(0.48, 0.22, 0.30);
 
-          float contact = 1.0 - smoothstep(0.000, 0.014, bp.y + bookH * 0.5);
-          bcol *= 1.0 - contact * 0.38;
+    return vec3(0.78, 0.71, 0.55);
+}
 
-          float topLight = 1.0 - smoothstep(0.000, 0.010, bookH * 0.5 - bp.y);
-          bcol = mix(bcol, bcol + vec3(0.10, 0.08, 0.04), topLight * 0.45);
+/*
+   Blend distant detail gradually instead of switching it
+   abruptly at one distance.
+*/
+Facade applyLOD(Facade material, float lod, vec3 averageColor)
+{
+    material.col = mix(material.col, averageColor, lod);
+    material.inset = mix(material.inset, 0.015, lod);
 
-          if (b4 > 0.50) {
-              float band1 = 1.0 - smoothstep(0.001, 0.005, abs(bp.y - bookH * 0.25));
-              float band2 = 1.0 - smoothstep(0.001, 0.005, abs(bp.y + bookH * 0.25));
-              bcol = mix(bcol, vec3(0.90, 0.70, 0.28), max(band1, band2) * 0.80);
-          }
+    return material;
+}
 
-          if (b4 > 0.78) {
-              float lx = 1.0 - smoothstep(bookHalfW * 0.42, bookHalfW * 0.58, abs(bp.x));
-              float ly = 1.0 - smoothstep(bookH * 0.08, bookH * 0.16, abs(bp.y));
-              bcol = mix(bcol, vec3(0.82, 0.74, 0.55), lx * ly * 0.65);
-          }
+Facade facade(
+    vec2 uv,
+    float halfWidth,
+    float halfHeight,
+    vec2 id,
+    float faceSeed,
+    float cameraDistance
+)
+{
+    Facade material;
 
-          if (bp.y > bookH * 0.5 - 0.006)
-              bcol = mix(bcol, vec3(0.88, 0.82, 0.68), 0.85);
+    vec3 frameColor = mix(
+        vec3(0.055, 0.035, 0.022),
+        vec3(0.120, 0.070, 0.038),
+        random21(id)
+    );
 
-          bcol += vec3(0.16, 0.08, 0.025) * f.lit;
+    material.col = frameColor;
+    material.inset = 0.0;
+    material.glow = 0.0;
+    material.lit = 0.0;
 
-          f.col = bcol;
-          f.inset = 0.004 + 0.010 * b3;
-          return f;
-      }
+    // Vertical frame.
+    if (abs(uv.x) > halfWidth - POST_W)
+    {
+        material.col = frameColor * 0.45;
+        return material;
+    }
 
-      Facade towerFacade(Tower t, float worldDist)
-      {
-          vec3 p = t.p;
-          float uprightY = p.y * t.sy;
-          float fx = abs(p.x) / t.W;
-          float fz = abs(p.z) / t.D;
+    // Roof and base caps.
+    if (uv.y > halfHeight - 0.035)
+    {
+        material.col = frameColor * 0.75;
+        return material;
+    }
 
-          if (fz >= fx)
-              return facade(vec2(p.x, uprightY), t.W, t.H, t.id, sign(p.z), worldDist);
-          else
-              return facade(vec2(p.z, uprightY), t.D, t.H, t.id, 2.0 + sign(p.x), worldDist);
-      }
+    if (uv.y < -halfHeight + 0.040)
+    {
+        material.col = frameColor * 0.55;
+        return material;
+    }
 
-      float map(vec3 p)
-      {
-          Tower t = getTower(p);
-          float d = sdBox(t.p, vec3(t.W, t.H, t.D), 0.006);
-          if (d < 0.080) {
-              Facade f = towerFacade(t, length(p));
-              d += f.inset;
-          }
-          return d;
-      }
+    float yLocal = uv.y + halfHeight;
+    float shelfIndex = floor(yLocal / SHELF_H);
+    float shelfY = mod(yLocal, SHELF_H);
+    float boardThickness = 0.017;
 
-      vec3 calcNormal(vec3 p)
-      {
-          float e = 0.0012;
-          vec2 k = vec2(-1.0, 1.0);
-          return normalize(
-              k.xyy * map(p + k.xyy * e) + k.yxy * map(p + k.yxy * e) +
-              k.yyx * map(p + k.yyx * e) + k.xxx * map(p + k.xxx * e));
-      }
+    if (shelfY < boardThickness)
+    {
+        material.col = frameColor * 0.58;
+        material.inset = 0.001;
+        return material;
+    }
 
-      bool march(inout vec3 p, vec3 rd, out float dd)
-      {
-          dd = 0.0;
-          for (int i = 0; i < 430; i++) {
-              float d = map(p);
-              if (d < 0.0010) return true;
-              if (dd > 26.0) return false;
-              float st = max(d * 0.40, 0.0010);
-              p += rd * st; dd += st;
-          }
-          return false;
-      }
+    // Warm light beneath the shelf above.
+    if (shelfY > SHELF_H - 0.012)
+    {
+        material.col = vec3(2.20, 1.38, 0.58);
+        material.glow = 1.0;
+        material.inset = 0.003;
+        return material;
+    }
 
-      float calcAO(vec3 p, vec3 n)
-      {
-          float occ = 0.0, sca = 1.0;
-          for (int i = 0; i < 4; i++) {
-              float h = 0.010 + 0.045 * float(i);
-              occ += (h - map(p + n * h)) * sca;
-              sca *= 0.60;
-          }
-          return clamp(1.0 - 1.8 * occ, 0.14, 1.0);
-      }
+    material.lit = exp(-5.5 * (SHELF_H - shelfY));
 
-      vec3 camDir(vec2 uv, vec3 ro, vec3 target, float fl)
-      {
-          vec3 f = normalize(target - ro);
-          vec3 r = normalize(cross(vec3(0.0, 1.0, 0.0), f));
-          vec3 u = cross(f, r);
-          return normalize(r * uv.x + u * uv.y + f * fl);
-      }
+    float lod = smoothstep(8.0, 18.0, cameraDistance);
 
-      vec3 render(vec2 uv)
-      {
-          vec3 ro = vec3(0.0, -0.3, -23.5 - wheel.y / MN - 100.0 * sin(T * 0.005));
-          float ang = 0.20 - move.x / MN + 0.20 * T * 0.01;
-          ro.xz = rot(ang) * ro.xz;
+    vec3 averageColor = mix(
+        frameColor * 0.7,
+        vec3(0.35, 0.20, 0.12),
+        fract(shelfIndex * 0.3)
+    );
 
-          vec3 rd = camDir(uv, ro, vec3(0.0, 5.5, 0.0), 1.2);
-          vec3 sky = vec3(0.0);
-          vec3 col = sky;
+    if (lod > 0.999)
+    {
+        material.col = averageColor;
+        material.inset = 0.015;
+        return material;
+    }
 
-          float dd = 0.0;
-          vec3 p = ro;
+    float xStart = -halfWidth + POST_W;
+    float offset = uv.x - xStart;
+    float availableWidth = (halfWidth - POST_W) * 2.0;
 
-          if (march(p, rd, dd))
-          {
-              vec3 n = calcNormal(p);
-              Facade f = towerFacade(getTower(p), dd);
+    if (offset < 0.0 || offset > availableWidth)
+    {
+        material.col = frameColor * 0.40;
+        material.inset = 0.020;
 
-              if (f.glow > 0.5)
-              {
-                  col = f.col * 1.55;
-              }
-              else
-              {
-                  vec3 sunDir = normalize(vec3(-0.55, 0.72, -0.40));
-                  vec3 sunCol = vec3(1.30, 1.16, 0.95);
+        return applyLOD(material, lod, averageColor);
+    }
 
-                  float dif       = max(dot(n, sunDir), 0.0);
-                  float skylight  = clamp(n.y * 0.5 + 0.5, 0.0, 1.0);
-                  float frontFill = max(dot(n, normalize(ro - p)), 0.0);
-                  float ao        = calcAO(p, n);
+    float bookIndex = floor(offset / BOOK_W);
+    float bookX = mod(offset, BOOK_W) - BOOK_W * 0.5;
 
-                  vec3 light =
-                      vec3(0.32, 0.34, 0.40) +
-                      sunCol * dif * 1.20 +
-                      vec3(0.28, 0.32, 0.40) * skylight * 0.45 +
-                      vec3(0.46, 0.40, 0.32) * frontFill * 0.62 +
-                      vec3(1.40, 0.88, 0.40) * f.lit * 1.00;
+    vec2 bookID = vec2(
+        shelfIndex * 39.17 + bookIndex + faceSeed * 97.3,
+        id.x * 21.71 + id.y * 5.91 - bookIndex * 1.37
+    );
 
-                  col = f.col * light * ao;
+    float b1 = random21(bookID);
+    float b2 = random21(bookID + vec2(5.77));
+    float b3 = random21(bookID + vec2(11.33));
+    float b4 = random21(bookID + vec2(19.91));
+    float b5 = random21(bookID + vec2(31.44));
 
-                  vec3 h = normalize(sunDir - rd);
-                  col += sunCol * pow(max(dot(n, h), 0.0), 28.0) * 0.12 * ao;
+    // Empty slot.
+    if (b1 < 0.055)
+    {
+        material.col = vec3(0.022, 0.015, 0.010);
+        material.inset = 0.050;
 
-                  float rim = pow(1.0 - max(dot(n, -rd), 0.0), 4.0);
-                  col += vec3(0.28, 0.32, 0.40) * rim * 0.20;
-              }
-          }
+        return applyLOD(material, lod, averageColor);
+    }
 
-          col = mix(sky, col, exp(-125e-5 * dd * dd * dd));
+    float bookBase = boardThickness;
 
-          col = vec3(1.0) - exp(-col * 1.55);
-          col = pow(max(col, vec3(0.0)), vec3(0.4545));
+    float bookHeight =
+        (SHELF_H - bookBase - 0.014) *
+        (0.58 + 0.38 * b2);
 
-          col = mix(vec3(0.0), col, smoothstep(0.0, 0.3, time));
+    float bookHalfWidth = BOOK_W * (0.34 + 0.14 * b1);
 
-          vec2 c = FC / R;
-          c *= 1.0 - c.yx;
-          col *= pow(clamp(c.x * c.y * 25.0, 0.0, 1.0), 0.14);
+    float angle = 0.0;
 
-          return col;
-      }
+    if (b3 > 0.86)
+    {
+        angle = (b2 - 0.5) * 0.12;
+    }
 
-      void main()
-      {
-          vec2 uv = (FC - 0.5 * R) / MN;
-          O = vec4(render(uv), 1.0);
-      }
-    </script>
-  </body>
+    float cs = cos(angle);
+    float sn = sin(angle);
+
+    /*
+       Account for the rotated book's vertical extent so its
+       lowest corner rests on the shelf instead of floating.
+    */
+    float verticalExtent =
+        abs(sn) * bookHalfWidth +
+        cs * bookHeight * 0.5;
+
+    vec2 bookPoint = vec2(
+        bookX,
+        shelfY - bookBase - verticalExtent
+    );
+
+    bookPoint = mat2(cs, -sn, sn, cs) * bookPoint;
+
+    bool insideBook =
+        abs(bookPoint.x) < bookHalfWidth &&
+        abs(bookPoint.y) < bookHeight * 0.5;
+
+    if (!insideBook)
+    {
+        material.col = vec3(0.024, 0.016, 0.011);
+        material.inset = 0.045;
+
+        return applyLOD(material, lod, averageColor);
+    }
+
+    vec3 bookColor = bookPalette(bookID) * (0.82 + 0.36 * b5);
+
+    // Slightly rounded-looking spine edges.
+    float edge = smoothstep(
+        0.55,
+        0.98,
+        abs(bookPoint.x) / max(bookHalfWidth, 0.0001)
+    );
+
+    bookColor *= 1.0 - edge * 0.28;
+
+    // Binding groove.
+    float groove = 1.0 - smoothstep(
+        0.001,
+        0.004,
+        abs(abs(bookPoint.x) - bookHalfWidth * 0.72)
+    );
+
+    bookColor *= 1.0 - groove * 0.18;
+
+    // Contact shading.
+    float contact = 1.0 - smoothstep(
+        0.0,
+        0.014,
+        shelfY - bookBase
+    );
+
+    bookColor *= 1.0 - contact * 0.38;
+
+    float topLight = 1.0 - smoothstep(
+        0.0,
+        0.010,
+        bookHeight * 0.5 - bookPoint.y
+    );
+
+    bookColor += vec3(0.10, 0.08, 0.04) * topLight * 0.45;
+
+    // Gold bands.
+    if (b4 > 0.50)
+    {
+        float band1 = 1.0 - smoothstep(
+            0.001,
+            0.005,
+            abs(bookPoint.y - bookHeight * 0.25)
+        );
+
+        float band2 = 1.0 - smoothstep(
+            0.001,
+            0.005,
+            abs(bookPoint.y + bookHeight * 0.25)
+        );
+
+        bookColor = mix(
+            bookColor,
+            vec3(0.90, 0.70, 0.28),
+            max(band1, band2) * 0.80
+        );
+    }
+
+    // Paper title label.
+    if (b4 > 0.78)
+    {
+        float labelX = 1.0 - smoothstep(
+            bookHalfWidth * 0.42,
+            bookHalfWidth * 0.58,
+            abs(bookPoint.x)
+        );
+
+        float labelY = 1.0 - smoothstep(
+            bookHeight * 0.08,
+            bookHeight * 0.16,
+            abs(bookPoint.y)
+        );
+
+        bookColor = mix(
+            bookColor,
+            vec3(0.82, 0.74, 0.55),
+            labelX * labelY * 0.65
+        );
+    }
+
+    // Light-colored page edge.
+    if (bookPoint.y > bookHeight * 0.5 - 0.006)
+    {
+        bookColor = mix(
+            bookColor,
+            vec3(0.88, 0.82, 0.68),
+            0.85
+        );
+    }
+
+    bookColor += vec3(0.16, 0.08, 0.025) * material.lit;
+
+    material.col = bookColor;
+    material.inset = 0.004 + 0.010 * b3;
+
+    return applyLOD(material, lod, averageColor);
+}
+
+Facade towerFacade(Tower tower, float cameraDistance)
+{
+    vec3 p = tower.p;
+
+    // Keep the lower buildings' books upright.
+    float uprightY = p.y * tower.sy;
+
+    float faceX = abs(p.x) / tower.W;
+    float faceZ = abs(p.z) / tower.D;
+
+    if (faceZ >= faceX)
+    {
+        return facade(
+            vec2(p.x, uprightY),
+            tower.W,
+            tower.H,
+            tower.id,
+            sign(p.z),
+            cameraDistance
+        );
+    }
+
+    return facade(
+        vec2(p.z, uprightY),
+        tower.D,
+        tower.H,
+        tower.id,
+        2.0 + sign(p.x),
+        cameraDistance
+    );
+}
+
+/*
+   Geometry and shading use the same camera-relative distance
+   for LOD. The previous version mixed distance from the world
+   origin with distance from the camera.
+*/
+float mapScene(vec3 p, vec3 cameraOrigin)
+{
+    Tower tower = getTower(p);
+
+    float distanceValue = sdBox(
+        tower.p,
+        vec3(tower.W, tower.H, tower.D),
+        0.006
+    );
+
+    if (distanceValue < 0.080)
+    {
+        Facade material = towerFacade(
+            tower,
+            length(p - cameraOrigin)
+        );
+
+        distanceValue += material.inset;
+    }
+
+    return distanceValue;
+}
+
+vec3 calcNormal(vec3 p, vec3 cameraOrigin)
+{
+    float e = 0.0012;
+    vec2 k = vec2(-1.0, 1.0);
+
+    return normalize(
+        k.xyy * mapScene(p + k.xyy * e, cameraOrigin) +
+        k.yxy * mapScene(p + k.yxy * e, cameraOrigin) +
+        k.yyx * mapScene(p + k.yyx * e, cameraOrigin) +
+        k.xxx * mapScene(p + k.xxx * e, cameraOrigin)
+    );
+}
+
+bool march(
+    vec3 ro,
+    vec3 rd,
+    out vec3 p,
+    out float distanceTravelled
+)
+{
+    distanceTravelled = 0.0;
+    p = ro;
+
+    for (int i = 0; i < 430; i++)
+    {
+        if (distanceTravelled > MAX_DISTANCE)
+        {
+            return false;
+        }
+
+        p = ro + rd * distanceTravelled;
+
+        float distanceValue = mapScene(p, ro);
+
+        if (distanceValue < 0.0010)
+        {
+            return true;
+        }
+
+        distanceTravelled += max(
+            distanceValue * 0.40,
+            0.0010
+        );
+    }
+
+    return false;
+}
+
+float calcAO(vec3 p, vec3 n, vec3 cameraOrigin)
+{
+    float occlusion = 0.0;
+    float weight = 1.0;
+
+    for (int i = 0; i < 4; i++)
+    {
+        float h = 0.010 + 0.045 * float(i);
+
+        occlusion += (
+            h - mapScene(p + n * h, cameraOrigin)
+        ) * weight;
+
+        weight *= 0.60;
+    }
+
+    return clamp(
+        1.0 - 1.8 * occlusion,
+        0.14,
+        1.0
+    );
+}
+
+vec3 cameraDirection(
+    vec2 uv,
+    vec3 ro,
+    vec3 target,
+    float focalLength
+)
+{
+    vec3 forward = normalize(target - ro);
+
+    vec3 right = normalize(
+        cross(vec3(0.0, 1.0, 0.0), forward)
+    );
+
+    vec3 up = cross(forward, right);
+
+    return normalize(
+        right * uv.x +
+        up * uv.y +
+        forward * focalLength
+    );
+}
+
+vec3 render(vec2 uv)
+{
+    vec3 ro = vec3(
+        0.0,
+        -0.3,
+        -23.5 - wheel.y / MN - 100.0 * sin(T * 0.005)
+    );
+
+    float angle =
+        0.20 - move.x / MN + 0.002 * T;
+
+    ro.xz = rotation(angle) * ro.xz;
+
+    vec3 target = vec3(
+        0.0,
+        5.5 + clamp(move.y / MN, -2.0, 2.0),
+        0.0
+    );
+
+    vec3 rd = cameraDirection(uv, ro, target, 1.2);
+
+    // Pure black background.
+    vec3 color = vec3(0.0);
+
+    vec3 p;
+    float distanceTravelled;
+
+    if (march(ro, rd, p, distanceTravelled))
+    {
+        vec3 n = calcNormal(p, ro);
+
+        Facade material = towerFacade(
+            getTower(p),
+            length(p - ro)
+        );
+
+        if (material.glow > 0.5)
+        {
+            color = material.col * 1.55;
+        }
+        else
+        {
+            vec3 sunDirection = normalize(
+                vec3(-0.55, 0.72, -0.40)
+            );
+
+            vec3 sunColor = vec3(1.30, 1.16, 0.95);
+
+            float diffuse = max(
+                dot(n, sunDirection),
+                0.0
+            );
+
+            float skylight = clamp(
+                n.y * 0.5 + 0.5,
+                0.0,
+                1.0
+            );
+
+            float frontFill = max(
+                dot(n, -rd),
+                0.0
+            );
+
+            float ao = calcAO(p, n, ro);
+
+            vec3 light =
+                vec3(0.32, 0.34, 0.40) +
+                sunColor * diffuse * 1.20 +
+                vec3(0.28, 0.32, 0.40) * skylight * 0.45 +
+                vec3(0.46, 0.40, 0.32) * frontFill * 0.62 +
+                vec3(1.40, 0.88, 0.40) * material.lit;
+
+            color = material.col * light * ao;
+
+            vec3 halfVector = normalize(sunDirection - rd);
+
+            float specular = pow(
+                max(dot(n, halfVector), 0.0),
+                28.0
+            );
+
+            color += sunColor * specular * 0.12 * ao;
+
+            float rim = pow(
+                1.0 - clamp(dot(n, -rd), 0.0, 1.0),
+                4.0
+            );
+
+            color += vec3(0.28, 0.32, 0.40) * rim * 0.20;
+        }
+
+        color *= exp(
+            -0.00125 *
+            distanceTravelled *
+            distanceTravelled *
+            distanceTravelled
+        );
+    }
+
+    color = vec3(1.0) - exp(-color * 1.55);
+    color = pow(max(color, vec3(0.0)), vec3(0.4545));
+
+    // Mild vignette without making the outer pixels fully black.
+    vec2 screen = FC / max(resolution, vec2(1.0));
+
+    float vignette = clamp(
+        1.0 - 0.20 * dot(
+            screen - vec2(0.5),
+            screen - vec2(0.5)
+        ),
+        0.85,
+        1.0
+    );
+
+    return color * vignette;
+}
+
+void main()
+{
+    vec2 uv = (FC - 0.5 * resolution) / MN;
+    O = vec4(render(uv), 1.0);
+}
+  </script>
+</body>
 </html>

@@ -1,50 +1,42 @@
 let editMode = false 
-// Resolution is 1 (Full Size) by default, matching 2️⃣
-let resolution = 1 
+let resolution = 1 // Full sharp native resolution (no blur)
 let renderDelay = 1000 
-let dpr = Math.max(1, resolution * (window.devicePixelRatio || 1))
+let dpr = Math.max(1, resolution * window.devicePixelRatio)
 let frm, source, editor, renderer, pointers
-
-let accumulatedTime = 0
-let lastTime = 0
 
 window.onload = init
 
 function resize() {
     const { innerWidth: width, innerHeight: height } = window
-    canvas.width = Math.floor(width * dpr)
-    canvas.height = Math.floor(height * dpr)
+    canvas.width = width * dpr
+    canvas.height = height * dpr
     if (renderer) {
         renderer.updateScale(dpr)
     }
 }
-
 function toggleView() {
     editor.hidden = btnToggleView.checked
     canvas.style.setProperty('--canvas-z-index', btnToggleView.checked ? 0 : -1)
 }
-
 function reset() {
     let shader = source
     editor.text = shader ? shader.textContent : renderer.defaultSource
     renderThis()
 }
-
-// 2️⃣ (checked) = 1 (Full Native Size, No lag/breaking)
-// 1️⃣ (unchecked) = 0.5 (Half Size)
 function toggleResolution() {
-    resolution = btnToggleResolution.checked ? 1 : 0.5
-    dpr = Math.max(1, resolution * (window.devicePixelRatio || 1))
+    resolution = btnToggleResolution.checked ? .5 : 1
+    dpr = Math.max(1, resolution * window.devicePixelRatio)
     pointers.updateScale(dpr)
     resize()
 }
 
+let accumulatedTime = 0
+let lastTime = 0
+
 function loop(now) {
     if (!lastTime) lastTime = now
-    let delta = now - lastTime
+    const delta = (now - lastTime)
     lastTime = now
-    if (delta < 0) delta = 0
-    if (delta > 100) delta = 100 // Prevent tab-switch lag jump
 
     const btnPause = document.getElementById('btnTogglePause')
     if (!btnPause || !btnPause.checked) {
@@ -71,14 +63,11 @@ function renderThis() {
         renderer.updateShader(shaderSource)
     }
     cancelAnimationFrame(frm)
-    lastTime = 0
     loop(0)
 }
-
 function normalizeShaderSource(shaderSource) {
     return shaderSource.replace(/^\s*(#version)/, '$1')
 }
-
 const debounce = (fn, delay) => {
     let timerId
     return (...args) => {
@@ -86,9 +75,7 @@ const debounce = (fn, delay) => {
         timerId = setTimeout(() => fn.apply(this, args), delay)
     }
 }
-
 const render = debounce(renderThis, renderDelay)
-
 function init() {
     source = document.querySelector("script[type='x-shader/x-fragment']")
 
@@ -98,11 +85,6 @@ function init() {
     btnReset.addEventListener('click', reset)
 
     document.title = "Interstellar Library"
-
-    // Set resolution toggle to 2 (checked) on launch = Full size scene
-    btnToggleResolution.checked = true
-    resolution = 1
-    dpr = Math.max(1, resolution * (window.devicePixelRatio || 1))
 
     renderer = new Renderer(canvas, dpr)
     pointers = new PointerHandler(canvas, dpr)
@@ -126,10 +108,6 @@ function init() {
     loop(0)
     window.onresize = resize
     window.addEventListener("keydown", e => {
-        if (e.code === "Space" && document.activeElement !== codeEditor) {
-            e.preventDefault()
-            btnTogglePause.checked = !btnTogglePause.checked
-        }
         if (e.key === "L" && e.ctrlKey) {
             e.preventDefault()
             btnToggleView.checked = !btnToggleView.checked
@@ -146,7 +124,7 @@ class Renderer {
         this.canvas = canvas
         this.scale = scale
         this.gl = canvas.getContext("webgl2")
-        this.gl.viewport(0, 0, canvas.width, canvas.height)
+        this.gl.viewport(0, 0, canvas.width * scale, canvas.height * scale)
         this.shaderSource = this.#fragmtSrc
         this.mouseMove = [0, 0]
         this.mouseCoords = [0, 0]
@@ -171,7 +149,7 @@ class Renderer {
     updatePointerCount(nbr) { this.nbrOfPointers = nbr }
     updateScale(scale) {
         this.scale = scale
-        this.gl.viewport(0, 0, this.canvas.width, this.canvas.height)
+        this.gl.viewport(0, 0, this.canvas.width * scale, this.canvas.height * scale)
     }
     compile(shader, source) {
         const gl = this.gl
@@ -319,7 +297,6 @@ class PointerHandler {
     get coords() { return this.pointers.size > 0 ? Array.from(this.pointers.values()).map((p) => [...p]).flat() : [0, 0] }
     get first() { return this.pointers.values().next().value || this.lastCoords }
 }
-
 function lerp(a, b, t) { return a + (b - a) * t }
 
 class Editor {

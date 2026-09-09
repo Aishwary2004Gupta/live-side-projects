@@ -1,6 +1,6 @@
-let editMode = false 
-let resolution = 1 // Full sharp native resolution (no blur)
-let renderDelay = 1000 
+let editMode = false
+let resolution = .5           // DEFAULT = 2️⃣ (the checked / "2" state)
+let renderDelay = 1000
 let dpr = Math.max(1, resolution * window.devicePixelRatio)
 let frm, source, editor, renderer, pointers
 
@@ -76,6 +76,7 @@ const debounce = (fn, delay) => {
     }
 }
 const render = debounce(renderThis, renderDelay)
+
 function init() {
     source = document.querySelector("script[type='x-shader/x-fragment']")
 
@@ -97,6 +98,13 @@ function init() {
         btnToggleView.checked = true
         toggleView()
     }
+
+    // DEFAULT RESOLUTION = 2️⃣  (checkbox starts checked)
+    if (resolution === .5) {
+        btnToggleResolution.checked = true
+        toggleResolution()
+    }
+
     canvas.addEventListener('shader-error', e => editor.setError(e.detail))
 
     resize()
@@ -124,7 +132,8 @@ class Renderer {
         this.canvas = canvas
         this.scale = scale
         this.gl = canvas.getContext("webgl2")
-        this.gl.viewport(0, 0, canvas.width * scale, canvas.height * scale)
+        // canvas.width/height ALREADY include the scale - do not multiply again
+        this.gl.viewport(0, 0, canvas.width, canvas.height)
         this.shaderSource = this.#fragmtSrc
         this.mouseMove = [0, 0]
         this.mouseCoords = [0, 0]
@@ -149,7 +158,8 @@ class Renderer {
     updatePointerCount(nbr) { this.nbrOfPointers = nbr }
     updateScale(scale) {
         this.scale = scale
-        this.gl.viewport(0, 0, this.canvas.width * scale, this.canvas.height * scale)
+        // FIXED: was canvas.width * scale, which double-scaled the viewport
+        this.gl.viewport(0, 0, this.canvas.width, this.canvas.height)
     }
     compile(shader, source) {
         const gl = this.gl

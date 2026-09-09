@@ -1,42 +1,49 @@
-let editMode = false 
-let resolution = 1 // Full sharp native resolution (no blur)
-let renderDelay = 1000 
-let dpr = Math.max(1, resolution * window.devicePixelRatio)
+let editMode = false
+let renderDelay = 1000
+// Always full resolution - no toggle
+let dpr = Math.max(1, window.devicePixelRatio || 1)
 let frm, source, editor, renderer, pointers
+let accumulatedTime = 0
+let lastTime = 0
 
 window.onload = init
 
 function resize() {
-    const { innerWidth: width, innerHeight: height } = window
-    canvas.width = width * dpr
-    canvas.height = height * dpr
+    // Re-read DPR and use actual displayed canvas size for crisp full-screen
+    dpr = Math.max(1, window.devicePixelRatio || 1)
+    const w = canvas.clientWidth || window.innerWidth
+    const h = canvas.clientHeight || window.innerHeight
+    const bw = Math.max(1, Math.floor(w * dpr))
+    const bh = Math.max(1, Math.floor(h * dpr))
+    if (canvas.width !== bw || canvas.height !== bh) {
+        canvas.width = bw
+        canvas.height = bh
+    }
     if (renderer) {
         renderer.updateScale(dpr)
     }
+    if (pointers) {
+        pointers.updateScale(dpr)
+    }
 }
+
 function toggleView() {
     editor.hidden = btnToggleView.checked
     canvas.style.setProperty('--canvas-z-index', btnToggleView.checked ? 0 : -1)
 }
+
 function reset() {
     let shader = source
     editor.text = shader ? shader.textContent : renderer.defaultSource
     renderThis()
 }
-function toggleResolution() {
-    resolution = btnToggleResolution.checked ? .5 : 1
-    dpr = Math.max(1, resolution * window.devicePixelRatio)
-    pointers.updateScale(dpr)
-    resize()
-}
-
-let accumulatedTime = 0
-let lastTime = 0
 
 function loop(now) {
     if (!lastTime) lastTime = now
-    const delta = (now - lastTime)
+    let delta = now - lastTime
     lastTime = now
+    if (delta < 0) delta = 0
+    if (delta > 100) delta = 100 // clamp tab-switch jump, prevents lag spike
 
     const btnPause = document.getElementById('btnTogglePause')
     if (!btnPause || !btnPause.checked) {
@@ -63,11 +70,14 @@ function renderThis() {
         renderer.updateShader(shaderSource)
     }
     cancelAnimationFrame(frm)
-    loop(0)
+    lastTime = 0
+    frm = requestAnimationFrame(loop)
 }
+
 function normalizeShaderSource(shaderSource) {
     return shaderSource.replace(/^\s*(#version)/, '$1')
 }
+
 const debounce = (fn, delay) => {
     let timerId
     return (...args) => {
@@ -76,12 +86,12 @@ const debounce = (fn, delay) => {
     }
 }
 const render = debounce(renderThis, renderDelay)
+
 function init() {
     source = document.querySelector("script[type='x-shader/x-fragment']")
 
     codeEditor.addEventListener('input', render)
     btnToggleView.addEventListener('change', toggleView)
-    btnToggleResolution.addEventListener('change', toggleResolution)
     btnReset.addEventListener('click', reset)
 
     document.title = "Interstellar Library"
@@ -105,9 +115,14 @@ function init() {
     if (renderer.test(shaderSource) === null) {
         renderer.updateShader(shaderSource)
     }
-    loop(0)
+    frm = requestAnimationFrame(loop)
     window.onresize = resize
     window.addEventListener("keydown", e => {
+        if (e.code === "Space" && document.activeElement !== codeEditor) {
+            e.preventDefault()
+            const b = document.getElementById('btnTogglePause')
+            if (b) b.checked = !b.checked
+        }
         if (e.key === "L" && e.ctrlKey) {
             e.preventDefault()
             btnToggleView.checked = !btnToggleView.checked
@@ -124,7 +139,7 @@ class Renderer {
         this.canvas = canvas
         this.scale = scale
         this.gl = canvas.getContext("webgl2")
-        this.gl.viewport(0, 0, canvas.width * scale, canvas.height * scale)
+        this.gl.viewport(0, 0, canvas.width, canvas.height)
         this.shaderSource = this.#fragmtSrc
         this.mouseMove = [0, 0]
         this.mouseCoords = [0, 0]
@@ -149,7 +164,7 @@ class Renderer {
     updatePointerCount(nbr) { this.nbrOfPointers = nbr }
     updateScale(scale) {
         this.scale = scale
-        this.gl.viewport(0, 0, this.canvas.width * scale, this.canvas.height * scale)
+        this.gl.viewport(0, 0, this.canvas.width, this.canvas.height)
     }
     compile(shader, source) {
         const gl = this.gl

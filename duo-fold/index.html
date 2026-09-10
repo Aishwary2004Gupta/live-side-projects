@@ -1,218 +1,534 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Foldable design — product study</title>
-<style>
-  :root{
-    --bg:#fff;
-    --pill:#f0f0f2;
-    --ink:#1d1d1f;
-    --sub:#6e6e73;
-    --blue:#0071e3;
-    --open:.55;                    /* 0 = closed, 1 = flat open */
-    --a:calc((1 - var(--open)) * 88deg);
-  }
-  *{box-sizing:border-box}
-  html,body{margin:0;background:var(--bg);color:var(--ink);
-    font-family:"SF Pro Text",-apple-system,BlinkMacSystemFont,"Helvetica Neue",Inter,sans-serif;
-    -webkit-font-smoothing:antialiased}
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Foldable UI Concept</title>
+    <style>
+        /* --- Base Styles --- */
+        :root {
+            --bg-color: #ffffff;
+            --panel-bg: #f0f2fa;
+            --btn-bg: #f0f2fa;
+            --text-main: #111;
+            --text-muted: #666;
+            --blue-accent: #0066cc;
+            --slider-bg: #d1d1d6;
+            --phone-border: #444;
+            --screen-bg: #eaddc5;
+        }
 
-  .wrap{max-width:1760px;margin:0 auto;padding:28px 24px 60px;
-    display:grid;grid-template-columns:56px minmax(320px,640px) 1fr;gap:24px;align-items:start}
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            overflow: hidden;
+        }
 
-  /* ── left rail chevrons ── */
-  .rail{position:sticky;top:340px;display:grid;gap:16px;justify-items:center}
-  .chev{width:44px;height:44px;border:0;border-radius:50%;background:var(--pill);
-    display:grid;place-items:center;cursor:pointer;transition:background .2s}
-  .chev:hover{background:#e5e5e8}
-  .chev svg{width:16px;height:16px;stroke:#4a4a4f;stroke-width:2.2;fill:none;stroke-linecap:round;stroke-linejoin:round}
+        .container {
+            display: flex;
+            gap: 80px;
+            align-items: center;
+            width: 100%;
+            max-width: 1200px;
+            padding: 20px;
+        }
 
-  /* ── copy + scrubber card ── */
-  .card{background:var(--pill);border-radius:22px;padding:34px 34px 30px}
-  .card h2{margin:0 0 14px;font-size:26px;line-height:1.32;font-weight:400;letter-spacing:-.02em}
-  .card h2 b{font-weight:600}
-  .hint{margin:0 0 12px;font-size:13px;color:var(--sub)}
+        /* --- Left Side: Controls --- */
+        .controls {
+            flex: 1;
+            max-width: 400px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
 
-  .scrub{position:relative;height:34px;display:flex;align-items:center;touch-action:none}
-  .track{position:absolute;left:0;right:0;height:16px;border-radius:99px;background:#dcdce0}
-  .thumb{position:absolute;top:50%;width:74px;height:44px;border-radius:99px;background:var(--blue);
-    transform:translate(-50%,-50%);left:calc(var(--open)*100%);display:grid;place-items:center;
-    cursor:grab;box-shadow:0 2px 10px #0071e355;transition:box-shadow .2s}
-  .thumb:active{cursor:grabbing}
-  .thumb:focus-visible{outline:3px solid #000;outline-offset:3px}
-  .thumb span{color:#fff;font-size:17px;letter-spacing:-2px;font-weight:500}
+        .info-card {
+            background-color: var(--panel-bg);
+            padding: 24px;
+            border-radius: 24px;
+            margin-bottom: 8px;
+        }
 
-  /* ── accordion pills ── */
-  .pills{margin-top:22px;display:grid;gap:12px;justify-items:start}
-  .pill{width:auto;min-width:180px;max-width:100%;background:var(--pill);border:0;border-radius:99px;
-    padding:16px 30px 16px 18px;display:flex;align-items:center;gap:14px;cursor:pointer;
-    font-size:19px;font-weight:600;letter-spacing:-.01em;color:var(--ink);transition:background .2s}
-  .pill:hover{background:#e6e6ea}
-  .pill i{width:26px;height:26px;border:1.5px solid #86868b;border-radius:50%;display:grid;place-items:center;
-    font-style:normal;font-size:16px;color:#4a4a4f;line-height:1;transition:transform .3s}
-  .pill[aria-expanded="true"] i{transform:rotate(45deg)}
-  .panelTxt{max-height:0;overflow:hidden;transition:max-height .35s ease;font-size:15px;color:var(--sub);
-    line-height:1.5;padding-left:20px;max-width:460px}
-  .panelTxt.open{max-height:120px}
+        .info-card h2 {
+            font-size: 16px;
+            font-weight: 500;
+            margin: 0 0 8px 0;
+            line-height: 1.4;
+            color: var(--text-main);
+        }
 
-  /* ── 3D stage ── */
-  .stage{height:790px;position:relative;perspective:2200px;display:grid;place-items:center;
-    user-select:none;touch-action:none}
-  .floor{position:absolute;bottom:52px;width:420px;height:44px;border-radius:50%;background:#00000030;
-    filter:blur(26px);transform:scaleX(calc(.6 + var(--open)*.8))}
-  .book{width:604px;height:660px;transform-style:preserve-3d;
-    transform:rotateX(2deg) rotateY(calc(var(--a) * -.62)) translateZ(-60px)}
-  .half{position:absolute;top:0;width:302px;height:660px;transform-style:preserve-3d;
-    transition:transform .55s cubic-bezier(.22,.9,.24,1)}
-  .stage.dragging .half,.stage.dragging .book{transition:none}
-  .left {left:0;  transform-origin:right center;transform:rotateY(calc(var(--a) *  .38))}
-  .right{left:302px;transform-origin:left center;transform:rotateY(calc(var(--a) * -1.02))}
+        .info-card p {
+            font-size: 13px;
+            color: var(--text-muted);
+            margin: 0 0 16px 0;
+        }
 
-  .face{position:absolute;inset:0;backface-visibility:hidden;overflow:hidden;
-    border:9px solid #d9d9dc;background:#000;
-    box-shadow:inset 0 0 0 1px #8d8d92, 0 30px 60px #00000038}
-  .left  .face{border-radius:44px 6px 6px 44px;border-right-width:2px}
-  .right .face{border-radius:6px 44px 44px 6px;border-left-width:2px}
-  .face.back{transform:rotateY(180deg);background:#1b1b1d;border-color:#c9c9ce}
+        /* Custom Slider */
+        .slider-container {
+            position: relative;
+            width: 100%;
+            height: 32px;
+        }
 
-  /* wallpaper: desert dunes */
-  .wall{position:absolute;inset:0;background:
-      linear-gradient(#0d0f16 0%,#2b2b31 16%,#6b6257 34%,#a08e73 46%,#7d6b52 58%,#3a2f24 100%)}
-  .wall::before{content:"";position:absolute;left:0;right:0;top:34%;height:22%;
-    background:#2a241d;clip-path:polygon(0 60%,14% 26%,27% 52%,44% 12%,63% 46%,78% 22%,100% 54%,100% 100%,0 100%)}
-  .wall::after{content:"";position:absolute;left:0;right:0;bottom:0;height:52%;
-    background:linear-gradient(#c7ab84,#8a7154 55%,#2e2519);
-    clip-path:polygon(0 42%,30% 18%,66% 40%,100% 22%,100% 100%,0 100%)}
-  .right .wall{filter:brightness(.42)}
+        input[type="range"] {
+            -webkit-appearance: none;
+            width: 100%;
+            height: 12px;
+            background: var(--slider-bg);
+            border-radius: 6px;
+            outline: none;
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            margin: 0;
+            z-index: 1;
+        }
 
-  .glare{position:absolute;inset:0;pointer-events:none;
-    background:linear-gradient(105deg,#ffffff2e 0 18%,#ffffff00 42%,#00000038 100%)}
+        /* The filled track */
+        .slider-progress {
+            position: absolute;
+            top: 50%;
+            left: 0;
+            height: 12px;
+            background: var(--blue-accent);
+            border-radius: 6px;
+            transform: translateY(-50%);
+            z-index: 1;
+            pointer-events: none;
+            width: 15%; /* Initial width */
+        }
 
-  /* screen content */
-  .clock{position:absolute;top:70px;left:0;right:0;text-align:center;color:#fff;
-    font-size:190px;font-weight:250;letter-spacing:-8px;line-height:1;
-    filter:blur(calc((1 - var(--open)) * 3px));opacity:.92;
-    font-family:"SF Pro Display",-apple-system,Helvetica,sans-serif}
-  .notch{position:absolute;top:16px;left:50%;transform:translateX(-50%);width:104px;height:26px;
-    border-radius:99px;background:#000}
-  .bar{position:absolute;bottom:14px;left:50%;transform:translateX(-50%);width:118px;height:5px;
-    border-radius:9px;background:#ffffffb0}
-  .icons{position:absolute;top:22px;right:18px;color:#fff9;font-size:12px}
-  .btns{position:absolute;right:16px;bottom:120px;display:grid;gap:16px}
-  .btns b{width:48px;height:48px;border-radius:50%;background:#ffffff2b;backdrop-filter:blur(6px);
-    display:grid;place-items:center;font-size:19px;color:#fff}
-  .keys{position:absolute;right:-4px;top:160px;width:5px;height:96px;border-radius:4px;
-    background:linear-gradient(#c9c9ce,#8d8d92);transform:translateZ(-2px)}
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: var(--blue-accent);
+            cursor: grab;
+            position: relative;
+            z-index: 2;
+            /* Center the hand icon */
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M18 11V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v5'/%3E%3Cpath d='M14 10V4a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v6'/%3E%3Cpath d='M10 10.5V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v8'/%3E%3Cpath d='M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: center;
+        }
 
-  .credit{position:absolute;bottom:8px;right:14px;font-size:12px;color:#86868b}
-  .credit a{color:var(--blue);text-decoration:none}
+        input[type="range"]::-webkit-slider-thumb:active {
+            cursor: grabbing;
+        }
 
-  @media(max-width:1080px){
-    .wrap{grid-template-columns:1fr;padding:20px}
-    .rail{display:none}
-    .stage{height:560px}
-    .book{transform:scale(.72) rotateX(2deg) rotateY(calc(var(--a) * -.62))}
-  }
-</style>
+        /* Option Buttons */
+        .btn-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .option-btn {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            background-color: var(--btn-bg);
+            border: none;
+            padding: 12px 20px;
+            border-radius: 30px;
+            font-size: 15px;
+            font-weight: 500;
+            color: var(--text-main);
+            cursor: pointer;
+            transition: background-color 0.2s, transform 0.1s;
+            text-align: left;
+            width: fit-content;
+            min-width: 150px;
+        }
+
+        .option-btn:hover {
+            background-color: #e4e6f0;
+        }
+        
+        .option-btn:active {
+            transform: scale(0.98);
+        }
+
+        .option-btn.active {
+            background-color: #e4e6f0;
+            box-shadow: inset 0 0 0 2px var(--blue-accent);
+        }
+
+        .icon-circle {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            border: 1.5px solid var(--text-main);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 16px;
+            line-height: 1;
+            padding-bottom: 2px; /* visual adjustment */
+        }
+
+        /* --- Right Side: Phone Mockup --- */
+        .phone-stage {
+            flex: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            perspective: 1000px;
+        }
+
+        .phone {
+            position: relative;
+            width: 320px;
+            height: 680px;
+            transition: width 0.6s cubic-bezier(0.25, 1, 0.5, 1);
+            /* Using drop-shadow to follow the border-radius */
+            filter: drop-shadow(0 20px 30px rgba(0,0,0,0.15));
+        }
+
+        /* The physical frame */
+        .phone-frame {
+            position: absolute;
+            inset: 0;
+            border: 6px solid var(--phone-border);
+            border-radius: 40px;
+            background: #000;
+            overflow: hidden;
+            box-shadow: 
+                inset 0 0 0 2px #666,
+                inset 0 0 0 4px #222;
+            transition: border-radius 0.6s cubic-bezier(0.25, 1, 0.5, 1);
+        }
+
+        /* The visible screen */
+        .screen {
+            position: absolute;
+            inset: 0;
+            border-radius: 34px; /* slightly smaller than frame */
+            overflow: hidden;
+            background: linear-gradient(to bottom, #a9c2d9 0%, #eaddc5 40%, #8a6c54 70%, #3d2f27 100%);
+            transition: border-radius 0.6s cubic-bezier(0.25, 1, 0.5, 1);
+        }
+
+        /* --- Screen Content (Lock Screen UI) --- */
+        .lockscreen-ui {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            color: white;
+            padding: 40px 20px;
+            text-shadow: 0 2px 10px rgba(0,0,0,0.3);
+        }
+
+        .date {
+            font-size: 14px;
+            font-weight: 600;
+            margin-top: 20px;
+            letter-spacing: 0.5px;
+        }
+
+        .time {
+            font-size: 84px;
+            font-weight: 500;
+            line-height: 1;
+            margin-top: 5px;
+            letter-spacing: -2px;
+        }
+
+        /* Dynamic Island */
+        .dynamic-island {
+            position: absolute;
+            top: 15px;
+            right: 20px;
+            width: 28px;
+            height: 28px;
+            background: black;
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            box-shadow: inset 0 0 4px rgba(255,255,255,0.2);
+            transition: all 0.6s cubic-bezier(0.25, 1, 0.5, 1);
+            z-index: 10;
+        }
+
+        /* Camera dot inside island */
+        .camera-lens {
+            width: 10px;
+            height: 10px;
+            background: #111;
+            border-radius: 50%;
+            box-shadow: inset 0 0 2px #333;
+            position: relative;
+            left: 2px;
+        }
+
+        .wifi-icon {
+            position: absolute;
+            top: 25px;
+            right: 25px;
+            font-size: 18px;
+            opacity: 0.8;
+        }
+
+        /* Bottom Controls */
+        .bottom-controls {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .control-btn {
+            width: 40px;
+            height: 40px;
+            background: rgba(255,255,255,0.15);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: white;
+        }
+
+        .control-btn svg {
+            width: 20px;
+            height: 20px;
+            fill: currentColor;
+        }
+
+        /* Home Indicator */
+        .home-indicator {
+            position: absolute;
+            bottom: 8px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 120px;
+            height: 4px;
+            background: rgba(255,255,255,0.8);
+            border-radius: 2px;
+        }
+
+        /* Background Mountains SVG layer */
+        .mountains-svg {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 50%;
+            z-index: -1;
+        }
+
+
+        /* --- States: Folded --- */
+        .phone.folded {
+            width: 160px;
+        }
+
+        .phone.folded .phone-frame {
+            border-radius: 30px;
+            border-right-width: 12px; /* Thicker hinge side */
+            box-shadow: 
+                inset 0 0 0 2px #666,
+                inset 0 0 0 4px #222,
+                5px 0 10px rgba(0,0,0,0.2); /* Shadow indicating depth */
+        }
+
+        .phone.folded .screen {
+            border-radius: 24px;
+            border-top-right-radius: 5px;
+            border-bottom-right-radius: 5px;
+        }
+
+        /* Hide elements on folded screen */
+        .phone.folded .wifi-icon,
+        .phone.folded .bottom-controls,
+        .phone.folded .home-indicator {
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s;
+        }
+
+        .phone.folded .time {
+            font-size: 60px;
+            transform: translateX(-15px); /* visually center in remaining space */
+        }
+
+        .phone.folded .date {
+            font-size: 12px;
+            transform: translateX(-15px);
+            white-space: nowrap;
+        }
+
+        /* Change Dynamic Island to Camera Hole when folded */
+        .phone.folded .dynamic-island {
+            top: 15px;
+            right: 50%;
+            transform: translateX(50%);
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            background: #000;
+            box-shadow: inset 0 0 0 1px #333;
+        }
+        
+        /* Remove camera lens styling in hole punch mode, make it look like a hole */
+        .phone.folded .camera-lens {
+            width: 12px;
+            height: 12px;
+            background: #050505;
+            box-shadow: inset 0 0 4px #000;
+            left: 0;
+        }
+
+        /* Adjust mountain background for folded state */
+        .phone.folded .mountains-svg {
+            width: 150%; /* Keep background looking natural */
+            transform: translateX(-20%);
+        }
+
+    </style>
 </head>
 <body>
-<div class="wrap">
 
-  <div class="rail">
-    <button class="chev" aria-label="Previous"><svg viewBox="0 0 24 24"><path d="M6 15l6-6 6 6"/></svg></button>
-    <button class="chev" aria-label="Next"><svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg></button>
-  </div>
-
-  <div>
-    <div class="card">
-      <h2><b>Foldable design.</b> Offers exceptional viewing experiences in a design that fits in your pocket.</h2>
-      <p class="hint" id="lbl">Drag below to open and close</p>
-      <div class="scrub" id="scrub">
-        <div class="track"></div>
-        <div class="thumb" id="thumb" role="slider" tabindex="0" aria-labelledby="lbl"
-             aria-valuemin="0" aria-valuemax="100" aria-valuenow="55" aria-valuetext="55% open">
-          <span>&lsaquo;&rsaquo;</span>
+<div class="container">
+    <!-- Left Side: Controls -->
+    <div class="controls">
+        <div class="info-card">
+            <h2>Foldable design. Offers exceptional viewing experiences in a design that fits in your pocket.</h2>
+            <p>Drag below to open and close</p>
+            
+            <div class="slider-container">
+                <div class="slider-progress" id="sliderProgress"></div>
+                <input type="range" min="0" max="100" value="100" id="foldSlider">
+            </div>
         </div>
-      </div>
+
+        <div class="btn-list">
+            <button class="option-btn" onclick="setFoldState('open')"><span class="icon-circle">+</span> Landscape</button>
+            <button class="option-btn" onclick="setFoldState('open')"><span class="icon-circle">+</span> Portrait</button>
+            <button class="option-btn" onclick="setFoldState('closed')"><span class="icon-circle">+</span> Closed</button>
+            <button class="option-btn" onclick="setFoldState('open')"><span class="icon-circle">+</span> Seated</button>
+            <button class="option-btn" onclick="setFoldState('open')"><span class="icon-circle">+</span> Standing</button>
+            <button class="option-btn" onclick="setFoldState('open')"><span class="icon-circle">+</span> Durability</button>
+        </div>
     </div>
 
-    <div class="pills" id="pills"></div>
-  </div>
+    <!-- Right Side: Phone Mockup -->
+    <div class="phone-stage">
+        <div class="phone" id="phone">
+            <div class="phone-frame">
+                <div class="screen">
+                    
+                    <!-- Background Graphic (Abstract Mountains) -->
+                    <svg class="mountains-svg" preserveAspectRatio="none" viewBox="0 0 100 100">
+                        <path d="M0,100 L0,50 Q20,40 40,60 T80,40 L100,50 L100,100 Z" fill="#4a5d4e" opacity="0.8"/>
+                        <path d="M0,100 L0,70 Q30,50 60,80 T100,60 L100,100 Z" fill="#2b3830" opacity="0.9"/>
+                        <path d="M-20,100 L20,60 Q50,30 80,70 L120,100 Z" fill="#d4c2a3" opacity="0.4"/>
+                    </svg>
 
-  <div class="stage" id="stage">
-    <div class="floor"></div>
-    <div class="book">
-      <div class="half left">
-        <div class="face front">
-          <div class="wall"></div><div class="notch"></div>
-          <div class="clock">9:4</div><div class="glare"></div><div class="bar"></div>
+                    <!-- Lock Screen UI Elements -->
+                    <div class="lockscreen-ui">
+                        <div class="date">Wed Apr 1</div>
+                        <div class="time">9:41</div>
+                        
+                        <div class="wifi-icon">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M5 12.55a11 11 0 0 1 14.08 0"></path>
+                                <path d="M1.42 9a16 16 0 0 1 21.16 0"></path>
+                                <path d="M8.53 16.11a6 6 0 0 1 6.95 0"></path>
+                                <line x1="12" y1="20" x2="12.01" y2="20"></line>
+                            </svg>
+                        </div>
+
+                        <div class="bottom-controls">
+                            <div class="control-btn">
+                                <!-- Flashlight Icon -->
+                                <svg viewBox="0 0 24 24"><path d="M6 2h12v4l-2 4v10a2 2 0 0 1-2 2h-4a2 2 0 0 1-2-2V10L6 6V2zm2 2v2h8V4H8zm0 4l2 4v8h4v-8l2-4H8z"/></svg>
+                            </div>
+                            <div class="control-btn">
+                                <!-- Camera Icon -->
+                                <svg viewBox="0 0 24 24"><path d="M4 4h3l2-2h6l2 2h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zm8 3a5 5 0 1 0 0 10 5 5 0 0 0 0-10zm0 2a3 3 0 1 1 0 6 3 3 0 0 1 0-6z"/></svg>
+                            </div>
+                        </div>
+
+                        <div class="home-indicator"></div>
+                    </div>
+
+                    <!-- Dynamic Island / Camera Cutout -->
+                    <div class="dynamic-island">
+                        <div class="camera-lens"></div>
+                    </div>
+
+                </div>
+            </div>
         </div>
-        <div class="face back"><div class="glare"></div></div>
-      </div>
-      <div class="half right">
-        <div class="face front">
-          <div class="wall"></div>
-          <div class="icons">&#9679;&#9679;&#9679; &#9737;</div>
-          <div class="btns"><b>&#128367;</b><b>&#128247;</b></div>
-          <div class="glare"></div><div class="keys"></div>
-        </div>
-        <div class="face back"><div class="glare"></div></div>
-      </div>
     </div>
-    <p class="credit">3D model reference:
-      <a href="https://www.apple.com/iphone/" target="_blank" rel="noreferrer">Apple iPhone Fold study &#8599;</a></p>
-  </div>
 </div>
 
 <script>
-const root=document.documentElement, thumb=document.getElementById('thumb'),
-      scrub=document.getElementById('scrub'), stage=document.getElementById('stage');
+    const slider = document.getElementById('foldSlider');
+    const sliderProgress = document.getElementById('sliderProgress');
+    const phone = document.getElementById('phone');
+    
+    // We map the slider value (0-100) to the CSS width (160px - 320px)
+    const minWidth = 160;
+    const maxWidth = 320;
 
-let open = parseFloat(localStorage.getItem('foldOpen') ?? .55);
-function set(v,live){
-  open=Math.min(1,Math.max(0,v));
-  root.style.setProperty('--open',open);
-  thumb.setAttribute('aria-valuenow',Math.round(open*100));
-  thumb.setAttribute('aria-valuetext',Math.round(open*100)+'% open');
-  localStorage.setItem('foldOpen',open);
-}
-set(open);
+    function updateSliderVisuals(value) {
+        // Update progress bar width
+        sliderProgress.style.width = `${value}%`;
+        
+        // Calculate phone width
+        const currentWidth = minWidth + ((maxWidth - minWidth) * (value / 100));
+        phone.style.width = `${currentWidth}px`;
 
-let drag=false;
-const from=e=>{const r=scrub.getBoundingClientRect();
-  return ((e.touches?e.touches[0].clientX:e.clientX)-r.left)/r.width;};
-const start=e=>{drag=true;stage.classList.add('dragging');set(from(e));};
-scrub.addEventListener('pointerdown',start);
-addEventListener('pointermove',e=>drag&&set(from(e)));
-addEventListener('pointerup',()=>{drag=false;stage.classList.remove('dragging');});
+        // Add 'folded' class if slider is less than 50% to trigger specific layout changes
+        if (value < 50) {
+            phone.classList.add('folded');
+        } else {
+            phone.classList.remove('folded');
+        }
+    }
 
-thumb.addEventListener('keydown',e=>{
-  const k=e.key, s=e.shiftKey?.2:.05;
-  if(k==='ArrowRight'||k==='ArrowUp') set(open+s);
-  else if(k==='ArrowLeft'||k==='ArrowDown') set(open-s);
-  else if(k==='Home') set(0); else if(k==='End') set(1);
-  else if(k===' '||k==='Enter') set(open>.5?0:1);
-  else return; e.preventDefault();
-});
+    // Initialize on load
+    updateSliderVisuals(slider.value);
 
-const items=[
-  ['Landscape','A wide inner canvas for video, split view and multitasking.'],
-  ['Portrait','Two full-height columns keep reading and replying in one glance.'],
-  ['Closed','The cover display handles glances, calls and camera in one hand.'],
-  ['Seated','Half-folded, the device stands on its own for hands-free calls.'],
-  ['Standing','A stiffened hinge holds any angle between 30° and 150°.'],
-  ['Durability','Titanium hinge rated for hundreds of thousands of folds.']
-];
-document.getElementById('pills').innerHTML=items.map(([t,d],i)=>`
-  <button class="pill" aria-expanded="false" aria-controls="p${i}"><i>+</i>${t}</button>
-  <div class="panelTxt" id="p${i}">${d}</div>`).join('');
-document.querySelectorAll('.pill').forEach(b=>b.onclick=()=>{
-  const o=b.getAttribute('aria-expanded')==='true';
-  b.setAttribute('aria-expanded',!o);
-  b.nextElementSibling.classList.toggle('open',!o);
-});
+    // Listen for slider dragging
+    slider.addEventListener('input', (e) => {
+        updateSliderVisuals(e.target.value);
+        
+        // Remove active states from buttons when manually sliding
+        document.querySelectorAll('.option-btn').forEach(btn => btn.classList.remove('active'));
+    });
+
+    // Function for buttons to set predefined states
+    function setFoldState(state) {
+        // Highlight button
+        document.querySelectorAll('.option-btn').forEach(btn => btn.classList.remove('active'));
+        event.currentTarget.classList.add('active');
+
+        if (state === 'closed') {
+            slider.value = 0;
+            updateSliderVisuals(0);
+        } else if (state === 'open') {
+            slider.value = 100;
+            updateSliderVisuals(100);
+        }
+    }
 </script>
+
 </body>
 </html>

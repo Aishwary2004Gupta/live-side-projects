@@ -13,6 +13,7 @@ const state = {
   studio: {
     exposure: 1.0,
     background: '#ffffff',
+    bodyColor: '#ffffff',
     wireframe: false,
     autoRotate: false
   }
@@ -256,7 +257,14 @@ function initUI() {
     if (colorHexLabel) colorHexLabel.textContent = hex;
   });
 
-  // 11. Wireframe Segmented Toggle
+  // 11. Body Colour Select
+  const bodyColorSelect = document.getElementById('bodyColorSelect');
+  bodyColorSelect?.addEventListener('change', e => {
+    state.studio.bodyColor = e.target.value;
+    viewer?.setBodyColor(e.target.value);
+  });
+
+  // 12. Wireframe Segmented Toggle
   const wireframeOff = document.getElementById('wireframeOffBtn');
   const wireframeOn = document.getElementById('wireframeOnBtn');
   wireframeOff?.addEventListener('click', () => {
@@ -270,7 +278,7 @@ function initUI() {
     wireframeOff.classList.remove('active');
   });
 
-  // 12. Auto Rotate Segmented Toggle
+  // 13. Auto Rotate Segmented Toggle
   const autoRotateOff = document.getElementById('autoRotateOffBtn');
   const autoRotateOn = document.getElementById('autoRotateOnBtn');
   autoRotateOff?.addEventListener('click', () => {
@@ -284,7 +292,7 @@ function initUI() {
     autoRotateOff.classList.remove('active');
   });
 
-  // 13. Camera Preset Buttons
+  // 14. Camera Preset Buttons
   document.getElementById('cameraResetBtn')?.addEventListener('click', () => {
     viewer?.camera('front');
   });
@@ -295,14 +303,14 @@ function initUI() {
     viewer?.camera('back');
   });
 
-  // 14. Collapsible Section Headers
+  // 15. Collapsible Section Headers
   document.querySelectorAll('.section-header').forEach(header => {
     header.addEventListener('click', () => {
       header.parentElement.classList.toggle('collapsed');
     });
   });
 
-  // 15. Top Mode Switcher Buttons
+  // 16. Top Mode Switcher Buttons
   const toggleStudioBtn = document.getElementById('toggleStudioBtn');
   const toggleTourBtn = document.getElementById('toggleTourBtn');
   const studioPanel = document.getElementById('studioPanel');
@@ -318,7 +326,7 @@ function initUI() {
     toggleTourBtn.classList.toggle('active', !isHidden);
   });
 
-  // 16. Tour Preset Buttons (Screenshot 1)
+  // 17. Tour Preset Buttons (Screenshot 1)
   const tourBtns = document.querySelectorAll('.tour-btn');
   tourBtns.forEach(btn => {
     btn.addEventListener('click', () => {
@@ -348,7 +356,7 @@ function initUI() {
     });
   });
 
-  // 17. Viewport Drag & Drop File Handler
+  // 18. Viewport Drag & Drop File Handler
   const viewport = document.getElementById('viewport');
   viewport?.addEventListener('dragover', e => {
     if (e.dataTransfer.types.includes('Files')) {
@@ -371,7 +379,7 @@ function initUI() {
     }
   });
 
-  // 18. Copy Config Button
+  // 19. Copy Config Button
   document.getElementById('copyConfigBtn')?.addEventListener('click', () => {
     const config = JSON.stringify(state, null, 2);
     navigator.clipboard.writeText(config).then(() => {
@@ -379,7 +387,7 @@ function initUI() {
     });
   });
 
-  // 19. Timeline visibility toggle
+  // 20. Timeline visibility toggle
   const timelineDock = document.getElementById('timelineDock');
   document.getElementById('toggleTimelineBtn')?.addEventListener('click', () => {
     if (timelineDock) {

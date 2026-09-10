@@ -829,12 +829,6 @@ export function createViewer(container, getState, onError) {
   let lastFoldTime = -1;
   let lastWireframe = false;
   const standardMaterials = new Set();
-  const bodyMaterialNames = new Set([
-    'hpmqrCvWLXWudrz', 'lrXfpZcYrByzvym', 'hAKVdrzztJgljCR',
-    'UcYWmlwZxcfqNko', 'stlMkdXkRsspsoE', 'mAvfMvCzYIPKaNG',
-    'ZzgLQsGpuSeaQaa', 'jeFtQmHBLCfgIkY', 'NtNSwEIIFmIbXaY'
-  ]);
-  let bodyColor = new THREE.Color('#ffffff');
 
   function disposeHierarchy(obj) {
     const texs = new Set();
@@ -902,10 +896,6 @@ export function createViewer(container, getState, onError) {
           const mats = Array.isArray(child.material) ? child.material : [child.material];
           for (const m of mats) {
             if (m instanceof THREE.MeshStandardMaterial) standardMaterials.add(m);
-            if (m instanceof THREE.MeshStandardMaterial && bodyMaterialNames.has(m.name)) {
-              m.color.copy(bodyColor);
-              m.needsUpdate = true;
-            }
           }
         }
       });
@@ -959,15 +949,6 @@ export function createViewer(container, getState, onError) {
 
   return {
     camera: setCameraView,
-    setBodyColor(color) {
-      bodyColor.set(color);
-      standardMaterials.forEach(material => {
-        if (bodyMaterialNames.has(material.name)) {
-          material.color.copy(bodyColor);
-          material.needsUpdate = true;
-        }
-      });
-    },
     upload: screenManager.upload,
     resetImages: screenManager.reset,
     setControlsPosition(pos, target) {

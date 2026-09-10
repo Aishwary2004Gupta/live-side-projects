@@ -1,584 +1,577 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>iPhone Duo — Foldable Controller</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&family=JetBrains+Mono:wght@300;500&display=swap" rel="stylesheet">
-  <style>
-    :root {
-      --bg-page: #f4f4f2;
-      --panel-bg: #18181b;
-      --panel-card: #27272a;
-      --accent: #e4e4e7;
-      --text-main: #fafafa;
-      --text-dim: #a1a1aa;
-      --hinge: linear-gradient(90deg, #3f3f46 0%, #18181b 40%, #18181b 60%, #3f3f46 100%);
-    }
-    * { box-sizing: border-box; }
-    html, body { height: 100%; }
-    body {
-      background: var(--bg-page);
-      font-family: "Inter", ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
-      color: var(--text-main);
-      overflow: hidden;
-      user-select: none;
-    }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>iPhone Fold — Interactive Product Study</title>
+<style>
+  :root{
+    --bg:#0c0d10; --bg2:#14161b; --panel:rgba(255,255,255,.055);
+    --stroke:rgba(255,255,255,.10); --text:#f2f3f5; --dim:#9aa0aa;
+    --accent:#d8a05a; --accent2:#e8c07f; --radius:18px;
+    --font:-apple-system,BlinkMacSystemFont,"SF Pro Display","Helvetica Neue",Arial,sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{
+    font-family:var(--font); color:var(--text); background:var(--bg);
+    background-image:radial-gradient(1200px 700px at 70% -10%, rgba(216,160,90,.10), transparent 60%),
+                     radial-gradient(900px 600px at 10% 110%, rgba(90,120,216,.08), transparent 60%);
+    min-height:100vh; display:flex; flex-direction:column; transition:background .6s ease;
+  }
+  body[data-bg="studio"]{--bg:#e9e7e2;--bg2:#f4f2ee;--text:#17181c;--dim:#5c6068;--panel:rgba(20,22,27,.05);--stroke:rgba(20,22,27,.12)}
+  body[data-bg="deepblue"]{--bg:#0a1220;--bg2:#0e1930;
+    background-image:radial-gradient(1100px 700px at 75% -10%, rgba(70,110,220,.16), transparent 60%)}
+  body[data-bg="ember"]{--bg:#170d0a;--bg2:#221310;
+    background-image:radial-gradient(1100px 700px at 70% -10%, rgba(230,120,60,.16), transparent 60%)}
 
-    /* Scene stage */
-    .stage {
-      position: relative;
-      width: 100%;
-      height: 100vh;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      perspective: 1600px;
-      overflow: hidden;
-    }
+  header{
+    display:flex; align-items:center; justify-content:space-between; gap:16px;
+    padding:20px 32px; border-bottom:1px solid var(--stroke);
+  }
+  .brand{display:flex; align-items:baseline; gap:12px}
+  .brand h1{font-size:19px; font-weight:700; letter-spacing:-.02em}
+  .brand span{font-size:12px; color:var(--dim); letter-spacing:.14em; text-transform:uppercase}
+  .credit{font-size:12.5px; color:var(--dim); text-decoration:none; display:inline-flex; align-items:center; gap:6px;
+    padding:7px 12px; border:1px solid var(--stroke); border-radius:999px; background:var(--panel); transition:.25s}
+  .credit:hover{color:var(--accent2); border-color:rgba(216,160,90,.45)}
+  .credit svg{width:11px;height:11px}
 
-    /* Phone container (hinge axis runs vertical through center) */
-    .phone-wrapper {
-      position: relative;
-      width: 640px;
-      height: 520px;
-      transform-style: preserve-3d;
-      transition: transform 0.1s linear;
-    }
+  main{flex:1; display:flex; gap:22px; padding:24px 32px; max-width:1500px; margin:0 auto; width:100%}
 
-    /* The two halves (left and right display) */
-    .half {
-      position: absolute;
-      top: 0;
-      width: 50%;
-      height: 100%;
-      overflow: hidden;
-      backface-visibility: hidden;
-      box-shadow: inset 0 0 40px rgba(0,0,0,0.35);
-    }
+  /* ---------- Stage ---------- */
+  .stage-wrap{flex:1; min-width:0; display:flex; flex-direction:column; gap:14px}
+  .stage{
+    position:relative; height:620px; min-height:420px; border-radius:var(--radius);
+    border:1px solid var(--stroke); overflow:hidden;
+    background:radial-gradient(600px 340px at 50% 78%, rgba(216,160,90,.10), transparent 70%), var(--bg2);
+    cursor:grab; touch-action:none;
+  }
+  .stage:active{cursor:grabbing}
+  .stage canvas{position:absolute; inset:0; width:100%; height:100%; display:block}
+  .stage-hint{
+    position:absolute; left:50%; bottom:16px; transform:translateX(-50%);
+    font-size:11.5px; letter-spacing:.12em; text-transform:uppercase; color:var(--dim);
+    background:var(--panel); border:1px solid var(--stroke); padding:7px 14px; border-radius:999px;
+    pointer-events:none; backdrop-filter:blur(8px);
+  }
+  .fold-badge{
+    position:absolute; top:16px; left:16px; font-size:12px; color:var(--dim);
+    background:var(--panel); border:1px solid var(--stroke); padding:7px 13px; border-radius:999px;
+    backdrop-filter:blur(8px); pointer-events:none; font-variant-numeric:tabular-nums;
+  }
+  .fold-badge b{color:var(--accent2); font-weight:600}
 
-    /* Left half */
-    .half-left {
-      left: 0;
-      border-radius: 36px 0 0 36px;
-      border-left: 14px solid #2a2a30;
-      border-top: 14px solid #2a2a30;
-      border-bottom: 14px solid #2a2a30;
-      border-right: none;
-      transform-origin: right center;
-      transform: rotateY(0deg);
-      z-index: 2;
-      background: linear-gradient(to bottom, #4a4a52, #232326);
-    }
+  /* Reveal card — sharpens as the phone opens */
+  .reveal{
+    position:absolute; left:50%; top:50%; transform:translate(-50%,-50%);
+    text-align:center; pointer-events:none; width:min(560px,86%); will-change:filter,opacity,transform;
+  }
+  .reveal .eyebrow{font-size:11px; letter-spacing:.32em; text-transform:uppercase; color:var(--accent2); margin-bottom:12px}
+  .reveal h2{font-size:clamp(30px,4.4vw,52px); font-weight:700; letter-spacing:-.03em; line-height:1.04;
+    background:linear-gradient(180deg,var(--text),rgba(150,150,160,.75)); -webkit-background-clip:text; background-clip:text; color:transparent}
+  .reveal p{margin-top:14px; font-size:14.5px; color:var(--dim); line-height:1.55; max-width:440px; margin-left:auto; margin-right:auto}
+  .reveal .chips{margin-top:18px; display:flex; gap:8px; justify-content:center; flex-wrap:wrap}
+  .reveal .chip{font-size:11px; letter-spacing:.08em; color:var(--text); border:1px solid var(--stroke);
+    background:var(--panel); padding:6px 12px; border-radius:999px}
 
-    /* Right half */
-    .half-right {
-      right: 0;
-      border-radius: 0 36px 36px 0;
-      border-right: 14px solid #2a2a30;
-      border-top: 14px solid #2a2a30;
-      border-bottom: 14px solid #2a2a30;
-      border-left: none;
-      transform-origin: left center;
-      transform: rotateY(0deg);
-      z-index: 2;
-      background: linear-gradient(to bottom, #4a4a52, #232326);
-    }
+  /* ---------- Panel ---------- */
+  .panel{
+    width:320px; flex-shrink:0; border-radius:var(--radius); border:1px solid var(--stroke);
+    background:var(--panel); backdrop-filter:blur(14px); padding:22px; align-self:flex-start;
+    display:flex; flex-direction:column; gap:18px; max-height:calc(100vh - 130px); overflow-y:auto;
+  }
+  .panel h3{font-size:12px; letter-spacing:.2em; text-transform:uppercase; color:var(--dim); font-weight:600}
+  .ctl{display:flex; flex-direction:column; gap:8px}
+  .ctl-row{display:flex; justify-content:space-between; align-items:baseline}
+  .ctl label{font-size:13px; font-weight:500}
+  .ctl output{font-size:12px; color:var(--accent2); font-variant-numeric:tabular-nums}
+  .hintline{font-size:11px; color:var(--dim)}
+  select{
+    appearance:none; width:100%; padding:9px 12px; border-radius:10px; font:inherit; font-size:13px;
+    color:var(--text); background:var(--bg2); border:1px solid var(--stroke); cursor:pointer;
+  }
+  select:focus-visible, button:focus-visible, input:focus-visible{outline:2px solid var(--accent); outline-offset:2px}
+  input[type=range]{-webkit-appearance:none; appearance:none; width:100%; height:26px; background:transparent; cursor:pointer}
+  input[type=range]::-webkit-slider-runnable-track{height:4px; border-radius:4px;
+    background:linear-gradient(90deg,var(--accent) var(--fill,50%), rgba(140,145,155,.28) var(--fill,50%))}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none; width:17px; height:17px; border-radius:50%;
+    background:#fff; border:1px solid rgba(0,0,0,.25); margin-top:-6.5px; box-shadow:0 2px 8px rgba(0,0,0,.4)}
+  input[type=range]::-moz-range-track{height:4px; border-radius:4px; background:rgba(140,145,155,.28)}
+  input[type=range]::-moz-range-progress{height:4px; border-radius:4px; background:var(--accent)}
+  input[type=range]::-moz-range-thumb{width:16px; height:16px; border-radius:50%; background:#fff; border:1px solid rgba(0,0,0,.25)}
+  .btn{
+    font:inherit; font-size:13.5px; font-weight:600; padding:11px 16px; border-radius:12px; cursor:pointer;
+    border:1px solid var(--stroke); background:var(--bg2); color:var(--text); transition:.22s;
+  }
+  .btn:hover{border-color:rgba(216,160,90,.5)}
+  .btn.primary{background:linear-gradient(180deg,var(--accent2),var(--accent)); color:#241505; border:none}
+  .btn.primary:hover{filter:brightness(1.07)}
+  .btn.ghost{font-size:12px; padding:8px 12px; color:var(--dim)}
+  .divider{height:1px; background:var(--stroke)}
+  .kbd{font-size:10.5px; border:1px solid var(--stroke); border-radius:5px; padding:1px 5px; color:var(--dim)}
 
-    /* Central hinge pillar */
-    .hinge {
-      position: absolute;
-      left: 50%;
-      top: -6px;
-      width: 10px;
-      height: calc(100% + 12px);
-      transform: translateX(-50%);
-      background: var(--hinge);
-      border-radius: 6px;
-      z-index: 10;
-      box-shadow: 0 0 14px rgba(0,0,0,0.6), inset 0 0 8px rgba(255,255,255,0.05);
-    }
+  footer{padding:16px 32px; border-top:1px solid var(--stroke); display:flex; justify-content:space-between; gap:14px; flex-wrap:wrap; font-size:12px; color:var(--dim)}
+  footer a{color:var(--dim)} footer a:hover{color:var(--accent2)}
 
-    /* Screen content inside each half */
-    .screen-content {
-      position: absolute;
-      inset: 14px;
-      border-radius: 22px;
-      overflow: hidden;
-      background: #0f0f14;
-    }
-
-    /* Wallpaper image */
-    .wallpaper {
-      position: absolute;
-      inset: 0;
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-      opacity: 0.95;
-      pointer-events: none;
-      filter: brightness(0.95) contrast(1.05);
-    }
-
-    /* Clock UI overlay */
-    .clock-overlay {
-      position: absolute;
-      top: 28px;
-      left: 0;
-      width: 100%;
-      text-align: center;
-      z-index: 20;
-      pointer-events: none;
-      text-shadow: 0 2px 18px rgba(0,0,0,0.35);
-    }
-    .clock-time {
-      font-family: "Inter", sans-serif;
-      font-weight: 200;
-      font-size: clamp(4rem, 9vw, 7.5rem);
-      color: rgba(255,255,255,0.92);
-      letter-spacing: -0.06em;
-      line-height: 1;
-    }
-    .clock-date {
-      font-size: 0.95rem;
-      color: rgba(255,255,255,0.8);
-      margin-top: 6px;
-      letter-spacing: 0.04em;
-    }
-
-    /* Action buttons on screen */
-    .screen-btn {
-      position: absolute;
-      right: 22px;
-      width: 40px;
-      height: 40px;
-      border-radius: 50%;
-      background: rgba(255,255,255,0.12);
-      backdrop-filter: blur(8px);
-      border: 1px solid rgba(255,255,255,0.08);
-      display: grid;
-      place-items: center;
-      z-index: 20;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.2);
-    }
-    .screen-btn.info-btn { bottom: 110px; }
-    .screen-btn.cam-btn { bottom: 50px; }
-
-    /* Footer caption */
-    .caption {
-      position: absolute;
-      bottom: 18px;
-      left: 0;
-      width: 100%;
-      text-align: center;
-      font-size: 0.75rem;
-      color: #8a8a95;
-      letter-spacing: 0.06em;
-    }
-
-    /* Right control panel */
-    .panel {
-      position: fixed;
-      right: 24px;
-      top: 50%;
-      transform: translateY(-50%);
-      width: 340px;
-      max-height: 92vh;
-      background: var(--panel-bg);
-      border-radius: 24px;
-      border: 1px solid #27272a;
-      box-shadow: 0 30px 80px rgba(0,0,0,0.45), 0 0 0 1px rgba(255,255,255,0.03) inset;
-      padding: 24px;
-      overflow-y: auto;
-      z-index: 50;
-    }
-    .panel::-webkit-scrollbar { width: 8px; }
-    .panel::-webkit-scrollbar-track { background: transparent; }
-    .panel::-webkit-scrollbar-thumb { background: #3f3f46; border-radius: 4px; }
-    .panel::-webkit-scrollbar-thumb:hover { background: #52525b; }
-
-    .panel h2 {
-      font-size: 0.85rem;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-      color: #a1a1aa;
-      margin-bottom: 16px;
-    }
-    .panel-section {
-      margin-bottom: 22px;
-      border-bottom: 1px solid #27272a;
-      padding-bottom: 22px;
-    }
-    .panel-section:last-of-type { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
-
-    /* Controls rows */
-    .ctrl-row {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 12px;
-      margin-bottom: 10px;
-    }
-    .ctrl-row label { color: #e4e4e7; font-size: 0.85rem; }
-    .ctrl-row .value { font-family: "JetBrains Mono", monospace; font-size: 0.8rem; color: #a1a1aa; min-width: 42px; text-align: right; }
-
-    /* Inputs */
-    input[type="range"] {
-      width: 100%;
-      accent-color: #e4e4e7;
-      height: 6px;
-      background: #27272a;
-      border-radius: 3px;
-      outline: none;
-      cursor: pointer;
-    }
-
-    /* Buttons in panel */
-    .btn {
-      background: var(--panel-card);
-      border: 1px solid #3f3f46;
-      color: var(--text-main);
-      padding: 8px 14px;
-      border-radius: 10px;
-      font-size: 0.8rem;
-      font-weight: 500;
-      cursor: pointer;
-      transition: background 0.15s, border-color 0.15s;
-    }
-    .btn:hover { background: #3f3f46; border-color: #52525b; }
-    .btn.active { background: #e4e4e7; color: #18181b; border-color: #e4e4e7; }
-
-    /* Toggles */
-    .toggle-group { display: flex; gap: 6px; }
-    .toggle-group .btn { flex: 1; text-align: center; }
-
-    /* Dropdown style */
-    select {
-      background: var(--panel-card);
-      border: 1px solid #3f3f46;
-      color: var(--text-main);
-      padding: 8px 10px;
-      border-radius: 10px;
-      font-size: 0.8rem;
-      outline: none;
-      cursor: pointer;
-    }
-
-    /* Small color swatch */
-    .swatch {
-      width: 20px; height: 20px; border-radius: 6px; border: 1px solid #52525b; display: inline-block; vertical-align: middle;
-    }
-
-    /* Small helper text */
-    .helper {
-      font-size: 0.7rem;
-      color: #71717a;
-      margin-top: 6px;
-    }
-  </style>
+  @media (max-width:960px){
+    main{flex-direction:column; padding:16px}
+    .panel{width:100%; max-height:none}
+    .stage{height:480px}
+    header{padding:16px 20px}
+  }
+</style>
 </head>
-<body>
+<body data-bg="graphite">
 
-  <main class="stage">
-    <!-- Phone Visualization -->
-    <div class="phone-wrapper" id="phoneWrap" aria-label="Foldable iPhone Duo model">
-      <!-- Left Half -->
-      <div class="half half-left" id="halfLeft" aria-hidden="true">
-        <div class="screen-content">
-          <img class="wallpaper" id="wallpaper" src="https://images.unsplash.com/photo-1506905925346-21bda4d32df4?q=80&w=1600&auto=format&fit=crop" alt="Wallpaper landscape" />
-          <div class="clock-overlay" aria-live="polite">
-            <div class="clock-time" id="clockTime">9:41</div>
-            <div class="clock-date" id="clockDate">Wed Apr 1</div>
-          </div>
-          <button class="screen-btn info-btn" aria-label="Information" onclick="alert('Info button')">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
-          </button>
-          <button class="screen-btn cam-btn" aria-label="Camera" onclick="alert('Camera button')">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
-          </button>
-        </div>
+<header>
+  <div class="brand">
+    <h1>iPhone&nbsp;Fold</h1><span>Concept Product Study</span>
+  </div>
+  <a class="credit" href="https://threejs.org" target="_blank" rel="noopener">
+    3D model: procedural study · rendered with Three.js
+    <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 10L10 2M4 2h6v6"/></svg>
+  </a>
+</header>
+
+<main>
+  <section class="stage-wrap" aria-label="Device viewer">
+    <div class="stage" id="stage">
+      <canvas id="gl" aria-hidden="true"></canvas>
+      <div class="fold-badge" id="foldBadge"><b>0%</b> open</div>
+      <div class="reveal" id="reveal" aria-hidden="true">
+        <div class="eyebrow">Beyond the Bend</div>
+        <h2>One device.<br>Two worlds unfolded.</h2>
+        <p>A seamless 8-inch canvas that folds into your pocket. Titanium hinge architecture, zero-crease optics, and displays that wake as they open.</p>
+        <div class="chips"><span class="chip">8.0″ LTPO OLED</span><span class="chip">Titanium Hinge</span><span class="chip">Zero-Crease</span></div>
       </div>
+      <div class="stage-hint">Drag horizontally to fold · Use panel controls for precision</div>
+    </div>
+  </section>
 
-      <!-- Central Hinge -->
-      <div class="hinge" aria-hidden="true"></div>
-
-      <!-- Right Half -->
-      <div class="half half-right" id="halfRight" aria-hidden="true">
-        <div class="screen-content">
-          <img class="wallpaper" id="wallpaper2" src="https://images.unsplash.com/photo-1506905925346-21bda4d32df4?q=80&w=1600&auto=format&fit=crop" alt="Wallpaper landscape" />
-          <div class="clock-overlay" aria-live="polite">
-            <div class="clock-time" id="clockTime2">9:41</div>
-            <div class="clock-date" id="clockDate2">Wed Apr 1</div>
-          </div>
-          <button class="screen-btn info-btn" aria-label="Information" onclick="alert('Info button')">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
-          </button>
-          <button class="screen-btn cam-btn" aria-label="Camera" onclick="alert('Camera button')">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
-          </button>
+  <aside class="panel" aria-label="Control panel">
+    <div>
+      <h3>Fold Control</h3>
+      <div class="ctl" style="margin-top:12px">
+        <div class="ctl-row">
+          <label for="foldRange">Hinge position</label>
+          <output id="foldOut">0%</output>
         </div>
+        <input type="range" id="foldRange" min="0" max="100" value="0" step="1"
+               aria-label="Hinge position, 0 folded to 100 fully open"
+               aria-valuetext="0 percent open">
+        <div class="hintline">Keyboard: <span class="kbd">←</span> <span class="kbd">→</span> to scrub, <span class="kbd">Home</span>/<span class="kbd">End</span> for limits</div>
+      </div>
+      <button class="btn primary" id="toggleBtn" aria-pressed="false" style="margin-top:10px;width:100%">
+        Unfold device
+      </button>
+    </div>
+
+    <div class="divider"></div>
+
+    <div>
+      <h3>Motion &amp; Optics</h3>
+      <div class="ctl" style="margin-top:12px">
+        <div class="ctl-row"><label for="speed">Animation speed</label><output id="speedOut">1.0×</output></div>
+        <input type="range" id="speed" min="0.3" max="2.5" step="0.1" value="1" aria-label="Animation speed">
+      </div>
+      <div class="ctl">
+        <div class="ctl-row"><label for="blur">Reveal blur</label><output id="blurOut">18px</output></div>
+        <input type="range" id="blur" min="0" max="32" step="1" value="18" aria-label="Reveal card blur amount">
+      </div>
+      <div class="ctl">
+        <div class="ctl-row"><label for="parallax">Parallax depth</label><output id="parallaxOut">1.0×</output></div>
+        <input type="range" id="parallax" min="0" max="2" step="0.1" value="1" aria-label="Parallax strength">
+      </div>
+      <div class="ctl">
+        <div class="ctl-row"><label for="light">Studio lighting</label><output id="lightOut">1.0×</output></div>
+        <input type="range" id="light" min="0.2" max="2" step="0.1" value="1" aria-label="Lighting intensity">
       </div>
     </div>
 
-    <div class="caption">Original model & animation by Apple ↗</div>
-  </main>
+    <div class="divider"></div>
 
-  <!-- Control Panel -->
-  <aside class="panel" aria-label="Phone controls">
-    <h2>iPhone Duo</h2>
-
-    <div class="ctrl-row">
-      <select aria-label="Version">
-        <option>Version 1</option>
-        <option>Version 2</option>
-      </select>
-      <div>
-        <button class="btn" onclick="resetCamera()" aria-label="Reset camera">↺</button>
-        <button class="btn" onclick="toggleWireframe()" aria-label="Toggle wireframe" id="btnWire">□</button>
+    <div>
+      <h3>Environment &amp; Screens</h3>
+      <div class="ctl" style="margin-top:12px">
+        <label for="bgSel">Stage background</label>
+        <select id="bgSel">
+          <option value="graphite">Graphite Studio</option>
+          <option value="studio">Light Studio</option>
+          <option value="deepblue">Deep Blue</option>
+          <option value="ember">Ember</option>
+        </select>
+      </div>
+      <div class="ctl">
+        <label for="insideSel">Inside wallpaper</label>
+        <select id="insideSel">
+          <option value="dawn">Dune Dawn</option>
+          <option value="dusk">Canyon Dusk</option>
+          <option value="night">Night Sands</option>
+        </select>
+      </div>
+      <div class="ctl">
+        <label for="coverSel">Cover wallpaper</label>
+        <select id="coverSel">
+          <option value="dusk">Canyon Dusk</option>
+          <option value="dawn">Dune Dawn</option>
+          <option value="night">Night Sands</option>
+        </select>
       </div>
     </div>
 
-    <section class="panel-section" aria-label="Fold controls">
-      <div class="ctrl-row">
-        <label for="angleRange">Fold Angle</label>
-        <span class="value" id="angleValue">0.0</span>
-      </div>
-      <input id="angleRange" type="range" min="0" max="180" step="0.5" value="0" oninput="setFold(this.value)" aria-valuemin="0" aria-valuemax="180" aria-valuenow="0" />
-      <div class="ctrl-row" style="margin-top:10px;">
-        <button class="btn" onclick="playFold()" id="btnPlay">Play fold / unfold</button>
-        <button class="btn" onclick="pauseFold()" id="btnPause">Pause</button>
-      </div>
-    </section>
-
-    <section class="panel-section" aria-label="Image settings">
-      <div class="ctrl-row">
-        <label>Images</label>
-        <select id="displaySelect" aria-label="Display selection">
-          <option>Both Displays</option>
-          <option>Left Only</option>
-          <option>Right Only</option>
-        </select>
-      </div>
-      <div class="ctrl-row">
-        <button class="btn" style="flex:1;" onclick="document.getElementById('imgInput').click()">Choose image…</button>
-        <input type="file" id="imgInput" accept="image/*" style="display:none" onchange="loadImage(this)" />
-      </div>
-      <button class="btn" style="width:100%;" onclick="restoreWallpapers()">Restore wallpapers</button>
-
-      <div class="ctrl-row" style="margin-top:14px;">
-        <label>Fit</label>
-        <select aria-label="Fit mode">
-          <option>Cover</option>
-          <option>Contain</option>
-          <option>Fill</option>
-        </select>
-      </div>
-    </section>
-
-    <section class="panel-section" aria-label="Clock and display">
-      <div class="ctrl-row">
-        <label>Clock</label>
-        <div class="toggle-group">
-          <button class="btn" onclick="setClock(false)" id="btnClockOff">Off</button>
-          <button class="btn active" onclick="setClock(true)" id="btnClockOn">On</button>
-        </div>
-      </div>
-      <div class="ctrl-row">
-        <label>Brightness</label>
-        <span class="value" id="brightnessValue">1.0</span>
-      </div>
-      <input id="brightnessRange" type="range" min="0.2" max="2" step="0.1" value="1" oninput="setBrightness(this.value)" aria-label="Brightness" />
-    </section>
-
-    <section class="panel-section" aria-label="Studio settings">
-      <div class="ctrl-row">
-        <label>Studio</label>
-        <select aria-label="Studio mode">
-          <option>Default</option>
-          <option>Warm</option>
-          <option>Cool</option>
-        </select>
-      </div>
-      <div class="ctrl-row">
-        <label>Exposure</label>
-        <span class="value">1.0</span>
-      </div>
-    </section>
-
-    <section class="panel-section" aria-label="Background and wireframe">
-      <div class="ctrl-row">
-        <label>Background</label>
-        <span class="value" style="font-family: monospace; font-size: .75rem;">#FFFFFF <span class="swatch" style="background:#fff;" aria-hidden="true"></span></span>
-      </div>
-      <div class="ctrl-row">
-        <label>Wireframe</label>
-        <div class="toggle-group">
-          <button class="btn" onclick="setWireframe(false)" id="btnWireOff">Off</button>
-          <button class="btn active" onclick="setWireframe(true)" id="btnWireOn">On</button>
-        </div>
-      </div>
-      <div class="ctrl-row">
-        <label>Auto Rotate</label>
-        <div class="toggle-group">
-          <button class="btn" onclick="setAutoRotate(false)" id="btnAutoOff">Off</button>
-          <button class="btn active" onclick="setAutoRotate(true)" id="btnAutoOn">On</button>
-        </div>
-      </div>
-    </section>
-
-    <section class="panel-section" aria-label="Camera">
-      <div class="ctrl-row">
-        <label>Camera</label>
-        <select aria-label="Camera view">
-          <option>Perspective</option>
-          <option>Orthographic</option>
-        </select>
-      </div>
-      <button class="btn" style="width:100%; margin-top:6px;" onclick="resetCamera()">Reset camera</button>
-      <div style="display:flex; gap:8px; margin-top:8px;">
-        <button class="btn" style="flex:1;" onclick="setView('front')">Front</button>
-        <button class="btn" style="flex:1;" onclick="setView('back')">Back</button>
-      </div>
-    </section>
+    <div class="divider"></div>
+    <button class="btn ghost" id="resetBtn">Reset all settings</button>
   </aside>
+</main>
 
-  <script>
-    // State
-    let foldAngle = 0;
-    let playing = false;
-    let animTimer = null;
-    let clockVisible = true;
-    let wireframeOn = false;
-    let autoRotateOn = true;
-    let rotateTimer = null;
+<footer>
+  <span>Interactive concept study — not affiliated with Apple Inc.</span>
+  <span>Model &amp; wallpapers generated procedurally · <a href="https://threejs.org" target="_blank" rel="noopener">threejs.org</a></span>
+</footer>
 
-    // Elements
-    const leftHalf = document.getElementById('halfLeft');
-    const rightHalf = document.getElementById('halfRight');
-    const phoneWrap = document.getElementById('phoneWrap');
-    const angleValue = document.getElementById('angleValue');
+<script type="importmap">
+{ "imports": {
+  "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+  "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+}}
+</script>
 
-    // Default wallpaper URLs
-    const defaultWallpaper = "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?q=80&w=1600&auto=format&fit=crop";
+<script type="module">
+import * as THREE from 'three';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 
-    // Apply fold angle to halves
-    function setFold(val) {
-      foldAngle = parseFloat(val);
-      angleValue.textContent = foldAngle.toFixed(1);
-      // Each half rotates outward from center hinge
-      leftHalf.style.transform = `rotateY(${foldAngle / 2}deg)`;
-      rightHalf.style.transform = `rotateY(${-foldAngle / 2}deg)`;
-      // Slight perspective tilt on wrapper for 3D feel
-      phoneWrap.style.transform = `rotateX(6deg) rotateY(${Math.sin(Date.now()/2000)*3}deg)`;
+/* ============================== SETTINGS ============================== */
+const KEY='ifold-settings-v1';
+const defaults={fold:0,speed:1,blur:18,parallax:1,light:1,bg:'graphite',inside:'dawn',cover:'dusk'};
+let S={...defaults};
+try{Object.assign(S,JSON.parse(localStorage.getItem(KEY)||'{}'));}catch(e){}
+const save=()=>localStorage.setItem(KEY,JSON.stringify(S));
+
+/* ============================== WALLPAPERS ============================== */
+const PALETTES={
+  dawn:{sky:['#2b1a3a','#7a3b52','#d97757','#f2b878'],sun:'#ffe6b8',sunY:.34,dunes:['#8a4636','#6e3430','#4c2430','#2e1626']},
+  dusk:{sky:['#141031','#3c1e52','#8a3560','#d4655e'],sun:'#ffb98a',sunY:.42,dunes:['#5a2c4e','#41203f','#2a1530','#170b1e']},
+  night:{sky:['#040818','#0a1830','#123054','#1d4a72'],sun:'#cfe6ff',sunY:.26,dunes:['#12263e','#0c1a30','#071224','#040a18']},
+};
+function drawWallpaper(ctx,w,h,variant){
+  const p=PALETTES[variant];
+  const g=ctx.createLinearGradient(0,0,0,h);
+  p.sky.forEach((c,i)=>g.addColorStop(i/(p.sky.length-1),c));
+  ctx.fillStyle=g; ctx.fillRect(0,0,w,h);
+  // sun / moon
+  const sx=w*.5, sy=h*p.sunY, sr=w*.11;
+  const halo=ctx.createRadialGradient(sx,sy,0,sx,sy,sr*4);
+  halo.addColorStop(0,p.sun+'cc'); halo.addColorStop(.25,p.sun+'44'); halo.addColorStop(1,'transparent');
+  ctx.fillStyle=halo; ctx.fillRect(0,0,w,h);
+  ctx.fillStyle=p.sun; ctx.beginPath(); ctx.arc(sx,sy,sr,0,7); ctx.fill();
+  // stars for night
+  if(variant==='night'){ctx.fillStyle='#ffffff';
+    for(let i=0;i<140;i++){ctx.globalAlpha=Math.random()*.7+.1;
+      ctx.fillRect(Math.random()*w,Math.random()*h*.55,Math.random()<.15?2:1,1);}ctx.globalAlpha=1;}
+  // dune ridges
+  p.dunes.forEach((c,i)=>{
+    const base=h*(.48+i*.13), amp=h*(.05+i*.015), f=1.6+i*.7, ph=i*2.3;
+    const dg=ctx.createLinearGradient(0,base-amp,0,h);
+    dg.addColorStop(0,c); dg.addColorStop(1,'#00000055');
+    ctx.fillStyle=dg; ctx.beginPath(); ctx.moveTo(0,h);
+    for(let x=0;x<=w;x+=4){
+      const y=base+Math.sin(x/w*Math.PI*f+ph)*amp+Math.sin(x/w*Math.PI*f*2.7+ph*1.7)*amp*.35;
+      ctx.lineTo(x,y);
     }
+    ctx.lineTo(w,h); ctx.closePath(); ctx.fill();
+    // ridge highlight
+    ctx.strokeStyle='rgba(255,255,255,.10)'; ctx.lineWidth=1.5; ctx.beginPath();
+    for(let x=0;x<=w;x+=4){
+      const y=base+Math.sin(x/w*Math.PI*f+ph)*amp+Math.sin(x/w*Math.PI*f*2.7+ph*1.7)*amp*.35;
+      x===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
+    } ctx.stroke();
+  });
+  // grain + vignette
+  for(let i=0;i<w*h/900;i++){ctx.fillStyle=`rgba(255,255,255,${Math.random()*.05})`;
+    ctx.fillRect(Math.random()*w,Math.random()*h,1,1);}
+  const v=ctx.createRadialGradient(w/2,h/2,h*.3,w/2,h/2,h*.85);
+  v.addColorStop(0,'transparent'); v.addColorStop(1,'rgba(0,0,0,.38)');
+  ctx.fillStyle=v; ctx.fillRect(0,0,w,h);
+}
 
-    // Play / Pause animation loop
-    function playFold() {
-      playing = true;
-      if (animTimer) clearInterval(animTimer);
-      animTimer = setInterval(() => {
-        foldAngle = (foldAngle + 1.5) % 181;
-        document.getElementById('angleRange').value = foldAngle;
-        setFold(foldAngle);
-      }, 20);
-    }
+/* ============================== SCREEN UI ============================== */
+function rr(ctx,x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);
+  ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();}
+const now=new Date();
+const timeStr=now.toLocaleTimeString([],{hour:'numeric',minute:'2-digit'}).replace(/\s?[AP]M/i,'');
+const dateStr=now.toLocaleDateString([],{weekday:'long',month:'long',day:'numeric'});
 
-    function pauseFold() {
-      playing = false;
-      clearInterval(animTimer);
-      animTimer = null;
-    }
+function drawInside(ctx,W,H,variant){
+  drawWallpaper(ctx,W,H,variant);
+  const mid=W/2;
+  // status bar
+  ctx.fillStyle='rgba(255,255,255,.92)'; ctx.font='600 30px -apple-system,Helvetica,Arial';
+  ctx.textAlign='left'; ctx.fillText(timeStr,52,62);
+  ctx.textAlign='right'; ctx.fillText('5G',W-120,62);
+  for(let i=0;i<4;i++){ctx.fillRect(W-96+i*12,58-8-i*4,7,8+i*4);}
+  // dynamic island straddling hinge
+  ctx.fillStyle='rgba(0,0,0,.85)'; rr(ctx,mid-90,32,180,44,22); ctx.fill();
+  ctx.fillStyle='rgba(40,40,46,1)'; ctx.beginPath(); ctx.arc(mid+58,54,11,0,7); ctx.fill();
+  // LEFT PAGE — clock & widgets
+  ctx.textAlign='center'; ctx.fillStyle='rgba(255,255,255,.96)';
+  ctx.font='200 '+ '700 -apple-system,Helvetica,Arial'; ctx.font='700 190px -apple-system,Helvetica,Arial';
+  ctx.shadowColor='rgba(0,0,0,.35)'; ctx.shadowBlur=24;
+  ctx.fillText(timeStr,mid/2,H*.34);
+  ctx.shadowBlur=0; ctx.font='500 38px -apple-system,Helvetica,Arial';
+  ctx.fillStyle='rgba(255,255,255,.85)'; ctx.fillText(dateStr,mid/2,H*.34+66);
+  // weather widget
+  ctx.fillStyle='rgba(20,20,28,.38)'; rr(ctx,60,H*.44,mid-120,190,36); ctx.fill();
+  ctx.strokeStyle='rgba(255,255,255,.22)'; ctx.lineWidth=1.5; rr(ctx,60,H*.44,mid-120,190,36); ctx.stroke();
+  ctx.textAlign='left'; ctx.fillStyle='#fff'; ctx.font='600 34px -apple-system,Helvetica,Arial';
+  ctx.fillText('Joshua Tree',96,H*.44+58);
+  ctx.font='300 84px -apple-system,Helvetica,Arial'; ctx.fillText('74°',96,H*.44+152);
+  ctx.font='500 26px -apple-system,Helvetica,Arial'; ctx.fillStyle='rgba(255,255,255,.7)';
+  ctx.fillText('Clear · H:78 L:52',300,H*.44+148);
+  // RIGHT PAGE — app grid
+  const cols=4, size=118, gap=44, gx=mid+(mid-(cols*size+(cols-1)*gap))/2, gy=H*.30;
+  const hues=[[210,260],[20,60],[120,170],[300,340],[0,30],[180,210],[260,300],[40,80],[150,190],[330,360],[90,130],[200,240]];
+  const glyphs=['✦','◐','▲','●','◆','✚','◉','■','☰','◈','✕','▶'];
+  for(let i=0;i<12;i++){
+    const x=gx+(i%cols)*(size+gap), y=gy+Math.floor(i/cols)*(size+gap+34);
+    const ig=ctx.createLinearGradient(x,y,x+size,y+size);
+    ig.addColorStop(0,`hsl(${hues[i][0]},70%,62%)`); ig.addColorStop(1,`hsl(${hues[i][1]},72%,42%)`);
+    ctx.fillStyle=ig; rr(ctx,x,y,size,size,30); ctx.fill();
+    ctx.fillStyle='rgba(255,255,255,.92)'; ctx.font='44px -apple-system,Helvetica,Arial';
+    ctx.textAlign='center'; ctx.fillText(glyphs[i],x+size/2,y+size/2+16);
+  }
+  // dock
+  ctx.fillStyle='rgba(20,20,30,.35)'; rr(ctx,mid+60,H-220,mid-120,150,38); ctx.fill();
+  ctx.strokeStyle='rgba(255,255,255,.18)'; rr(ctx,mid+60,H-220,mid-120,150,38); ctx.stroke();
+  for(let i=0;i<4;i++){
+    const s=104, x=mid+60+((mid-120)-4*s-3*28)/2+i*(s+28), y=H-220+23;
+    const ig=ctx.createLinearGradient(x,y,x+s,y+s);
+    ig.addColorStop(0,`hsl(${hues[i+4][0]},70%,64%)`); ig.addColorStop(1,`hsl(${hues[i+4][1]},72%,44%)`);
+    ctx.fillStyle=ig; rr(ctx,x,y,s,s,26); ctx.fill();
+  }
+  // hinge glare
+  const hg=ctx.createLinearGradient(mid-26,0,mid+26,0);
+  hg.addColorStop(0,'transparent'); hg.addColorStop(.5,'rgba(0,0,0,.28)'); hg.addColorStop(1,'transparent');
+  ctx.fillStyle=hg; ctx.fillRect(mid-26,0,52,H);
+}
 
-    // Clock toggle
-    function setClock(on) {
-      clockVisible = on;
-      document.querySelectorAll('.clock-overlay').forEach(el => {
-        el.style.display = on ? 'block' : 'none';
-      });
-      document.getElementById('btnClockOff').classList.toggle('active', !on);
-      document.getElementById('btnClockOn').classList.toggle('active', on);
-    }
+function drawCover(ctx,W,H,variant){
+  drawWallpaper(ctx,W,H,variant);
+  ctx.textAlign='center'; ctx.fillStyle='rgba(255,255,255,.96)';
+  ctx.font='600 30px -apple-system,Helvetica,Arial'; ctx.fillText(dateStr,W/2,H*.20);
+  ctx.font='700 150px -apple-system,Helvetica,Arial';
+  ctx.shadowColor='rgba(0,0,0,.4)'; ctx.shadowBlur=20;
+  ctx.fillText(timeStr,W/2,H*.20+140); ctx.shadowBlur=0;
+  // notification pills
+  const notes=[['Messages','Dune shoot at golden hour?'],['Photos','Memory: Desert Bloom']];
+  notes.forEach((n,i)=>{
+    const y=H*.44+i*132;
+    ctx.fillStyle='rgba(18,18,26,.5)'; rr(ctx,44,y,W-88,112,32); ctx.fill();
+    ctx.strokeStyle='rgba(255,255,255,.18)'; ctx.lineWidth=1.5; rr(ctx,44,y,W-88,112,32); ctx.stroke();
+    ctx.textAlign='left'; ctx.fillStyle='#fff'; ctx.font='600 26px -apple-system,Helvetica,Arial';
+    ctx.fillText(n[0],76,y+44);
+    ctx.fillStyle='rgba(255,255,255,.68)'; ctx.font='400 24px -apple-system,Helvetica,Arial';
+    ctx.fillText(n[1],76,y+82);
+  });
+  ctx.textAlign='center'; ctx.fillStyle='rgba(255,255,255,.55)';
+  ctx.font='500 24px -apple-system,Helvetica,Arial';
+  ctx.fillText('Unfold to continue',W/2,H-90);
+  ctx.fillStyle='rgba(255,255,255,.7)'; rr(ctx,W/2-70,H-64,140,7,4); ctx.fill();
+}
 
-    // Brightness
-    function setBrightness(v) {
-      document.getElementById('brightnessValue').textContent = v;
-      const val = parseFloat(v);
-      document.querySelectorAll('.wallpaper').forEach(w => {
-        w.style.filter = `brightness(${0.9 + val*0.4}) contrast(1.05)`;
-      });
-    }
+/* ============================== TEXTURES ============================== */
+const insideCanvas=document.createElement('canvas'); insideCanvas.width=1600; insideCanvas.height=1680;
+const coverCanvas=document.createElement('canvas'); coverCanvas.width=800; coverCanvas.height=1680;
 
-    // Image load
-    function loadImage(input) {
-      const file = input.files[0];
-      if (!file) return;
-      const url = URL.createObjectURL(file);
-      document.querySelectorAll('.wallpaper').forEach(w => w.src = url);
-    }
+const insideTexBase=new THREE.CanvasTexture(insideCanvas);
+insideTexBase.colorSpace=THREE.SRGBColorSpace; insideTexBase.anisotropy=8;
+const insideTexL=insideTexBase.clone(); insideTexL.repeat.set(.5,1); insideTexL.offset.set(0,0);
+const insideTexR=insideTexBase.clone(); insideTexR.repeat.set(.5,1); insideTexR.offset.set(.5,0);
+const coverTex=new THREE.CanvasTexture(coverCanvas); coverTex.colorSpace=THREE.SRGBColorSpace;
 
-    function restoreWallpapers() {
-      document.querySelectorAll('.wallpaper').forEach(w => w.src = defaultWallpaper);
-    }
+function repaintScreens(){
+  drawInside(insideCanvas.getContext('2d'),1600,1680,S.inside);
+  drawCover(coverCanvas.getContext('2d'),800,1680,S.cover);
+  [insideTexBase,insideTexL,insideTexR,coverTex].forEach(t=>t.needsUpdate=true);
+}
+repaintScreens();
 
-    // Wireframe toggle
-    function toggleWireframe() {
-      wireframeOn = !wireframeOn;
-      setWireframe(wireframeOn);
-    }
-    function setWireframe(on) {
-      wireframeOn = on;
-      const borders = on ? '2px dashed rgba(255,255,255,0.15)' : 'none';
-      [leftHalf, rightHalf].forEach(h => {
-        h.style.borderColor = on ? '#777' : '#2a2a30';
-        h.style.background = on ? 'rgba(255,255,255,0.02)' : 'linear-gradient(to bottom, #4a4a52, #232326)';
-      });
-      document.getElementById('btnWireOff').classList.toggle('active', !on);
-      document.getElementById('btnWireOn').classList.toggle('active', on);
-    }
+/* ============================== THREE SCENE ============================== */
+const stage=document.getElementById('stage');
+const renderer=new THREE.WebGLRenderer({canvas:document.getElementById('gl'),antialias:true,alpha:true});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.toneMapping=THREE.ACESFilmicToneMapping;
+const scene=new THREE.Scene();
+const camera=new THREE.PerspectiveCamera(34,1,0.1,50); camera.position.set(0,0.12,5.0);
 
-    function setAutoRotate(on) {
-      autoRotateOn = on;
-      document.getElementById('btnAutoOff').classList.toggle('active', !on);
-      document.getElementById('btnAutoOn').classList.toggle('active', on);
-    }
+const hemi=new THREE.HemisphereLight(0xfff4e0,0x1a1c22,.55); scene.add(hemi);
+const key=new THREE.DirectionalLight(0xffffff,1.25); key.position.set(3,4,5); scene.add(key);
+const rim=new THREE.PointLight(0x7fa0ff,14,20); rim.position.set(-4,2.2,-3); scene.add(rim);
+const fill=new THREE.DirectionalLight(0xffd9a8,.35); fill.position.set(-2,-1,4); scene.add(fill);
 
-    // Camera / reset
-    function resetCamera() {
-      phoneWrap.style.transform = 'rotateX(6deg) rotateY(0deg)';
-      // Re-trigger subtle rotation
-      if (autoRotateOn && !rotateTimer) startAutoRotate();
-    }
-    function setView(side) {
-      const y = side === 'front' ? 0 : 180;
-      phoneWrap.style.transform = `rotateX(8deg) rotateY(${y}deg)`;
-    }
+/* ---- Device build ---- */
+const W=1.02,H=2.16,D=0.085;
+const frameMat=new THREE.MeshStandardMaterial({color:0x35373d,metalness:.92,roughness:.32});
+const backMat =new THREE.MeshStandardMaterial({color:0x232529,metalness:.85,roughness:.42});
+const root=new THREE.Group(); scene.add(root);
 
-    function startAutoRotate() {
-      if (!autoRotateOn) return;
-      clearInterval(rotateTimer);
-      rotateTimer = setInterval(() => {
-        const t = Date.now() / 4000;
-        const y = Math.sin(t) * 8;
-        if (!playing) {
-          phoneWrap.style.transform = `rotateX(6deg) rotateY(${y}deg)`;
-        }
-      }, 30);
-    }
+function buildHalf(sign){ // sign: -1 left, +1 right
+  const g=new THREE.Group();
+  const body=new THREE.Mesh(new RoundedBoxGeometry(W,H,D,4,0.045),frameMat);
+  body.position.x=sign*W/2; g.add(body);
+  const back=new THREE.Mesh(new THREE.PlaneGeometry(W*.9,H*.94),backMat);
+  back.position.set(sign*W/2,0,-D/2-.001); back.rotation.y=Math.PI; g.add(back);
+  // inner display
+  const scr=new THREE.Mesh(new THREE.PlaneGeometry(W*.955,H*.965),
+    new THREE.MeshBasicMaterial({map:sign<0?insideTexL:insideTexR,toneMapped:false}));
+  scr.position.set(sign*W/2,0,D/2+.0012); g.add(scr);
+  return {g,body,scr};
+}
+const L=buildHalf(-1), R=buildHalf(1);
+root.add(L.g,R.g);
 
-    // Clock update every minute-ish
-    setInterval(() => {
-      const now = new Date();
-      const timeStr = now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: false }).replace(/^0/, '');
-      const dateStr = now.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
-      document.querySelectorAll('.clock-time').forEach(el => el.textContent = timeStr);
-      document.querySelectorAll('.clock-date').forEach(el => el.textContent = dateStr);
-    }, 10000);
+// cover display on right half's outer face
+const coverScr=new THREE.Mesh(new THREE.PlaneGeometry(W*.92,H*.94),
+  new THREE.MeshBasicMaterial({map:coverTex,toneMapped:false}));
+coverScr.position.set(W/2,0,-D/2-.0012); coverScr.rotation.y=Math.PI; R.g.add(coverScr);
 
-    // Initialize
-    startAutoRotate();
-    setFold(0);
-  </script>
+// hinge barrel
+const hinge=new THREE.Mesh(new THREE.CylinderGeometry(.052,.052,H*.97,32),
+  new THREE.MeshStandardMaterial({color:0x4a4d54,metalness:.95,roughness:.25}));
+hinge.position.set(0,0,-.015); root.add(hinge);
+// side buttons on left half
+[[.0,.44,.11],[0,.20,.11],[0,-.30,.16]].forEach(([_,y,len])=>{
+  const b=new THREE.Mesh(new RoundedBoxGeometry(.02,len,.03,2,.008),frameMat);
+  b.position.set(-W-.006,y,0); L.g.add(b);
+});
+// camera plateau on right half back
+const plateau=new THREE.Mesh(new RoundedBoxGeometry(.42,.42,.03,3,.09),
+  new THREE.MeshStandardMaterial({color:0x2b2d33,metalness:.9,roughness:.3}));
+plateau.position.set(W*.5,-H*.32,-D/2-.015); R.g.add(plateau);
+[[-.09,.09],[.09,.09],[-.09,-.09]].forEach(([dx,dy])=>{
+  const lens=new THREE.Mesh(new THREE.CylinderGeometry(.075,.075,.025,32),
+    new THREE.MeshStandardMaterial({color:0x101014,metalness:.7,roughness:.15}));
+  lens.rotation.x=Math.PI/2; lens.position.set(W*.5+dx,-H*.32+dy,-D/2-.035); R.g.add(lens);
+});
+
+/* ============================== STATE & LOOP ============================== */
+let fold=S.fold, target=S.fold;              // 0 closed → 1 open
+let px=0, py=0, tpx=0, tpy=0;                // pointer parallax
+const reduceMotion=matchMedia('(prefers-reduced-motion: reduce)').matches;
+const clock=new THREE.Clock();
+
+const reveal=document.getElementById('reveal');
+const badge=document.getElementById('foldBadge');
+const foldRange=document.getElementById('foldRange');
+const foldOut=document.getElementById('foldOut');
+const toggleBtn=document.getElementById('toggleBtn');
+
+function resize(){
+  const w=stage.clientWidth,h=stage.clientHeight;
+  renderer.setSize(w,h,false); camera.aspect=w/h; camera.updateProjectionMatrix();
+}
+new ResizeObserver(resize).observe(stage); resize();
+
+function paintRange(el){const p=(el.value-el.min)/(el.max-el.min)*100; el.style.setProperty('--fill',p+'%');}
+
+function updateFoldUI(){
+  const pct=Math.round(fold*100);
+  foldRange.value=pct; paintRange(foldRange);
+  foldOut.textContent=pct+'%';
+  foldRange.setAttribute('aria-valuetext',pct+' percent open');
+  badge.innerHTML=`<b>${pct}%</b> ${pct>97?'open — fully unfolded':pct<3?'closed':pct>60?'open':'unfolding'}`;
+  const open=fold>.5;
+  toggleBtn.setAttribute('aria-pressed',String(open));
+  toggleBtn.textContent=open?'Fold device':'Unfold device';
+  // reveal card — progressive blur
+  const o=THREE.MathUtils.smoothstep(fold,.4,.85);
+  reveal.style.opacity=o;
+  reveal.style.filter=`blur(${((1-fold)*S.blur).toFixed(1)}px)`;
+  reveal.style.transform=`translate(-50%,-50%) scale(${(0.92+0.08*fold).toFixed(3)}) translateY(${((1-fold)*24).toFixed(1)}px)`;
+}
+
+function frame(){
+  const dt=Math.min(clock.getDelta(),.05);
+  const lambda=reduceMotion?40:4.2*S.speed;
+  fold=THREE.MathUtils.damp(fold,target,lambda,dt);
+  if(Math.abs(fold-target)<.0004) fold=target;
+  px=THREE.MathUtils.damp(px,tpx,5,dt); py=THREE.MathUtils.damp(py,tpy,5,dt);
+
+  // hinge mechanics
+  R.g.rotation.y=(1-fold)*Math.PI;
+  R.g.position.z=(1-fold)*(D+.005);
+  root.rotation.y=THREE.MathUtils.lerp(.55,.06,fold)+px*.09*S.parallax;
+  root.rotation.x=THREE.MathUtils.lerp(.10,.02,fold)-py*.05*S.parallax;
+  root.position.y=Math.sin(clock.elapsedTime*.7)*.012;
+  camera.position.z=THREE.MathUtils.lerp(4.35,5.05,fold);
+  camera.lookAt(0,0,0);
+
+  // parallax on screens (layered drift)
+  const ox=px*.012*S.parallax, oy=py*.010*S.parallax;
+  insideTexL.offset.set(ox,oy); insideTexR.offset.set(.5+ox*.6,oy*.6);
+  coverTex.offset.set(ox*.8,oy*.8);
+  // screen wake
+  const wake=.35+.65*THREE.MathUtils.smoothstep(fold,.05,.55);
+  L.scr.material.color.setScalar(wake); R.scr.material.color.setScalar(wake);
+  coverScr.material.color.setScalar(.4+.6*(1-fold));
+
+  key.intensity=1.25*S.light; rim.intensity=14*S.light; hemi.intensity=.55*Math.min(S.light,1.4);
+  renderer.render(scene,camera);
+  updateFoldUI();
+  requestAnimationFrame(frame);
+}
+frame();
+
+/* ============================== INTERACTIONS ============================== */
+// pointer parallax
+stage.addEventListener('pointermove',e=>{
+  const r=stage.getBoundingClientRect();
+  tpx=((e.clientX-r.left)/r.width-.5)*2; tpy=((e.clientY-r.top)/r.height-.5)*2;
+});
+stage.addEventListener('pointerleave',()=>{tpx=0;tpy=0;});
+
+// drag-to-scrub
+let dragging=false,sx=0,sf=0;
+stage.addEventListener('pointerdown',e=>{dragging=true;sx=e.clientX;sf=target;stage.setPointerCapture(e.pointerId);});
+stage.addEventListener('pointermove',e=>{
+  if(!dragging)return;
+  target=THREE.MathUtils.clamp(sf+(e.clientX-sx)/320,0,1);
+  S.fold=Math.round(target*100)/100; save();
+});
+['pointerup','pointercancel'].forEach(ev=>stage.addEventListener(ev,()=>dragging=false));
+
+// slider (keyboard friendly natively)
+foldRange.addEventListener('input',()=>{target=foldRange.value/100;S.fold=target;save();});
+
+// accessible toggle
+toggleBtn.addEventListener('click',()=>{target=target>.5?0:1;S.fold=target;save();toggleBtn.focus();});
+
+// panel controls
+const bind=(id,key,fmt,apply)=>{
+  const el=document.getElementById(id), out=document.getElementById(id+'Out');
+  el.value=S[key];
+  if(el.type==='range'){paintRange(el); out.textContent=fmt(S[key]);}
+  el.addEventListener('input',()=>{
+    S[key]=el.type==='range'?parseFloat(el.value):el.value;
+    if(out)out.textContent=fmt(S[key]);
+    if(el.type==='range')paintRange(el);
+    apply&&apply(); save();
+  });
+  if(el.tagName==='SELECT'){el.value=S[key];}
+};
+bind('speed','speed',v=>v.toFixed(1)+'×');
+bind('blur','blur',v=>Math.round(v)+'px');
+bind('parallax','parallax',v=>v.toFixed(1)+'×');
+bind('light','light',v=>v.toFixed(1)+'×');
+bind('bgSel','bg',null,()=>document.body.dataset.bg=S.bg);
+bind('insideSel','inside',null,repaintScreens);
+bind('coverSel','cover',null,repaintScreens);
+document.body.dataset.bg=S.bg;
+
+document.getElementById('resetBtn').addEventListener('click',()=>{
+  S={...defaults}; localStorage.removeItem(KEY); location.reload();
+});
+updateFoldUI();
+</script>
 </body>
 </html>

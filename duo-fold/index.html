@@ -1,0 +1,584 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>iPhone Duo — Foldable Controller</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&family=JetBrains+Mono:wght@300;500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-page: #f4f4f2;
+      --panel-bg: #18181b;
+      --panel-card: #27272a;
+      --accent: #e4e4e7;
+      --text-main: #fafafa;
+      --text-dim: #a1a1aa;
+      --hinge: linear-gradient(90deg, #3f3f46 0%, #18181b 40%, #18181b 60%, #3f3f46 100%);
+    }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
+    body {
+      background: var(--bg-page);
+      font-family: "Inter", ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+      color: var(--text-main);
+      overflow: hidden;
+      user-select: none;
+    }
+
+    /* Scene stage */
+    .stage {
+      position: relative;
+      width: 100%;
+      height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      perspective: 1600px;
+      overflow: hidden;
+    }
+
+    /* Phone container (hinge axis runs vertical through center) */
+    .phone-wrapper {
+      position: relative;
+      width: 640px;
+      height: 520px;
+      transform-style: preserve-3d;
+      transition: transform 0.1s linear;
+    }
+
+    /* The two halves (left and right display) */
+    .half {
+      position: absolute;
+      top: 0;
+      width: 50%;
+      height: 100%;
+      overflow: hidden;
+      backface-visibility: hidden;
+      box-shadow: inset 0 0 40px rgba(0,0,0,0.35);
+    }
+
+    /* Left half */
+    .half-left {
+      left: 0;
+      border-radius: 36px 0 0 36px;
+      border-left: 14px solid #2a2a30;
+      border-top: 14px solid #2a2a30;
+      border-bottom: 14px solid #2a2a30;
+      border-right: none;
+      transform-origin: right center;
+      transform: rotateY(0deg);
+      z-index: 2;
+      background: linear-gradient(to bottom, #4a4a52, #232326);
+    }
+
+    /* Right half */
+    .half-right {
+      right: 0;
+      border-radius: 0 36px 36px 0;
+      border-right: 14px solid #2a2a30;
+      border-top: 14px solid #2a2a30;
+      border-bottom: 14px solid #2a2a30;
+      border-left: none;
+      transform-origin: left center;
+      transform: rotateY(0deg);
+      z-index: 2;
+      background: linear-gradient(to bottom, #4a4a52, #232326);
+    }
+
+    /* Central hinge pillar */
+    .hinge {
+      position: absolute;
+      left: 50%;
+      top: -6px;
+      width: 10px;
+      height: calc(100% + 12px);
+      transform: translateX(-50%);
+      background: var(--hinge);
+      border-radius: 6px;
+      z-index: 10;
+      box-shadow: 0 0 14px rgba(0,0,0,0.6), inset 0 0 8px rgba(255,255,255,0.05);
+    }
+
+    /* Screen content inside each half */
+    .screen-content {
+      position: absolute;
+      inset: 14px;
+      border-radius: 22px;
+      overflow: hidden;
+      background: #0f0f14;
+    }
+
+    /* Wallpaper image */
+    .wallpaper {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      opacity: 0.95;
+      pointer-events: none;
+      filter: brightness(0.95) contrast(1.05);
+    }
+
+    /* Clock UI overlay */
+    .clock-overlay {
+      position: absolute;
+      top: 28px;
+      left: 0;
+      width: 100%;
+      text-align: center;
+      z-index: 20;
+      pointer-events: none;
+      text-shadow: 0 2px 18px rgba(0,0,0,0.35);
+    }
+    .clock-time {
+      font-family: "Inter", sans-serif;
+      font-weight: 200;
+      font-size: clamp(4rem, 9vw, 7.5rem);
+      color: rgba(255,255,255,0.92);
+      letter-spacing: -0.06em;
+      line-height: 1;
+    }
+    .clock-date {
+      font-size: 0.95rem;
+      color: rgba(255,255,255,0.8);
+      margin-top: 6px;
+      letter-spacing: 0.04em;
+    }
+
+    /* Action buttons on screen */
+    .screen-btn {
+      position: absolute;
+      right: 22px;
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.12);
+      backdrop-filter: blur(8px);
+      border: 1px solid rgba(255,255,255,0.08);
+      display: grid;
+      place-items: center;
+      z-index: 20;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+    }
+    .screen-btn.info-btn { bottom: 110px; }
+    .screen-btn.cam-btn { bottom: 50px; }
+
+    /* Footer caption */
+    .caption {
+      position: absolute;
+      bottom: 18px;
+      left: 0;
+      width: 100%;
+      text-align: center;
+      font-size: 0.75rem;
+      color: #8a8a95;
+      letter-spacing: 0.06em;
+    }
+
+    /* Right control panel */
+    .panel {
+      position: fixed;
+      right: 24px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 340px;
+      max-height: 92vh;
+      background: var(--panel-bg);
+      border-radius: 24px;
+      border: 1px solid #27272a;
+      box-shadow: 0 30px 80px rgba(0,0,0,0.45), 0 0 0 1px rgba(255,255,255,0.03) inset;
+      padding: 24px;
+      overflow-y: auto;
+      z-index: 50;
+    }
+    .panel::-webkit-scrollbar { width: 8px; }
+    .panel::-webkit-scrollbar-track { background: transparent; }
+    .panel::-webkit-scrollbar-thumb { background: #3f3f46; border-radius: 4px; }
+    .panel::-webkit-scrollbar-thumb:hover { background: #52525b; }
+
+    .panel h2 {
+      font-size: 0.85rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #a1a1aa;
+      margin-bottom: 16px;
+    }
+    .panel-section {
+      margin-bottom: 22px;
+      border-bottom: 1px solid #27272a;
+      padding-bottom: 22px;
+    }
+    .panel-section:last-of-type { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
+
+    /* Controls rows */
+    .ctrl-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 10px;
+    }
+    .ctrl-row label { color: #e4e4e7; font-size: 0.85rem; }
+    .ctrl-row .value { font-family: "JetBrains Mono", monospace; font-size: 0.8rem; color: #a1a1aa; min-width: 42px; text-align: right; }
+
+    /* Inputs */
+    input[type="range"] {
+      width: 100%;
+      accent-color: #e4e4e7;
+      height: 6px;
+      background: #27272a;
+      border-radius: 3px;
+      outline: none;
+      cursor: pointer;
+    }
+
+    /* Buttons in panel */
+    .btn {
+      background: var(--panel-card);
+      border: 1px solid #3f3f46;
+      color: var(--text-main);
+      padding: 8px 14px;
+      border-radius: 10px;
+      font-size: 0.8rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background 0.15s, border-color 0.15s;
+    }
+    .btn:hover { background: #3f3f46; border-color: #52525b; }
+    .btn.active { background: #e4e4e7; color: #18181b; border-color: #e4e4e7; }
+
+    /* Toggles */
+    .toggle-group { display: flex; gap: 6px; }
+    .toggle-group .btn { flex: 1; text-align: center; }
+
+    /* Dropdown style */
+    select {
+      background: var(--panel-card);
+      border: 1px solid #3f3f46;
+      color: var(--text-main);
+      padding: 8px 10px;
+      border-radius: 10px;
+      font-size: 0.8rem;
+      outline: none;
+      cursor: pointer;
+    }
+
+    /* Small color swatch */
+    .swatch {
+      width: 20px; height: 20px; border-radius: 6px; border: 1px solid #52525b; display: inline-block; vertical-align: middle;
+    }
+
+    /* Small helper text */
+    .helper {
+      font-size: 0.7rem;
+      color: #71717a;
+      margin-top: 6px;
+    }
+  </style>
+</head>
+<body>
+
+  <main class="stage">
+    <!-- Phone Visualization -->
+    <div class="phone-wrapper" id="phoneWrap" aria-label="Foldable iPhone Duo model">
+      <!-- Left Half -->
+      <div class="half half-left" id="halfLeft" aria-hidden="true">
+        <div class="screen-content">
+          <img class="wallpaper" id="wallpaper" src="https://images.unsplash.com/photo-1506905925346-21bda4d32df4?q=80&w=1600&auto=format&fit=crop" alt="Wallpaper landscape" />
+          <div class="clock-overlay" aria-live="polite">
+            <div class="clock-time" id="clockTime">9:41</div>
+            <div class="clock-date" id="clockDate">Wed Apr 1</div>
+          </div>
+          <button class="screen-btn info-btn" aria-label="Information" onclick="alert('Info button')">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+          </button>
+          <button class="screen-btn cam-btn" aria-label="Camera" onclick="alert('Camera button')">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Central Hinge -->
+      <div class="hinge" aria-hidden="true"></div>
+
+      <!-- Right Half -->
+      <div class="half half-right" id="halfRight" aria-hidden="true">
+        <div class="screen-content">
+          <img class="wallpaper" id="wallpaper2" src="https://images.unsplash.com/photo-1506905925346-21bda4d32df4?q=80&w=1600&auto=format&fit=crop" alt="Wallpaper landscape" />
+          <div class="clock-overlay" aria-live="polite">
+            <div class="clock-time" id="clockTime2">9:41</div>
+            <div class="clock-date" id="clockDate2">Wed Apr 1</div>
+          </div>
+          <button class="screen-btn info-btn" aria-label="Information" onclick="alert('Info button')">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+          </button>
+          <button class="screen-btn cam-btn" aria-label="Camera" onclick="alert('Camera button')">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div class="caption">Original model & animation by Apple ↗</div>
+  </main>
+
+  <!-- Control Panel -->
+  <aside class="panel" aria-label="Phone controls">
+    <h2>iPhone Duo</h2>
+
+    <div class="ctrl-row">
+      <select aria-label="Version">
+        <option>Version 1</option>
+        <option>Version 2</option>
+      </select>
+      <div>
+        <button class="btn" onclick="resetCamera()" aria-label="Reset camera">↺</button>
+        <button class="btn" onclick="toggleWireframe()" aria-label="Toggle wireframe" id="btnWire">□</button>
+      </div>
+    </div>
+
+    <section class="panel-section" aria-label="Fold controls">
+      <div class="ctrl-row">
+        <label for="angleRange">Fold Angle</label>
+        <span class="value" id="angleValue">0.0</span>
+      </div>
+      <input id="angleRange" type="range" min="0" max="180" step="0.5" value="0" oninput="setFold(this.value)" aria-valuemin="0" aria-valuemax="180" aria-valuenow="0" />
+      <div class="ctrl-row" style="margin-top:10px;">
+        <button class="btn" onclick="playFold()" id="btnPlay">Play fold / unfold</button>
+        <button class="btn" onclick="pauseFold()" id="btnPause">Pause</button>
+      </div>
+    </section>
+
+    <section class="panel-section" aria-label="Image settings">
+      <div class="ctrl-row">
+        <label>Images</label>
+        <select id="displaySelect" aria-label="Display selection">
+          <option>Both Displays</option>
+          <option>Left Only</option>
+          <option>Right Only</option>
+        </select>
+      </div>
+      <div class="ctrl-row">
+        <button class="btn" style="flex:1;" onclick="document.getElementById('imgInput').click()">Choose image…</button>
+        <input type="file" id="imgInput" accept="image/*" style="display:none" onchange="loadImage(this)" />
+      </div>
+      <button class="btn" style="width:100%;" onclick="restoreWallpapers()">Restore wallpapers</button>
+
+      <div class="ctrl-row" style="margin-top:14px;">
+        <label>Fit</label>
+        <select aria-label="Fit mode">
+          <option>Cover</option>
+          <option>Contain</option>
+          <option>Fill</option>
+        </select>
+      </div>
+    </section>
+
+    <section class="panel-section" aria-label="Clock and display">
+      <div class="ctrl-row">
+        <label>Clock</label>
+        <div class="toggle-group">
+          <button class="btn" onclick="setClock(false)" id="btnClockOff">Off</button>
+          <button class="btn active" onclick="setClock(true)" id="btnClockOn">On</button>
+        </div>
+      </div>
+      <div class="ctrl-row">
+        <label>Brightness</label>
+        <span class="value" id="brightnessValue">1.0</span>
+      </div>
+      <input id="brightnessRange" type="range" min="0.2" max="2" step="0.1" value="1" oninput="setBrightness(this.value)" aria-label="Brightness" />
+    </section>
+
+    <section class="panel-section" aria-label="Studio settings">
+      <div class="ctrl-row">
+        <label>Studio</label>
+        <select aria-label="Studio mode">
+          <option>Default</option>
+          <option>Warm</option>
+          <option>Cool</option>
+        </select>
+      </div>
+      <div class="ctrl-row">
+        <label>Exposure</label>
+        <span class="value">1.0</span>
+      </div>
+    </section>
+
+    <section class="panel-section" aria-label="Background and wireframe">
+      <div class="ctrl-row">
+        <label>Background</label>
+        <span class="value" style="font-family: monospace; font-size: .75rem;">#FFFFFF <span class="swatch" style="background:#fff;" aria-hidden="true"></span></span>
+      </div>
+      <div class="ctrl-row">
+        <label>Wireframe</label>
+        <div class="toggle-group">
+          <button class="btn" onclick="setWireframe(false)" id="btnWireOff">Off</button>
+          <button class="btn active" onclick="setWireframe(true)" id="btnWireOn">On</button>
+        </div>
+      </div>
+      <div class="ctrl-row">
+        <label>Auto Rotate</label>
+        <div class="toggle-group">
+          <button class="btn" onclick="setAutoRotate(false)" id="btnAutoOff">Off</button>
+          <button class="btn active" onclick="setAutoRotate(true)" id="btnAutoOn">On</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel-section" aria-label="Camera">
+      <div class="ctrl-row">
+        <label>Camera</label>
+        <select aria-label="Camera view">
+          <option>Perspective</option>
+          <option>Orthographic</option>
+        </select>
+      </div>
+      <button class="btn" style="width:100%; margin-top:6px;" onclick="resetCamera()">Reset camera</button>
+      <div style="display:flex; gap:8px; margin-top:8px;">
+        <button class="btn" style="flex:1;" onclick="setView('front')">Front</button>
+        <button class="btn" style="flex:1;" onclick="setView('back')">Back</button>
+      </div>
+    </section>
+  </aside>
+
+  <script>
+    // State
+    let foldAngle = 0;
+    let playing = false;
+    let animTimer = null;
+    let clockVisible = true;
+    let wireframeOn = false;
+    let autoRotateOn = true;
+    let rotateTimer = null;
+
+    // Elements
+    const leftHalf = document.getElementById('halfLeft');
+    const rightHalf = document.getElementById('halfRight');
+    const phoneWrap = document.getElementById('phoneWrap');
+    const angleValue = document.getElementById('angleValue');
+
+    // Default wallpaper URLs
+    const defaultWallpaper = "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?q=80&w=1600&auto=format&fit=crop";
+
+    // Apply fold angle to halves
+    function setFold(val) {
+      foldAngle = parseFloat(val);
+      angleValue.textContent = foldAngle.toFixed(1);
+      // Each half rotates outward from center hinge
+      leftHalf.style.transform = `rotateY(${foldAngle / 2}deg)`;
+      rightHalf.style.transform = `rotateY(${-foldAngle / 2}deg)`;
+      // Slight perspective tilt on wrapper for 3D feel
+      phoneWrap.style.transform = `rotateX(6deg) rotateY(${Math.sin(Date.now()/2000)*3}deg)`;
+    }
+
+    // Play / Pause animation loop
+    function playFold() {
+      playing = true;
+      if (animTimer) clearInterval(animTimer);
+      animTimer = setInterval(() => {
+        foldAngle = (foldAngle + 1.5) % 181;
+        document.getElementById('angleRange').value = foldAngle;
+        setFold(foldAngle);
+      }, 20);
+    }
+
+    function pauseFold() {
+      playing = false;
+      clearInterval(animTimer);
+      animTimer = null;
+    }
+
+    // Clock toggle
+    function setClock(on) {
+      clockVisible = on;
+      document.querySelectorAll('.clock-overlay').forEach(el => {
+        el.style.display = on ? 'block' : 'none';
+      });
+      document.getElementById('btnClockOff').classList.toggle('active', !on);
+      document.getElementById('btnClockOn').classList.toggle('active', on);
+    }
+
+    // Brightness
+    function setBrightness(v) {
+      document.getElementById('brightnessValue').textContent = v;
+      const val = parseFloat(v);
+      document.querySelectorAll('.wallpaper').forEach(w => {
+        w.style.filter = `brightness(${0.9 + val*0.4}) contrast(1.05)`;
+      });
+    }
+
+    // Image load
+    function loadImage(input) {
+      const file = input.files[0];
+      if (!file) return;
+      const url = URL.createObjectURL(file);
+      document.querySelectorAll('.wallpaper').forEach(w => w.src = url);
+    }
+
+    function restoreWallpapers() {
+      document.querySelectorAll('.wallpaper').forEach(w => w.src = defaultWallpaper);
+    }
+
+    // Wireframe toggle
+    function toggleWireframe() {
+      wireframeOn = !wireframeOn;
+      setWireframe(wireframeOn);
+    }
+    function setWireframe(on) {
+      wireframeOn = on;
+      const borders = on ? '2px dashed rgba(255,255,255,0.15)' : 'none';
+      [leftHalf, rightHalf].forEach(h => {
+        h.style.borderColor = on ? '#777' : '#2a2a30';
+        h.style.background = on ? 'rgba(255,255,255,0.02)' : 'linear-gradient(to bottom, #4a4a52, #232326)';
+      });
+      document.getElementById('btnWireOff').classList.toggle('active', !on);
+      document.getElementById('btnWireOn').classList.toggle('active', on);
+    }
+
+    function setAutoRotate(on) {
+      autoRotateOn = on;
+      document.getElementById('btnAutoOff').classList.toggle('active', !on);
+      document.getElementById('btnAutoOn').classList.toggle('active', on);
+    }
+
+    // Camera / reset
+    function resetCamera() {
+      phoneWrap.style.transform = 'rotateX(6deg) rotateY(0deg)';
+      // Re-trigger subtle rotation
+      if (autoRotateOn && !rotateTimer) startAutoRotate();
+    }
+    function setView(side) {
+      const y = side === 'front' ? 0 : 180;
+      phoneWrap.style.transform = `rotateX(8deg) rotateY(${y}deg)`;
+    }
+
+    function startAutoRotate() {
+      if (!autoRotateOn) return;
+      clearInterval(rotateTimer);
+      rotateTimer = setInterval(() => {
+        const t = Date.now() / 4000;
+        const y = Math.sin(t) * 8;
+        if (!playing) {
+          phoneWrap.style.transform = `rotateX(6deg) rotateY(${y}deg)`;
+        }
+      }, 30);
+    }
+
+    // Clock update every minute-ish
+    setInterval(() => {
+      const now = new Date();
+      const timeStr = now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: false }).replace(/^0/, '');
+      const dateStr = now.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+      document.querySelectorAll('.clock-time').forEach(el => el.textContent = timeStr);
+      document.querySelectorAll('.clock-date').forEach(el => el.textContent = dateStr);
+    }, 10000);
+
+    // Initialize
+    startAutoRotate();
+    setFold(0);
+  </script>
+</body>
+</html>

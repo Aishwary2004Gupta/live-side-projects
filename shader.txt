@@ -220,3 +220,888 @@ col*=pow(clamp(c.x*c.y*25.0,0.0,1.0),0.20);
 O=vec4(col,1.0);
 }
 ```
+
+
+Keep your **bookshelf shader as the default** in `index.html`. Below are **four additional shader-only presets**. Paste **one complete shader at a time** into your existing editor. They use the same uniforms; your Pause control works with them, and Reset restores the bookshelf default.
+
+## 1. Neon Mirrored Towers
+
+An infinite mirrored city with cyan/magenta windows and illuminated building edges. Uses ray–box intersections rather than displaced surfaces.
+
+```glsl
+#version 300 es
+precision highp float;
+
+out vec4 O;
+
+uniform float time;
+uniform vec2 resolution;
+uniform vec2 move;
+uniform vec2 wheel;
+
+const float CELL = 1.20;
+const float FAR_DISTANCE = 36.0;
+
+float hash21(vec2 p)
+{
+    vec3 q = fract(vec3(p.x, p.y, p.x) * 0.1031);
+    q += dot(q, q.yzx + 33.33);
+    return fract((q.x + q.y) * q.z);
+}
+
+void main()
+{
+    float mn = max(min(resolution.x, resolution.y), 1.0);
+    vec2 uv = (gl_FragCoord.xy - 0.5 * resolution) / mn;
+
+    float yaw = 0.24 - move.x / mn * 0.55;
+    float pitch = clamp(
+        0.06 + move.y / mn * 0.25,
+        -0.35,
+        0.35
+    );
+
+    vec3 forward = normalize(vec3(
+        sin(yaw),
+        tan(pitch),
+        cos(yaw)
+    ));
+
+    vec3 right = normalize(
+        cross(vec3(0.0, 1.0, 0.0), forward)
+    );
+    vec3 up = cross(forward, right);
+
+    vec3 ro = vec3(
+        0.05,
+        -0.10,
+        -9.0 + time * 0.25 + wheel.y / mn * 2.0
+    );
+
+    vec3 rd = normalize(
+        forward * 1.30 +
+        right * uv.x +
+        up * uv.y
+    );
+
+    // Safe reciprocal direction for ray-box intersections.
+    vec3 raySign = mix(
+        vec3(-1.0),
+        vec3(1.0),
+        step(vec3(0.0), rd)
+    );
+
+    vec3 invDirection =
+        raySign / max(abs(rd), vec3(0.000001));
+
+    // Traverse the infinite XZ grid in ray order.
+    vec2 cell = floor(ro.xz / CELL);
+
+    vec2 nextBoundary =
+        (
+            (cell + step(vec2(0.0), rd.xz)) * CELL -
+            ro.xz
+        ) * invDirection.xz;
+
+    vec2 boundaryStep = CELL * abs(invDirection.xz);
+
+    float entered = 0.0;
+    float hitDistance = FAR_DISTANCE;
+
+    vec3 hitLocal = vec3(0.0);
+    vec3 hitSize = vec3(1.0);
+    vec2 hitID = vec2(0.0);
+
+    bool hit = false;
+
+    for (int i = 0; i < 96; i++)
+    {
+        if (entered > FAR_DISTANCE)
+        {
+            break;
+        }
+
+        vec3 halfSize = vec3(
+            0.20 + 0.15 * hash21(cell),
+            1.45 + 0.55 * hash21(cell + vec2(4.0, 17.0)),
+            0.18 + 0.13 * hash21(cell + vec2(9.0, 3.0))
+        );
+
+        // One tower above and one below the central passage.
+        for (int sideIndex = 0; sideIndex < 2; sideIndex++)
+        {
+            float side = sideIndex == 0 ? -1.0 : 1.0;
+
+            vec3 center = vec3(
+                (cell.x + 0.5) * CELL,
+                side * 2.65,
+                (cell.y + 0.5) * CELL
+            );
+
+            vec3 a =
+                (center - halfSize - ro) * invDirection;
+
+            vec3 b =
+                (center + halfSize - ro) * invDirection;
+
+            vec3 nearPlane = min(a, b);
+            vec3 farPlane = max(a, b);
+
+            float nearT = max(
+                nearPlane.x,
+                max(nearPlane.y, nearPlane.z)
+            );
+
+            float farT = min(
+                farPlane.x,
+                min(farPlane.y, farPlane.z)
+            );
+
+            if (
+                nearT >= 0.0 &&
+                nearT <= farT &&
+                nearT < hitDistance
+            )
+            {
+                hit = true;
+                hitDistance = nearT;
+                hitLocal = ro + rd * nearT - center;
+                hitSize = halfSize;
+                hitID = cell;
+            }
+        }
+
+        if (hit)
+        {
+            break;
+        }
+
+        if (nextBoundary.x < nextBoundary.y)
+        {
+            entered = nextBoundary.x;
+            nextBoundary.x += boundaryStep.x;
+            cell.x += raySign.x;
+        }
+        else
+        {
+            entered = nextBoundary.y;
+            nextBoundary.y += boundaryStep.y;
+            cell.y += raySign.z;
+        }
+    }
+
+    vec3 color = vec3(0.0);
+
+    if (hit)
+    {
+        vec3 relativeFace = abs(hitLocal) / hitSize;
+        vec3 n;
+
+        if (
+            relativeFace.y > relativeFace.x &&
+            relativeFace.y > relativeFace.z
+        )
+        {
+            n = vec3(0.0, sign(hitLocal.y), 0.0);
+        }
+        else if (relativeFace.x > relativeFace.z)
+        {
+            n = vec3(sign(hitLocal.x), 0.0, 0.0);
+        }
+        else
+        {
+            n = vec3(0.0, 0.0, sign(hitLocal.z));
+        }
+
+        vec3 neon = mix(
+            vec3(0.02, 0.72, 1.00),
+            vec3(1.00, 0.045, 0.46),
+            hash21(hitID + vec2(30.0, 8.0))
+        );
+
+        vec3 lightDirection =
+            normalize(vec3(-0.6, 0.9, -0.4));
+
+        float diffuse = max(dot(n, lightDirection), 0.0);
+
+        color = vec3(0.025, 0.032, 0.050) *
+                (0.35 + diffuse * 1.10);
+
+        float footprint = clamp(
+            hitDistance /
+            (
+                mn * 1.30 *
+                max(dot(n, -rd), 0.12)
+            ),
+            0.0001,
+            0.25
+        );
+
+        if (abs(n.y) < 0.5)
+        {
+            float horizontal = abs(n.x) > 0.5
+                ? hitLocal.z
+                : hitLocal.x;
+
+            float halfWidth = abs(n.x) > 0.5
+                ? hitSize.z
+                : hitSize.x;
+
+            vec2 grid = vec2(
+                horizontal + halfWidth,
+                hitLocal.y + hitSize.y
+            ) / vec2(0.085, 0.150);
+
+            vec2 localWindow = abs(fract(grid) - 0.5);
+            vec2 aa = footprint / vec2(0.085, 0.150);
+
+            vec2 windowMask = vec2(1.0) - smoothstep(
+                vec2(0.28, 0.32) - aa,
+                vec2(0.28, 0.32) + aa,
+                localWindow
+            );
+
+            float occupied = step(
+                0.27,
+                hash21(floor(grid) + hitID * 17.0)
+            );
+
+            float windows =
+                windowMask.x * windowMask.y * occupied;
+
+            // Blend subpixel windows toward their average coverage.
+            windows = mix(
+                windows,
+                0.26,
+                smoothstep(0.012, 0.065, footprint)
+            );
+
+            float border = min(
+                halfWidth - abs(horizontal),
+                hitSize.y - abs(hitLocal.y)
+            );
+
+            float edge = 1.0 - smoothstep(
+                0.004,
+                0.004 + footprint * 1.4,
+                border
+            );
+
+            color += neon * (windows * 2.0 + edge * 0.85);
+        }
+        else
+        {
+            float border = min(
+                hitSize.x - abs(hitLocal.x),
+                hitSize.z - abs(hitLocal.z)
+            );
+
+            float edge = 1.0 - smoothstep(
+                0.004,
+                0.004 + footprint,
+                border
+            );
+
+            color += neon * edge * 0.85;
+        }
+
+        color *= exp(-0.004 * hitDistance * hitDistance);
+    }
+
+    color = vec3(1.0) - exp(-color);
+    color = pow(max(color, vec3(0.0)), vec3(0.4545));
+
+    O = vec4(color, 1.0);
+}
+```
+
+## 2. Neon Warp Tunnel
+
+A continuous glowing tunnel with filtered rings and purple structural lines.
+
+```glsl
+#version 300 es
+precision highp float;
+
+out vec4 O;
+
+uniform float time;
+uniform vec2 resolution;
+uniform vec2 move;
+uniform vec2 wheel;
+
+const float TAU = 6.28318530718;
+
+// Box-filtered periodic stripe.
+// Filtering happens before the repeating pattern is sampled.
+float filteredStripe(float coordinate, float duty, float width)
+{
+    width = max(width, 0.0001);
+
+    float a = coordinate - width * 0.5;
+    float b = coordinate + width * 0.5;
+
+    float coverage =
+        (floor(b) - floor(a)) * duty +
+        min(fract(b), duty) -
+        min(fract(a), duty);
+
+    return clamp(coverage / width, 0.0, 1.0);
+}
+
+void main()
+{
+    float mn = max(min(resolution.x, resolution.y), 1.0);
+    vec2 uv = (gl_FragCoord.xy - 0.5 * resolution) / mn;
+
+    uv += clamp(
+        move / mn,
+        vec2(-2.0),
+        vec2(2.0)
+    ) * 0.15;
+
+    vec3 rd = normalize(vec3(uv, 1.20));
+
+    // Analytical intersection with the inside of a cylinder.
+    float radius = 2.40;
+
+    float distanceToWall = min(
+        radius / max(length(rd.xy), 0.000001),
+        80.0
+    );
+
+    vec3 p = rd * distanceToWall;
+
+    float angle = atan(p.y, p.x + 0.000001);
+    float angularCoordinate = angle / TAU * 16.0;
+
+    float lengthCoordinate =
+        (
+            p.z +
+            time * 2.80 +
+            wheel.y / mn * 4.0
+        ) / 1.35;
+
+    // Angular footprint avoids differentiating across atan's seam.
+    float angularWidth = max(
+        length(fwidth(p.xy)) /
+        max(length(p.xy), 0.001) *
+        16.0 / TAU,
+        0.0001
+    );
+
+    float lengthWidth = max(
+        fwidth(lengthCoordinate),
+        0.0001
+    );
+
+    float rings = filteredStripe(
+        lengthCoordinate + 0.025,
+        0.050,
+        lengthWidth
+    );
+
+    float ribs = filteredStripe(
+        angularCoordinate + 0.014,
+        0.028,
+        angularWidth
+    );
+
+    float ringDistance =
+        abs(fract(lengthCoordinate + 0.5) - 0.5);
+
+    float ringGlow = exp(-18.0 * ringDistance);
+
+    ringGlow = mix(
+        ringGlow,
+        0.111,
+        smoothstep(0.05, 0.80, lengthWidth)
+    );
+
+    float ribDistance =
+        abs(fract(angularCoordinate + 0.5) - 0.5);
+
+    float ribGlow = exp(-22.0 * ribDistance);
+
+    ribGlow = mix(
+        ribGlow,
+        0.091,
+        smoothstep(0.05, 0.80, angularWidth)
+    );
+
+    vec3 ringColor = mix(
+        vec3(0.015, 0.85, 1.00),
+        vec3(1.00, 0.03, 0.40),
+        0.5 + 0.5 * sin(
+            lengthCoordinate * 0.35 - time * 0.20
+        )
+    );
+
+    vec3 ribColor = vec3(0.40, 0.045, 1.00);
+
+    vec3 color = vec3(0.006, 0.009, 0.020);
+
+    color += ringColor * (rings * 2.80 + ringGlow * 0.22);
+    color += ribColor * (ribs * 2.00 + ribGlow * 0.15);
+
+    float fade =
+        exp(-0.045 * distanceToWall) *
+        (1.0 - smoothstep(55.0, 80.0, distanceToWall));
+
+    color *= fade;
+
+    color = vec3(1.0) - exp(-color * 1.25);
+    color = pow(max(color, vec3(0.0)), vec3(0.4545));
+
+    O = vec4(color, 1.0);
+}
+```
+
+## 3. Liquid Chrome
+
+A slowly morphing metallic sculpture with procedural studio-light reflections. Drag to orbit; scroll to change viewing distance.
+
+```glsl
+#version 300 es
+precision highp float;
+
+out vec4 O;
+
+uniform float time;
+uniform vec2 resolution;
+uniform vec2 move;
+uniform vec2 wheel;
+
+const float TAU = 6.28318530718;
+
+float smoothUnion(float a, float b, float radius)
+{
+    float h = clamp(
+        0.5 + 0.5 * (b - a) / radius,
+        0.0,
+        1.0
+    );
+
+    return mix(b, a, h) - radius * h * (1.0 - h);
+}
+
+float scene(vec3 p)
+{
+    float d = length(p) - 0.72;
+
+    for (int i = 0; i < 5; i++)
+    {
+        float index = float(i);
+        float angle = index * TAU / 5.0 + time * 0.30;
+
+        vec3 center = vec3(
+            cos(angle) * 0.83,
+            sin(angle * 1.7 + time * 0.25) * 0.43,
+            sin(angle) * 0.83
+        );
+
+        float radius =
+            0.40 + 0.055 * sin(time * 0.70 + index);
+
+        d = smoothUnion(
+            d,
+            length(p - center) - radius,
+            0.28
+        );
+    }
+
+    return d;
+}
+
+vec3 normalAt(vec3 p)
+{
+    vec2 e = vec2(0.001, 0.0);
+
+    return normalize(vec3(
+        scene(p + e.xyy) - scene(p - e.xyy),
+        scene(p + e.yxy) - scene(p - e.yxy),
+        scene(p + e.yyx) - scene(p - e.yyx)
+    ));
+}
+
+// Procedural environment reflected by the metal.
+vec3 environment(vec3 direction)
+{
+    float sky = smoothstep(-0.6, 0.8, direction.y);
+
+    vec3 color = mix(
+        vec3(0.012, 0.016, 0.025),
+        vec3(0.080, 0.110, 0.160),
+        sky
+    );
+
+    vec3 keyDirection =
+        normalize(vec3(-0.45, 0.75, -0.60));
+
+    float key = pow(
+        max(dot(direction, keyDirection), 0.0),
+        48.0
+    );
+
+    color += vec3(4.0, 3.8, 3.4) * key;
+
+    float strip = exp(
+        -pow((direction.x - 0.25) * 14.0, 2.0)
+    );
+
+    strip *= smoothstep(-0.30, 0.40, direction.y);
+
+    color += vec3(1.5, 1.8, 2.3) * strip;
+
+    float cyan = pow(
+        max(
+            dot(direction, normalize(vec3(0.8, 0.2, -0.5))),
+            0.0
+        ),
+        14.0
+    );
+
+    float orange = pow(
+        max(
+            dot(direction, normalize(vec3(-0.7, 0.1, -0.8))),
+            0.0
+        ),
+        18.0
+    );
+
+    color += vec3(0.08, 0.90, 1.80) * cyan;
+    color += vec3(1.80, 0.48, 0.12) * orange;
+
+    return color;
+}
+
+vec3 renderSample(vec2 uv, float mn)
+{
+    float yaw = 0.60 + time * 0.12 - move.x / mn;
+
+    float pitch = clamp(
+        0.15 + move.y / mn * 0.6,
+        -0.80,
+        0.80
+    );
+
+    float cameraDistance = clamp(
+        4.50 + wheel.y / mn * 1.20,
+        2.80,
+        7.50
+    );
+
+    vec3 ro = cameraDistance * vec3(
+        sin(yaw) * cos(pitch),
+        sin(pitch),
+        -cos(yaw) * cos(pitch)
+    );
+
+    vec3 forward = normalize(-ro);
+    vec3 right = normalize(
+        cross(vec3(0.0, 1.0, 0.0), forward)
+    );
+    vec3 up = cross(forward, right);
+
+    vec3 rd = normalize(
+        forward * 1.40 +
+        right * uv.x +
+        up * uv.y
+    );
+
+    // Start tracing at a bounding sphere around the sculpture.
+    float b = dot(ro, rd);
+    float discriminant = b * b - dot(ro, ro) + 4.0;
+
+    if (discriminant < 0.0)
+    {
+        return vec3(0.0);
+    }
+
+    float root = sqrt(discriminant);
+    float t = max(0.0, -b - root);
+    float endT = -b + root;
+
+    bool hit = false;
+    vec3 p = ro;
+
+    for (int i = 0; i < 112; i++)
+    {
+        if (t > endT)
+        {
+            break;
+        }
+
+        p = ro + rd * t;
+        float d = scene(p);
+
+        if (d < 0.0007)
+        {
+            hit = true;
+            break;
+        }
+
+        t += d * 0.85;
+    }
+
+    if (!hit)
+    {
+        return vec3(0.0);
+    }
+
+    vec3 n = normalAt(p);
+    vec3 reflected = reflect(rd, n);
+
+    float facing = clamp(dot(n, -rd), 0.0, 1.0);
+    float fresnel = pow(1.0 - facing, 5.0);
+
+    vec3 color = environment(reflected);
+    color *= vec3(0.90, 0.96, 1.0);
+    color *= 0.72 + 0.28 * fresnel;
+
+    float fill = max(
+        dot(n, normalize(vec3(-0.4, 0.9, -0.6))),
+        0.0
+    );
+
+    color += vec3(0.035) * fill;
+
+    return color;
+}
+
+void main()
+{
+    float mn = max(min(resolution.x, resolution.y), 1.0);
+    vec2 uv = (gl_FragCoord.xy - 0.5 * resolution) / mn;
+
+    // Two spatial samples soften silhouette aliasing.
+    vec2 offset = vec2(0.25) / mn;
+
+    vec3 color = 0.5 * (
+        renderSample(uv - offset, mn) +
+        renderSample(uv + offset, mn)
+    );
+
+    color = vec3(1.0) - exp(-color * 1.25);
+    color = pow(max(color, vec3(0.0)), vec3(0.4545));
+
+    O = vec4(color, 1.0);
+}
+```
+
+## 4. Cosmic Nebula
+
+Slow-moving blue and magenta clouds with layered, gently twinkling stars. No textures are required.
+
+```glsl
+#version 300 es
+precision highp float;
+
+out vec4 O;
+
+uniform float time;
+uniform vec2 resolution;
+uniform vec2 move;
+uniform vec2 wheel;
+
+const float TAU = 6.28318530718;
+
+float hash21(vec2 p)
+{
+    vec3 q = fract(vec3(p.x, p.y, p.x) * 0.1031);
+    q += dot(q, q.yzx + 33.33);
+    return fract((q.x + q.y) * q.z);
+}
+
+vec2 hash22(vec2 p)
+{
+    return vec2(
+        hash21(p),
+        hash21(p + vec2(17.13, 91.71))
+    );
+}
+
+float noise2(vec2 p)
+{
+    vec2 cell = floor(p);
+    vec2 local = fract(p);
+
+    vec2 u = local * local * (3.0 - 2.0 * local);
+
+    float a = hash21(cell);
+    float b = hash21(cell + vec2(1.0, 0.0));
+    float c = hash21(cell + vec2(0.0, 1.0));
+    float d = hash21(cell + vec2(1.0, 1.0));
+
+    return mix(
+        mix(a, b, u.x),
+        mix(c, d, u.x),
+        u.y
+    );
+}
+
+float fbm(vec2 p)
+{
+    float value = 0.0;
+    float amplitude = 0.5;
+
+    mat2 rotation = mat2(
+         0.80, 0.60,
+        -0.60, 0.80
+    );
+
+    for (int i = 0; i < 5; i++)
+    {
+        value += amplitude * noise2(p);
+        p = rotation * p * 2.03 + vec2(13.1, 17.7);
+        amplitude *= 0.5;
+    }
+
+    return value;
+}
+
+vec3 starLayer(
+    vec2 uv,
+    float gridSize,
+    float layer,
+    float pixelFootprint
+)
+{
+    vec2 p = uv * gridSize;
+
+    p += vec2(
+        time * 0.035 * layer,
+        time * 0.014 * layer
+    );
+
+    vec2 cell = floor(p);
+    vec2 local = fract(p);
+
+    float pixel = gridSize * pixelFootprint;
+    vec3 color = vec3(0.0);
+
+    // Include adjacent cells so stars do not clip at cell edges.
+    for (int y = -1; y <= 1; y++)
+    {
+        for (int x = -1; x <= 1; x++)
+        {
+            vec2 offset = vec2(float(x), float(y));
+            vec2 id = cell + offset;
+
+            vec2 randomValue = hash22(
+                id + vec2(layer * 37.0, layer * 19.0)
+            );
+
+            vec2 center =
+                offset + vec2(0.15) + randomValue * 0.70;
+
+            vec2 delta = local - center;
+
+            float brightness = smoothstep(
+                0.76,
+                1.0,
+                hash21(id + vec2(layer * 53.0, 8.0))
+            );
+
+            float radius =
+                0.018 + 0.020 * pow(randomValue.x, 8.0);
+
+            // Approximate pixel filtering with energy compensation.
+            float widthSquared =
+                radius * radius + pixel * pixel * 0.5;
+
+            float star = exp(
+                -dot(delta, delta) / widthSquared
+            );
+
+            star *= radius * radius / widthSquared;
+
+            float twinkle =
+                0.85 + 0.15 * sin(
+                    time * (0.7 + 1.4 * randomValue.y) +
+                    randomValue.x * TAU
+                );
+
+            vec3 starColor = mix(
+                vec3(0.65, 0.80, 1.00),
+                vec3(1.00, 0.73, 0.40),
+                randomValue.y
+            );
+
+            color +=
+                starColor *
+                star *
+                brightness *
+                twinkle *
+                8.0;
+        }
+    }
+
+    return color;
+}
+
+void main()
+{
+    float mn = max(min(resolution.x, resolution.y), 1.0);
+    vec2 uv = (gl_FragCoord.xy - 0.5 * resolution) / mn;
+
+    float zoom = exp(
+        clamp(wheel.y / mn, -3.0, 3.0) * 0.20
+    );
+
+    uv *= zoom;
+    uv += move / mn * 0.25;
+
+    vec2 p = uv * 3.0 + vec2(time * 0.012, 0.0);
+    float t = time * 0.035;
+
+    vec2 warp = vec2(
+        fbm(p + vec2(0.0, t)),
+        fbm(p + vec2(5.2, -t))
+    );
+
+    float cloud = fbm(
+        p + warp * 3.0 + vec2(t * 0.2, 0.0)
+    );
+
+    float density = pow(
+        smoothstep(0.28, 0.75, cloud),
+        2.0
+    );
+
+    float cloudBand = exp(
+        -pow(uv.y * 1.2 + uv.x * 0.25, 2.0)
+    );
+
+    vec3 cloudColor = mix(
+        vec3(0.025, 0.040, 0.230),
+        vec3(0.420, 0.035, 0.160),
+        smoothstep(0.30, 0.70, warp.y)
+    );
+
+    vec3 color =
+        cloudColor * density * cloudBand * 2.30;
+
+    float brightCloud = pow(
+        max(cloud - 0.45, 0.0),
+        2.0
+    );
+
+    color +=
+        vec3(0.07, 0.24, 0.45) *
+        brightCloud *
+        cloudBand *
+        4.0;
+
+    float pixelFootprint = zoom / mn;
+
+    color += starLayer(uv, 18.0, 1.0, pixelFootprint);
+    color += starLayer(uv, 34.0, 2.0, pixelFootprint) * 0.75;
+    color += starLayer(uv, 58.0, 3.0, pixelFootprint) * 0.50;
+
+    color = vec3(1.0) - exp(-color * 1.35);
+    color = pow(max(color, vec3(0.0)), vec3(0.4545));
+
+    O = vec4(color, 1.0);
+}
+```

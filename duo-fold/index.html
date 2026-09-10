@@ -1,534 +1,261 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Foldable UI Concept</title>
-    <style>
-        /* --- Base Styles --- */
-        :root {
-            --bg-color: #ffffff;
-            --panel-bg: #f0f2fa;
-            --btn-bg: #f0f2fa;
-            --text-main: #111;
-            --text-muted: #666;
-            --blue-accent: #0066cc;
-            --slider-bg: #d1d1d6;
-            --phone-border: #444;
-            --screen-bg: #eaddc5;
-        }
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Duo Studio — Make it yours</title>
+  <meta name="description" content="Explore the fold. Add your own wallpaper and play with iPhone Duo in 3D.">
 
-        body {
-            margin: 0;
-            padding: 0;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            background-color: var(--bg-color);
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
-            overflow: hidden;
-        }
+  <!-- Favicon -->
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📱</text></svg>">
 
-        .container {
-            display: flex;
-            gap: 80px;
-            align-items: center;
-            width: 100%;
-            max-width: 1200px;
-            padding: 20px;
-        }
+  <!-- Stylesheet -->
+  <link rel="stylesheet" href="./css/style.css">
 
-        /* --- Left Side: Controls --- */
-        .controls {
-            flex: 1;
-            max-width: 400px;
-            display: flex;
-            flex-direction: column;
-            gap: 16px;
-        }
+  <!-- Three.js Import Map -->
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.min.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+    }
+  }
+  </script>
 
-        .info-card {
-            background-color: var(--panel-bg);
-            padding: 24px;
-            border-radius: 24px;
-            margin-bottom: 8px;
-        }
-
-        .info-card h2 {
-            font-size: 16px;
-            font-weight: 500;
-            margin: 0 0 8px 0;
-            line-height: 1.4;
-            color: var(--text-main);
-        }
-
-        .info-card p {
-            font-size: 13px;
-            color: var(--text-muted);
-            margin: 0 0 16px 0;
-        }
-
-        /* Custom Slider */
-        .slider-container {
-            position: relative;
-            width: 100%;
-            height: 32px;
-        }
-
-        input[type="range"] {
-            -webkit-appearance: none;
-            width: 100%;
-            height: 12px;
-            background: var(--slider-bg);
-            border-radius: 6px;
-            outline: none;
-            position: absolute;
-            top: 50%;
-            transform: translateY(-50%);
-            margin: 0;
-            z-index: 1;
-        }
-
-        /* The filled track */
-        .slider-progress {
-            position: absolute;
-            top: 50%;
-            left: 0;
-            height: 12px;
-            background: var(--blue-accent);
-            border-radius: 6px;
-            transform: translateY(-50%);
-            z-index: 1;
-            pointer-events: none;
-            width: 15%; /* Initial width */
-        }
-
-        input[type="range"]::-webkit-slider-thumb {
-            -webkit-appearance: none;
-            appearance: none;
-            width: 32px;
-            height: 32px;
-            border-radius: 50%;
-            background: var(--blue-accent);
-            cursor: grab;
-            position: relative;
-            z-index: 2;
-            /* Center the hand icon */
-            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M18 11V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v5'/%3E%3Cpath d='M14 10V4a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v6'/%3E%3Cpath d='M10 10.5V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v8'/%3E%3Cpath d='M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15'/%3E%3C/svg%3E");
-            background-repeat: no-repeat;
-            background-position: center;
-        }
-
-        input[type="range"]::-webkit-slider-thumb:active {
-            cursor: grabbing;
-        }
-
-        /* Option Buttons */
-        .btn-list {
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-        }
-
-        .option-btn {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            background-color: var(--btn-bg);
-            border: none;
-            padding: 12px 20px;
-            border-radius: 30px;
-            font-size: 15px;
-            font-weight: 500;
-            color: var(--text-main);
-            cursor: pointer;
-            transition: background-color 0.2s, transform 0.1s;
-            text-align: left;
-            width: fit-content;
-            min-width: 150px;
-        }
-
-        .option-btn:hover {
-            background-color: #e4e6f0;
-        }
-        
-        .option-btn:active {
-            transform: scale(0.98);
-        }
-
-        .option-btn.active {
-            background-color: #e4e6f0;
-            box-shadow: inset 0 0 0 2px var(--blue-accent);
-        }
-
-        .icon-circle {
-            width: 20px;
-            height: 20px;
-            border-radius: 50%;
-            border: 1.5px solid var(--text-main);
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            font-size: 16px;
-            line-height: 1;
-            padding-bottom: 2px; /* visual adjustment */
-        }
-
-        /* --- Right Side: Phone Mockup --- */
-        .phone-stage {
-            flex: 1;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            perspective: 1000px;
-        }
-
-        .phone {
-            position: relative;
-            width: 320px;
-            height: 680px;
-            transition: width 0.6s cubic-bezier(0.25, 1, 0.5, 1);
-            /* Using drop-shadow to follow the border-radius */
-            filter: drop-shadow(0 20px 30px rgba(0,0,0,0.15));
-        }
-
-        /* The physical frame */
-        .phone-frame {
-            position: absolute;
-            inset: 0;
-            border: 6px solid var(--phone-border);
-            border-radius: 40px;
-            background: #000;
-            overflow: hidden;
-            box-shadow: 
-                inset 0 0 0 2px #666,
-                inset 0 0 0 4px #222;
-            transition: border-radius 0.6s cubic-bezier(0.25, 1, 0.5, 1);
-        }
-
-        /* The visible screen */
-        .screen {
-            position: absolute;
-            inset: 0;
-            border-radius: 34px; /* slightly smaller than frame */
-            overflow: hidden;
-            background: linear-gradient(to bottom, #a9c2d9 0%, #eaddc5 40%, #8a6c54 70%, #3d2f27 100%);
-            transition: border-radius 0.6s cubic-bezier(0.25, 1, 0.5, 1);
-        }
-
-        /* --- Screen Content (Lock Screen UI) --- */
-        .lockscreen-ui {
-            position: absolute;
-            inset: 0;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            color: white;
-            padding: 40px 20px;
-            text-shadow: 0 2px 10px rgba(0,0,0,0.3);
-        }
-
-        .date {
-            font-size: 14px;
-            font-weight: 600;
-            margin-top: 20px;
-            letter-spacing: 0.5px;
-        }
-
-        .time {
-            font-size: 84px;
-            font-weight: 500;
-            line-height: 1;
-            margin-top: 5px;
-            letter-spacing: -2px;
-        }
-
-        /* Dynamic Island */
-        .dynamic-island {
-            position: absolute;
-            top: 15px;
-            right: 20px;
-            width: 28px;
-            height: 28px;
-            background: black;
-            border-radius: 50%;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            box-shadow: inset 0 0 4px rgba(255,255,255,0.2);
-            transition: all 0.6s cubic-bezier(0.25, 1, 0.5, 1);
-            z-index: 10;
-        }
-
-        /* Camera dot inside island */
-        .camera-lens {
-            width: 10px;
-            height: 10px;
-            background: #111;
-            border-radius: 50%;
-            box-shadow: inset 0 0 2px #333;
-            position: relative;
-            left: 2px;
-        }
-
-        .wifi-icon {
-            position: absolute;
-            top: 25px;
-            right: 25px;
-            font-size: 18px;
-            opacity: 0.8;
-        }
-
-        /* Bottom Controls */
-        .bottom-controls {
-            position: absolute;
-            bottom: 20px;
-            right: 20px;
-            display: flex;
-            flex-direction: column;
-            gap: 15px;
-        }
-
-        .control-btn {
-            width: 40px;
-            height: 40px;
-            background: rgba(255,255,255,0.15);
-            backdrop-filter: blur(10px);
-            -webkit-backdrop-filter: blur(10px);
-            border-radius: 50%;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            color: white;
-        }
-
-        .control-btn svg {
-            width: 20px;
-            height: 20px;
-            fill: currentColor;
-        }
-
-        /* Home Indicator */
-        .home-indicator {
-            position: absolute;
-            bottom: 8px;
-            left: 50%;
-            transform: translateX(-50%);
-            width: 120px;
-            height: 4px;
-            background: rgba(255,255,255,0.8);
-            border-radius: 2px;
-        }
-
-        /* Background Mountains SVG layer */
-        .mountains-svg {
-            position: absolute;
-            bottom: 0;
-            left: 0;
-            width: 100%;
-            height: 50%;
-            z-index: -1;
-        }
-
-
-        /* --- States: Folded --- */
-        .phone.folded {
-            width: 160px;
-        }
-
-        .phone.folded .phone-frame {
-            border-radius: 30px;
-            border-right-width: 12px; /* Thicker hinge side */
-            box-shadow: 
-                inset 0 0 0 2px #666,
-                inset 0 0 0 4px #222,
-                5px 0 10px rgba(0,0,0,0.2); /* Shadow indicating depth */
-        }
-
-        .phone.folded .screen {
-            border-radius: 24px;
-            border-top-right-radius: 5px;
-            border-bottom-right-radius: 5px;
-        }
-
-        /* Hide elements on folded screen */
-        .phone.folded .wifi-icon,
-        .phone.folded .bottom-controls,
-        .phone.folded .home-indicator {
-            opacity: 0;
-            pointer-events: none;
-            transition: opacity 0.2s;
-        }
-
-        .phone.folded .time {
-            font-size: 60px;
-            transform: translateX(-15px); /* visually center in remaining space */
-        }
-
-        .phone.folded .date {
-            font-size: 12px;
-            transform: translateX(-15px);
-            white-space: nowrap;
-        }
-
-        /* Change Dynamic Island to Camera Hole when folded */
-        .phone.folded .dynamic-island {
-            top: 15px;
-            right: 50%;
-            transform: translateX(50%);
-            width: 22px;
-            height: 22px;
-            border-radius: 50%;
-            background: #000;
-            box-shadow: inset 0 0 0 1px #333;
-        }
-        
-        /* Remove camera lens styling in hole punch mode, make it look like a hole */
-        .phone.folded .camera-lens {
-            width: 12px;
-            height: 12px;
-            background: #050505;
-            box-shadow: inset 0 0 4px #000;
-            left: 0;
-        }
-
-        /* Adjust mountain background for folded state */
-        .phone.folded .mountains-svg {
-            width: 150%; /* Keep background looking natural */
-            transform: translateX(-20%);
-        }
-
-    </style>
+  <!-- Failsafe: hide loader after 8s even if modules fail -->
+  <script>
+    setTimeout(function() {
+      var el = document.getElementById('loadingOverlay');
+      if (el) { el.classList.add('fade-out'); setTimeout(function(){ el.remove(); }, 600); }
+    }, 8000);
+  </script>
 </head>
 <body>
 
-<div class="container">
-    <!-- Left Side: Controls -->
-    <div class="controls">
-        <div class="info-card">
-            <h2>Foldable design. Offers exceptional viewing experiences in a design that fits in your pocket.</h2>
-            <p>Drag below to open and close</p>
-            
-            <div class="slider-container">
-                <div class="slider-progress" id="sliderProgress"></div>
-                <input type="range" min="0" max="100" value="100" id="foldSlider">
-            </div>
-        </div>
+  <!-- Loading Overlay -->
+  <div id="loadingOverlay" class="loading-overlay">
+    <div class="spinner"></div>
+    <div class="loading-text">Loading iPhone Duo 3D Model…</div>
+  </div>
 
-        <div class="btn-list">
-            <button class="option-btn" onclick="setFoldState('open')"><span class="icon-circle">+</span> Landscape</button>
-            <button class="option-btn" onclick="setFoldState('open')"><span class="icon-circle">+</span> Portrait</button>
-            <button class="option-btn" onclick="setFoldState('closed')"><span class="icon-circle">+</span> Closed</button>
-            <button class="option-btn" onclick="setFoldState('open')"><span class="icon-circle">+</span> Seated</button>
-            <button class="option-btn" onclick="setFoldState('open')"><span class="icon-circle">+</span> Standing</button>
-            <button class="option-btn" onclick="setFoldState('open')"><span class="icon-circle">+</span> Durability</button>
-        </div>
+  <!-- Top Navigation Pill -->
+  <div class="top-nav">
+    <button id="toggleTourBtn" class="mode-toggle-btn active" title="Toggle Concept Tour View">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M12 3v18"/></svg>
+      Concept Tour
+    </button>
+    <button id="toggleStudioBtn" class="mode-toggle-btn active" title="Toggle Studio Control Panel">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+      Studio Controls
+    </button>
+  </div>
+
+  <!-- 3D Canvas Viewport -->
+  <div id="viewport" class="viewport" aria-label="iPhone Duo 3D playground. Drop an image to customize the screens."></div>
+
+  <!-- Hidden Image File Input -->
+  <input id="screenFileInput" type="file" hidden accept="image/png,image/jpeg,image/webp,image/avif" aria-label="Custom screen image">
+
+  <!-- ========================================================
+       SHOWCASE TOUR PANEL (Screenshot 1)
+       ======================================================== -->
+  <div id="tourPanel" class="showcase-tour-container">
+    <div class="showcase-card">
+      <h2>Foldable design. Offers exceptional viewing experiences in a design that fits in your pocket.</h2>
+      <p>Drag below to open and close</p>
+      
+      <!-- Custom Pill Slider with < > -->
+      <div class="tour-slider-container">
+        <div class="tour-slider-track"></div>
+        <div id="tourSliderFill" class="tour-slider-fill"></div>
+        <input id="tourFoldSlider" class="tour-range-input" type="range" min="0" max="100" value="70">
+      </div>
     </div>
 
-    <!-- Right Side: Phone Mockup -->
-    <div class="phone-stage">
-        <div class="phone" id="phone">
-            <div class="phone-frame">
-                <div class="screen">
-                    
-                    <!-- Background Graphic (Abstract Mountains) -->
-                    <svg class="mountains-svg" preserveAspectRatio="none" viewBox="0 0 100 100">
-                        <path d="M0,100 L0,50 Q20,40 40,60 T80,40 L100,50 L100,100 Z" fill="#4a5d4e" opacity="0.8"/>
-                        <path d="M0,100 L0,70 Q30,50 60,80 T100,60 L100,100 Z" fill="#2b3830" opacity="0.9"/>
-                        <path d="M-20,100 L20,60 Q50,30 80,70 L120,100 Z" fill="#d4c2a3" opacity="0.4"/>
-                    </svg>
-
-                    <!-- Lock Screen UI Elements -->
-                    <div class="lockscreen-ui">
-                        <div class="date">Wed Apr 1</div>
-                        <div class="time">9:41</div>
-                        
-                        <div class="wifi-icon">
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                <path d="M5 12.55a11 11 0 0 1 14.08 0"></path>
-                                <path d="M1.42 9a16 16 0 0 1 21.16 0"></path>
-                                <path d="M8.53 16.11a6 6 0 0 1 6.95 0"></path>
-                                <line x1="12" y1="20" x2="12.01" y2="20"></line>
-                            </svg>
-                        </div>
-
-                        <div class="bottom-controls">
-                            <div class="control-btn">
-                                <!-- Flashlight Icon -->
-                                <svg viewBox="0 0 24 24"><path d="M6 2h12v4l-2 4v10a2 2 0 0 1-2 2h-4a2 2 0 0 1-2-2V10L6 6V2zm2 2v2h8V4H8zm0 4l2 4v8h4v-8l2-4H8z"/></svg>
-                            </div>
-                            <div class="control-btn">
-                                <!-- Camera Icon -->
-                                <svg viewBox="0 0 24 24"><path d="M4 4h3l2-2h6l2 2h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zm8 3a5 5 0 1 0 0 10 5 5 0 0 0 0-10zm0 2a3 3 0 1 1 0 6 3 3 0 0 1 0-6z"/></svg>
-                            </div>
-                        </div>
-
-                        <div class="home-indicator"></div>
-                    </div>
-
-                    <!-- Dynamic Island / Camera Cutout -->
-                    <div class="dynamic-island">
-                        <div class="camera-lens"></div>
-                    </div>
-
-                </div>
-            </div>
-        </div>
+    <!-- Quick Preset Buttons with + Icon -->
+    <div class="tour-btn-list">
+      <button class="tour-btn active" data-preset="landscape">
+        <span class="tour-btn-icon">+</span> Landscape
+      </button>
+      <button class="tour-btn" data-preset="portrait">
+        <span class="tour-btn-icon">+</span> Portrait
+      </button>
+      <button class="tour-btn" data-preset="closed">
+        <span class="tour-btn-icon">+</span> Closed
+      </button>
+      <button class="tour-btn" data-preset="seated">
+        <span class="tour-btn-icon">+</span> Seated
+      </button>
+      <button class="tour-btn" data-preset="standing">
+        <span class="tour-btn-icon">+</span> Standing
+      </button>
+      <button class="tour-btn" data-preset="durability">
+        <span class="tour-btn-icon">+</span> Durability
+      </button>
     </div>
-</div>
+  </div>
 
-<script>
-    const slider = document.getElementById('foldSlider');
-    const sliderProgress = document.getElementById('sliderProgress');
-    const phone = document.getElementById('phone');
-    
-    // We map the slider value (0-100) to the CSS width (160px - 320px)
-    const minWidth = 160;
-    const maxWidth = 320;
+  <!-- ========================================================
+       DIALKIT STUDIO PANEL (Screenshot 2)
+       ======================================================== -->
+  <div id="studioPanel" class="studio-panel-container">
+    <div class="studio-panel-card">
+      <!-- Header -->
+      <div class="panel-header-row">
+        <span class="panel-title">iPhone Duo</span>
+        <button id="toggleTimelineBtn" class="panel-icon-btn" title="Toggle Timeline">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg>
+        </button>
+      </div>
 
-    function updateSliderVisuals(value) {
-        // Update progress bar width
-        sliderProgress.style.width = `${value}%`;
-        
-        // Calculate phone width
-        const currentWidth = minWidth + ((maxWidth - minWidth) * (value / 100));
-        phone.style.width = `${currentWidth}px`;
+      <!-- Preset Bar -->
+      <div class="preset-bar">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="opacity:0.6"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="15" y2="12"/><line x1="3" y1="18" x2="9" y2="18"/></svg>
+        <div class="preset-dropdown">
+          <span>Version 1</span>
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+        </div>
+        <div class="preset-tools">
+          <button id="copyConfigBtn" class="small-tool-btn" title="Copy Settings">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+          </button>
+        </div>
+      </div>
 
-        // Add 'folded' class if slider is less than 50% to trigger specific layout changes
-        if (value < 50) {
-            phone.classList.add('folded');
-        } else {
-            phone.classList.remove('folded');
-        }
-    }
+      <!-- Fold Angle Control -->
+      <div class="control-row">
+        <div class="control-label-row">
+          <span>Fold Angle</span>
+          <input id="foldAngleInput" class="numeric-box" type="text" value="126.0">
+        </div>
+        <input id="foldAngleSlider" class="dialkit-range" type="range" min="0" max="180" step="0.1" value="126">
+      </div>
 
-    // Initialize on load
-    updateSliderVisuals(slider.value);
+      <!-- Play / Pause Buttons -->
+      <button id="playActionBtn" class="action-btn-main">Play fold / unfold</button>
+      <button id="pauseActionBtn" class="action-btn-main">Pause</button>
 
-    // Listen for slider dragging
-    slider.addEventListener('input', (e) => {
-        updateSliderVisuals(e.target.value);
-        
-        // Remove active states from buttons when manually sliding
-        document.querySelectorAll('.option-btn').forEach(btn => btn.classList.remove('active'));
-    });
+      <!-- Section: Images -->
+      <div class="section-group">
+        <div class="section-header">
+          <span class="section-title">Images</span>
+          <svg class="section-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+        </div>
+        <div class="section-content">
+          <div class="select-row">
+            <span style="color:rgba(255,255,255,0.7); font-weight:500;">Display</span>
+            <select id="displaySelect" class="custom-select">
+              <option value="both">Both Displays</option>
+              <option value="inner">Inner Display</option>
+              <option value="outer">Outer Display</option>
+            </select>
+          </div>
 
-    // Function for buttons to set predefined states
-    function setFoldState(state) {
-        // Highlight button
-        document.querySelectorAll('.option-btn').forEach(btn => btn.classList.remove('active'));
-        event.currentTarget.classList.add('active');
+          <button id="chooseImageBtn" class="action-btn-main">Choose image…</button>
+          <button id="restoreWallpapersBtn" class="action-btn-main">Restore wallpapers</button>
 
-        if (state === 'closed') {
-            slider.value = 0;
-            updateSliderVisuals(0);
-        } else if (state === 'open') {
-            slider.value = 100;
-            updateSliderVisuals(100);
-        }
-    }
-</script>
+          <div class="select-row">
+            <span style="color:rgba(255,255,255,0.7); font-weight:500;">Fit</span>
+            <select id="fitSelect" class="custom-select">
+              <option value="Cover">Cover</option>
+              <option value="Contain">Contain</option>
+            </select>
+          </div>
 
+          <div class="select-row">
+            <span style="color:rgba(255,255,255,0.7); font-weight:500;">Clock</span>
+            <div class="segmented-control">
+              <button id="clockOffBtn" class="segmented-btn">Off</button>
+              <button id="clockOnBtn" class="segmented-btn active">On</button>
+            </div>
+          </div>
+
+          <div class="control-row">
+            <div class="control-label-row">
+              <span>Brightness</span>
+              <input id="brightnessInput" class="numeric-box" type="text" value="1.0">
+            </div>
+            <input id="brightnessSlider" class="dialkit-range" type="range" min="0.25" max="2.0" step="0.05" value="1.0">
+          </div>
+        </div>
+      </div>
+
+      <!-- Section: Studio -->
+      <div class="section-group">
+        <div class="section-header">
+          <span class="section-title">Studio</span>
+          <svg class="section-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+        </div>
+        <div class="section-content">
+          <div class="control-row">
+            <div class="control-label-row">
+              <span>Exposure</span>
+              <input id="exposureInput" class="numeric-box" type="text" value="1.0">
+            </div>
+            <input id="exposureSlider" class="dialkit-range" type="range" min="0.2" max="3.0" step="0.05" value="1.0">
+          </div>
+
+          <div class="color-picker-row">
+            <span style="color:rgba(255,255,255,0.7); font-size:12px; font-weight:500;">Background</span>
+            <div class="color-picker-wrapper">
+              <span id="colorHexLabel" class="color-hex-label">#FFFFFF</span>
+              <div id="colorSwatch" class="color-swatch-box" style="background-color:#FFFFFF;">
+                <input id="bgColorInput" class="native-color-input" type="color" value="#ffffff">
+              </div>
+            </div>
+          </div>
+
+          <div class="select-row">
+            <span style="color:rgba(255,255,255,0.7); font-weight:500;">Wireframe</span>
+            <div class="segmented-control">
+              <button id="wireframeOffBtn" class="segmented-btn active">Off</button>
+              <button id="wireframeOnBtn" class="segmented-btn">On</button>
+            </div>
+          </div>
+
+          <div class="select-row">
+            <span style="color:rgba(255,255,255,0.7); font-weight:500;">Auto rotate</span>
+            <div class="segmented-control">
+              <button id="autoRotateOffBtn" class="segmented-btn active">Off</button>
+              <button id="autoRotateOnBtn" class="segmented-btn">On</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Section: Camera -->
+      <div class="section-group">
+        <div class="section-header">
+          <span class="section-title">Camera</span>
+          <svg class="section-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+        </div>
+        <div class="section-content">
+          <button id="cameraResetBtn" class="action-btn-main">Reset camera</button>
+          <button id="cameraFrontBtn" class="action-btn-main">Front</button>
+          <button id="cameraBackBtn" class="action-btn-main">Back</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bottom Timeline Dock -->
+  <div id="timelineDock" class="timeline-dock">
+    <button id="timelinePlayBtn" class="timeline-play-btn" title="Play/Pause">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+    </button>
+    <input id="timelineScrubber" class="dialkit-range timeline-scrubber" type="range" min="0" max="180" step="0.1" value="126">
+    <span id="timelineTime">1.40s</span>
+  </div>
+
+  <!-- Toast Notification -->
+  <div id="toast" class="toast-msg"></div>
+
+  <!-- Apple Attribution Link -->
+  <a class="attribution" href="https://www.apple.com/iphone-duo/" target="_blank" rel="noopener noreferrer">
+    Original model &amp; animation by Apple ↗
+  </a>
+
+  <!-- Main Application Script -->
+  <script type="module" src="./js/app.js"></script>
 </body>
 </html>

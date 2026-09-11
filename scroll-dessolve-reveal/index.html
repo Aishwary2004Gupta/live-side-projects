@@ -6,7 +6,7 @@
       name="viewport"
       content="width=device-width, initial-scale=1, viewport-fit=cover"
     />
-    <title>Historic Scroll Dissolve — Infinite</title>
+    <title>Historic Scroll Dissolve — Silver Etchings</title>
 
     <style>
       :root {
@@ -26,15 +26,15 @@
         background: #000;
       }
 
-      /* Hide Scrollbar */
+      /* ---------- HIDE SCROLLBAR COMPLETELY (ALL BROWSERS) ---------- */
       html,
       body {
-        scrollbar-width: none;
-        -ms-overflow-style: none;
+        scrollbar-width: none; /* Firefox */
+        -ms-overflow-style: none; /* IE / Edge */
       }
       html::-webkit-scrollbar,
       body::-webkit-scrollbar {
-        display: none;
+        display: none; /* Chrome / Safari / Opera */
         width: 0;
         height: 0;
       }
@@ -48,6 +48,7 @@
         -webkit-font-smoothing: antialiased;
       }
 
+      /* Fixed full-viewport WebGL canvas */
       #gl {
         position: fixed;
         inset: 0;
@@ -57,6 +58,7 @@
         z-index: 0;
       }
 
+      /* Deep museum vignette */
       .vignette {
         position: fixed;
         inset: 0;
@@ -70,6 +72,7 @@
         mix-blend-mode: multiply;
       }
 
+      /* Infinite scroll spacer */
       #spacer {
         position: relative;
         z-index: 2;
@@ -77,6 +80,7 @@
         pointer-events: none;
       }
 
+      /* Fixed UI overlays */
       .ui {
         position: fixed;
         z-index: 3;
@@ -142,6 +146,7 @@
         mix-blend-mode: difference;
       }
 
+      /* ---------- LARGE NUMBERS: BOTTOM-LEFT CORNER ---------- */
       .counter {
         font-variant-numeric: tabular-nums;
         display: flex;
@@ -154,6 +159,7 @@
         font-weight: 700;
         letter-spacing: -0.04em;
         color: var(--fg);
+        line-height: 0.85;
       }
       .counter .of {
         font-size: clamp(13px, 2vw, 24px);
@@ -163,6 +169,7 @@
         color: var(--muted);
       }
 
+      /* ---------- BIG PROGRESS BAR ---------- */
       .progress {
         position: fixed;
         left: 0;
@@ -185,6 +192,7 @@
         will-change: width;
       }
 
+      /* Scroll hint (bottom-right) */
       .hint {
         display: flex;
         align-items: center;
@@ -205,18 +213,22 @@
       @keyframes drop {
         0% {
           transform: scaleY(0.2);
+          transform-origin: top;
           opacity: 0;
         }
         40% {
           transform: scaleY(1);
+          transform-origin: top;
           opacity: 1;
         }
         60% {
           transform: scaleY(1);
+          transform-origin: bottom;
           opacity: 1;
         }
         100% {
           transform: scaleY(0.2);
+          transform-origin: bottom;
           opacity: 0;
         }
       }
@@ -244,11 +256,12 @@
   <body>
     <canvas id="gl"></canvas>
     <div class="vignette"></div>
+
     <div id="spacer"></div>
 
     <header class="ui topbar">
       <strong>Historic&nbsp;/&nbsp;Engraving</strong>
-      <span id="status">Ready</span>
+      <span id="status">infinite gallery</span>
     </header>
 
     <div class="ui center" id="hero">
@@ -257,15 +270,19 @@
     </div>
 
     <footer class="ui bottombar">
+      <!-- Big counter: bottom-left -->
       <div class="counter">
-        <span class="num" id="counter">001</span><span class="of">/ ∞</span>
+        <span class="num" id="counter">001</span>
+        <span class="of">/ ∞</span>
       </div>
+      <!-- Hint: bottom-right -->
       <div class="hint"><span>Scroll</span><i></i></div>
     </footer>
 
     <div class="progress"><span id="bar"></span></div>
-    <div id="loader">Preparing Archive...</div>
+    <div id="loader">Archiving Masterpieces</div>
 
+    <!-- ------------------------------------------------------------------ -->
     <script type="importmap">
       {
         "imports": {
@@ -277,10 +294,23 @@
     <script type="module">
       import * as THREE from "three";
 
-      /* --- SHADERS (Optimized for smooth transitions) --- */
-      const coverVertexShader = `varying vec2 vUv; void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`;
+      /* ==================================================================
+   1. HIGH-PRECISION SHADERS: CONTOUR-BASED SILVER ENGRAVINGS
+   ================================================================== */
 
-      const coverFragmentShader = `
+      const coverVertexShader = /* glsl */ `
+  varying vec2 vUv;
+  void main() {
+    vUv = uv;
+    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+  }
+`;
+
+      /* FRONT LAYER: 
+   Transitions from historical color into a dark charcoal etching.
+   Silver lines trace true physical contours (armor, folds, faces).
+   Dissolves outward from center with a mosaic edge ring. */
+      const coverFragmentShader = /* glsl */ `
   uniform sampler2D uTexture;
   uniform vec2 uResolution;
   uniform vec2 uImageResolution;
@@ -292,59 +322,124 @@
   uniform float uEdgeBrightness;
   varying vec2 vUv;
 
-  mat3 sobelX = mat3(-1.0, 0.0, 1.0, -2.0, 0.0, 2.0, -1.0, 0.0, 1.0);
-  mat3 sobelY = mat3(-1.0, -2.0, -1.0, 0.0, 0.0, 0.0, 1.0, 2.0, 1.0);
+  mat3 sobelX = mat3(
+    -1.0, 0.0, 1.0,
+    -2.0, 0.0, 2.0,
+    -1.0, 0.0, 1.0
+  );
 
-  float getLuminance(vec3 c) { return dot(c, vec3(0.299, 0.587, 0.114)); }
-  
-  float getSobel(sampler2D tex, vec2 uv, vec2 ts) {
-    float gx=0.0, gy=0.0;
-    vec2 s = ts * 1.35;
-    for(int i=-1;i<=1;i++) for(int j=-1;j<=1;j++){
-      float l = getLuminance(texture2D(tex, uv+vec2(float(i),float(j))*s).rgb);
-      gx += l * sobelX[i+1][j+1]; gy += l * sobelY[i+1][j+1];
-    }
-    return sqrt(gx*gx + gy*gy);
+  mat3 sobelY = mat3(
+    -1.0, -2.0, -1.0,
+     0.0,  0.0,  0.0,
+     1.0,  2.0,  1.0
+  );
+
+  float getLuminance(vec3 color) {
+    return dot(color, vec3(0.299, 0.587, 0.114));
   }
 
-  float hash(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
-  float noise(vec2 p){ vec2 i=floor(p); vec2 f=fract(p)*fract(f)*3.0-fract(f)*fract(f); return mix(mix(hash(i),hash(i+vec2(1.0,0.0)),f.x),mix(hash(i+vec2(0.0,1.0)),hash(i+vec2(1.0,1.0)),f.x),f.y); }
-  float fbm(vec2 p){ float v=0.0, a=0.5; for(int i=0;i<4;i++){ v+=a*noise(p); p*=2.0; a*=0.5; } return v; }
+  /* Multi-tap Sobel filter tuned for crisp architectural & anatomical outlines */
+  float getSobel(sampler2D tex, vec2 uv, vec2 texelSize) {
+    float gx = 0.0;
+    float gy = 0.0;
+    vec2 step = texelSize * 1.35; // optimal outline width
+    for (int i = -1; i <= 1; i++) {
+      for (int j = -1; j <= 1; j++) {
+        vec2 offset = vec2(float(i), float(j)) * step;
+        float lum = getLuminance(texture2D(tex, uv + offset).rgb);
+        gx += lum * sobelX[i + 1][j + 1];
+        gy += lum * sobelY[i + 1][j + 1];
+      }
+    }
+    return sqrt(gx * gx + gy * gy);
+  }
+
+  float hash(vec2 p) {
+    return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
+  }
+
+  float noise(vec2 p) {
+    vec2 i = floor(p);
+    vec2 f = fract(p);
+    f = f * f * (3.0 - 2.0 * f);
+    return mix(
+      mix(hash(i), hash(i + vec2(1.0, 0.0)), f.x),
+      mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), f.x),
+      f.y
+    );
+  }
+
+  float fbm(vec2 p) {
+    float v = 0.0;
+    float a = 0.5;
+    for (int i = 0; i < 4; i++) {
+      v += a * noise(p);
+      p *= 2.0;
+      a *= 0.5;
+    }
+    return v;
+  }
 
   void main() {
-    vec2 ratio = vec2(min((uResolution.x/uResolution.y)/(uImageResolution.x/uImageResolution.y),1.0), min((uResolution.y/uResolution.x)/(uImageResolution.y/uImageResolution.x),1.0));
-    vec2 uv = vec2(vUv.x*ratio.x+(1.0-ratio.x)*0.5, vUv.y*ratio.y+(1.0-ratio.y)*0.5);
-    
+    /* Cover aspect fit */
+    vec2 ratio = vec2(
+      min((uResolution.x / uResolution.y) / (uImageResolution.x / uImageResolution.y), 1.0),
+      min((uResolution.y / uResolution.x) / (uImageResolution.y / uImageResolution.x), 1.0)
+    );
+    vec2 uv = vec2(
+      vUv.x * ratio.x + (1.0 - ratio.x) * 0.5,
+      vUv.y * ratio.y + (1.0 - ratio.y) * 0.5
+    );
+
     vec4 texColor = texture2D(uTexture, uv);
     float lum = getLuminance(texColor.rgb);
-    vec3 baseColor = mix(texColor.rgb, vec3(lum*0.22), uGrayscale);
 
+    /* 1. Base charcoal etching tone */
+    vec3 charcoalBase = vec3(lum * 0.22);
+    vec3 baseColor = mix(texColor.rgb, charcoalBase, uGrayscale);
+
+    /* 2. Contour detection on the actual artwork (no random lines) */
+    vec2 texelSize = 1.0 / uImageResolution;
+    float rawEdge = getSobel(uTexture, uv, texelSize);
+    float contour = pow(clamp(rawEdge * 2.2, 0.0, 1.0), 0.72);
+
+    /* 3. Dissolve geometry with pixelated/mosaic edge blocks */
     vec2 centeredUv = vUv - uCenter;
-    float aspect = uResolution.x/uResolution.y;
+    float aspect = uResolution.x / uResolution.y;
     centeredUv.x *= aspect;
     float dist = length(centeredUv);
     float angle = atan(centeredUv.y, centeredUv.x);
 
+    // Mosaic block dissolution matching the reference
     vec2 blockUv = floor(vUv * 85.0) / 85.0;
-    float noisyDist = (dist + fbm(blockUv*9.0)*0.14 + fbm(vec2(angle*5.0,0.0))*0.08) / length(vec2(aspect*0.5, 0.5));
-    
+    float blockNoise = fbm(blockUv * 9.0) * 0.14;
+    float angularNoise = fbm(vec2(angle * 5.0, 0.0)) * 0.08;
+    float normalizedDist = (dist + blockNoise + angularNoise) / length(vec2(aspect * 0.5, 0.5));
+
     float dissolveThreshold = uDissolve * 1.55;
-    float dissolveMask = smoothstep(dissolveThreshold - 0.03, dissolveThreshold, noisyDist);
+    float dissolveMask = smoothstep(dissolveThreshold - 0.03, dissolveThreshold, normalizedDist);
 
-    vec2 ts = 1.0/uImageResolution;
-    float contour = pow(clamp(getSobel(uTexture, uv, ts) * 2.2, 0.0, 1.0), 0.72);
-    
-    vec3 silverTone = vec3(0.92, 0.95, 1.0);
-    float rimZone = smoothstep(dissolveThreshold - 0.12, dissolveThreshold, noisyDist) * smoothstep(dissolveThreshold + 0.04, dissolveThreshold - 0.02, noisyDist);
-    
-    // IMPORTANT: Ensure alpha blends correctly during fade-in
-    float alpha = dissolveMask * texColor.a;
+    /* 4. Silver lines trace the actual outlines of the image */
+    vec3 silverTone = vec3(0.92, 0.95, 1.0); // lustrous antique silver
+    float ambientSilver = contour * (uEdgeIntensity * 2.6 + 0.12 * uGrayscale);
 
-    gl_FragColor = vec4(baseColor + silverTone * (contour*(uEdgeIntensity*2.6+0.12*uGrayscale) + contour*rimZone*4.2)*uEdgeBrightness, alpha);
+    // Brilliant silver rim right where the boundary disintegrates
+    float rimZone = smoothstep(dissolveThreshold - 0.12, dissolveThreshold, normalizedDist) *
+                    smoothstep(dissolveThreshold + 0.04, dissolveThreshold - 0.02, normalizedDist);
+
+    // Notice: rim light is strictly multiplied by 'contour' so it stays ON THE IMAGE LINES!
+    float rimSilver = contour * rimZone * 4.2;
+
+    vec3 finalColor = baseColor + silverTone * (ambientSilver + rimSilver) * uEdgeBrightness;
+    gl_FragColor = vec4(finalColor, dissolveMask * texColor.a);
   }
 `;
 
-      const coverFragmentShaderReverse = `
+      /* BACK LAYER:
+   Underneath image emerges inside the dissolved circle.
+   Starts as a dark silver-point sketch of its OWN outlines,
+   then seamlessly blooms into full historic oil painting colors. */
+      const coverFragmentShaderReverse = /* glsl */ `
   uniform sampler2D uTexture;
   uniform vec2 uResolution;
   uniform vec2 uImageResolution;
@@ -352,79 +447,127 @@
   uniform float uEdgeIntensity;
   uniform float uDarkness;
   uniform float uGrayscale;
-  uniform float uFade; // NEW: Controls fade-in opacity
   varying vec2 vUv;
 
-  mat3 sobelX = mat3(-1.0, 0.0, 1.0, -2.0, 0.0, 2.0, -1.0, 0.0, 1.0);
-  mat3 sobelY = mat3(-1.0, -2.0, -1.0, 0.0, 0.0, 0.0, 1.0, 2.0, 1.0);
-  float getLuminance(vec3 c) { return dot(c, vec3(0.299, 0.587, 0.114)); }
-  
-  float getSobel(sampler2D tex, vec2 uv, vec2 ts) {
-    float gx=0.0, gy=0.0;
-    vec2 s = ts * 1.35;
-    for(int i=-1;i<=1;i++) for(int j=-1;j<=1;j++){
-      float l = getLuminance(texture2D(tex, uv+vec2(float(i),float(j))*s).rgb);
-      gx += l * sobelX[i+1][j+1]; gy += l * sobelY[i+1][j+1];
+  mat3 sobelX = mat3(
+    -1.0, 0.0, 1.0,
+    -2.0, 0.0, 2.0,
+    -1.0, 0.0, 1.0
+  );
+
+  mat3 sobelY = mat3(
+    -1.0, -2.0, -1.0,
+     0.0,  0.0,  0.0,
+     1.0,  2.0,  1.0
+  );
+
+  float getLuminance(vec3 color) {
+    return dot(color, vec3(0.299, 0.587, 0.114));
+  }
+
+  float getSobel(sampler2D tex, vec2 uv, vec2 texelSize) {
+    float gx = 0.0;
+    float gy = 0.0;
+    vec2 step = texelSize * 1.35;
+    for (int i = -1; i <= 1; i++) {
+      for (int j = -1; j <= 1; j++) {
+        vec2 offset = vec2(float(i), float(j)) * step;
+        float lum = getLuminance(texture2D(tex, uv + offset).rgb);
+        gx += lum * sobelX[i + 1][j + 1];
+        gy += lum * sobelY[i + 1][j + 1];
+      }
     }
-    return sqrt(gx*gx + gy*gy);
+    return sqrt(gx * gx + gy * gy);
   }
 
   void main() {
-    vec2 ratio = vec2(min((uResolution.x/uResolution.y)/(uImageResolution.x/uImageResolution.y),1.0), min((uResolution.y/uResolution.x)/(uImageResolution.y/uImageResolution.x),1.0));
-    vec2 uv = vec2(vUv.x*ratio.x+(1.0-ratio.x)*0.5, vUv.y*ratio.y+(1.0-ratio.y)*0.5);
-    
+    vec2 ratio = vec2(
+      min((uResolution.x / uResolution.y) / (uImageResolution.x / uImageResolution.y), 1.0),
+      min((uResolution.y / uResolution.x) / (uImageResolution.y / uImageResolution.x), 1.0)
+    );
+    vec2 uv = vec2(
+      vUv.x * ratio.x + (1.0 - ratio.x) * 0.5,
+      vUv.y * ratio.y + (1.0 - ratio.y) * 0.5
+    );
+
     vec4 texColor = texture2D(uTexture, uv);
     float lum = getLuminance(texColor.rgb);
-    vec3 charcoalBase = vec3(lum*0.16);
+
+    // Contours of this incoming artwork
+    vec2 texelSize = 1.0 / uImageResolution;
+    float rawEdge = getSobel(uTexture, uv, texelSize);
+    float contour = pow(clamp(rawEdge * 2.2, 0.0, 1.0), 0.72);
+
+    // Starts dark charcoal, returns to rich oil painting
+    vec3 charcoalBase = vec3(lum * 0.16);
     vec3 baseColor = mix(texColor.rgb, charcoalBase, uDarkness);
 
-    vec2 ts = 1.0/uImageResolution;
-    float contour = pow(clamp(getSobel(uTexture, uv, ts) * 2.2, 0.0, 1.0), 0.72);
+    // Silver outlines strictly highlighting the incoming shapes
     vec3 silverTone = vec3(0.92, 0.95, 1.0);
-    
-    // The magic here: We add a Fade factor to the alpha channel!
-    gl_FragColor = vec4(baseColor + silverTone * (contour * uEdgeIntensity * 2.8), texColor.a * uFade);
+    float silverLines = contour * (uEdgeIntensity * 2.8);
+
+    vec3 finalColor = clamp(baseColor + silverTone * silverLines, 0.0, 1.0);
+    gl_FragColor = vec4(finalColor, texColor.a);
   }
 `;
 
-      /* --- ARCHIVE OF HISTORIC ARTWORK --- */
-      // Increased list size to reduce repeat frequency immediately.
+      /* ==================================================================
+   2. CURATED HISTORIC & RENAISSANCE MASTERPIECES (CORS FRIENDLY)
+   ================================================================== */
+
+      /**
+       * Rich collection of high-resolution public domain museum works:
+       * Renaissance armor & knights, classical Roman mythology, Baroque chiaroscuro,
+       * marble drapery, and tapestries.
+       */
       const HISTORIC_ARCHIVE = [
+        // 1. Classical Knight in Armor with feather plume & banner
         "https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?auto=format&fit=crop&w=1400&q=85",
+        // 2. Classical Roman reclining figures & floral garland
         "https://images.unsplash.com/photo-1582561424760-0321d75e81fa?auto=format&fit=crop&w=1400&q=85",
+        // 3. Renaissance royalty & ornate gilded costume
         "https://images.unsplash.com/photo-1579783902614-a3fb3927b675?auto=format&fit=crop&w=1400&q=85",
+        // 4. Dramatic Baroque chiaroscuro composition
         "https://images.unsplash.com/photo-1577083552431-6e5fd01aa342?auto=format&fit=crop&w=1400&q=85",
+        // 5. Historic archway & classical antiquity interior
         "https://images.unsplash.com/photo-1580136579312-94651dfd596d?auto=format&fit=crop&w=1400&q=85",
+        // 6. Mythological battle & dramatic fabric drapery
         "https://images.unsplash.com/photo-1578301978693-85fa9c0320b9?auto=format&fit=crop&w=1400&q=85",
+        // 7. Renaissance portrait with gold filigree & dark velvet
         "https://images.unsplash.com/photo-1579783928621-7a13d66a62d1?auto=format&fit=crop&w=1400&q=85",
+        // 8. Ancient marble sculpture & carved stone relief
         "https://images.unsplash.com/photo-1563089145-599997674d42?auto=format&fit=crop&w=1400&q=85",
+        // 9. Classical fresco figures & Roman mythology
         "https://images.unsplash.com/photo-1582561424749-31765c92c81d?auto=format&fit=crop&w=1400&q=85",
+        // 10. Historic fortress & ancient castle ramparts
         "https://images.unsplash.com/photo-1577720580479-7d839d829c73?auto=format&fit=crop&w=1400&q=85",
       ];
 
+      /* Infinite generator cycling through the historic catalog */
       const images = [];
       function ensureImages(count) {
-        while (images.length < count)
-          images.push(
-            HISTORIC_ARCHIVE[images.length % HISTORIC_ARCHIVE.length],
-          );
+        while (images.length < count) {
+          const url = HISTORIC_ARCHIVE[images.length % HISTORIC_ARCHIVE.length];
+          images.push(url);
+        }
       }
-      ensureImages(15); // Start with a larger buffer
+      ensureImages(6);
 
-      /* --- TEXTURE LOADING WITH PRELOADING --- */
+      /* ==================================================================
+   3. TEXTURE CACHE & CONSTANT MEMORY MANAGEMENT
+   ================================================================== */
+
       const loader = new THREE.TextureLoader();
       loader.setCrossOrigin("anonymous");
       const cache = new Map();
 
-      function preloadAll(urls) {
-        urls.forEach((url) => getTexture(url));
-      }
-
       function getTexture(url) {
         let entry = cache.get(url);
         if (entry) return entry;
+
         entry = { texture: null, loading: true, error: false };
         cache.set(url, entry);
+
         loader.load(
           url,
           (tex) => {
@@ -449,8 +592,9 @@
 
       function pruneTextures(currentIndex) {
         const keep = new Set();
-        for (let i = currentIndex - 2; i <= currentIndex + 3; i++)
+        for (let i = currentIndex - 2; i <= currentIndex + 3; i++) {
           if (images[i]) keep.add(images[i]);
+        }
         cache.forEach((entry, url) => {
           if (!keep.has(url)) {
             if (entry.texture) entry.texture.dispose();
@@ -459,7 +603,10 @@
         });
       }
 
-      /* --- SCENE SETUP --- */
+      /* ==================================================================
+   4. THREE.JS SCENE SETUP
+   ================================================================== */
+
       const canvas = document.getElementById("gl");
       const renderer = new THREE.WebGLRenderer({
         canvas,
@@ -472,6 +619,7 @@
       const scene = new THREE.Scene();
       const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 10);
       camera.position.set(0, 0, 1);
+
       const geometry = new THREE.PlaneGeometry(2, 2);
 
       const uniformsBack = {
@@ -482,7 +630,6 @@
         uEdgeIntensity: { value: 0.6 },
         uDarkness: { value: 1.0 },
         uGrayscale: { value: 1.0 },
-        uFade: { value: 0.0 },
       };
 
       const uniformsFront = {
@@ -503,26 +650,33 @@
         uniforms: uniformsBack,
         transparent: true,
         depthTest: false,
+        depthWrite: false,
       });
+
       const matFront = new THREE.ShaderMaterial({
         vertexShader: coverVertexShader,
         fragmentShader: coverFragmentShader,
         uniforms: uniformsFront,
         transparent: true,
         depthTest: false,
+        depthWrite: false,
       });
 
       const meshBack = new THREE.Mesh(geometry, matBack);
       meshBack.position.z = -0.1;
+
       const meshFront = new THREE.Mesh(geometry, matFront);
+      meshFront.position.z = 0;
+
       scene.add(meshBack, meshFront);
 
-      // AGGRESSIVE PRELOAD: Load first 10 images immediately on load
-      preloadAll(images.slice(0, 10));
+      /* ==================================================================
+   5. INFINITE SCROLL CONTROLLER
+   ================================================================== */
 
-      /* --- LOGIC --- */
-      const TRAVEL_VH = 1.6;
-      const SMOOTHING = 0.11;
+      const TRAVEL_VH = 1.6; // Viewport heights scrolled per complete reveal
+      const SMOOTHING = 0.11; // Liquid inertia
+
       let travel = window.innerHeight * TRAVEL_VH;
       let smoothScroll = 0;
       let needsRender = true;
@@ -545,22 +699,34 @@
         const dpr = Math.min(window.devicePixelRatio || 1, 1.75);
         renderer.setPixelRatio(dpr);
         renderer.setSize(window.innerWidth, window.innerHeight, false);
-        const w = window.innerWidth * dpr,
-          h = window.innerHeight * dpr;
+
+        const w = window.innerWidth * dpr;
+        const h = window.innerHeight * dpr;
         uniformsFront.uResolution.value.set(w, h);
         uniformsBack.uResolution.value.set(w, h);
+
         travel = window.innerHeight * TRAVEL_VH;
         updateSpacerHeight();
         needsRender = true;
       }
+
       window.addEventListener("resize", resize);
+      window.addEventListener("orientationchange", () =>
+        setTimeout(resize, 250),
+      );
       resize();
+      smoothScroll = window.scrollY;
+
+      /* ==================================================================
+   6. RENDER LOOP
+   ================================================================== */
 
       const clock = new THREE.Clock();
       let firstPaintDone = false;
 
       function frame() {
         requestAnimationFrame(frame);
+
         const target = window.scrollY;
         smoothScroll += (target - smoothScroll) * SMOOTHING;
         if (Math.abs(target - smoothScroll) < 0.05) smoothScroll = target;
@@ -570,28 +736,32 @@
         let progress = (smoothScroll - index * travel) / travel;
         progress = Math.min(Math.max(progress, 0), 1);
 
-        if (index + 6 >= images.length) {
-          ensureImages(index + 12);
-          preloadAll(images.slice(images.length - 10, images.length));
+        // Extend the endless gallery before reaching the end
+        if (index + 4 >= images.length) {
+          ensureImages(index + 8);
           updateSpacerHeight();
         }
 
         const frontEntry = getTexture(images[index]);
         const backEntry = getTexture(images[index + 1]);
 
-        for (let i = index + 2; i <= index + 5; i++)
+        // Pre-load upcoming textures
+        for (let i = index + 2; i <= index + 3; i++) {
           if (images[i]) getTexture(images[i]);
+        }
         if (index !== lastIndex) pruneTextures(index);
 
         const ready = !!(frontEntry.texture && backEntry.texture);
 
         if (
-          needsRender ||
-          index !== lastIndex ||
-          Math.abs(progress - lastProgress) > 0.0004
+          ready &&
+          (needsRender ||
+            index !== lastIndex ||
+            Math.abs(progress - lastProgress) > 0.0004)
         ) {
           const time = clock.getElapsedTime();
 
+          /* FRONT UNIFORMS */
           uniformsFront.uTexture.value = frontEntry.texture;
           const fImg = frontEntry.texture.image;
           uniformsFront.uImageResolution.value.set(
@@ -600,10 +770,12 @@
           );
           uniformsFront.uTime.value = time;
           uniformsFront.uDissolve.value = progress;
+          // Quickly shifts into dark antique charcoal so the silver contours glow
           uniformsFront.uGrayscale.value = Math.min(1.0, progress / 0.35);
           uniformsFront.uEdgeIntensity.value = progress * 0.55;
           uniformsFront.uEdgeBrightness.value = 1.0 - progress * 0.45;
 
+          /* BACK UNIFORMS */
           uniformsBack.uTexture.value = backEntry.texture;
           const bImg = backEntry.texture.image;
           uniformsBack.uImageResolution.value.set(
@@ -611,29 +783,18 @@
             bImg.naturalHeight || bImg.height,
           );
           const accelerated = Math.min(1.0, progress * 1.12);
+          // Silver outlines on the incoming artwork fade as it restores to full color
           uniformsBack.uEdgeIntensity.value = 0.65 * (1.0 - accelerated);
           uniformsBack.uDarkness.value = 1.0 - accelerated;
           uniformsBack.uGrayscale.value = 1.0 - accelerated;
 
-          // FADE IN LOGIC:
-          // If the image isn't loaded yet, force fade to 0.
-          // If it IS loaded, ramp the 'uFade' uniform up based on scroll speed/distance
-          // so it looks like it's materializing from the fog.
-          let fadeInTarget = 1.0;
-          if (backEntry.loading) fadeInTarget = 0.0;
-          else {
-            // Smoothly transition fade from 0 to 1 over a short period after switch
-            // We use a simple lerp towards 1 once the index changes or progress starts
-            const currentFade = uniformsBack.uFade.value;
-            uniformsBack.uFade.value += (fadeInTarget - currentFade) * 0.15;
-          }
-          uniformsBack.uFade.value = Math.min(uniformsBack.uFade.value, 1.0);
-
-          if (ready) renderer.render(scene, camera);
+          renderer.render(scene, camera);
 
           needsRender = false;
           lastIndex = index;
           lastProgress = progress;
+
+          /* UI updates */
           barEl.style.width = (progress * 100).toFixed(2) + "%";
           counter.textContent = String(index + 1).padStart(3, "0");
           const heroFade = Math.max(
@@ -650,13 +811,11 @@
           }
         }
 
-        statusEl.textContent = ready
-          ? "Infinite Gallery"
-          : backEntry.loading
-            ? "Loading next..."
-            : "Restoring...";
+        statusEl.textContent = ready ? "infinite gallery" : "restoring…";
       }
+
       requestAnimationFrame(frame);
+
       window.addEventListener(
         "scroll",
         () => {
@@ -664,6 +823,7 @@
         },
         { passive: true },
       );
+
       if ("scrollRestoration" in history) history.scrollRestoration = "manual";
       window.scrollTo(0, 0);
     </script>

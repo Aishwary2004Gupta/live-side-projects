@@ -6,13 +6,10 @@
       name="viewport"
       content="width=device-width, initial-scale=1, viewport-fit=cover"
     />
-    <title>Scroll Dissolve — Random Infinite</title>
+    <title>Historic Scroll Dissolve — No Lag</title>
 
-    <!-- picsum redirects to fastly → warm both -->
-    <link rel="preconnect" href="https://picsum.photos" crossorigin />
-    <link rel="preconnect" href="https://fastly.picsum.photos" crossorigin />
-    <link rel="dns-prefetch" href="https://picsum.photos" />
-    <link rel="dns-prefetch" href="https://fastly.picsum.photos" />
+    <link rel="preconnect" href="https://images.unsplash.com" crossorigin />
+    <link rel="dns-prefetch" href="https://images.unsplash.com" />
 
     <style>
       :root {
@@ -169,14 +166,13 @@
       .progress span {
         display: block;
         height: 100%;
-        width: 100%;
+        width: 0%;
         background: #fff;
         box-shadow:
           0 0 16px rgba(255, 255, 255, 0.6),
           0 0 4px #fff;
         transform-origin: left center;
-        transform: scaleX(0);
-        will-change: transform;
+        will-change: width;
       }
       .hint {
         display: flex;
@@ -241,11 +237,11 @@
     <div class="vignette"></div>
     <div id="spacer"></div>
     <header class="ui topbar">
-      <strong>Dissolve / Reveal</strong><span id="status">loading…</span>
+      <strong>Historic / Engraving</strong><span id="status">loading…</span>
     </header>
     <div class="ui center" id="hero">
-      <h1>Keep Scrolling</h1>
-      <p>every image dissolves into the next</p>
+      <h1>Chronicle</h1>
+      <p>Scroll to uncover the archive</p>
     </div>
     <footer class="ui bottombar">
       <div class="counter">
@@ -254,7 +250,7 @@
       <div class="hint"><span>Scroll</span><i></i></div>
     </footer>
     <div class="progress"><span id="bar"></span></div>
-    <div id="loader">Loading</div>
+    <div id="loader">Opening the archive</div>
 
     <script type="importmap">
       {
@@ -265,16 +261,15 @@
     </script>
     <script type="module">
       import * as THREE from "three";
+      THREE.Cache.enabled = true;
 
-      /* ---------- THREE SETUP ---------- */
+      /* ---------- THREE SETUP FIRST (so initTexture exists) ---------- */
       const canvas = document.getElementById("gl");
       const renderer = new THREE.WebGLRenderer({
         canvas,
         antialias: false,
         alpha: false,
         powerPreference: "high-performance",
-        depth: false,
-        stencil: false,
       });
       renderer.setClearColor(0x000000, 1);
       const scene = new THREE.Scene();
@@ -282,6 +277,7 @@
       camera.position.set(0, 0, 1);
       const geometry = new THREE.PlaneGeometry(2, 2);
 
+      // 1x1 black fallback - guarantees first frame is instant
       const fallbackTexture = new THREE.DataTexture(
         new Uint8Array([10, 10, 10, 255]),
         1,
@@ -323,7 +319,8 @@
     vec3 silver=vec3(.92,.95,1.); float amb=contour*(uEdgeIntensity*2.6+.12*uGrayscale);
     float rim=smoothstep(th-.12,th,nd)*smoothstep(th+.04,th-.02,nd); float rimS=contour*rim*4.2;
     vec3 col=base+silver*(amb+rimS)*uEdgeBrightness; gl_FragColor=vec4(col,mask*tex.a);
-  }`;
+  }
+`;
 
       const coverFragmentShaderReverse = `
   uniform sampler2D uTexture; uniform vec2 uResolution; uniform vec2 uImageResolution;
@@ -338,12 +335,13 @@
     float contour=pow(clamp(sobel(uTexture,uv,ts)*2.2,0.,1.),.72);
     vec3 base=mix(tex.rgb, vec3(lum*.16), uDarkness);
     vec3 col=clamp(base+vec3(.92,.95,1.)*contour*(uEdgeIntensity*2.8),0.,1.); gl_FragColor=vec4(col,tex.a);
-  }`;
+  }
+`;
 
       const uniformsBack = {
         uTexture: { value: fallbackTexture },
         uResolution: { value: new THREE.Vector2(1, 1) },
-        uImageResolution: { value: new THREE.Vector2(1024, 1280) },
+        uImageResolution: { value: new THREE.Vector2(1280, 850) },
         uEdgeIntensity: { value: 0.6 },
         uDarkness: { value: 1 },
         uGrayscale: { value: 1 },
@@ -351,72 +349,66 @@
       const uniformsFront = {
         uTexture: { value: fallbackTexture },
         uResolution: { value: new THREE.Vector2(1, 1) },
-        uImageResolution: { value: new THREE.Vector2(1024, 1280) },
+        uImageResolution: { value: new THREE.Vector2(1280, 850) },
         uDissolve: { value: 0 },
         uCenter: { value: new THREE.Vector2(0.5, 0.5) },
         uGrayscale: { value: 0 },
         uEdgeIntensity: { value: 0 },
         uEdgeBrightness: { value: 1 },
       };
-      const meshBack = new THREE.Mesh(
-        geometry,
-        new THREE.ShaderMaterial({
-          vertexShader: coverVertexShader,
-          fragmentShader: coverFragmentShaderReverse,
-          uniforms: uniformsBack,
-          transparent: true,
-          depthTest: false,
-          depthWrite: false,
-        }),
-      );
-      const meshFront = new THREE.Mesh(
-        geometry,
-        new THREE.ShaderMaterial({
-          vertexShader: coverVertexShader,
-          fragmentShader: coverFragmentShader,
-          uniforms: uniformsFront,
-          transparent: true,
-          depthTest: false,
-          depthWrite: false,
-        }),
-      );
+      const matBack = new THREE.ShaderMaterial({
+        vertexShader: coverVertexShader,
+        fragmentShader: coverFragmentShaderReverse,
+        uniforms: uniformsBack,
+        transparent: true,
+        depthTest: false,
+        depthWrite: false,
+      });
+      const matFront = new THREE.ShaderMaterial({
+        vertexShader: coverVertexShader,
+        fragmentShader: coverFragmentShader,
+        uniforms: uniformsFront,
+        transparent: true,
+        depthTest: false,
+        depthWrite: false,
+      });
+      const meshBack = new THREE.Mesh(geometry, matBack);
       meshBack.position.z = -0.1;
+      const meshFront = new THREE.Mesh(geometry, matFront);
       scene.add(meshBack, meshFront);
-      renderer.compile(scene, camera); // no shader hitch on first scroll
 
-      /* ---------- RANDOM INFINITE ASSETS (picsum) ---------- */
-      const FULL_W = 1024,
-        FULL_H = 1280; // final
-      const LOW_W = 256,
-        LOW_H = 320; // instant placeholder
-      const KEEP_BEHIND = 6,
-        KEEP_AHEAD = 14;
-      const SESSION = Math.random().toString(36).slice(2, 8); // new set every reload
+      /* ---------- HISTORIC ASSETS (cycles forever) ---------- */
+      const PHOTO_IDS = [
+        "photo-1579783900882-c0d3dad7b119",
+        "photo-1582561424760-0321d75e81fa",
+        // "photo-1579783902614-a3fb3927b675",
+        "photo-1580136579312-94651dfd596d",
+        "photo-1578301978693-85fa9c0320b9",
+        "photo-1579783928621-7a13d66a62d1",
+        "photo-1563089145-599997674d42",
+        // "photo-1582561424749-31765c92c81d",
+        "photo-1577720580479-7d839d829c73",
+        "photo-1577083552431-6e5fd01aa342",
+      ];
+      // TO USE RANDOM LIKE BEFORE, REPLACE ABOVE WITH:
+      // const PHOTO_IDS = Array.from({length:100}, (_,i)=>`seed/rand-${i}-${Math.random().toString(36).slice(2)}`)
 
-      const srcURL = (seed, w, h) =>
-        `https://picsum.photos/seed/${seed}/${w}/${h}`;
-
-      const assets = [];
-      function ensureAssets(n) {
-        while (assets.length < n)
-          assets.push({
-            index: assets.length,
-            seed: `${SESSION}-${assets.length}`,
-            low: null,
-            full: null,
-            lowReq: false,
-            fullReq: false,
-            tries: 0,
-          });
-      }
-      function assetAt(i) {
-        ensureAssets(i + 1);
-        return assets[i];
-      }
-
-      let curIndex = 0;
-      const inWindow = (i) =>
-        i >= curIndex - KEEP_BEHIND && i <= curIndex + KEEP_AHEAD;
+      const FULL_W = 1280,
+        FULL_Q = 72,
+        LOW_W = 320,
+        LOW_Q = 40;
+      const srcURL = (id, w, q) =>
+        `https://images.unsplash.com/${id}?auto=format&fit=crop&w=${w}&q=${q}`;
+      const assets = PHOTO_IDS.map((id) => ({
+        id,
+        low: null,
+        full: null,
+        lowReq: false,
+        fullReq: false,
+        tries: 0,
+      }));
+      const assetAt = (i) =>
+        assets[((i % assets.length) + assets.length) % assets.length];
 
       /* ---------- FAST LOADER ---------- */
       const MAX_PARALLEL = 6;
@@ -427,11 +419,10 @@
         pump();
       }
       function pump() {
+        if (!jobs.length || inFlight >= MAX_PARALLEL) return;
+        jobs.sort((a, b) => a.p - b.p);
         while (inFlight < MAX_PARALLEL && jobs.length) {
-          let bi = 0;
-          for (let i = 1; i < jobs.length; i++)
-            if (jobs[i].p < jobs[bi].p) bi = i;
-          const j = jobs.splice(bi, 1)[0];
+          const j = jobs.shift();
           inFlight++;
           j.run()
             .catch(() => {})
@@ -458,96 +449,51 @@
         const r = await fetch(url, { mode: "cors", cache: "force-cache" });
         if (!r.ok) throw r.status;
         const blob = await r.blob();
-        if (typeof createImageBitmap === "function")
-          return makeTexture(
-            await createImageBitmap(blob, { imageOrientation: "flipY" }),
-          );
+        if (typeof createImageBitmap === "function") {
+          const bmp = await createImageBitmap(blob, {
+            imageOrientation: "flipY",
+          });
+          return makeTexture(bmp);
+        }
         const img = await new Promise((res, rej) => {
           const i = new Image();
+          i.crossOrigin = "anonymous";
           i.onload = () => res(i);
           i.onerror = rej;
           i.src = URL.createObjectURL(blob);
         });
         return makeTexture(new THREE.Texture(img));
       }
-      function disposeTex(t) {
-        if (!t) return;
-        try {
-          t.dispose();
-          t.image?.close?.();
-        } catch (e) {}
-      }
-
       function requestLow(a, p) {
-        if (!a || a.low || a.full || a.lowReq) return;
+        if (!a || a.low || a.lowReq) return;
         a.lowReq = true;
-        schedule(p, async () => {
-          if (!inWindow(a.index)) {
-            a.lowReq = false;
-            return;
-          }
-          try {
-            const t = await loadTexture(srcURL(a.seed, LOW_W, LOW_H));
-            if (!inWindow(a.index)) {
-              disposeTex(t);
+        schedule(p, () =>
+          loadTexture(srcURL(a.id, LOW_W, LOW_Q))
+            .then((t) => {
+              a.low = t;
+              needsRender = true;
+            })
+            .catch(() => {
               a.lowReq = false;
-              return;
-            }
-            a.low = t;
-            needsRender = true;
-          } catch {
-            a.lowReq = false;
-            if (++a.tries > 2 && !a.full)
-              a.seed = `${SESSION}-${a.index}-r${a.tries}`;
-          }
-        });
+            }),
+        );
       }
       function requestFull(a, p) {
         if (!a || a.full || a.fullReq) return;
         a.fullReq = true;
-        schedule(p, async () => {
-          if (!inWindow(a.index)) {
-            a.fullReq = false;
-            return;
-          }
-          try {
-            const t = await loadTexture(srcURL(a.seed, FULL_W, FULL_H));
-            if (!inWindow(a.index)) {
-              disposeTex(t);
+        schedule(p, () =>
+          loadTexture(srcURL(a.id, FULL_W, FULL_Q))
+            .then((t) => {
+              a.full = t;
+              needsRender = true;
+            })
+            .catch(() => {
               a.fullReq = false;
-              return;
-            }
-            a.full = t;
-            needsRender = true;
-            disposeTex(a.low);
-            a.low = null;
-          } catch {
-            // low-res no longer needed
-            a.fullReq = false;
-          }
-        });
+            }),
+        );
       }
-      const bestOf = (a) => (a && (a.full || a.low)) || null;
-
-      function prefetchAround(idx) {
-        for (let k = 0; k <= KEEP_AHEAD; k++) {
-          const a = assetAt(idx + k);
-          requestLow(a, k);
-          if (k <= 6) requestFull(a, 20 + k * 5);
-        }
-      }
-      function prune(idx) {
-        for (const a of assets) {
-          if (a.index < idx - KEEP_BEHIND || a.index > idx + KEEP_AHEAD) {
-            if (a.low || a.full) {
-              disposeTex(a.low);
-              disposeTex(a.full);
-              a.low = a.full = null;
-              a.lowReq = a.fullReq = false;
-            }
-          }
-        }
-      }
+      const bestOf = (a) =>
+        a ? a.full || a.low || fallbackTexture : fallbackTexture;
 
       /* ---------- SCROLL ---------- */
       const TRAVEL_VH = 1.5,
@@ -569,14 +515,13 @@
         spacer.style.height = VIRTUAL_LENGTH * travel + innerHeight + "px";
       }
       function resize() {
-        const dpr = Math.min(devicePixelRatio || 1, 1.25);
+        const dpr = Math.min(devicePixelRatio || 1, 1.25); // <-- BIG perf win
         renderer.setPixelRatio(dpr);
         renderer.setSize(innerWidth, innerHeight, false);
-        uniformsFront.uResolution.value.set(
-          innerWidth * dpr,
-          innerHeight * dpr,
-        );
-        uniformsBack.uResolution.value.copy(uniformsFront.uResolution.value);
+        const w = innerWidth * dpr,
+          h = innerHeight * dpr;
+        uniformsFront.uResolution.value.set(w, h);
+        uniformsBack.uResolution.value.set(w, h);
         travel = innerHeight * TRAVEL_VH;
         updateSpacer();
         needsRender = true;
@@ -586,21 +531,27 @@
       resize();
       smoothScroll = scrollY;
 
-      // warm start: first two full-res are top priority
-      requestFull(assetAt(0), -200);
-      requestFull(assetAt(1), -199);
+      function prefetchAround(idx) {
+        for (let k = 0; k <= 8; k++) {
+          const a = assetAt(idx + k);
+          requestLow(a, k);
+          if (k <= 5) requestFull(a, 20 + k * 5);
+        }
+      }
+      assets.forEach((a, i) => {
+        requestLow(a, i);
+        if (i < 4) requestFull(a, i - 100);
+      });
       prefetchAround(0);
 
-      /* ---------- RENDER LOOP — NEVER BLOCKS ---------- */
-      let firstPaint = false,
-        lastStatus = "";
+      /* ---------- RENDER LOOP - NEVER BLOCKS ---------- */
+      let firstPaint = false;
       function setTex(u, tex) {
         if (u.uTexture.value !== tex) u.uTexture.value = tex;
         const img = tex.image;
-        u.uImageResolution.value.set(
-          img?.naturalWidth || img?.width || FULL_W,
-          img?.naturalHeight || img?.height || FULL_H,
-        );
+        const iw = img?.naturalWidth || img?.width || 1280,
+          ih = img?.naturalHeight || img?.height || 850;
+        if (iw && ih) u.uImageResolution.value.set(iw, ih);
       }
       function frame() {
         requestAnimationFrame(frame);
@@ -610,41 +561,42 @@
         smoothScroll += (target - smoothScroll) * SMOOTHING;
         if (Math.abs(target - smoothScroll) < 0.1) smoothScroll = target;
 
-        const index = Math.max(0, Math.floor(smoothScroll / travel));
-        const progress = Math.min(
+        let index = Math.max(0, Math.floor(smoothScroll / travel));
+        let progress = Math.min(
           Math.max((smoothScroll - index * travel) / travel, 0),
           1,
         );
-        curIndex = index;
 
+        // grow infinite runway
         if (index > VIRTUAL_LENGTH - 15) {
           VIRTUAL_LENGTH += 200;
           updateSpacer();
         }
+
         if (index !== lastIndex) {
           prefetchAround(index);
-          prune(index);
+        } else if (index % 2 === 0) {
+          prefetchAround(index);
         }
 
-        barEl.style.transform = `scaleX(${progress})`;
+        // ALWAYS update UI - even if textures missing
+        barEl.style.width = (progress * 100).toFixed(2) + "%";
         counter.textContent = String(index + 1).padStart(3, "0");
         const heroFade = Math.max(0, 1 - smoothScroll / (innerHeight * 0.6));
         heroEl.style.opacity = heroFade;
         heroEl.style.transform = `translate(-50%,-50%) scale(${0.98 + heroFade * 0.02})`;
 
-        // fall back to neighbour so a frame is always drawn
-        const fTex =
-          bestOf(assetAt(index)) ||
-          bestOf(assetAt(index + 1)) ||
-          fallbackTexture;
-        const bTex = bestOf(assetAt(index + 1)) || fTex;
+        const fTex = bestOf(assetAt(index)),
+          bTex = bestOf(assetAt(index + 1));
 
+        // ALWAYS render if anything changed - don't wait for full-res
         const shouldRender =
           needsRender ||
           index !== lastIndex ||
           Math.abs(progress - lastProgress) > 0.0005 ||
           uniformsFront.uTexture.value !== fTex ||
           uniformsBack.uTexture.value !== bTex;
+
         if (shouldRender) {
           setTex(uniformsFront, fTex);
           uniformsFront.uDissolve.value = progress;
@@ -669,15 +621,10 @@
             setTimeout(() => loaderEl.remove(), 600);
           }
         }
-
-        let buffered = 0;
-        for (let k = 0; k < 5; k++) if (bestOf(assetAt(index + k))) buffered++;
-        const st =
-          buffered >= 5 ? "infinite gallery" : `buffering ${buffered}/5`;
-        if (st !== lastStatus) {
-          statusEl.textContent = st;
-          lastStatus = st;
-        }
+        statusEl.textContent =
+          assetAt(index).full && assetAt(index + 1).full
+            ? "infinite gallery"
+            : "loading…";
       }
       requestAnimationFrame(frame);
       addEventListener(

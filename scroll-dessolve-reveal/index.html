@@ -6,31 +6,10 @@
       name="viewport"
       content="width=device-width, initial-scale=1, viewport-fit=cover"
     />
-    <title>Historic Scroll Dissolve — Silver Etchings</title>
+    <title>Historic Scroll Dissolve — No Lag</title>
 
     <link rel="preconnect" href="https://images.unsplash.com" crossorigin />
     <link rel="dns-prefetch" href="https://images.unsplash.com" />
-    <link
-      rel="preload"
-      as="image"
-      fetchpriority="high"
-      crossorigin
-      href="https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?auto=format&fit=crop&w=256&q=40"
-    />
-    <link
-      rel="preload"
-      as="image"
-      fetchpriority="high"
-      crossorigin
-      href="https://images.unsplash.com/photo-1582561424760-0321d75e81fa?auto=format&fit=crop&w=256&q=40"
-    />
-    <link
-      rel="preload"
-      as="image"
-      fetchpriority="high"
-      crossorigin
-      href="https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?auto=format&fit=crop&w=1024&q=72"
-    />
 
     <style>
       :root {
@@ -124,7 +103,9 @@
         transform: translate(-50%, -50%);
         text-align: center;
         mix-blend-mode: difference;
-        will-change: opacity, transform;
+        transition:
+          opacity 0.45s ease,
+          transform 0.45s ease;
       }
       .center h1 {
         margin: 0;
@@ -185,14 +166,13 @@
       .progress span {
         display: block;
         height: 100%;
-        width: 100%;
+        width: 0%;
         background: #fff;
         box-shadow:
           0 0 16px rgba(255, 255, 255, 0.6),
           0 0 4px #fff;
         transform-origin: left center;
-        transform: scaleX(0);
-        will-change: transform;
+        will-change: width;
       }
       .hint {
         display: flex;
@@ -252,29 +232,23 @@
       }
     </style>
   </head>
-
   <body>
     <canvas id="gl"></canvas>
     <div class="vignette"></div>
     <div id="spacer"></div>
-
     <header class="ui topbar">
-      <strong>Historic&nbsp;/&nbsp;Engraving</strong>
-      <span id="status">infinite gallery</span>
+      <strong>Historic / Engraving</strong><span id="status">loading…</span>
     </header>
-
     <div class="ui center" id="hero">
       <h1>Chronicle</h1>
       <p>Scroll to uncover the archive</p>
     </div>
-
     <footer class="ui bottombar">
       <div class="counter">
         <span class="num" id="counter">001</span><span class="of">/ ∞</span>
       </div>
       <div class="hint"><span>Scroll</span><i></i></div>
     </footer>
-
     <div class="progress"><span id="bar"></span></div>
     <div id="loader">Opening the archive</div>
 
@@ -285,271 +259,125 @@
         }
       }
     </script>
-
     <script type="module">
       import * as THREE from "three";
+      THREE.Cache.enabled = true;
 
-      /* ==================================================================
-   0. TUNING
-   ================================================================== */
-      const DPR_CAP = 1.25; // lower to 1.0 on weak GPUs
-      const FULL_W = 1024,
-        FULL_Q = 72;
-      const LOW_W = 256,
-        LOW_Q = 40;
-      const EDGE_MAX = 1024; // baked edge-map max dimension
-      const MAX_PARALLEL = 6;
-      const LOOK_AHEAD = 6;
-      const TRAVEL_VH = 1.6;
-      const SMOOTHING = 0.12;
-      const VIRTUAL_LENGTH = 4000;
-
-      /* ==================================================================
-   1. SHADERS
-   ================================================================== */
-      const vert = /* glsl */ `
-  varying vec2 vUv;
-  void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }
-`;
-
-      /* One-time bake: Sobel contour of the artwork → red channel */
-      const bakeFrag = /* glsl */ `
-  precision highp float;
-  uniform sampler2D uTexture;
-  uniform vec2 uTexel;
-  varying vec2 vUv;
-  float lum(vec3 c){ return dot(c, vec3(0.299,0.587,0.114)); }
-  void main(){
-    vec2 st = uTexel * 1.35;
-    float tl=lum(texture2D(uTexture, vUv+vec2(-st.x, st.y)).rgb);
-    float t =lum(texture2D(uTexture, vUv+vec2( 0.0,  st.y)).rgb);
-    float tr=lum(texture2D(uTexture, vUv+vec2( st.x, st.y)).rgb);
-    float l =lum(texture2D(uTexture, vUv+vec2(-st.x, 0.0 )).rgb);
-    float r =lum(texture2D(uTexture, vUv+vec2( st.x, 0.0 )).rgb);
-    float bl=lum(texture2D(uTexture, vUv+vec2(-st.x,-st.y)).rgb);
-    float b =lum(texture2D(uTexture, vUv+vec2( 0.0, -st.y)).rgb);
-    float br=lum(texture2D(uTexture, vUv+vec2( st.x,-st.y)).rgb);
-    float gx = -tl - 2.0*l - bl + tr + 2.0*r + br;
-    float gy = -tl - 2.0*t - tr + bl + 2.0*b + br;
-    float e = sqrt(gx*gx + gy*gy);
-    float contour = pow(clamp(e * 2.2, 0.0, 1.0), 0.72);
-    gl_FragColor = vec4(contour, contour, contour, 1.0);
-  }
-`;
-
-      const coverCommon = /* glsl */ `
-  uniform sampler2D uTexture;
-  uniform sampler2D uEdge;
-  uniform vec2 uResolution;
-  uniform vec2 uImageResolution;
-  varying vec2 vUv;
-  float lum(vec3 c){ return dot(c, vec3(0.299,0.587,0.114)); }
-  vec2 coverUv(){
-    vec2 ratio = vec2(
-      min((uResolution.x/uResolution.y)/(uImageResolution.x/uImageResolution.y), 1.0),
-      min((uResolution.y/uResolution.x)/(uImageResolution.y/uImageResolution.x), 1.0));
-    return vec2(vUv.x*ratio.x + (1.0-ratio.x)*0.5, vUv.y*ratio.y + (1.0-ratio.y)*0.5);
-  }
-`;
-
-      /* FRONT: dissolves outward, silver strictly on baked contours */
-      const frontFrag =
-        /* glsl */ coverCommon +
-        `
-  uniform float uDissolve;
-  uniform vec2 uCenter;
-  uniform float uGrayscale;
-  uniform float uEdgeIntensity;
-  uniform float uEdgeBrightness;
-
-  float hash(vec2 p){ return fract(sin(dot(p, vec2(127.1,311.7))) * 43758.5453); }
-  float noise(vec2 p){
-    vec2 i = floor(p), f = fract(p); f = f*f*(3.0-2.0*f);
-    return mix(mix(hash(i), hash(i+vec2(1,0)), f.x), mix(hash(i+vec2(0,1)), hash(i+vec2(1,1)), f.x), f.y);
-  }
-  float fbm(vec2 p){ float v=0.0,a=0.5; for(int i=0;i<4;i++){ v+=a*noise(p); p*=2.0; a*=0.5; } return v; }
-
-  void main(){
-    vec2 uv = coverUv();
-    vec4 tex = texture2D(uTexture, uv);
-    float contour = texture2D(uEdge, uv).r;
-
-    vec3 baseColor = mix(tex.rgb, vec3(lum(tex.rgb) * 0.22), uGrayscale);
-
-    vec2 c = vUv - uCenter;
-    float aspect = uResolution.x / uResolution.y;
-    c.x *= aspect;
-    float dist = length(c);
-    float angle = atan(c.y, c.x);
-
-    vec2 blockUv = floor(vUv * 85.0) / 85.0;
-    float n = fbm(blockUv * 9.0) * 0.14 + fbm(vec2(angle * 5.0, 0.0)) * 0.08;
-    float nd = (dist + n) / length(vec2(aspect*0.5, 0.5));
-
-    float th = uDissolve * 1.55;
-    float mask = smoothstep(th - 0.03, th, nd);
-
-    float ambient = contour * (uEdgeIntensity * 2.6 + 0.12 * uGrayscale);
-    float rimZone = smoothstep(th - 0.12, th, nd) * smoothstep(th + 0.04, th - 0.02, nd);
-    float rim = contour * rimZone * 4.2;
-
-    vec3 silver = vec3(0.92, 0.95, 1.0);
-    gl_FragColor = vec4(baseColor + silver * (ambient + rim) * uEdgeBrightness, mask * tex.a);
-  }
-`;
-
-      /* BACK: silver sketch → blooms into full color */
-      const backFrag =
-        /* glsl */ coverCommon +
-        `
-  uniform float uEdgeIntensity;
-  uniform float uDarkness;
-  void main(){
-    vec2 uv = coverUv();
-    vec4 tex = texture2D(uTexture, uv);
-    float contour = texture2D(uEdge, uv).r;
-    vec3 baseColor = mix(tex.rgb, vec3(lum(tex.rgb) * 0.16), uDarkness);
-    vec3 silver = vec3(0.92, 0.95, 1.0);
-    gl_FragColor = vec4(clamp(baseColor + silver * contour * uEdgeIntensity * 2.8, 0.0, 1.0), tex.a);
-  }
-`;
-
-      /* ==================================================================
-   2. RENDERER
-   ================================================================== */
+      /* ---------- THREE SETUP FIRST (so initTexture exists) ---------- */
       const canvas = document.getElementById("gl");
       const renderer = new THREE.WebGLRenderer({
         canvas,
         antialias: false,
         alpha: false,
         powerPreference: "high-performance",
-        stencil: false,
-        depth: false,
       });
       renderer.setClearColor(0x000000, 1);
-
+      const scene = new THREE.Scene();
       const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 10);
-      camera.position.z = 1;
-      const quad = new THREE.PlaneGeometry(2, 2);
+      camera.position.set(0, 0, 1);
+      const geometry = new THREE.PlaneGeometry(2, 2);
 
-      /* fallback 2×2 textures so shaders can compile before any image arrives */
-      const fallbackTex = new THREE.DataTexture(
-        new Uint8Array([
-          8, 8, 8, 255, 12, 12, 12, 255, 12, 12, 12, 255, 8, 8, 8, 255,
-        ]),
-        2,
-        2,
+      // 1x1 black fallback - guarantees first frame is instant
+      const fallbackTexture = new THREE.DataTexture(
+        new Uint8Array([10, 10, 10, 255]),
+        1,
+        1,
+        THREE.RGBAFormat,
       );
-      fallbackTex.colorSpace = THREE.SRGBColorSpace;
-      fallbackTex.needsUpdate = true;
-      const fallbackEdge = new THREE.DataTexture(
-        new Uint8Array([
-          0, 0, 0, 255, 0, 0, 0, 255, 0, 0, 0, 255, 0, 0, 0, 255,
-        ]),
-        2,
-        2,
-      );
-      fallbackEdge.needsUpdate = true;
+      fallbackTexture.colorSpace = THREE.SRGBColorSpace;
+      fallbackTexture.needsUpdate = true;
 
-      /* --- bake pipeline --- */
-      const bakeUniforms = {
-        uTexture: { value: fallbackTex },
-        uTexel: { value: new THREE.Vector2(1 / 2, 1 / 2) },
-      };
-      const bakeScene = new THREE.Scene();
-      bakeScene.add(
-        new THREE.Mesh(
-          quad,
-          new THREE.ShaderMaterial({
-            vertexShader: vert,
-            fragmentShader: bakeFrag,
-            uniforms: bakeUniforms,
-            depthTest: false,
-            depthWrite: false,
-          }),
-        ),
-      );
+      const coverVertexShader = `varying vec2 vUv; void main(){vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}`;
 
-      function bakeEdges(tex) {
-        const img = tex.image;
-        const iw = img.width,
-          ih = img.height;
-        const s = Math.min(1, EDGE_MAX / Math.max(iw, ih));
-        const rt = new THREE.WebGLRenderTarget(
-          Math.max(2, Math.round(iw * s)),
-          Math.max(2, Math.round(ih * s)),
-          {
-            minFilter: THREE.LinearFilter,
-            magFilter: THREE.LinearFilter,
-            format: THREE.RGBAFormat,
-            type: THREE.UnsignedByteType,
-            depthBuffer: false,
-            stencilBuffer: false,
-            generateMipmaps: false,
-          },
-        );
-        bakeUniforms.uTexture.value = tex;
-        bakeUniforms.uTexel.value.set(1 / iw, 1 / ih);
-        renderer.setRenderTarget(rt);
-        renderer.render(bakeScene, camera);
-        renderer.setRenderTarget(null);
-        return rt;
-      }
+      const coverFragmentShader = `
+  uniform sampler2D uTexture; uniform vec2 uResolution; uniform vec2 uImageResolution;
+  uniform float uDissolve; uniform vec2 uCenter; uniform float uGrayscale; uniform float uEdgeIntensity; uniform float uEdgeBrightness;
+  varying vec2 vUv;
+  mat3 sobelX = mat3(-1.0,0.0,1.0,-2.0,0.0,2.0,-1.0,0.0,1.0);
+  mat3 sobelY = mat3(-1.0,-2.0,-1.0,0.0,0.0,0.0,1.0,2.0,1.0);
+  float luma(vec3 c){return dot(c,vec3(0.299,0.587,0.114));}
+  float sobel(sampler2D tex, vec2 uv, vec2 ts){
+    float gx=0.,gy=0.; vec2 s=ts*1.35;
+    for(int i=-1;i<=1;i++){ for(int j=-1;j<=1;j++){
+      float l=luma(texture2D(tex,uv+vec2(float(i),float(j))*s).rgb);
+      gx+=l*sobelX[i+1][j+1]; gy+=l*sobelY[i+1][j+1];
+    }} return sqrt(gx*gx+gy*gy);
+  }
+  float hash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}
+  float noise(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);return mix(mix(hash(i),hash(i+vec2(1,0)),f.x),mix(hash(i+vec2(0,1)),hash(i+vec2(1,1)),f.x),f.y);}
+  float fbm(vec2 p){float v=0.,a=.5;for(int i=0;i<4;i++){v+=a*noise(p);p*=2.;a*=.5;}return v;}
+  void main(){
+    vec2 ratio=vec2(min((uResolution.x/uResolution.y)/(uImageResolution.x/uImageResolution.y),1.),min((uResolution.y/uResolution.x)/(uImageResolution.y/uImageResolution.x),1.));
+    vec2 uv=vec2(vUv.x*ratio.x+(1.-ratio.x)*.5, vUv.y*ratio.y+(1.-ratio.y)*.5);
+    vec4 tex=texture2D(uTexture,uv); float lum=luma(tex.rgb);
+    vec3 base=mix(tex.rgb, vec3(lum*.22), uGrayscale);
+    vec2 ts=1./uImageResolution; float contour=pow(clamp(sobel(uTexture,uv,ts)*2.2,0.,1.),.72);
+    vec2 cu=vUv-uCenter; float asp=uResolution.x/uResolution.y; cu.x*=asp; float dist=length(cu);
+    float ang=atan(cu.y,cu.x); vec2 bu=floor(vUv*85.)/85.; float bn=fbm(bu*9.)*.14; float an=fbm(vec2(ang*5.,0.))*.08;
+    float nd=(dist+bn+an)/length(vec2(asp*.5,.5)); float th=uDissolve*1.55;
+    float mask=smoothstep(th-.03,th,nd);
+    vec3 silver=vec3(.92,.95,1.); float amb=contour*(uEdgeIntensity*2.6+.12*uGrayscale);
+    float rim=smoothstep(th-.12,th,nd)*smoothstep(th+.04,th-.02,nd); float rimS=contour*rim*4.2;
+    vec3 col=base+silver*(amb+rimS)*uEdgeBrightness; gl_FragColor=vec4(col,mask*tex.a);
+  }
+`;
 
-      /* --- main scene --- */
+      const coverFragmentShaderReverse = `
+  uniform sampler2D uTexture; uniform vec2 uResolution; uniform vec2 uImageResolution;
+  uniform float uEdgeIntensity; uniform float uDarkness; uniform float uGrayscale; varying vec2 vUv;
+  mat3 sobelX=mat3(-1.,0.,1.,-2.,0.,2.,-1.,0.,1.); mat3 sobelY=mat3(-1.,-2.,-1.,0.,0.,0.,1.,2.,1.);
+  float luma(vec3 c){return dot(c,vec3(.299,.587,.114));}
+  float sobel(sampler2D t,vec2 uv,vec2 ts){float gx=0.,gy=0.;vec2 s=ts*1.35;for(int i=-1;i<=1;i++){for(int j=-1;j<=1;j++){float l=luma(texture2D(t,uv+vec2(float(i),float(j))*s).rgb);gx+=l*sobelX[i+1][j+1];gy+=l*sobelY[i+1][j+1];}}return sqrt(gx*gx+gy*gy);}
+  void main(){
+    vec2 ratio=vec2(min((uResolution.x/uResolution.y)/(uImageResolution.x/uImageResolution.y),1.),min((uResolution.y/uResolution.x)/(uImageResolution.y/uImageResolution.x),1.));
+    vec2 uv=vec2(vUv.x*ratio.x+(1.-ratio.x)*.5, vUv.y*ratio.y+(1.-ratio.y)*.5);
+    vec4 tex=texture2D(uTexture,uv); float lum=luma(tex.rgb); vec2 ts=1./uImageResolution;
+    float contour=pow(clamp(sobel(uTexture,uv,ts)*2.2,0.,1.),.72);
+    vec3 base=mix(tex.rgb, vec3(lum*.16), uDarkness);
+    vec3 col=clamp(base+vec3(.92,.95,1.)*contour*(uEdgeIntensity*2.8),0.,1.); gl_FragColor=vec4(col,tex.a);
+  }
+`;
+
       const uniformsBack = {
-        uTexture: { value: fallbackTex },
-        uEdge: { value: fallbackEdge },
+        uTexture: { value: fallbackTexture },
         uResolution: { value: new THREE.Vector2(1, 1) },
-        uImageResolution: { value: new THREE.Vector2(1024, 680) },
+        uImageResolution: { value: new THREE.Vector2(1280, 850) },
         uEdgeIntensity: { value: 0.6 },
         uDarkness: { value: 1 },
+        uGrayscale: { value: 1 },
       };
       const uniformsFront = {
-        uTexture: { value: fallbackTex },
-        uEdge: { value: fallbackEdge },
+        uTexture: { value: fallbackTexture },
         uResolution: { value: new THREE.Vector2(1, 1) },
-        uImageResolution: { value: new THREE.Vector2(1024, 680) },
+        uImageResolution: { value: new THREE.Vector2(1280, 850) },
         uDissolve: { value: 0 },
         uCenter: { value: new THREE.Vector2(0.5, 0.5) },
         uGrayscale: { value: 0 },
         uEdgeIntensity: { value: 0 },
         uEdgeBrightness: { value: 1 },
       };
-      const scene = new THREE.Scene();
-      const meshBack = new THREE.Mesh(
-        quad,
-        new THREE.ShaderMaterial({
-          vertexShader: vert,
-          fragmentShader: backFrag,
-          uniforms: uniformsBack,
-          transparent: true,
-          depthTest: false,
-          depthWrite: false,
-        }),
-      );
-      const meshFront = new THREE.Mesh(
-        quad,
-        new THREE.ShaderMaterial({
-          vertexShader: vert,
-          fragmentShader: frontFrag,
-          uniforms: uniformsFront,
-          transparent: true,
-          depthTest: false,
-          depthWrite: false,
-        }),
-      );
-      meshBack.renderOrder = 0;
-      meshFront.renderOrder = 1;
+      const matBack = new THREE.ShaderMaterial({
+        vertexShader: coverVertexShader,
+        fragmentShader: coverFragmentShaderReverse,
+        uniforms: uniformsBack,
+        transparent: true,
+        depthTest: false,
+        depthWrite: false,
+      });
+      const matFront = new THREE.ShaderMaterial({
+        vertexShader: coverVertexShader,
+        fragmentShader: coverFragmentShader,
+        uniforms: uniformsFront,
+        transparent: true,
+        depthTest: false,
+        depthWrite: false,
+      });
+      const meshBack = new THREE.Mesh(geometry, matBack);
+      meshBack.position.z = -0.1;
+      const meshFront = new THREE.Mesh(geometry, matFront);
       scene.add(meshBack, meshFront);
 
-      /* precompile every shader now → zero hitch on first scroll */
-      renderer.compile(scene, camera);
-      renderer.compile(bakeScene, camera);
-
-      /* ==================================================================
-   3. ARCHIVE + LOADER (LQIP → full, off-thread decode, priority queue)
-   ================================================================== */
+      /* ---------- HISTORIC ASSETS (cycles forever) ---------- */
       const PHOTO_IDS = [
         "photo-1579783900882-c0d3dad7b119",
         "photo-1582561424760-0321d75e81fa",
@@ -562,15 +390,19 @@
         "photo-1582561424749-31765c92c81d",
         "photo-1577720580479-7d839d829c73",
       ];
+      // TO USE RANDOM LIKE BEFORE, REPLACE ABOVE WITH:
+      // const PHOTO_IDS = Array.from({length:100}, (_,i)=>`seed/rand-${i}-${Math.random().toString(36).slice(2)}`)
+
+      const FULL_W = 1280,
+        FULL_Q = 72,
+        LOW_W = 320,
+        LOW_Q = 40;
       const srcURL = (id, w, q) =>
         `https://images.unsplash.com/${id}?auto=format&fit=crop&w=${w}&q=${q}`;
-
       const assets = PHOTO_IDS.map((id) => ({
         id,
         low: null,
         full: null,
-        edgeLow: null,
-        edgeFull: null,
         lowReq: false,
         fullReq: false,
         tries: 0,
@@ -578,128 +410,98 @@
       const assetAt = (i) =>
         assets[((i % assets.length) + assets.length) % assets.length];
 
-      let needsRender = true,
-        readyCount = 0;
-
-      /* priority queue */
+      /* ---------- FAST LOADER ---------- */
+      const MAX_PARALLEL = 6;
       let inFlight = 0;
       const jobs = [];
-      function schedule(priority, run) {
-        jobs.push({ priority, run });
+      function schedule(p, run) {
+        jobs.push({ p, run });
         pump();
       }
       function pump() {
+        if (!jobs.length || inFlight >= MAX_PARALLEL) return;
+        jobs.sort((a, b) => a.p - b.p);
         while (inFlight < MAX_PARALLEL && jobs.length) {
-          let bi = 0;
-          for (let i = 1; i < jobs.length; i++)
-            if (jobs[i].priority < jobs[bi].priority) bi = i;
-          const job = jobs.splice(bi, 1)[0];
+          const j = jobs.shift();
           inFlight++;
-          job.run().finally(() => {
-            inFlight--;
-            pump();
-          });
+          j.run()
+            .catch(() => {})
+            .finally(() => {
+              inFlight--;
+              pump();
+            });
         }
       }
-
-      const hasBitmap = typeof createImageBitmap === "function";
-      const bmpLoader = hasBitmap ? new THREE.ImageBitmapLoader() : null;
-      if (bmpLoader) {
-        bmpLoader.setCrossOrigin("anonymous");
-        bmpLoader.setOptions({
-          imageOrientation: "flipY",
-          premultiplyAlpha: "none",
-        });
-      }
-      const imgLoader = new THREE.TextureLoader();
-      imgLoader.setCrossOrigin("anonymous");
-
-      function finishTexture(tex) {
+      function makeTexture(source) {
+        const tex =
+          source instanceof ImageBitmap ? new THREE.Texture(source) : source;
         tex.colorSpace = THREE.SRGBColorSpace;
         tex.minFilter = tex.magFilter = THREE.LinearFilter;
         tex.generateMipmaps = false;
         tex.wrapS = tex.wrapT = THREE.ClampToEdgeWrapping;
         tex.needsUpdate = true;
-        renderer.initTexture(tex); // GPU upload now, not during a scroll frame
+        try {
+          renderer.initTexture(tex);
+        } catch (e) {}
         return tex;
       }
-      function loadTexture(url) {
-        return new Promise((res, rej) => {
-          if (bmpLoader)
-            bmpLoader.load(
-              url,
-              (b) => res(finishTexture(new THREE.Texture(b))),
-              undefined,
-              () =>
-                imgLoader.load(
-                  url,
-                  (t) => res(finishTexture(t)),
-                  undefined,
-                  rej,
-                ),
-            );
-          else
-            imgLoader.load(url, (t) => res(finishTexture(t)), undefined, rej);
+      async function loadTexture(url) {
+        const r = await fetch(url, { mode: "cors", cache: "force-cache" });
+        if (!r.ok) throw r.status;
+        const blob = await r.blob();
+        if (typeof createImageBitmap === "function") {
+          const bmp = await createImageBitmap(blob, {
+            imageOrientation: "flipY",
+          });
+          return makeTexture(bmp);
+        }
+        const img = await new Promise((res, rej) => {
+          const i = new Image();
+          i.crossOrigin = "anonymous";
+          i.onload = () => res(i);
+          i.onerror = rej;
+          i.src = URL.createObjectURL(blob);
         });
+        return makeTexture(new THREE.Texture(img));
       }
-
       function requestLow(a, p) {
-        if (a.low || a.lowReq) return;
+        if (!a || a.low || a.lowReq) return;
         a.lowReq = true;
         schedule(p, () =>
           loadTexture(srcURL(a.id, LOW_W, LOW_Q))
             .then((t) => {
               a.low = t;
-              a.edgeLow = bakeEdges(t);
               needsRender = true;
             })
             .catch(() => {
-              if (a.tries++ < 3) a.lowReq = false;
+              a.lowReq = false;
             }),
         );
       }
       function requestFull(a, p) {
-        if (a.full || a.fullReq) return;
+        if (!a || a.full || a.fullReq) return;
         a.fullReq = true;
         schedule(p, () =>
           loadTexture(srcURL(a.id, FULL_W, FULL_Q))
             .then((t) => {
               a.full = t;
-              a.edgeFull = bakeEdges(t);
-              readyCount++;
               needsRender = true;
-              /* low-res no longer needed */
-              if (a.low) {
-                a.low.dispose();
-                a.low.image?.close?.();
-                a.low = null;
-              }
-              if (a.edgeLow) {
-                a.edgeLow.dispose();
-                a.edgeLow = null;
-              }
             })
             .catch(() => {
-              if (a.tries++ < 3) a.fullReq = false;
+              a.fullReq = false;
             }),
         );
       }
       const bestOf = (a) =>
-        a.full
-          ? { tex: a.full, edge: a.edgeFull.texture }
-          : a.low
-            ? { tex: a.low, edge: a.edgeLow.texture }
-            : null;
+        a ? a.full || a.low || fallbackTexture : fallbackTexture;
 
-      /* warm start */
-      assets.forEach((a, i) => requestLow(a, i));
-      assets.forEach((a, i) => requestFull(a, i < 3 ? -100 + i : 100 + i));
-
-      /* ==================================================================
-   4. SCROLL + RESIZE
-   ================================================================== */
-      let travel = 1,
+      /* ---------- SCROLL ---------- */
+      const TRAVEL_VH = 1.5,
+        SMOOTHING = 0.14;
+      let VIRTUAL_LENGTH = 120;
+      let travel = innerHeight * TRAVEL_VH,
         smoothScroll = 0,
+        needsRender = true,
         lastIndex = -1,
         lastProgress = -1;
       const spacer = document.getElementById("spacer"),
@@ -709,25 +511,123 @@
         loaderEl = document.getElementById("loader"),
         statusEl = document.getElementById("status");
 
+      function updateSpacer() {
+        spacer.style.height = VIRTUAL_LENGTH * travel + innerHeight + "px";
+      }
       function resize() {
-        const dpr = Math.min(window.devicePixelRatio || 1, DPR_CAP);
+        const dpr = Math.min(devicePixelRatio || 1, 1.25); // <-- BIG perf win
         renderer.setPixelRatio(dpr);
-        renderer.setSize(window.innerWidth, window.innerHeight, false);
-        uniformsFront.uResolution.value.set(
-          window.innerWidth * dpr,
-          window.innerHeight * dpr,
-        );
-        uniformsBack.uResolution.value.copy(uniformsFront.uResolution.value);
-        travel = window.innerHeight * TRAVEL_VH;
-        spacer.style.height =
-          VIRTUAL_LENGTH * travel + window.innerHeight + "px";
+        renderer.setSize(innerWidth, innerHeight, false);
+        const w = innerWidth * dpr,
+          h = innerHeight * dpr;
+        uniformsFront.uResolution.value.set(w, h);
+        uniformsBack.uResolution.value.set(w, h);
+        travel = innerHeight * TRAVEL_VH;
+        updateSpacer();
         needsRender = true;
       }
-      window.addEventListener("resize", resize);
-      window.addEventListener("orientationchange", () =>
-        setTimeout(resize, 250),
-      );
-      window.addEventListener(
+      addEventListener("resize", resize);
+      addEventListener("orientationchange", () => setTimeout(resize, 200));
+      resize();
+      smoothScroll = scrollY;
+
+      function prefetchAround(idx) {
+        for (let k = 0; k <= 8; k++) {
+          const a = assetAt(idx + k);
+          requestLow(a, k);
+          if (k <= 5) requestFull(a, 20 + k * 5);
+        }
+      }
+      assets.forEach((a, i) => {
+        requestLow(a, i);
+        if (i < 4) requestFull(a, i - 100);
+      });
+      prefetchAround(0);
+
+      /* ---------- RENDER LOOP - NEVER BLOCKS ---------- */
+      let firstPaint = false;
+      function setTex(u, tex) {
+        if (u.uTexture.value !== tex) u.uTexture.value = tex;
+        const img = tex.image;
+        const iw = img?.naturalWidth || img?.width || 1280,
+          ih = img?.naturalHeight || img?.height || 850;
+        if (iw && ih) u.uImageResolution.value.set(iw, ih);
+      }
+      function frame() {
+        requestAnimationFrame(frame);
+        if (document.hidden) return;
+
+        const target = scrollY;
+        smoothScroll += (target - smoothScroll) * SMOOTHING;
+        if (Math.abs(target - smoothScroll) < 0.1) smoothScroll = target;
+
+        let index = Math.max(0, Math.floor(smoothScroll / travel));
+        let progress = Math.min(
+          Math.max((smoothScroll - index * travel) / travel, 0),
+          1,
+        );
+
+        // grow infinite runway
+        if (index > VIRTUAL_LENGTH - 15) {
+          VIRTUAL_LENGTH += 200;
+          updateSpacer();
+        }
+
+        if (index !== lastIndex) {
+          prefetchAround(index);
+        } else if (index % 2 === 0) {
+          prefetchAround(index);
+        }
+
+        // ALWAYS update UI - even if textures missing
+        barEl.style.width = (progress * 100).toFixed(2) + "%";
+        counter.textContent = String(index + 1).padStart(3, "0");
+        const heroFade = Math.max(0, 1 - smoothScroll / (innerHeight * 0.6));
+        heroEl.style.opacity = heroFade;
+        heroEl.style.transform = `translate(-50%,-50%) scale(${0.98 + heroFade * 0.02})`;
+
+        const fTex = bestOf(assetAt(index)),
+          bTex = bestOf(assetAt(index + 1));
+
+        // ALWAYS render if anything changed - don't wait for full-res
+        const shouldRender =
+          needsRender ||
+          index !== lastIndex ||
+          Math.abs(progress - lastProgress) > 0.0005 ||
+          uniformsFront.uTexture.value !== fTex ||
+          uniformsBack.uTexture.value !== bTex;
+
+        if (shouldRender) {
+          setTex(uniformsFront, fTex);
+          uniformsFront.uDissolve.value = progress;
+          uniformsFront.uGrayscale.value = Math.min(1, progress / 0.35);
+          uniformsFront.uEdgeIntensity.value = progress * 0.55;
+          uniformsFront.uEdgeBrightness.value = 1 - progress * 0.45;
+
+          setTex(uniformsBack, bTex);
+          const accel = Math.min(1, progress * 1.12);
+          uniformsBack.uEdgeIntensity.value = 0.65 * (1 - accel);
+          uniformsBack.uDarkness.value = 1 - accel;
+          uniformsBack.uGrayscale.value = 1 - accel;
+
+          renderer.render(scene, camera);
+          needsRender = false;
+          lastIndex = index;
+          lastProgress = progress;
+
+          if (!firstPaint && fTex !== fallbackTexture) {
+            firstPaint = true;
+            loaderEl.classList.add("hidden");
+            setTimeout(() => loaderEl.remove(), 600);
+          }
+        }
+        statusEl.textContent =
+          assetAt(index).full && assetAt(index + 1).full
+            ? "infinite gallery"
+            : "loading…";
+      }
+      requestAnimationFrame(frame);
+      addEventListener(
         "scroll",
         () => {
           needsRender = true;
@@ -735,96 +635,7 @@
         { passive: true },
       );
       if ("scrollRestoration" in history) history.scrollRestoration = "manual";
-      window.scrollTo(0, 0);
-      resize();
-      smoothScroll = window.scrollY;
-
-      /* ==================================================================
-   5. RENDER LOOP — never blocks on network
-   ================================================================== */
-      function apply(u, s) {
-        u.uTexture.value = s.tex;
-        u.uEdge.value = s.edge;
-        const img = s.tex.image;
-        u.uImageResolution.value.set(
-          img.naturalWidth || img.width,
-          img.naturalHeight || img.height,
-        );
-      }
-
-      let firstPaint = false,
-        lastStatus = "";
-      function frame() {
-        requestAnimationFrame(frame);
-
-        const target = window.scrollY;
-        smoothScroll += (target - smoothScroll) * SMOOTHING;
-        if (Math.abs(target - smoothScroll) < 0.05) smoothScroll = target;
-
-        const index = Math.max(0, Math.floor(smoothScroll / travel));
-        const progress = Math.min(
-          Math.max((smoothScroll - index * travel) / travel, 0),
-          1,
-        );
-
-        for (let k = 0; k <= LOOK_AHEAD; k++) {
-          const a = assetAt(index + k);
-          requestLow(a, k - 50);
-          requestFull(a, k * 10 - 40);
-        }
-
-        /* pick best available; fall back to neighbour so the frame is always drawn */
-        const sF = bestOf(assetAt(index)) || bestOf(assetAt(index + 1));
-        const sB = bestOf(assetAt(index + 1)) || sF;
-
-        if (
-          sF &&
-          (needsRender ||
-            index !== lastIndex ||
-            Math.abs(progress - lastProgress) > 0.0004)
-        ) {
-          apply(uniformsFront, sF);
-          uniformsFront.uDissolve.value = progress;
-          uniformsFront.uGrayscale.value = Math.min(1, progress / 0.35);
-          uniformsFront.uEdgeIntensity.value = progress * 0.55;
-          uniformsFront.uEdgeBrightness.value = 1 - progress * 0.45;
-
-          apply(uniformsBack, sB);
-          const acc = Math.min(1, progress * 1.12);
-          uniformsBack.uEdgeIntensity.value = 0.65 * (1 - acc);
-          uniformsBack.uDarkness.value = 1 - acc;
-
-          renderer.render(scene, camera);
-          needsRender = false;
-          lastIndex = index;
-          lastProgress = progress;
-
-          barEl.style.transform = `scaleX(${progress})`;
-          counter.textContent = String(index + 1).padStart(3, "0");
-          const fade = Math.max(
-            0,
-            1 - smoothScroll / (window.innerHeight * 0.6),
-          );
-          heroEl.style.opacity = fade;
-          heroEl.style.transform = `translate(-50%,-50%) scale(${0.98 + fade * 0.02})`;
-
-          if (!firstPaint) {
-            firstPaint = true;
-            loaderEl.classList.add("hidden");
-            setTimeout(() => loaderEl.remove(), 600);
-          }
-        }
-
-        const st =
-          readyCount >= assets.length
-            ? "infinite gallery"
-            : `restoring ${readyCount}/${assets.length}`;
-        if (st !== lastStatus) {
-          statusEl.textContent = st;
-          lastStatus = st;
-        }
-      }
-      requestAnimationFrame(frame);
+      scrollTo(0, 0);
     </script>
   </body>
 </html>

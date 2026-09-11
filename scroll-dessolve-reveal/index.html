@@ -1,179 +1,314 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<title>Scroll Dissolve Reveal — Infinite</title>
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover"
+    />
+    <title>Historic Scroll Dissolve — Silver Etchings</title>
 
-<link rel="preconnect" href="https://picsum.photos" crossorigin>
-<link rel="preconnect" href="https://fastly.picsum.photos" crossorigin>
-<link rel="dns-prefetch" href="https://picsum.photos">
-<link rel="dns-prefetch" href="https://fastly.picsum.photos">
+    <!-- ⚡ Kill CDN handshake latency before anything else runs -->
+    <link rel="preconnect" href="https://images.unsplash.com" crossorigin />
+    <link rel="dns-prefetch" href="https://images.unsplash.com" />
+    <!-- ⚡ Start downloading the first two artworks during HTML parse -->
+    <link
+      rel="preload"
+      as="image"
+      fetchpriority="high"
+      crossorigin
+      href="https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?auto=format&fit=crop&w=1280&q=72"
+    />
+    <link
+      rel="preload"
+      as="image"
+      fetchpriority="high"
+      crossorigin
+      href="https://images.unsplash.com/photo-1582561424760-0321d75e81fa?auto=format&fit=crop&w=1280&q=72"
+    />
 
-<style>
-  :root{
-    --fg: #f5f5f5;
-    --muted: rgba(245,245,245,.55);
-    --font: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Inter, Roboto, sans-serif;
-  }
+    <style>
+      :root {
+        --fg: #f5f5f5;
+        --muted: rgba(245, 245, 245, 0.55);
+        --font:
+          ui-sans-serif, system-ui, -apple-system, "Segoe UI", Inter, Roboto,
+          sans-serif;
+      }
 
-  *{ box-sizing:border-box; }
+      * {
+        box-sizing: border-box;
+      }
 
-  html{ scroll-behavior:auto; background:#000; }
+      html {
+        scroll-behavior: auto;
+        background: #000;
+      }
 
-  html, body{
-    scrollbar-width: none;
-    -ms-overflow-style: none;
-  }
-  html::-webkit-scrollbar,
-  body::-webkit-scrollbar{ display:none; width:0; height:0; }
+      /* ---------- HIDE SCROLLBAR COMPLETELY ---------- */
+      html,
+      body {
+        scrollbar-width: none;
+        -ms-overflow-style: none;
+      }
+      html::-webkit-scrollbar,
+      body::-webkit-scrollbar {
+        display: none;
+        width: 0;
+        height: 0;
+      }
 
-  body{
-    margin:0;
-    background:#000;
-    color:var(--fg);
-    font-family:var(--font);
-    overscroll-behavior-y:none;
-    -webkit-font-smoothing:antialiased;
-  }
+      body {
+        margin: 0;
+        background: #000;
+        color: var(--fg);
+        font-family: var(--font);
+        overscroll-behavior-y: none;
+        -webkit-font-smoothing: antialiased;
+      }
 
-  #gl{ position:fixed; inset:0; width:100%; height:100%; display:block; z-index:0; }
+      #gl {
+        position: fixed;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        display: block;
+        z-index: 0;
+      }
 
-  .vignette{
-    position:fixed; inset:0; z-index:1; pointer-events:none;
-    background:radial-gradient(130% 100% at 50% 50%, transparent 40%, rgba(0,0,0,.75) 100%);
-    mix-blend-mode:multiply;
-  }
+      .vignette {
+        position: fixed;
+        inset: 0;
+        z-index: 1;
+        pointer-events: none;
+        background: radial-gradient(
+          130% 100% at 50% 50%,
+          transparent 40%,
+          rgba(0, 0, 0, 0.75) 100%
+        );
+        mix-blend-mode: multiply;
+      }
 
-  #spacer{ position:relative; z-index:2; width:100%; pointer-events:none; }
+      #spacer {
+        position: relative;
+        z-index: 2;
+        width: 100%;
+        pointer-events: none;
+      }
 
-  .ui{ position:fixed; z-index:3; pointer-events:none; user-select:none; }
+      .ui {
+        position: fixed;
+        z-index: 3;
+        pointer-events: none;
+        user-select: none;
+      }
 
-  .topbar{
-    top:0; left:0; right:0;
-    display:flex; align-items:center; justify-content:space-between; gap:16px;
-    padding:24px clamp(18px,4vw,52px);
-    font-size:12px; letter-spacing:.22em; text-transform:uppercase;
-    color:var(--muted); mix-blend-mode:difference;
-  }
-  .topbar strong{ color:var(--fg); font-weight:600; letter-spacing:.3em; }
+      .topbar {
+        top: 0;
+        left: 0;
+        right: 0;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        padding: 24px clamp(18px, 4vw, 52px);
+        font-size: 12px;
+        letter-spacing: 0.22em;
+        text-transform: uppercase;
+        color: var(--muted);
+        mix-blend-mode: difference;
+      }
+      .topbar strong {
+        color: var(--fg);
+        font-weight: 600;
+        letter-spacing: 0.3em;
+      }
 
-  .center{
-    top:50%; left:50%; transform:translate(-50%,-50%);
-    text-align:center; mix-blend-mode:difference;
-    transition:opacity .45s ease, transform .45s ease;
-  }
-  .center h1{
-    margin:0; font-size:clamp(32px,7.5vw,92px);
-    line-height:.92; font-weight:700; letter-spacing:-.03em;
-  }
-  .center p{
-    margin:14px 0 0; font-size:clamp(11px,1.3vw,13px);
-    letter-spacing:.32em; text-transform:uppercase; color:var(--muted);
-  }
+      .center {
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        text-align: center;
+        mix-blend-mode: difference;
+        transition:
+          opacity 0.45s ease,
+          transform 0.45s ease;
+      }
+      .center h1 {
+        margin: 0;
+        font-size: clamp(32px, 7.5vw, 92px);
+        line-height: 0.92;
+        font-weight: 700;
+        letter-spacing: -0.03em;
+      }
+      .center p {
+        margin: 14px 0 0;
+        font-size: clamp(11px, 1.3vw, 13px);
+        letter-spacing: 0.32em;
+        text-transform: uppercase;
+        color: var(--muted);
+      }
 
-  .bottombar{
-    left:0; right:0; bottom:0;
-    display:flex; align-items:flex-end; justify-content:space-between; gap:16px;
-    padding:24px clamp(18px,4vw,52px) 38px;
-    mix-blend-mode:difference;
-  }
+      .bottombar {
+        left: 0;
+        right: 0;
+        bottom: 0;
+        display: flex;
+        align-items: flex-end;
+        justify-content: space-between;
+        gap: 16px;
+        padding: 24px clamp(18px, 4vw, 52px) 38px;
+        mix-blend-mode: difference;
+      }
 
-  .counter{
-    font-variant-numeric:tabular-nums;
-    display:flex; align-items:baseline; gap:14px; line-height:.85;
-  }
-  .counter .num{
-    font-size:clamp(56px, 11vw, 150px);
-    font-weight:700; letter-spacing:-.04em; color:var(--fg); line-height:.85;
-  }
-  .counter .of{
-    font-size:clamp(13px, 2vw, 24px);
-    font-weight:500; letter-spacing:.14em; text-transform:uppercase; color:var(--muted);
-  }
+      /* ---------- LARGE NUMBERS: BOTTOM-LEFT ---------- */
+      .counter {
+        font-variant-numeric: tabular-nums;
+        display: flex;
+        align-items: baseline;
+        gap: 14px;
+        line-height: 0.85;
+      }
+      .counter .num {
+        font-size: clamp(56px, 11vw, 150px);
+        font-weight: 700;
+        letter-spacing: -0.04em;
+        color: var(--fg);
+        line-height: 0.85;
+      }
+      .counter .of {
+        font-size: clamp(13px, 2vw, 24px);
+        font-weight: 500;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: var(--muted);
+      }
 
-  .progress{
-    position:fixed; left:0; right:0; bottom:0;
-    height:9px; z-index:4;
-    background:rgba(255,255,255,.14); pointer-events:none;
-  }
-  .progress span{
-    display:block; height:100%; width:0%;
-    background:#fff;
-    box-shadow:0 0 16px rgba(255,255,255,.6), 0 0 4px #fff;
-    transform-origin:left center; will-change:width;
-  }
+      /* ---------- BIG PROGRESS BAR ---------- */
+      .progress {
+        position: fixed;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        height: 9px;
+        z-index: 4;
+        background: rgba(255, 255, 255, 0.14);
+        pointer-events: none;
+      }
+      .progress span {
+        display: block;
+        height: 100%;
+        width: 0%;
+        background: #fff;
+        box-shadow:
+          0 0 16px rgba(255, 255, 255, 0.6),
+          0 0 4px #fff;
+        transform-origin: left center;
+        will-change: width;
+      }
 
-  .hint{
-    display:flex; align-items:center; gap:10px;
-    font-size:11px; letter-spacing:.24em; text-transform:uppercase;
-    color:var(--muted); padding-bottom:6px;
-  }
-  .hint i{
-    display:block; width:1px; height:36px;
-    background:linear-gradient(to bottom, rgba(255,255,255,0), #fff);
-    animation:drop 1.8s ease-in-out infinite;
-  }
-  @keyframes drop{
-    0%   { transform:scaleY(.2); transform-origin:top;    opacity:0; }
-    40%  { transform:scaleY(1);  transform-origin:top;    opacity:1; }
-    60%  { transform:scaleY(1);  transform-origin:bottom; opacity:1; }
-    100% { transform:scaleY(.2); transform-origin:bottom; opacity:0; }
-  }
+      .hint {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-size: 11px;
+        letter-spacing: 0.24em;
+        text-transform: uppercase;
+        color: var(--muted);
+        padding-bottom: 6px;
+      }
+      .hint i {
+        display: block;
+        width: 1px;
+        height: 36px;
+        background: linear-gradient(to bottom, rgba(255, 255, 255, 0), #fff);
+        animation: drop 1.8s ease-in-out infinite;
+      }
+      @keyframes drop {
+        0% {
+          transform: scaleY(0.2);
+          transform-origin: top;
+          opacity: 0;
+        }
+        40% {
+          transform: scaleY(1);
+          transform-origin: top;
+          opacity: 1;
+        }
+        60% {
+          transform: scaleY(1);
+          transform-origin: bottom;
+          opacity: 1;
+        }
+        100% {
+          transform: scaleY(0.2);
+          transform-origin: bottom;
+          opacity: 0;
+        }
+      }
 
-  #loader{
-    position:fixed; inset:0; z-index:9;
-    display:grid; place-items:center;
-    background:#000; color:var(--muted);
-    font-size:12px; letter-spacing:.3em; text-transform:uppercase;
-    transition:opacity .5s ease;
-  }
-  #loader.hidden{ opacity:0; pointer-events:none; }
-</style>
-</head>
+      #loader {
+        position: fixed;
+        inset: 0;
+        z-index: 9;
+        display: grid;
+        place-items: center;
+        background: #000;
+        color: var(--muted);
+        font-size: 12px;
+        letter-spacing: 0.3em;
+        text-transform: uppercase;
+        transition: opacity 0.5s ease;
+      }
+      #loader.hidden {
+        opacity: 0;
+        pointer-events: none;
+      }
+    </style>
+  </head>
 
-<body>
-  <canvas id="gl"></canvas>
-  <div class="vignette"></div>
-  <div id="spacer"></div>
+  <body>
+    <canvas id="gl"></canvas>
+    <div class="vignette"></div>
+    <div id="spacer"></div>
 
-  <header class="ui topbar">
-    <strong>Dissolve&nbsp;/&nbsp;Reveal</strong>
-    <span id="status">infinite scroll</span>
-  </header>
+    <header class="ui topbar">
+      <strong>Historic&nbsp;/&nbsp;Engraving</strong>
+      <span id="status">infinite gallery</span>
+    </header>
 
-  <div class="ui center" id="hero">
-    <h1>Keep Scrolling</h1>
-    <p>every image dissolves into the next</p>
-  </div>
-
-  <footer class="ui bottombar">
-    <div class="counter">
-      <span class="num" id="counter">001</span>
-      <span class="of">/ ∞</span>
+    <div class="ui center" id="hero">
+      <h1>Chronicle</h1>
+      <p>Scroll to uncover the archive</p>
     </div>
-    <div class="hint"><span>Scroll</span><i></i></div>
-  </footer>
 
-  <div class="progress"><span id="bar"></span></div>
-  <div id="loader">Loading</div>
+    <footer class="ui bottombar">
+      <div class="counter">
+        <span class="num" id="counter">001</span>
+        <span class="of">/ ∞</span>
+      </div>
+      <div class="hint"><span>Scroll</span><i></i></div>
+    </footer>
 
-<script type="importmap">
-{
-  "imports": {
-    "three": "https://unpkg.com/three@0.160.0/build/three.module.js"
-  }
-}
-</script>
+    <div class="progress"><span id="bar"></span></div>
+    <div id="loader">Opening the archive</div>
 
-<script type="module">
-import * as THREE from 'three';
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://unpkg.com/three@0.160.0/build/three.module.js"
+        }
+      }
+    </script>
 
-/* ==================================================================
-   1. SHADERS — silver lines follow real image outlines
+    <script type="module">
+      import * as THREE from "three";
+
+      /* ==================================================================
+   1. SHADERS — CONTOUR-BASED SILVER ENGRAVINGS
    ================================================================== */
 
-const coverVertexShader = /* glsl */`
+      const coverVertexShader = /* glsl */ `
   varying vec2 vUv;
   void main() {
     vUv = uv;
@@ -181,7 +316,7 @@ const coverVertexShader = /* glsl */`
   }
 `;
 
-const coverFragmentShader = /* glsl */`
+      const coverFragmentShader = /* glsl */ `
   uniform sampler2D uTexture;
   uniform vec2 uResolution;
   uniform vec2 uImageResolution;
@@ -197,6 +332,7 @@ const coverFragmentShader = /* glsl */`
 
   float getLuminance(vec3 c){ return dot(c, vec3(0.299, 0.587, 0.114)); }
 
+  /* Sobel across the real artwork: armor, drapery, faces, masonry */
   float getSobel(sampler2D tex, vec2 uv, vec2 texelSize){
     float gx = 0.0, gy = 0.0;
     vec2 st = texelSize * 1.35;
@@ -230,10 +366,7 @@ const coverFragmentShader = /* glsl */`
       min((uResolution.x/uResolution.y)/(uImageResolution.x/uImageResolution.y), 1.0),
       min((uResolution.y/uResolution.x)/(uImageResolution.y/uImageResolution.x), 1.0)
     );
-    vec2 uv = vec2(
-      vUv.x*ratio.x + (1.0-ratio.x)*0.5,
-      vUv.y*ratio.y + (1.0-ratio.y)*0.5
-    );
+    vec2 uv = vec2(vUv.x*ratio.x + (1.0-ratio.x)*0.5, vUv.y*ratio.y + (1.0-ratio.y)*0.5);
 
     vec4 texColor = texture2D(uTexture, uv);
     float lum = getLuminance(texColor.rgb);
@@ -263,6 +396,7 @@ const coverFragmentShader = /* glsl */`
 
     float rimZone = smoothstep(threshold - 0.12, threshold, normalizedDist) *
                     smoothstep(threshold + 0.04, threshold - 0.02, normalizedDist);
+    /* Rim light is multiplied by contour → silver stays ON the outlines */
     float rimSilver = contour * rimZone * 4.2;
 
     vec3 finalColor = baseColor + silverTone * (ambientSilver + rimSilver) * uEdgeBrightness;
@@ -270,7 +404,7 @@ const coverFragmentShader = /* glsl */`
   }
 `;
 
-const coverFragmentShaderReverse = /* glsl */`
+      const coverFragmentShaderReverse = /* glsl */ `
   uniform sampler2D uTexture;
   uniform vec2 uResolution;
   uniform vec2 uImageResolution;
@@ -302,10 +436,7 @@ const coverFragmentShaderReverse = /* glsl */`
       min((uResolution.x/uResolution.y)/(uImageResolution.x/uImageResolution.y), 1.0),
       min((uResolution.y/uResolution.x)/(uImageResolution.y/uImageResolution.x), 1.0)
     );
-    vec2 uv = vec2(
-      vUv.x*ratio.x + (1.0-ratio.x)*0.5,
-      vUv.y*ratio.y + (1.0-ratio.y)*0.5
-    );
+    vec2 uv = vec2(vUv.x*ratio.x + (1.0-ratio.x)*0.5, vUv.y*ratio.y + (1.0-ratio.y)*0.5);
 
     vec4 texColor = texture2D(uTexture, uv);
     float lum = getLuminance(texColor.rgb);
@@ -323,337 +454,369 @@ const coverFragmentShaderReverse = /* glsl */`
   }
 `;
 
-
-/* ==================================================================
-   2. RANDOM IMAGES (picsum) — same seed = same photo at any size
+      /* ==================================================================
+   2. HISTORIC ARCHIVE (fixed set → cached & cycles forever)
    ================================================================== */
 
-const LOW_W = 360,  LOW_H = 450;
-const FULL_W = 1200, FULL_H = 1500;
+      const PHOTO_IDS = [
+        "photo-1579783900882-c0d3dad7b119", // knight in armor, plume & banner
+        "photo-1582561424760-0321d75e81fa", // classical reclining figures, garland
+        "photo-1579783902614-a3fb3927b675", // renaissance royalty, gilded costume
+        "photo-1577083552431-6e5fd01aa342", // baroque chiaroscuro
+        "photo-1580136579312-94651dfd596d", // classical antiquity interior
+        "photo-1578301978693-85fa9c0320b9", // mythological battle, drapery
+        "photo-1579783928621-7a13d66a62d1", // portrait, gold filigree, velvet
+        "photo-1563089145-599997674d42", // marble sculpture, carved relief
+        "photo-1582561424749-31765c92c81d", // fresco figures, roman myth
+        "photo-1577720580479-7d839d829c73", // fortress ramparts
+      ];
 
-let seedCounter = 0;
-const makeSeed = () => `d${++seedCounter}${Math.random().toString(36).slice(2, 8)}`;
-const srcURL  = (seed, w, h) => `https://picsum.photos/seed/${seed}/${w}/${h}`;
+      const FULL_W = 1280,
+        FULL_Q = 72; // final quality
+      const LOW_W = 320,
+        LOW_Q = 40; // instant placeholder (~15 KB)
 
-/* Each slot: { seed, low, full, lowReq, fullReq, tries } */
-const images = [];
+      const srcURL = (id, w, q) =>
+        `https://images.unsplash.com/${id}?auto=format&fit=crop&w=${w}&q=${q}`;
 
-function newSlot(){
-  return { seed: makeSeed(), low: null, full: null, lowReq: false, fullReq: false, tries: 0 };
-}
+      /* One record per unique artwork — reused forever, never disposed */
+      const assets = PHOTO_IDS.map((id) => ({
+        id,
+        low: null,
+        full: null,
+        lowReq: false,
+        fullReq: false,
+        tries: 0,
+      }));
 
-function ensureImages(count){
-  while (images.length < count) images.push(newSlot());
-}
-ensureImages(16);
+      const assetAt = (i) =>
+        assets[((i % assets.length) + assets.length) % assets.length];
 
-
-/* ==================================================================
-   3. PRIORITY LOADER — never blocks the scroll / render loop
+      /* ==================================================================
+   3. FAST ASYNC LOADER — off-thread decode + priority queue
    ================================================================== */
 
-const MAX_PARALLEL = 6;
-let inFlight = 0;
-const jobs = [];
+      const MAX_PARALLEL = 4;
+      let inFlight = 0;
+      const jobs = [];
 
-function schedule(priority, run){
-  jobs.push({ priority, run });
-  pump();
-}
-
-function pump(){
-  jobs.sort((a, b) => a.priority - b.priority);
-  while (inFlight < MAX_PARALLEL && jobs.length){
-    const job = jobs.shift();
-    inFlight++;
-    job.run().finally(() => { inFlight--; pump(); });
-  }
-}
-
-const canBitmap = typeof createImageBitmap === 'function';
-
-function makeTexture(source, isBitmap){
-  const tex = isBitmap ? new THREE.Texture(source) : source;
-  tex.colorSpace = THREE.SRGBColorSpace;
-  tex.minFilter = THREE.LinearFilter;
-  tex.magFilter = THREE.LinearFilter;
-  tex.generateMipmaps = false;
-  tex.wrapS = tex.wrapT = THREE.ClampToEdgeWrapping;
-  tex.needsUpdate = true;
-  try { renderer.initTexture(tex); } catch(e){}
-  return tex;
-}
-
-async function loadTexture(url){
-  const res = await fetch(url, { mode: 'cors', cache: 'force-cache' });
-  if (!res.ok) throw new Error(res.status);
-  const blob = await res.blob();
-  if (canBitmap){
-    const bmp = await createImageBitmap(blob, { imageOrientation: 'flipY' });
-    return makeTexture(bmp, true);
-  }
-  const img = await new Promise((resolve, reject) => {
-    const i = new Image();
-    i.crossOrigin = 'anonymous';
-    i.onload = () => resolve(i);
-    i.onerror = reject;
-    i.src = URL.createObjectURL(blob);
-  });
-  const tex = new THREE.Texture(img);
-  return makeTexture(tex, false);
-}
-
-function requestLow(slot, priority){
-  if (!slot || slot.low || slot.lowReq) return;
-  slot.lowReq = true;
-  schedule(priority, () =>
-    loadTexture(srcURL(slot.seed, LOW_W, LOW_H))
-      .then(t => { slot.low = t; needsRender = true; })
-      .catch(() => {
-        slot.lowReq = false;
-        if (++slot.tries < 3) requestLow(slot, priority + 50);
-        else { slot.seed = makeSeed(); slot.tries = 0; requestLow(slot, priority + 50); }
-      })
-  );
-}
-
-function requestFull(slot, priority){
-  if (!slot || slot.full || slot.fullReq) return;
-  slot.fullReq = true;
-  schedule(priority, () =>
-    loadTexture(srcURL(slot.seed, FULL_W, FULL_H))
-      .then(t => { slot.full = t; needsRender = true; })
-      .catch(() => {
-        slot.fullReq = false;
-        if (++slot.tries < 3) requestFull(slot, priority + 80);
-      })
-  );
-}
-
-const bestOf = (slot) => (slot && (slot.full || slot.low)) || null;
-
-function prune(index){
-  const keepFullFrom = index - 2;
-  const keepFullTo   = index + 5;
-  const keepAnyFrom  = index - 3;
-  const keepAnyTo    = index + 14;
-
-  for (let i = 0; i < images.length; i++){
-    const s = images[i];
-    if (!s) continue;
-    if (i < keepFullFrom || i > keepFullTo){
-      if (s.full && s.full !== lastFront && s.full !== lastBack){
-        s.full.dispose();
-        s.full = null;
-        s.fullReq = false;
+      function schedule(priority, run) {
+        jobs.push({ priority, run });
+        pump();
       }
-    }
-    if (i < keepAnyFrom || i > keepAnyTo){
-      if (s.low && s.low !== lastFront && s.low !== lastBack){
-        s.low.dispose();
-        s.low = null;
-        s.lowReq = false;
+
+      function pump() {
+        while (inFlight < MAX_PARALLEL && jobs.length) {
+          jobs.sort((a, b) => a.priority - b.priority); // lowest number = most urgent
+          const job = jobs.shift();
+          inFlight++;
+          job.run().finally(() => {
+            inFlight--;
+            pump();
+          });
+        }
       }
-    }
-  }
-}
 
-function prefetchAround(index){
-  ensureImages(index + 16);
-  for (let k = 0; k <= 12; k++){
-    const s = images[index + k];
-    requestLow(s, k);                 // tiny preview first — always
-    if (k <= 6) requestFull(s, 20 + k * 8); // full-res for the next few
-  }
-  if (index > 0) requestFull(images[index - 1], 40);
-}
+      /* ImageBitmap = decoded on a worker thread → zero main-thread jank */
+      const supportsBitmap = typeof createImageBitmap === "function";
+      const bitmapLoader = supportsBitmap
+        ? new THREE.ImageBitmapLoader()
+        : null;
+      if (bitmapLoader) {
+        bitmapLoader.setCrossOrigin("anonymous");
+        bitmapLoader.setOptions({ imageOrientation: "flipY" }); // required for GL orientation
+      }
+      const imgLoader = new THREE.TextureLoader();
+      imgLoader.setCrossOrigin("anonymous");
 
+      function makeTexture(source) {
+        const tex = supportsBitmap ? new THREE.Texture(source) : source;
+        tex.colorSpace = THREE.SRGBColorSpace;
+        tex.minFilter = THREE.LinearFilter;
+        tex.magFilter = THREE.LinearFilter;
+        tex.generateMipmaps = false;
+        tex.wrapS = tex.wrapT = THREE.ClampToEdgeWrapping;
+        tex.needsUpdate = true;
+        /* Upload to the GPU NOW so it never stalls a scroll frame later */
+        try {
+          renderer.initTexture(tex);
+        } catch (e) {}
+        return tex;
+      }
 
-/* ==================================================================
-   4. THREE.JS
+      function loadTexture(url) {
+        return new Promise((resolve, reject) => {
+          if (bitmapLoader) {
+            bitmapLoader.load(
+              url,
+              (bmp) => resolve(makeTexture(bmp)),
+              undefined,
+              reject,
+            );
+          } else {
+            imgLoader.load(
+              url,
+              (tex) => resolve(makeTexture(tex)),
+              undefined,
+              reject,
+            );
+          }
+        });
+      }
+
+      let readyCount = 0;
+
+      function requestLow(a, priority) {
+        if (a.lowReq || a.low) return;
+        a.lowReq = true;
+        schedule(priority, () =>
+          loadTexture(srcURL(a.id, LOW_W, LOW_Q))
+            .then((t) => {
+              a.low = t;
+              needsRender = true;
+            })
+            .catch(() => {
+              if (a.tries++ < 2) a.lowReq = false;
+            }),
+        );
+      }
+
+      function requestFull(a, priority) {
+        if (a.fullReq || a.full) return;
+        a.fullReq = true;
+        schedule(priority, () =>
+          loadTexture(srcURL(a.id, FULL_W, FULL_Q))
+            .then((t) => {
+              a.full = t;
+              readyCount++;
+              needsRender = true;
+            })
+            .catch(() => {
+              if (a.tries++ < 2) a.fullReq = false;
+            }),
+        );
+      }
+
+      /* Best texture available right now — guarantees we NEVER wait */
+      const bestOf = (a) => a.full || a.low;
+
+      /* ==================================================================
+   4. THREE.JS SETUP
    ================================================================== */
 
-const canvas = document.getElementById('gl');
-const renderer = new THREE.WebGLRenderer({
-  canvas, antialias:false, alpha:false, powerPreference:'high-performance'
-});
-renderer.setClearColor(0x000000, 1);
+      const canvas = document.getElementById("gl");
+      const renderer = new THREE.WebGLRenderer({
+        canvas,
+        antialias: false,
+        alpha: false,
+        powerPreference: "high-performance",
+      });
+      renderer.setClearColor(0x000000, 1);
 
-const scene = new THREE.Scene();
-const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 10);
-camera.position.set(0, 0, 1);
+      const scene = new THREE.Scene();
+      const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 10);
+      camera.position.set(0, 0, 1);
 
-const geometry = new THREE.PlaneGeometry(2, 2);
+      const geometry = new THREE.PlaneGeometry(2, 2);
 
-const uniformsBack = {
-  uTexture:         { value: null },
-  uResolution:      { value: new THREE.Vector2(1,1) },
-  uImageResolution: { value: new THREE.Vector2(FULL_W, FULL_H) },
-  uEdgeIntensity:   { value: 0.6 },
-  uDarkness:        { value: 1.0 },
-  uGrayscale:       { value: 1.0 },
-};
+      const uniformsBack = {
+        uTexture: { value: null },
+        uResolution: { value: new THREE.Vector2(1, 1) },
+        uImageResolution: { value: new THREE.Vector2(1280, 850) },
+        uEdgeIntensity: { value: 0.6 },
+        uDarkness: { value: 1.0 },
+        uGrayscale: { value: 1.0 },
+      };
 
-const uniformsFront = {
-  uTexture:         { value: null },
-  uResolution:      { value: new THREE.Vector2(1,1) },
-  uImageResolution: { value: new THREE.Vector2(FULL_W, FULL_H) },
-  uDissolve:        { value: 0 },
-  uCenter:          { value: new THREE.Vector2(0.5, 0.5) },
-  uGrayscale:       { value: 0 },
-  uEdgeIntensity:   { value: 0 },
-  uEdgeBrightness:  { value: 1.0 },
-};
+      const uniformsFront = {
+        uTexture: { value: null },
+        uResolution: { value: new THREE.Vector2(1, 1) },
+        uImageResolution: { value: new THREE.Vector2(1280, 850) },
+        uDissolve: { value: 0 },
+        uCenter: { value: new THREE.Vector2(0.5, 0.5) },
+        uGrayscale: { value: 0 },
+        uEdgeIntensity: { value: 0 },
+        uEdgeBrightness: { value: 1.0 },
+      };
 
-const matBack = new THREE.ShaderMaterial({
-  vertexShader: coverVertexShader, fragmentShader: coverFragmentShaderReverse,
-  uniforms: uniformsBack, transparent:true, depthTest:false, depthWrite:false
-});
-const matFront = new THREE.ShaderMaterial({
-  vertexShader: coverVertexShader, fragmentShader: coverFragmentShader,
-  uniforms: uniformsFront, transparent:true, depthTest:false, depthWrite:false
-});
+      const matBack = new THREE.ShaderMaterial({
+        vertexShader: coverVertexShader,
+        fragmentShader: coverFragmentShaderReverse,
+        uniforms: uniformsBack,
+        transparent: true,
+        depthTest: false,
+        depthWrite: false,
+      });
+      const matFront = new THREE.ShaderMaterial({
+        vertexShader: coverVertexShader,
+        fragmentShader: coverFragmentShader,
+        uniforms: uniformsFront,
+        transparent: true,
+        depthTest: false,
+        depthWrite: false,
+      });
 
-const meshBack  = new THREE.Mesh(geometry, matBack);  meshBack.position.z = -0.1;
-const meshFront = new THREE.Mesh(geometry, matFront);
-scene.add(meshBack, meshFront);
+      const meshBack = new THREE.Mesh(geometry, matBack);
+      meshBack.position.z = -0.1;
+      const meshFront = new THREE.Mesh(geometry, matFront);
+      scene.add(meshBack, meshFront);
 
-
-/* ==================================================================
-   5. SCROLL
+      /* ==================================================================
+   5. WARM START — everything begins downloading immediately
    ================================================================== */
 
-const TRAVEL_VH = 1.6;
-const SMOOTHING = 0.12;
+      /* All LQIPs at once (tiny, arrive in a few hundred ms) */
+      assets.forEach((a, i) => requestLow(a, i));
+      /* First three full-res are urgent, the rest trickle in behind them */
+      assets.forEach((a, i) => requestFull(a, i < 3 ? -100 + i : 100 + i));
 
-let travel = window.innerHeight * TRAVEL_VH;
-let smoothScroll = 0;
-let needsRender = true;
-let lastIndex = -1, lastProgress = -1;
-let lastFront = null, lastBack = null;
-
-const spacer   = document.getElementById('spacer');
-const barEl    = document.getElementById('bar');
-const counter  = document.getElementById('counter');
-const heroEl   = document.getElementById('hero');
-const loaderEl = document.getElementById('loader');
-const statusEl = document.getElementById('status');
-
-function updateSpacerHeight(){
-  spacer.style.height = ((images.length - 1) * travel + window.innerHeight) + 'px';
-}
-
-function resize(){
-  const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
-  renderer.setPixelRatio(dpr);
-  renderer.setSize(window.innerWidth, window.innerHeight, false);
-  const w = window.innerWidth * dpr, h = window.innerHeight * dpr;
-  uniformsFront.uResolution.value.set(w, h);
-  uniformsBack.uResolution.value.set(w, h);
-  travel = window.innerHeight * TRAVEL_VH;
-  updateSpacerHeight();
-  needsRender = true;
-}
-window.addEventListener('resize', resize);
-window.addEventListener('orientationchange', () => setTimeout(resize, 250));
-resize();
-smoothScroll = window.scrollY;
-
-/* Kick off the first wave immediately */
-prefetchAround(0);
-
-
-/* ==================================================================
-   6. RENDER LOOP — never waits, never skips after first paint
+      /* ==================================================================
+   6. INFINITE SCROLL CONTROLLER
    ================================================================== */
 
-let firstPaintDone = false;
+      const TRAVEL_VH = 1.6;
+      const SMOOTHING = 0.11;
+      const VIRTUAL_LENGTH = 4000; // scroll runway (images cycle within it)
 
-function setTexture(uniforms, tex){
-  if (uniforms.uTexture.value !== tex) uniforms.uTexture.value = tex;
-  const img = tex.image;
-  const iw = img.naturalWidth || img.width;
-  const ih = img.naturalHeight || img.height;
-  if (iw && ih) uniforms.uImageResolution.value.set(iw, ih);
-}
+      let travel = window.innerHeight * TRAVEL_VH;
+      let smoothScroll = 0;
+      let needsRender = true;
+      let lastIndex = -1,
+        lastProgress = -1;
 
-function frame(){
-  requestAnimationFrame(frame);
+      const spacer = document.getElementById("spacer");
+      const barEl = document.getElementById("bar");
+      const counter = document.getElementById("counter");
+      const heroEl = document.getElementById("hero");
+      const loaderEl = document.getElementById("loader");
+      const statusEl = document.getElementById("status");
 
-  const target = window.scrollY;
-  smoothScroll += (target - smoothScroll) * SMOOTHING;
-  if (Math.abs(target - smoothScroll) < 0.05) smoothScroll = target;
+      function updateSpacerHeight() {
+        spacer.style.height =
+          VIRTUAL_LENGTH * travel + window.innerHeight + "px";
+      }
 
-  let index = Math.max(0, Math.floor(smoothScroll / travel));
-  let progress = Math.min(Math.max((smoothScroll - index * travel) / travel, 0), 1);
+      function resize() {
+        const dpr = Math.min(window.devicePixelRatio || 1, 1.6);
+        renderer.setPixelRatio(dpr);
+        renderer.setSize(window.innerWidth, window.innerHeight, false);
+        const w = window.innerWidth * dpr,
+          h = window.innerHeight * dpr;
+        uniformsFront.uResolution.value.set(w, h);
+        uniformsBack.uResolution.value.set(w, h);
+        travel = window.innerHeight * TRAVEL_VH;
+        updateSpacerHeight();
+        needsRender = true;
+      }
+      window.addEventListener("resize", resize);
+      window.addEventListener("orientationchange", () =>
+        setTimeout(resize, 250),
+      );
+      resize();
+      smoothScroll = window.scrollY;
 
-  if (index + 12 >= images.length){
-    ensureImages(index + 20);
-    updateSpacerHeight();
-  }
+      /* ==================================================================
+   7. RENDER LOOP
+   ================================================================== */
 
-  if (index !== lastIndex){
-    prefetchAround(index);
-    prune(index);
-  } else {
-    prefetchAround(index);
-  }
+      let firstPaintDone = false;
 
-  /* Prefer the real upcoming image; fall back to the last drawn pair.
-     This is what kills the pause: we always have pixels to show. */
-  const fTex = bestOf(images[index])     || lastFront;
-  const bTex = bestOf(images[index + 1]) || lastBack || fTex;
+      function setTexture(uniforms, tex) {
+        if (uniforms.uTexture.value !== tex) {
+          uniforms.uTexture.value = tex;
+        }
+        const img = tex.image;
+        const iw = img.naturalWidth || img.width;
+        const ih = img.naturalHeight || img.height;
+        if (iw && ih) uniforms.uImageResolution.value.set(iw, ih);
+      }
 
-  if (fTex && bTex &&
-      (needsRender || index !== lastIndex || Math.abs(progress - lastProgress) > 0.0004
-       || uniformsFront.uTexture.value !== fTex
-       || uniformsBack.uTexture.value  !== bTex)){
+      function frame() {
+        requestAnimationFrame(frame);
 
-    lastFront = fTex;
-    lastBack  = bTex;
+        const target = window.scrollY;
+        smoothScroll += (target - smoothScroll) * SMOOTHING;
+        if (Math.abs(target - smoothScroll) < 0.05) smoothScroll = target;
 
-    setTexture(uniformsFront, fTex);
-    uniformsFront.uDissolve.value = progress;
-    uniformsFront.uGrayscale.value = Math.min(1.0, progress / 0.35);
-    uniformsFront.uEdgeIntensity.value = progress * 0.55;
-    uniformsFront.uEdgeBrightness.value = 1.0 - progress * 0.45;
+        let index = Math.max(0, Math.floor(smoothScroll / travel));
+        let progress = Math.min(
+          Math.max((smoothScroll - index * travel) / travel, 0),
+          1,
+        );
 
-    setTexture(uniformsBack, bTex);
-    const accel = Math.min(1.0, progress * 1.12);
-    uniformsBack.uEdgeIntensity.value = 0.65 * (1.0 - accel);
-    uniformsBack.uDarkness.value = 1.0 - accel;
-    uniformsBack.uGrayscale.value = 1.0 - accel;
+        const aFront = assetAt(index);
+        const aBack = assetAt(index + 1);
 
-    renderer.render(scene, camera);
+        /* Aggressive look-ahead: 5 upcoming works, escalating priority */
+        for (let k = 0; k <= 5; k++) {
+          const a = assetAt(index + k);
+          requestLow(a, k);
+          requestFull(a, k * 10);
+        }
 
-    needsRender = false;
-    lastIndex = index;
-    lastProgress = progress;
+        const fTex = bestOf(aFront);
+        const bTex = bestOf(aBack);
 
-    barEl.style.width = (progress * 100).toFixed(2) + '%';
-    counter.textContent = String(index + 1).padStart(3, '0');
+        if (
+          fTex &&
+          bTex &&
+          (needsRender ||
+            index !== lastIndex ||
+            Math.abs(progress - lastProgress) > 0.0004)
+        ) {
+          setTexture(uniformsFront, fTex);
+          uniformsFront.uDissolve.value = progress;
+          uniformsFront.uGrayscale.value = Math.min(1.0, progress / 0.35);
+          uniformsFront.uEdgeIntensity.value = progress * 0.55;
+          uniformsFront.uEdgeBrightness.value = 1.0 - progress * 0.45;
 
-    const heroFade = Math.max(0, 1 - smoothScroll / (window.innerHeight * 0.6));
-    heroEl.style.opacity = heroFade;
-    heroEl.style.transform = `translate(-50%,-50%) scale(${0.98 + heroFade * 0.02})`;
+          setTexture(uniformsBack, bTex);
+          const accel = Math.min(1.0, progress * 1.12);
+          uniformsBack.uEdgeIntensity.value = 0.65 * (1.0 - accel);
+          uniformsBack.uDarkness.value = 1.0 - accel;
+          uniformsBack.uGrayscale.value = 1.0 - accel;
 
-    if (!firstPaintDone){
-      firstPaintDone = true;
-      loaderEl.classList.add('hidden');
-      setTimeout(() => loaderEl.remove(), 600);
-    }
-  }
+          renderer.render(scene, camera);
 
-  const nextReady = !!(images[index + 1] && (images[index + 1].low || images[index + 1].full));
-  statusEl.textContent = nextReady ? 'infinite scroll' : 'loading…';
-}
+          needsRender = false;
+          lastIndex = index;
+          lastProgress = progress;
 
-requestAnimationFrame(frame);
+          barEl.style.width = (progress * 100).toFixed(2) + "%";
+          counter.textContent = String(index + 1).padStart(3, "0");
 
-window.addEventListener('scroll', () => { needsRender = true; }, { passive:true });
+          const heroFade = Math.max(
+            0,
+            1 - smoothScroll / (window.innerHeight * 0.6),
+          );
+          heroEl.style.opacity = heroFade;
+          heroEl.style.transform = `translate(-50%,-50%) scale(${0.98 + heroFade * 0.02})`;
 
-if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
-window.scrollTo(0, 0);
-</script>
-</body>
+          if (!firstPaintDone) {
+            firstPaintDone = true;
+            loaderEl.classList.add("hidden");
+            setTimeout(() => loaderEl.remove(), 600);
+          }
+        }
+
+        statusEl.textContent =
+          readyCount >= assets.length
+            ? "infinite gallery"
+            : `restoring ${readyCount}/${assets.length}`;
+      }
+
+      requestAnimationFrame(frame);
+
+      window.addEventListener(
+        "scroll",
+        () => {
+          needsRender = true;
+        },
+        { passive: true },
+      );
+
+      if ("scrollRestoration" in history) history.scrollRestoration = "manual";
+      window.scrollTo(0, 0);
+    </script>
+  </body>
 </html>

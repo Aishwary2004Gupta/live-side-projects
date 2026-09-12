@@ -15,6 +15,7 @@ function resize() {
     }
 }
 function toggleView() {
+    const btnToggleView = document.getElementById('btnToggleView')
     editor.hidden = btnToggleView.checked
     canvas.style.setProperty('--canvas-z-index', btnToggleView.checked ? 0 : -1)
 }
@@ -24,6 +25,7 @@ function reset() {
     renderThis()
 }
 function toggleResolution() {
+    const btnToggleResolution = document.getElementById('btnToggleResolution')
     resolution = btnToggleResolution.checked ? .5 : 1
     dpr = Math.max(1, resolution * window.devicePixelRatio)
     pointers.updateScale(dpr)
@@ -38,8 +40,8 @@ function loop(now) {
     const delta = (now - lastTime)
     lastTime = now
 
-    const btnPause = document.getElementById('btnTogglePause')
-    if (!btnPause || !btnPause.checked) {
+    const btnPlayStop = document.getElementById('btnPlayStop')
+    if (!btnPlayStop.checked) {
         accumulatedTime += delta
     }
 
@@ -79,11 +81,18 @@ const render = debounce(renderThis, renderDelay)
 
 function init() {
     source = document.querySelector("script[type='x-shader/x-fragment']")
+    const btnToggleView = document.getElementById('btnToggleView')
+    const btnToggleResolution = document.getElementById('btnToggleResolution')
+    const btnReset = document.getElementById('btnReset')
+    const btnPlayStop = document.getElementById('btnPlayStop')
 
     codeEditor.addEventListener('input', render)
     btnToggleView.addEventListener('change', toggleView)
     btnToggleResolution.addEventListener('change', toggleResolution)
     btnReset.addEventListener('click', reset)
+    btnPlayStop.addEventListener('change', () => {
+        lastTime = performance.now()
+    })
 
     document.title = "Interstellar Library"
 

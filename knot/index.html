@@ -17,14 +17,12 @@
 <canvas id="c"></canvas>
 <div id="info">Trefoil (2,3) torus knot — drag to orbit</div>
 
-<script id="vs" type="x-shader/x-vertex">
-#version 300 es
+<script id="vs" type="x-shader/x-vertex">#version 300 es
 in vec2 P;
 void main(){ gl_Position = vec4(P, 0.0, 1.0); }
 </script>
 
-<script id="fs" type="x-shader/x-fragment">
-#version 300 es
+<script id="fs" type="x-shader/x-fragment">#version 300 es
 precision highp float;
 
 uniform vec2 R;
@@ -55,7 +53,7 @@ void main(){
   f3 p, d, n, q;
   f s, b, w;
 
-  m2 r  = m2(cos(yaw),   sin(yaw),   -sin(yaw),   cos(yaw));
+  m2 r = m2(cos(yaw), sin(yaw), -sin(yaw), cos(yaw));
 
   uint h = uint(C.x) ^ (uint(C.y) << 16u) ^ (uint(T*1000.0) * 2891336453u);
   f4 O = f4(0.0);
@@ -71,7 +69,6 @@ void main(){
     p.xz *= r;
     d.xz *= r;
 
-    // pitch around X
     float py = cos(pitch)*p.y - sin(pitch)*p.z;
     float pz = sin(pitch)*p.y + cos(pitch)*p.z;
     p.y = py; p.z = pz;
@@ -79,7 +76,6 @@ void main(){
     float dz_ = sin(pitch)*d.y + cos(pitch)*d.z;
     d.y = dy_; d.z = dz_;
 
-    // roll around Z
     float px  =  cos(roll)*p.x - sin(roll)*p.y;
     float py2 =  sin(roll)*p.x + cos(roll)*p.y;
     p.x = px; p.y = py2;
@@ -125,7 +121,6 @@ void main(){
       p += d * s;
     }
 
-    // undo roll/pitch/yaw for lighting
     float dx3 =  cos(roll)*d.x + sin(roll)*d.y;
     float dy4 = -sin(roll)*d.x + cos(roll)*d.y;
     d.x = dx3; d.y = dy4;
@@ -157,13 +152,15 @@ void main(){
   const canvas = document.getElementById('c');
   const gl = canvas.getContext('webgl2', { antialias: true });
   if (!gl){
-    document.body.innerHTML = '<p style="color:#fff;font:16px monospace;padding:20px">WebGL 2 is required. Please use a modern browser.</p>';
+    document.body.innerHTML = '<p style="color:#fff;font:16px monospace;padding:20px">WebGL 2 is required.</p>';
     return;
   }
 
   function sh(type, src){
+    // #version must be the very first token — strip any leading whitespace/newlines
+    const cleaned = src.replace(/^\s+/, '');
     const s = gl.createShader(type);
-    gl.shaderSource(s, src);
+    gl.shaderSource(s, cleaned);
     gl.compileShader(s);
     if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)){
       console.error(gl.getShaderInfoLog(s));

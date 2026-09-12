@@ -17,138 +17,131 @@
 <canvas id="c"></canvas>
 <div id="info">Trefoil (2,3) torus knot — drag to orbit</div>
 
-<script id="vs" type="x-shader/x-vertex">#version 300 es
-in vec2 P;
-void main(){ gl_Position = vec4(P, 0.0, 1.0); }
-</script>
-
-<script id="fs" type="x-shader/x-fragment">#version 300 es
-precision highp float;
-
-uniform vec2 R;
-uniform float T;
-uniform vec2 M;
-
-out vec4 fragColor;
-
-#define f float
-#define f2 vec2
-#define f3 vec3
-#define f4 vec4
-#define m2 mat2
-
-f H(inout uint h){
-  h = h*747796405u + 2891336453u;
-  uint q = ((h >> ((h >> 28u) + 4u)) ^ h) * 277803737u;
-  return f(q >> 8u ^ q >> 30u) / 16777216.0;
-}
-
-void main(){
-  vec2 C = gl_FragCoord.xy;
-
-  float yaw   = 0.6 + M.x;
-  float pitch = 0.35 + M.y;
-  float roll  = 0.0;
-
-  f3 p, d, n, q;
-  f s, b, w;
-
-  m2 r = m2(cos(yaw), sin(yaw), -sin(yaw), cos(yaw));
-
-  uint h = uint(C.x) ^ (uint(C.y) << 16u) ^ (uint(T*1000.0) * 2891336453u);
-  f4 O = f4(0.0);
-
-  for (int i = 0; i < 32; i++){
-    w = (float(i + 1) - H(h)) / 8.0;
-    b = 1.0;
-
-    p = f3(0.0, 0.0, 20.0);
-    d.xy = (2.0 * (C.xy + f2(H(h), H(h))) - R - 1.0) / R.y;
-    d.z = -2.0;
-
-    p.xz *= r;
-    d.xz *= r;
-
-    float py = cos(pitch)*p.y - sin(pitch)*p.z;
-    float pz = sin(pitch)*p.y + cos(pitch)*p.z;
-    p.y = py; p.z = pz;
-    float dy_ = cos(pitch)*d.y - sin(pitch)*d.z;
-    float dz_ = sin(pitch)*d.y + cos(pitch)*d.z;
-    d.y = dy_; d.z = dz_;
-
-    float px  =  cos(roll)*p.x - sin(roll)*p.y;
-    float py2 =  sin(roll)*p.x + cos(roll)*p.y;
-    p.x = px; p.y = py2;
-    float dx_ =  cos(roll)*d.x - sin(roll)*d.y;
-    float dy2 =  sin(roll)*d.x + cos(roll)*d.y;
-    d.x = dx_; d.y = dy2;
-
-    d = normalize(d);
-
-    for (int k = 0; k < 100; k++){
-      f3 kk = p * 0.6;
-
-      float R1 = 1.0;
-      float r1 = 0.35;
-      float a  = atan(kk.y, kk.x) * 1.5;
-      float l  = sqrt(kk.x*kk.x + kk.y*kk.y) - R1;
-      float dx2 = l    - cos(a) * r1;
-      float dy3 = kk.z - sin(a) * r1;
-      float dd  = sqrt(dx2*dx2 + dy3*dy3) - r1;
-      s = dd * 1.6667;
-
-      if (s < 0.001){
-        n = p;
-        n.xy -= 4.0 * normalize(p.xy);
-        n = normalize(n) * b;
-
-        vec3 inc = d;
-        vec3 nn  = n;
-        float eta = pow(1.8 - 0.2*w, -b);
-        float cosi = -dot(nn, inc);
-        float k2 = 1.0 - eta*eta*(1.0 - cosi*cosi);
-        if (k2 > 0.0) q = eta*inc + (eta*cosi - sqrt(k2))*nn;
-        else          q = inc - 2.0*dot(inc, nn)*nn;
-
-        if (dot(q,q) > 0.1 && H(h) > 0.1){
-          d = q;
-          b = -b;
-        } else {
-          d = inc - 2.0*dot(inc, nn)*nn;
-        }
-        p += n * 0.1 * sign(dot(d, n));
-      }
-      p += d * s;
-    }
-
-    float dx3 =  cos(roll)*d.x + sin(roll)*d.y;
-    float dy4 = -sin(roll)*d.x + cos(roll)*d.y;
-    d.x = dx3; d.y = dy4;
-
-    float dy5 =  cos(pitch)*d.y + sin(pitch)*d.z;
-    float dz5 = -sin(pitch)*d.y + cos(pitch)*d.z;
-    d.y = dy5; d.z = dz5;
-
-    d.xz = m2(cos(yaw), -sin(yaw), sin(yaw), cos(yaw)) * d.xz;
-
-    f4 tint = f4(3.0, 2.0, 1.0, 0.0);
-    f4 wv   = f4(w);
-    f4 m    = max(~abs(wv - tint), f4(0.0));
-
-    O += m * (
-        (1.0 + d.y)*(1.0 + d.y) / 8.0
-      + exp(-8e2 * pow(d.y + 0.7, 4.0))
-      + exp(-3e2 * pow(d.x + 1.0, 4.0))
-    );
-  }
-
-  O = tanh(7.0 * O / 32.0);
-  fragColor = vec4(O.rgb, 1.0);
-}
-</script>
-
 <script>
 (function(){
+  'use strict';
+
+  const VS = [
+    '#version 300 es',
+    'in vec2 P;',
+    'void main(){ gl_Position = vec4(P, 0.0, 1.0); }'
+  ].join('\n');
+
+  const FS = [
+    '#version 300 es',
+    'precision highp float;',
+    '',
+    'uniform vec2 R;',
+    'uniform float T;',
+    'uniform vec2 M;',
+    '',
+    'out vec4 fragColor;',
+    '',
+    '// float hash, no uint needed',
+    'float hash(inout float h){',
+    '  h = fract(h * 0.1031);',
+    '  h *= h + 33.33;',
+    '  h *= h + h;',
+    '  return fract(h);',
+    '}',
+    '',
+    'void main(){',
+    '  vec2 C = gl_FragCoord.xy;',
+    '',
+    '  float yaw   = 0.6 + M.x;',
+    '  float pitch = 0.35 + M.y;',
+    '  float roll  = 0.0;',
+    '',
+    '  vec3 p, d, n, q;',
+    '  float s, b, w;',
+    '',
+    '  float ch = cos(yaw),   sh = sin(yaw);',
+    '  float cp = cos(pitch), sp = sin(pitch);',
+    '  float cr = cos(roll),  sr = sin(roll);',
+    '',
+    '  float h = fract((C.x * 0.0013 + C.y * 0.0071) + T * 0.0007) + 0.5;',
+    '  vec4 O = vec4(0.0);',
+    '',
+    '  for (int i = 0; i < 32; i++){',
+    '    w = (float(i + 1) - hash(h)) / 8.0;',
+    '    b = 1.0;',
+    '',
+    '    p = vec3(0.0, 0.0, 20.0);',
+    '    d.xy = (2.0 * (C.xy + vec2(hash(h), hash(h))) - R - 1.0) / R.y;',
+    '    d.z = -2.0;',
+    '',
+    '    // yaw around Y',
+    '    p.xz = mat2(ch, sh, -sh, ch) * p.xz;',
+    '    d.xz = mat2(ch, sh, -sh, ch) * d.xz;',
+    '',
+    '    // pitch around X',
+    '    p.yz = mat2(cp, -sp, sp, cp) * p.yz;',
+    '    d.yz = mat2(cp, -sp, sp, cp) * d.yz;',
+    '',
+    '    // roll around Z',
+    '    p.xy = mat2(cr, -sr, sr, cr) * p.xy;',
+    '    d.xy = mat2(cr, -sr, sr, cr) * d.xy;',
+    '',
+    '    d = normalize(d);',
+    '',
+    '    for (int k = 0; k < 100; k++){',
+    '      // Trefoil (2,3) torus-knot SDF',
+    '      vec3 kk = p * 0.6;',
+    '',
+    '      float R1 = 1.0;',
+    '      float r1 = 0.35;',
+    '      float a  = atan(kk.y, kk.x) * 1.5;',
+    '      float l  = sqrt(kk.x*kk.x + kk.y*kk.y) - R1;',
+    '      float dx2 = l    - cos(a) * r1;',
+    '      float dy3 = kk.z - sin(a) * r1;',
+    '      float dd  = sqrt(dx2*dx2 + dy3*dy3) - r1;',
+    '      s = dd * 1.6667;',
+    '',
+    '      if (s < 0.001){',
+    '        n = p;',
+    '        n.xy -= 4.0 * normalize(p.xy);',
+    '        n = normalize(n) * b;',
+    '',
+    '        vec3 inc = d;',
+    '        vec3 nn  = n;',
+    '        float eta = pow(1.8 - 0.2*w, -b);',
+    '        float cosi = -dot(nn, inc);',
+    '        float k2 = 1.0 - eta*eta*(1.0 - cosi*cosi);',
+    '        if (k2 > 0.0) q = eta*inc + (eta*cosi - sqrt(k2))*nn;',
+    '        else          q = inc - 2.0*dot(inc, nn)*nn;',
+    '',
+    '        if (dot(q,q) > 0.1 && hash(h) > 0.1){',
+    '          d = q;',
+    '          b = -b;',
+    '        } else {',
+    '          d = inc - 2.0*dot(inc, nn)*nn;',
+    '        }',
+    '        p += n * 0.1 * sign(dot(d, n));',
+    '      }',
+    '      p += d * s;',
+    '    }',
+    '',
+    '    // undo roll/pitch/yaw for lighting',
+    '    d.xy = mat2(cr, sr, -sr, cr) * d.xy;',
+    '    d.yz = mat2(cp, sp, -sp, cp) * d.yz;',
+    '    d.xz = mat2(ch, -sh, sh, ch) * d.xz;',
+    '',
+    '    vec4 tint = vec4(3.0, 2.0, 1.0, 0.0);',
+    '    vec4 wv   = vec4(w);',
+    '    vec4 m    = max(1.0 - abs(wv - tint), vec4(0.0));',
+    '',
+    '    O += m * (',
+    '        (1.0 + d.y)*(1.0 + d.y) / 8.0',
+    '      + exp(-800.0 * pow(d.y + 0.7, 4.0))',
+    '      + exp(-300.0 * pow(d.x + 1.0, 4.0))',
+    '    );',
+    '  }',
+    '',
+    '  O = tanh(7.0 * O / 32.0);',
+    '  fragColor = vec4(O.rgb, 1.0);',
+    '}'
+  ].join('\n');
+
   const canvas = document.getElementById('c');
   const gl = canvas.getContext('webgl2', { antialias: true });
   if (!gl){
@@ -156,28 +149,24 @@ void main(){
     return;
   }
 
-  function sh(type, src){
-    // #version must be the very first token — strip any leading whitespace/newlines
-    const cleaned = src.replace(/^\s+/, '');
+  function compile(type, src){
     const s = gl.createShader(type);
-    gl.shaderSource(s, cleaned);
+    gl.shaderSource(s, src);
     gl.compileShader(s);
     if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)){
-      console.error(gl.getShaderInfoLog(s));
-      throw new Error('shader compile error: ' + gl.getShaderInfoLog(s));
+      console.error('Shader compile error:\n' + gl.getShaderInfoLog(s));
+      throw new Error('shader compile failed');
     }
     return s;
   }
 
-  const vsSrc = document.getElementById('vs').textContent;
-  const fsSrc = document.getElementById('fs').textContent;
   const prog = gl.createProgram();
-  gl.attachShader(prog, sh(gl.VERTEX_SHADER, vsSrc));
-  gl.attachShader(prog, sh(gl.FRAGMENT_SHADER, fsSrc));
+  gl.attachShader(prog, compile(gl.VERTEX_SHADER, VS));
+  gl.attachShader(prog, compile(gl.FRAGMENT_SHADER, FS));
   gl.linkProgram(prog);
   if (!gl.getProgramParameter(prog, gl.LINK_STATUS)){
-    console.error(gl.getProgramInfoLog(prog));
-    throw new Error('link error');
+    console.error('Link error:\n' + gl.getProgramInfoLog(prog));
+    throw new Error('link failed');
   }
   gl.useProgram(prog);
 
@@ -201,7 +190,7 @@ void main(){
   canvas.addEventListener('pointerdown', e => {
     dragging = true; lastX = e.clientX; lastY = e.clientY;
   });
-  window.addEventListener('pointerup', () => dragging = false);
+  window.addEventListener('pointerup', () => { dragging = false; });
   window.addEventListener('pointermove', e => {
     if (!dragging) return;
     mouseX += (e.clientX - lastX) * 0.005;
@@ -220,7 +209,7 @@ void main(){
   }
   window.addEventListener('resize', resize);
 
-  let t0 = performance.now();
+  const t0 = performance.now();
   function frame(now){
     resize();
     const t = (now - t0) * 0.001;

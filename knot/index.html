@@ -11,86 +11,86 @@
     color: #aaa; font: 12px monospace; pointer-events: none;
     text-shadow: 0 0 4px #000;
   }
+  #err {
+    position: fixed; top: 10px; left: 10px; right: 10px;
+    color: #f88; font: 12px monospace; white-space: pre-wrap;
+    pointer-events: none; text-shadow: 0 0 4px #000;
+  }
 </style>
 </head>
 <body>
 <canvas id="c"></canvas>
 <div id="info">Trefoil (2,3) torus knot — drag to orbit</div>
+<div id="err"></div>
 
 <script>
 (function(){
   'use strict';
 
+  const canvas = document.getElementById('c');
+  const errEl  = document.getElementById('err');
+
+  // Try WebGL 2 first, fall back to WebGL 1
+  let gl = canvas.getContext('webgl2', { antialias: true, powerPreference: 'high-performance' });
+  let isGL2 = !!gl;
+  if (!gl){
+    gl = canvas.getContext('webgl', { antialias: true }) ||
+         canvas.getContext('experimental-webgl', { antialias: true });
+    isGL2 = false;
+  }
+  if (!gl){
+    errEl.textContent = 'WebGL is not available in this browser.';
+    return;
+  }
+  console.log('Using WebGL ' + (isGL2 ? '2' : '1'));
+
+  // ---- shader sources (GLSL ES 1.00 — works on both) ----
   const VS = [
-    '#version 300 es',
-    'in vec2 P;',
+    'attribute vec2 P;',
     'void main(){ gl_Position = vec4(P, 0.0, 1.0); }'
   ].join('\n');
 
   const FS = [
-    '#version 300 es',
     'precision highp float;',
     '',
-    'uniform vec2  R;',   // resolution
-    'uniform float T;',   // time
-    'uniform vec2  M;',   // mouse
-    '',
-    'out vec4 fragColor;',
-    '',
-    '// Cheap 1D hash (float only, no bit ops)',
-    'float hash(inout float h){',
-    '  h = fract(h * 0.1031);',
-    '  h *= h + 33.33;',
-    '  h *= h + h;',
-    '  return fract(h);',
-    '}',
+    'uniform vec2  R;',
+    'uniform float T;',
+    'uniform vec2  M;',
     '',
     '// Trefoil (2,3) torus-knot SDF',
-    '// p: query point, returns signed distance',
     'float knotSDF(vec3 p, float tubeR){',
-    '  // Winding: 2 around the torus axis, 3 through the hole',
     '  float a = atan(p.y, p.x);',
-    '  // Distance from the axis',
     '  float r = length(p.xy);',
-    '  // The knot path is a curve on a torus of major radius Rmaj',
     '  float Rmaj = 1.0;',
-    '  // Angle along the twisted curve (q/p = 3/2)',
     '  float ang = a * 1.5;',
-    '  // Distance to the knot curve in the (r, z) cross-section',
-    '  float dr = r - Rmaj;',
-    '  float dz = p.z;',
-    '  // Center of the tube at this angle',
     '  float cr = Rmaj + tubeR * cos(ang);',
     '  float cz = tubeR * sin(ang);',
     '  float dx = r - cr;',
-    '  float dzz = p.z - cz;',
-    '  return sqrt(dx*dx + dzz*dzz) - tubeR;',
+    '  float dz = p.z - cz;',
+    '  return sqrt(dx*dx + dz*dz) - tubeR;',
     '}',
     '',
     'void main(){',
-    '  // Normalized screen coord (-1..1, aspect corrected)',
     '  vec2 uv = (2.0 * gl_FragCoord.xy - R) / R.y;',
     '',
-    '  // ---- camera setup ----',
     '  float yaw   = 0.6 + M.x;',
     '  float pitch = 0.35 + M.y;',
     '  float cy = cos(yaw),   sy = sin(yaw);',
     '  float cp = cos(pitch), sp = sin(pitch);',
     '',
-    '  // Camera at distance 5 looking at origin',
     '  vec3 ro = vec3(0.0, 0.0, 5.0);',
-    '  // Ray direction from pixel',
     '  vec3 rd = normalize(vec3(uv, -2.0));',
     '',
-    '  // Apply yaw to camera & ray',
-    '  ro.xz = mat2(cy, sy, -sy, cy) * ro.xz;',
-    '  rd.xz = mat2(cy, sy, -sy, cy) * rd.xz;',
+    '  // yaw',
+    '  mat2 ry = mat2(cy, sy, -sy, cy);',
+    '  ro.xz = ry * ro.xz;',
+    '  rd.xz = ry * rd.xz;',
     '',
-    '  // Apply pitch to camera & ray',
-    '  ro.yz = mat2(cp, -sp, sp, cp) * ro.yz;',
-    '  rd.yz = mat2(cp, -sp, sp, cp) * rd.yz;',
+    '  // pitch',
+    '  mat2 rp = mat2(cp, -sp, sp, cp);',
+    '  ro.yz = rp * ro.yz;',
+    '  rd.yz = rp * rd.yz;',
     '',
-    '  // ---- raymarch ----',
     '  float t = 0.0;',
     '  float tubeR = 0.35;',
     '  bool hit = false;',
@@ -103,13 +103,10 @@
     '    if (t > 20.0) break;',
     '  }',
     '',
-    '  // ---- shading ----',
     '  vec3 col = vec3(0.0);',
     '',
     '  if (hit){',
     '    vec3 pos = ro + rd * t;',
-    '',
-    '    // Compute normal via finite differences',
     '    float eps = 0.001;',
     '    vec3 nrm = normalize(vec3(',
     '      knotSDF(pos + vec3(eps,0.0,0.0), tubeR) - knotSDF(pos - vec3(eps,0.0,0.0), tubeR),',
@@ -117,12 +114,10 @@
     '      knotSDF(pos + vec3(0.0,0.0,eps), tubeR) - knotSDF(pos - vec3(0.0,0.0,eps), tubeR)',
     '    ));',
     '',
-    '    // Simple lighting: key light + rim + fresnel-ish edge',
     '    vec3 lightDir = normalize(vec3(0.6, 0.8, 0.5));',
     '    float diff = max(dot(nrm, lightDir), 0.0);',
     '    float rim  = pow(1.0 - max(dot(nrm, -rd), 0.0), 2.0);',
     '',
-    '    // Glassy / chrome look',
     '    vec3 baseCol = vec3(0.85, 0.88, 0.92);',
     '    vec3 tintCol = vec3(0.6, 0.75, 0.95);',
     '    float fresnel = pow(1.0 - max(dot(nrm, -rd), 0.0), 3.0);',
@@ -130,51 +125,48 @@
     '    col = mix(baseCol, tintCol, fresnel) * (0.35 + 0.65 * diff);',
     '    col += rim * vec3(0.4, 0.5, 0.65);',
     '',
-    '    // Specular highlight',
-    '    vec3 h = normalize(lightDir - rd);',
-    '    float spec = pow(max(dot(nrm, h), 0.0), 64.0);',
+    '    vec3 hh = normalize(lightDir - rd);',
+    '    float spec = pow(max(dot(nrm, hh), 0.0), 64.0);',
     '    col += spec * vec3(1.0);',
     '',
-    '    // Fog toward background',
     '    float fog = 1.0 - exp(-0.02 * t * t);',
     '    col = mix(col, vec3(0.07, 0.08, 0.10), fog);',
     '  } else {',
-    '    // Background gradient',
     '    col = mix(vec3(0.05, 0.06, 0.09), vec3(0.10, 0.12, 0.18),',
     '              0.5 + 0.5 * uv.y);',
     '  }',
     '',
-    '  // Tone map',
     '  col = tanh(col);',
-    '  fragColor = vec4(col, 1.0);',
+    '  gl_FragColor = vec4(col, 1.0);',
     '}'
   ].join('\n');
-
-  const canvas = document.getElementById('c');
-  const gl = canvas.getContext('webgl2', { antialias: true, powerPreference: 'high-performance' });
-  if (!gl){
-    document.body.innerHTML = '<p style="color:#fff;font:16px monospace;padding:20px">WebGL 2 is required.</p>';
-    return;
-  }
 
   function compile(type, src){
     const s = gl.createShader(type);
     gl.shaderSource(s, src);
     gl.compileShader(s);
     if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)){
-      console.error('Shader compile error:\n' + gl.getShaderInfoLog(s));
-      throw new Error('shader compile failed');
+      const log = gl.getShaderInfoLog(s);
+      console.error('Shader compile error:\n' + log);
+      errEl.textContent = 'Shader compile error:\n' + log;
+      return null;
     }
     return s;
   }
 
+  const vsObj = compile(gl.VERTEX_SHADER, VS);
+  const fsObj = compile(gl.FRAGMENT_SHADER, FS);
+  if (!vsObj || !fsObj) return;
+
   const prog = gl.createProgram();
-  gl.attachShader(prog, compile(gl.VERTEX_SHADER, VS));
-  gl.attachShader(prog, compile(gl.FRAGMENT_SHADER, FS));
+  gl.attachShader(prog, vsObj);
+  gl.attachShader(prog, fsObj);
   gl.linkProgram(prog);
   if (!gl.getProgramParameter(prog, gl.LINK_STATUS)){
-    console.error('Link error:\n' + gl.getProgramInfoLog(prog));
-    throw new Error('link failed');
+    const log = gl.getProgramInfoLog(prog);
+    console.error('Link error:\n' + log);
+    errEl.textContent = 'Link error:\n' + log;
+    return;
   }
   gl.useProgram(prog);
 
@@ -206,7 +198,6 @@
     lastX = e.clientX; lastY = e.clientY;
   });
 
-  // Render scale — lower to 0.5 if you need more speed on weak GPUs
   const SCALE = 0.75;
 
   function resize(){
@@ -221,8 +212,6 @@
   window.addEventListener('resize', resize);
 
   const t0 = performance.now();
-  let anim = 0;
-
   function frame(now){
     resize();
     const t = (now - t0) * 0.001;

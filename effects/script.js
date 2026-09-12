@@ -972,9 +972,9 @@ const MODELS = {
     },
     try: {
         url: "https://raw.githubusercontent.com/Aishwary2004Gupta/models/cloud/minecraft_turtle.glb",
-        scale: 0.06,
-        rotation: { x: -0.1, y: 1.5, z: 0 },
-        position: { x: 0, y: -0.7, z: 0 },
+        scale: 0.0006,
+        rotation: { x: 0, y: Math.PI, z: 0 },
+        position: { x: 0, y: 0, z: 0 },
     },
 };
 

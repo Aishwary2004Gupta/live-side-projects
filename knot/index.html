@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Trefoil Torus Knot</title>
+<style>
+  html, body { margin: 0; padding: 0; height: 100%; background: #111; overflow: hidden; }
+  canvas { display: block; width: 100vw; height: 100vh; }
+  #info {
+    position: fixed; bottom: 10px; left: 10px;
+    color: #aaa; font: 12px monospace; pointer-events: none;
+    text-shadow: 0 0 4px #000;
+  }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="info">Trefoil (2,3) torus knot — drag to orbit</div>
+
+<script id="vs" type="x-shader/x-vertex">
+#version 300 es
+in vec2 P;
+void main(){ gl_Position = vec4(P, 0.0, 1.0); }
+</script>
+
+<script id="fs" type="x-shader/x-fragment">
+#version 300 es
+precision highp float;
+
+uniform vec2 R;
+uniform float T;
+uniform vec2 M;
+
+out vec4 fragColor;
+
+#define f float
+#define f2 vec2
+#define f3 vec3
+#define f4 vec4
+#define m2 mat2
+
+f H(inout uint h){
+  h = h*747796405u + 2891336453u;
+  uint q = ((h >> ((h >> 28u) + 4u)) ^ h) * 277803737u;
+  return f(q >> 8u ^ q >> 30u) / 16777216.0;
+}
+
+void main(){
+  vec2 C = gl_FragCoord.xy;
+
+  float yaw   = 0.6 + M.x;
+  float pitch = 0.35 + M.y;
+  float roll  = 0.0;
+
+  f3 p, d, n, q;
+  f s, b, w;
+
+  m2 r  = m2(cos(yaw),   sin(yaw),   -sin(yaw),   cos(yaw));
+
+  uint h = uint(C.x) ^ (uint(C.y) << 16u) ^ (uint(T*1000.0) * 2891336453u);
+  f4 O = f4(0.0);
+
+  for (int i = 0; i < 32; i++){
+    w = (float(i + 1) - H(h)) / 8.0;
+    b = 1.0;
+
+    p = f3(0.0, 0.0, 20.0);
+    d.xy = (2.0 * (C.xy + f2(H(h), H(h))) - R - 1.0) / R.y;
+    d.z = -2.0;
+
+    p.xz *= r;
+    d.xz *= r;
+
+    // pitch around X
+    float py = cos(pitch)*p.y - sin(pitch)*p.z;
+    float pz = sin(pitch)*p.y + cos(pitch)*p.z;
+    p.y = py; p.z = pz;
+    float dy_ = cos(pitch)*d.y - sin(pitch)*d.z;
+    float dz_ = sin(pitch)*d.y + cos(pitch)*d.z;
+    d.y = dy_; d.z = dz_;
+
+    // roll around Z
+    float px  =  cos(roll)*p.x - sin(roll)*p.y;
+    float py2 =  sin(roll)*p.x + cos(roll)*p.y;
+    p.x = px; p.y = py2;
+    float dx_ =  cos(roll)*d.x - sin(roll)*d.y;
+    float dy2 =  sin(roll)*d.x + cos(roll)*d.y;
+    d.x = dx_; d.y = dy2;
+
+    d = normalize(d);
+
+    for (int k = 0; k < 100; k++){
+      f3 kk = p * 0.6;
+
+      float R1 = 1.0;
+      float r1 = 0.35;
+      float a  = atan(kk.y, kk.x) * 1.5;
+      float l  = sqrt(kk.x*kk.x + kk.y*kk.y) - R1;
+      float dx2 = l    - cos(a) * r1;
+      float dy3 = kk.z - sin(a) * r1;
+      float dd  = sqrt(dx2*dx2 + dy3*dy3) - r1;
+      s = dd * 1.6667;
+
+      if (s < 0.001){
+        n = p;
+        n.xy -= 4.0 * normalize(p.xy);
+        n = normalize(n) * b;
+
+        vec3 inc = d;
+        vec3 nn  = n;
+        float eta = pow(1.8 - 0.2*w, -b);
+        float cosi = -dot(nn, inc);
+        float k2 = 1.0 - eta*eta*(1.0 - cosi*cosi);
+        if (k2 > 0.0) q = eta*inc + (eta*cosi - sqrt(k2))*nn;
+        else          q = inc - 2.0*dot(inc, nn)*nn;
+
+        if (dot(q,q) > 0.1 && H(h) > 0.1){
+          d = q;
+          b = -b;
+        } else {
+          d = inc - 2.0*dot(inc, nn)*nn;
+        }
+        p += n * 0.1 * sign(dot(d, n));
+      }
+      p += d * s;
+    }
+
+    // undo roll/pitch/yaw for lighting
+    float dx3 =  cos(roll)*d.x + sin(roll)*d.y;
+    float dy4 = -sin(roll)*d.x + cos(roll)*d.y;
+    d.x = dx3; d.y = dy4;
+
+    float dy5 =  cos(pitch)*d.y + sin(pitch)*d.z;
+    float dz5 = -sin(pitch)*d.y + cos(pitch)*d.z;
+    d.y = dy5; d.z = dz5;
+
+    d.xz = m2(cos(yaw), -sin(yaw), sin(yaw), cos(yaw)) * d.xz;
+
+    f4 tint = f4(3.0, 2.0, 1.0, 0.0);
+    f4 wv   = f4(w);
+    f4 m    = max(~abs(wv - tint), f4(0.0));
+
+    O += m * (
+        (1.0 + d.y)*(1.0 + d.y) / 8.0
+      + exp(-8e2 * pow(d.y + 0.7, 4.0))
+      + exp(-3e2 * pow(d.x + 1.0, 4.0))
+    );
+  }
+
+  O = tanh(7.0 * O / 32.0);
+  fragColor = vec4(O.rgb, 1.0);
+}
+</script>
+
+<script>
+(function(){
+  const canvas = document.getElementById('c');
+  const gl = canvas.getContext('webgl2', { antialias: true });
+  if (!gl){
+    document.body.innerHTML = '<p style="color:#fff;font:16px monospace;padding:20px">WebGL 2 is required. Please use a modern browser.</p>';
+    return;
+  }
+
+  function sh(type, src){
+    const s = gl.createShader(type);
+    gl.shaderSource(s, src);
+    gl.compileShader(s);
+    if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)){
+      console.error(gl.getShaderInfoLog(s));
+      throw new Error('shader compile error: ' + gl.getShaderInfoLog(s));
+    }
+    return s;
+  }
+
+  const vsSrc = document.getElementById('vs').textContent;
+  const fsSrc = document.getElementById('fs').textContent;
+  const prog = gl.createProgram();
+  gl.attachShader(prog, sh(gl.VERTEX_SHADER, vsSrc));
+  gl.attachShader(prog, sh(gl.FRAGMENT_SHADER, fsSrc));
+  gl.linkProgram(prog);
+  if (!gl.getProgramParameter(prog, gl.LINK_STATUS)){
+    console.error(gl.getProgramInfoLog(prog));
+    throw new Error('link error');
+  }
+  gl.useProgram(prog);
+
+  const buf = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
+    -1,-1,  1,-1,  -1,1,
+    -1, 1,  1,-1,   1,1
+  ]), gl.STATIC_DRAW);
+  const P = gl.getAttribLocation(prog, 'P');
+  gl.enableVertexAttribArray(P);
+  gl.vertexAttribPointer(P, 2, gl.FLOAT, false, 0, 0);
+
+  const uR = gl.getUniformLocation(prog, 'R');
+  const uT = gl.getUniformLocation(prog, 'T');
+  const uM = gl.getUniformLocation(prog, 'M');
+
+  let mouseX = 0, mouseY = 0;
+  let dragging = false, lastX = 0, lastY = 0;
+
+  canvas.addEventListener('pointerdown', e => {
+    dragging = true; lastX = e.clientX; lastY = e.clientY;
+  });
+  window.addEventListener('pointerup', () => dragging = false);
+  window.addEventListener('pointermove', e => {
+    if (!dragging) return;
+    mouseX += (e.clientX - lastX) * 0.005;
+    mouseY += (e.clientY - lastY) * 0.005;
+    lastX = e.clientX; lastY = e.clientY;
+  });
+
+  function resize(){
+    const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
+    const w = Math.floor(canvas.clientWidth  * dpr);
+    const h = Math.floor(canvas.clientHeight * dpr);
+    if (canvas.width !== w || canvas.height !== h){
+      canvas.width = w; canvas.height = h;
+      gl.viewport(0, 0, w, h);
+    }
+  }
+  window.addEventListener('resize', resize);
+
+  let t0 = performance.now();
+  function frame(now){
+    resize();
+    const t = (now - t0) * 0.001;
+    gl.uniform2f(uR, canvas.width, canvas.height);
+    gl.uniform1f(uT, t);
+    gl.uniform2f(uM, mouseX, mouseY);
+    gl.drawArrays(gl.TRIANGLES, 0, 6);
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

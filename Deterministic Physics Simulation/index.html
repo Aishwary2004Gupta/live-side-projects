@@ -3,476 +3,444 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Physics Simulation (Verlet / Spawn / Map)</title>
+<title>Physics Sim — Fixed</title>
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Rajdhani:wght@500&display=swap');
-
-  * { box-sizing: border-box; }
-  body {
-    margin: 0; padding: 0;
-    background: #03030a;
-    color: #e8e8f0;
-    font-family: 'Rajdhani', sans-serif;
-    display: flex; align-items: center; justify-content: center;
-    min-height: 100vh; overflow: hidden;
-  }
-
-  #wrapper {
-    position: relative;
-    width: 700px; height: 700px;
-    box-shadow: 0 0 0 1px #222, 0 0 60px rgba(255,255,255,0.06);
-    border-radius: 8px;
-    overflow: hidden;
-    background: #000;
-  }
-
-  canvas {
-    display: block;
-    background: #000;
-  }
-
-  /* HUD overlay */
-  #hud {
-    position: absolute; top: 14px; left: 14px;
-    background: rgba(5, 5, 15, 0.82);
-    border: 1px solid rgba(255,255,255,0.08);
-    padding: 10px 14px; border-radius: 6px;
-    pointer-events: none; user-select: none;
-    backdrop-filter: blur(3px);
-  }
-
-  #hud h2 {
-    margin: 0 0 6px 0; font-family: 'Orbitron', sans-serif;
-    font-size: 16px; letter-spacing: 0.08em; color: #7ee787;
-  }
-
-  .line { font-size: 14px; margin: 2px 0; letter-spacing: 0.02em; }
-  .line span { color: #ffd86e; font-weight: 700; }
-
-  /* Controls */
-  #controls {
-    position: absolute; bottom: 14px; left: 14px; right: 14px;
-    display: flex; flex-wrap: wrap; gap: 10px; align-items: center;
-    background: rgba(5,5,15,0.82);
-    border: 1px solid rgba(255,255,255,0.08);
-    padding: 10px 12px; border-radius: 6px;
-    pointer-events: auto;
-  }
-
-  button, label {
-    font-family: 'Rajdhani', sans-serif; font-size: 13px;
-    border: 1px solid rgba(255,255,255,0.15); background: rgba(255,255,255,0.06);
-    color: #f0f0f0; padding: 6px 10px; border-radius: 4px; cursor: pointer;
-    transition: background 0.15s, border-color 0.15s;
-  }
-
-  button:hover { background: rgba(255,255,255,0.12); border-color: rgba(255,255,255,0.35); }
-
-  label input { display: none; } /* use label click */
-  label { display: inline-flex; align-items: center; gap: 6px; }
-
-  #mapBtn { display: none; background: rgba(126,231,135,0.15); border-color: #7ee787; color: #7ee787; }
-
-  .badge {
-    position: absolute; top: 14px; right: 14px;
-    background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12);
-    padding: 4px 8px; border-radius: 4px; font-size: 12px; pointer-events: none;
-  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #080808; color: #eee; font-family: system-ui, sans-serif; display: flex; flex-direction: column; align-items: center; padding: 16px; }
+  h2 { margin-bottom: 8px; color: #fff; }
+  #toolbar { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; align-items: center; }
+  button, select { padding: 8px 14px; font-size: 14px; border: 1px solid #333; border-radius: 6px; background: #151515; color: #fff; cursor: pointer; }
+  button:hover { background: #222; }
+  input[type="file"] { color: #ccc; font-size: 13px; }
+  canvas { background: #000; border: 1px solid #333; border-radius: 10px; box-shadow: 0 0 30px rgba(0,0,0,.6); display: block; }
+  #status { margin-top: 8px; color: #8fbcff; font-size: 14px; min-height: 22px; }
 </style>
 </head>
 <body>
 
-<div id="wrapper">
-  <canvas id="simCanvas" width="700" height="700"></canvas>
+<h2>Physics Simulation</h2>
 
-  <div id="hud">
-    <h2>VERLET SIMULATION</h2>
-    <div class="line">STEP: <span id="stepDisplay">0</span> / <span id="totDisplay">400</span></div>
-    <div class="line">OBJECTS: <span id="objDisplay">0</span> / <span id="maxDisplay">380</span></div>
-    <div class="line" style="margin-top:4px; color:#888;">Mode: <span style="color:#ffd86e;">SPAWN</span> (click to scatter, hold to blast)</div>
-  </div>
-
-  <div class="badge">DT: 1/60 · Substeps: 8</div>
-
-  <div id="controls">
-    <button onclick="sim.reset()">Restart Spawn</button>
-    <label for="imgInput">Load flag.png → <span id="fileName">none</span></label>
-    <input type="file" id="imgInput" accept="image/*" onchange="sim.handleFile(this)">
-    <button id="mapBtn" onclick="sim.mapToImage()">Map Colors to Image</button>
-  </div>
+<div id="toolbar">
+  <select id="modeSelect">
+    <option value="SPAWN">SPAWN</option>
+    <option value="PLAYBACK">PLAYBACK</option>
+  </select>
+  <button onclick="sim.start()">Start</button>
+  <button onclick="sim.pause()">Pause</button>
+  <button onclick="sim.reset()">Reset</button>
+  <button onclick="sim.downloadCSV()">Download CSV</button>
+  <label>CSV: <input type="file" id="csvIn" accept=".csv" onchange="loadCSV(this)" /></label>
+  <label>Image: <input type="file" id="imgIn" accept="image/*" onchange="loadImage(this)" /></label>
 </div>
 
+<div id="status">Ready. Mode: SPAWN. Click Start.</div>
+
+<canvas id="sim" width="700" height="700"></canvas>
+
 <script>
-/* =========================================================
-   CONFIG (same as your Python script)
-   ========================================================= */
-const WIDTH = 700, HEIGHT = 700;
-const GRAVITY = new Vec2(0, 981);
-const BOUNCE_LOSS = 0.9;
-const COLLISION_DAMPING = 0.95;
-const MIN_RADIUS = 10, MAX_RADIUS = 27;
-const SPAWN_STEP_INTERVAL = 1;
-const FIXED_DT = 1/60.0;
-const MODE = "SPAWN";
-const TOTAL_STEPS = 400;
-const SIMULATION_SUBSTEPS = 8;
-const MAX_OBJECTS = 380;
+/* ---------- Config ---------- */
+const CFG = {
+  W: 700, H: 700,
+  G: 981, // gravity y
+  MIN_R: 10, MAX_R: 27,
+  STEP_INTERVAL: 1,
+  FIXED_DT: 1 / 60,
+  SUBSTEPS: 8,
+  MAX_OBJ: 380,
+  BOUNCE: 0.9,
+  DAMP: 0.95,
+  TOTAL_STEPS: 400,
+  SEED: 42
+};
 
-/* =========================================================
-   SEEDED RANDOM (deterministic like Python seed(42))
-   ========================================================= */
-function seedRandom(s) {
-  return function() {
-    s = (s * 16807) % 2147483647;
-    return (s - 1) / 2147483646;
+/* ---------- Utilities ---------- */
+const rand = (() => {
+  let s = CFG.SEED;
+  return () => {
+    s |= 0; s = s + 0x9e3779b9 | 0;
+    let t = s ^ (s >>> 16);
+    t = Math.imul(t, 0x21f0aaad);
+    t = t ^ (t >>> 15);
+    t = Math.imul(t, 0x735a2d97);
+    return ((t = t ^ (t >>> 15)) >>> 0) / 4294967296;
   };
-}
-let rand = seedRandom(42);
+})();
 
-/* =========================================================
-   VECTOR 2D
-   ========================================================= */
-class Vec2 {
-  constructor(x=0, y=0){ this.x=x; this.y=y; }
-  add(v){ this.x += v.x; this.y += v.y; return this; }
-  sub(v){ this.x -= v.x; this.y -= v.y; return this; }
-  mult(s){ this.x *= s; this.y *= s; return this; }
-  copy(){ return new Vec2(this.x, this.y); }
-  lengthSq(){ return this.x*this.x + this.y*this.y; }
-  length(){ return Math.sqrt(this.lengthSq()); }
-  normalize(){ const l=this.length(); if(l>0){ this.x/=l; this.y/=l; } return this; }
+function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
+
+/* ---------- Vector ---------- */
+class V {
+  constructor(x = 0, y = 0) { this.x = x; this.y = y; }
+  clone() { return new V(this.x, this.y); }
+  set(x, y) { this.x = x; this.y = y; }
 }
 
-/* =========================================================
-   BALL (Verlet integration)
-   ========================================================= */
+/* ---------- Ball ---------- */
 class Ball {
-  constructor(position, radius, step_added, color=null){
-    this.position = new Vec2(position.x, position.y);
-    this.old_position = new Vec2(position.x, position.y);
-    this.acceleration = new Vec2(0, 0);
-    this.radius = radius;
-    this.mass = Math.PI * radius * radius;
-    this.step_added = step_added;
-    // Bright random palette
-    this.color = color || {
-      r: Math.floor(rand()*155 + 100),
-      g: Math.floor(rand()*155 + 100),
-      b: Math.floor(rand()*155 + 100)
-    };
+  constructor(pos, r, step, color) {
+    this.pos = pos.clone();
+    this.old = pos.clone();
+    this.acc = new V(0, 0);
+    this.r = r;
+    this.mass = Math.PI * r * r;
+    this.step = step;
+    this.color = color || [rand()*155+100 | 0, rand()*155+100 | 0, rand()*155+100 | 0];
   }
 
-  update(dt){
-    // Velocity = current - previous
-    const velX = this.position.x - this.old_position.x;
-    const velY = this.position.y - this.old_position.y;
-
-    // Store current as old
-    this.old_position = this.position.copy();
-
-    // Verlet: pos += vel + acc * dt^2
-    this.position.x += velX + this.acceleration.x * dt * dt;
-    this.position.y += velY + this.acceleration.y * dt * dt;
-
-    // Reset acceleration
-    this.acceleration = new Vec2(0, 0);
+  update(dt) {
+    let vx = this.pos.x - this.old.x;
+    let vy = this.pos.y - this.old.y;
+    this.old.set(this.pos.x, this.pos.y);
+    this.pos.x += vx + this.acc.x * dt * dt;
+    this.pos.y += vy + this.acc.y * dt * dt;
+    this.acc.set(0, 0);
   }
 
-  accelerate(){
-    // Original applies gravity directly (ignores param)
-    this.acceleration.add(GRAVITY);
-  }
-
-  applyConstraints(){
-    // Replicate boundary logic with functional bounce (reflected old_pos)
-    const vx = this.position.x - this.old_position.x;
-    const vy = this.position.y - this.old_position.y;
-
-    // Left
-    if (this.position.x - this.radius < 0){
-      this.position.x = this.radius;
-      // Reflect velocity by mirroring old_position across boundary
-      this.old_position.x = 2*this.position.x - this.old_position.x;
-    }
-    // Right
-    else if (this.position.x + this.radius > WIDTH){
-      this.position.x = WIDTH - this.radius;
-      this.old_position.x = 2*this.position.x - this.old_position.x;
-    }
-
-    // Top
-    if (this.position.y - this.radius < 0){
-      this.position.y = this.radius;
-      this.old_position.y = 2*this.position.y - this.old_position.y;
-    }
-    // Bottom
-    else if (this.position.y + this.radius > HEIGHT){
-      this.position.y = HEIGHT - this.radius;
-      this.old_position.y = 2*this.position.y - this.old_position.y;
+  accelerate(force) {
+    if (this.mass > 0) {
+      this.acc.x += force.x;
+      this.acc.y += force.y;
     }
   }
 
-  draw(ctx){
+  constrain() {
+    let vx = this.pos.x - this.old.x;
+    let vy = this.pos.y - this.old.y;
+
+    if (this.pos.x - this.r < 0) {
+      this.pos.x = this.r;
+      this.old.x = this.pos.x + vx * CFG.BOUNCE;
+    } else if (this.pos.x + this.r > CFG.W) {
+      this.pos.x = CFG.W - this.r;
+      this.old.x = this.pos.x + vx * CFG.BOUNCE;
+    }
+
+    if (this.pos.y - this.r < 0) {
+      this.pos.y = this.r;
+      this.old.y = this.pos.y + vy * CFG.BOUNCE;
+    } else if (this.pos.y + this.r > CFG.H) {
+      this.pos.y = CFG.H - this.r;
+      this.old.y = this.pos.y + vy * CFG.BOUNCE;
+    }
+  }
+
+  draw(ctx) {
     ctx.beginPath();
-    ctx.arc(this.position.x, this.position.y, this.radius, 0, Math.PI*2);
-    ctx.fillStyle = `rgb(${this.color.r},${this.color.g},${this.color.b})`;
+    ctx.arc(this.pos.x, this.pos.y, this.r, 0, Math.PI * 2);
+    ctx.fillStyle = `rgb(${this.color.join(",")})`;
     ctx.fill();
-    // Slight glow
-    ctx.shadowColor = `rgb(${this.color.r},${this.color.g},${this.color.b})`;
-    ctx.shadowBlur = 8;
-    ctx.fill();
-    ctx.shadowBlur = 0;
   }
 }
 
-/* =========================================================
-   SIMULATION
-   ========================================================= */
-class Simulation {
-  constructor(){
-    this.canvas = document.getElementById('simCanvas');
-    this.ctx = this.canvas.getContext('2d');
+/* ---------- Simulation ---------- */
+class Sim {
+  constructor() {
+    this.canvas = document.getElementById("sim");
+    this.ctx = this.canvas.getContext("2d");
+    this.status = document.getElementById("status");
+
     this.balls = [];
-    this.current_step = 0;
-    this.balls_spawned = 0;
-    this.spawnData = []; // in-memory "CSV"
+    this.mode = "SPAWN";
+    this.stepNum = 0;
+    this.spawnCount = 0;
+    this.records = []; // CSV data
+    this.playRecords = [];
+    this.playPtr = 0;
+    this.imageData = null;
 
-    // Load any previous mapped data if present (optional replay)
-    try {
-      const saved = localStorage.getItem('ball_spawn_data');
-      if (saved) this.spawnData = JSON.parse(saved);
-    } catch(e){ /* ignore */ }
+    this.running = false;
+    this.accum = 0;
+    this.lastT = 0;
 
-    // Image mapping canvas
-    this.imgCanvas = document.createElement('canvas');
-    this.imgCtx = this.imgCanvas.getContext('2d');
-    this.inputImage = null;
+    this.gravity = new V(0, CFG.G);
+
+    // Pre-draw background
+    this.renderFrame();
   }
 
-  reset(){
-    this.balls = [];
-    this.current_step = 0;
-    this.balls_spawned = 0;
-    this.spawnData = [];
-    localStorage.removeItem('ball_spawn_data');
-    localStorage.removeItem('ball_spawn_mapped');
-    document.getElementById('mapBtn').style.display = 'none';
-    document.getElementById('fileName').textContent = 'none';
-    this.inputImage = null;
-    requestAnimationFrame(this.loop.bind(this));
-  }
+  log(msg) { this.status.textContent = msg; console.log(msg); }
 
-  addBall(b){
-    if (this.balls.length < MAX_OBJECTS){
-      this.balls.push(b);
-    } else if (this.balls.length > 0) {
-      this.balls.shift(); // drop oldest
-      this.balls.push(b);
-    }
-  }
-
-  applyGravity(){
-    for (const b of this.balls) b.accelerate();
-  }
-
-  updatePositions(dt){
-    for (const b of this.balls) b.update(dt);
-  }
-
-  applyConstraints(){
-    for (const b of this.balls) b.applyConstraints();
-  }
-
-  solveCollisions(){
-    const n = this.balls.length;
-    for (let i = 0; i < n; i++){
-      const b1 = this.balls[i];
-      for (let j = i + 1; j < n; j++){
-        const b2 = this.balls[j];
-        const dx = b1.position.x - b2.position.x;
-        const dy = b1.position.y - b2.position.y;
-        const distSq = dx*dx + dy*dy;
-        const minDist = b1.radius + b2.radius;
-
-        if (distSq < minDist*minDist && distSq > 0){
-          const dist = Math.sqrt(distSq);
-          const nx = dx / dist;
-          const ny = dy / dist;
-          const overlap = (minDist - dist) * 0.5;
-
-          const totalMass = b1.mass + b2.mass;
-          const m1 = totalMass > 0 ? b2.mass / totalMass : 0.5;
-          const m2 = totalMass > 0 ? b1.mass / totalMass : 0.5;
-
-          b1.position.x += nx * overlap * m1 * COLLISION_DAMPING;
-          b1.position.y += ny * overlap * m1 * COLLISION_DAMPING;
-          b2.position.x -= nx * overlap * m2 * COLLISION_DAMPING;
-          b2.position.y -= ny * overlap * m2 * COLLISION_DAMPING;
-        }
-      }
-    }
-  }
-
-  update(dt){
-    const sub_dt = dt / SIMULATION_SUBSTEPS;
-    for (let s = 0; s < SIMULATION_SUBSTEPS; s++){
-      this.applyGravity();
-      this.solveCollisions();
-      this.applyConstraints();
-      this.updatePositions(sub_dt);
-    }
-  }
-
-  spawn(){
-    if (this.current_step % SPAWN_STEP_INTERVAL === 0 && this.balls_spawned < MAX_OBJECTS){
-      const cx = WIDTH / 2;
-      const cy = HEIGHT / 2;
-      const r = MIN_RADIUS + rand() * (MAX_RADIUS - MIN_RADIUS);
-      const b = new Ball({x: cx, y: cy}, r, this.current_step);
-
-      // Blast velocity
-      const angle = rand() * Math.PI * 2;
-      const blast = 100;
-      const vx = Math.cos(angle) * blast;
-      const vy = Math.sin(angle) * blast;
-
-      // Verlet old_position = current - velocity * dt
-      b.old_position.x = b.position.x - vx * FIXED_DT;
-      b.old_position.y = b.position.y - vy * FIXED_DT;
-
-      // Record for persistence / mapping
-      this.spawnData.push({
-        step: this.current_step,
-        x: b.position.x, y: b.position.y,
-        radius: b.radius,
-        old_x: b.old_position.x, old_y: b.old_position.y,
-        r: b.color.r, g: b.color.g, b: b.color.b
-      });
-
-      this.addBall(b);
-      this.balls_spawned++;
-    }
-  }
-
-  replay(){
-    // Replay mode: create balls whose step == current_step
-    for (const d of this.spawnData){
-      if (d.step === this.current_step){
-        // Avoid duplicates if already added (simplified guard)
-        const exists = this.balls.find(b => b.step_added === d.step && Math.abs(b.position.x - d.x) < 1);
-        if (!exists){
-          const b = new Ball({x: d.x, y: d.y}, d.radius, d.step, {r: d.r, g: d.g, b: d.b});
-          b.old_position = new Vec2(d.old_x, d.old_y);
-          this.addBall(b);
-          this.balls_spawned++;
-        }
-      }
-    }
-  }
-
-  draw(){
-    // Soft trail
-    this.ctx.fillStyle = 'rgba(0, 0, 0, 0.35)';
-    this.ctx.fillRect(0, 0, WIDTH, HEIGHT);
-
-    for (const b of this.balls) b.draw(this.ctx);
-
-    // HUD text on canvas (supplement)
-    this.ctx.fillStyle = 'rgba(255,255,255,0.9)';
-    this.ctx.font = '14px "Rajdhani", sans-serif';
-    this.ctx.fillText(`Step: ${this.current_step} / ${TOTAL_STEPS}  |  Objects: ${this.balls.length} / ${MAX_OBJECTS}`, 12, 26);
-  }
-
-  handleFile(input){
-    if (!input.files || !input.files[0]) return;
-    const file = input.files[0];
-    const img = new Image();
-    img.onload = () => {
-      this.inputImage = img;
-      // Prep offscreen pixel canvas
-      this.imgCanvas.width = WIDTH;
-      this.imgCanvas.height = HEIGHT;
-      this.imgCtx.drawImage(img, 0, 0, WIDTH, HEIGHT);
-      document.getElementById('fileName').textContent = file.name;
-      document.getElementById('mapBtn').style.display = 'inline-block';
-    };
-    img.src = URL.createObjectURL(file);
-  }
-
-  mapToImage(){
-    if (!this.inputImage || MODE !== "SPAWN") return;
-
-    // Sort by step to match CSV correspondence (optional)
-    const sorted = this.balls.slice().sort((a,b) => a.step_added - b.step_added);
-
-    for (let i = 0; i < sorted.length; i++){
-      const b = sorted[i];
-      const x = Math.min(Math.max(Math.floor(b.position.x), 0), WIDTH - 1);
-      const y = Math.min(Math.max(Math.floor(b.position.y), 0), HEIGHT - 1);
-      const d = this.imgCtx.getImageData(x, y, 1, 1).data;
-      b.color = {r: d[0], g: d[1], b: d[2]};
-    }
-
-    // Save mapped state (replaces CSV write-back)
-    const out = this.balls.map(b => ({
-      step: b.step_added,
-      x: b.position.x, y: b.position.y,
-      radius: b.radius,
-      old_x: b.old_position.x, old_y: b.old_position.y,
-      r: b.color.r, g: b.color.g, b: b.color.b
-    }));
-    localStorage.setItem('ball_spawn_mapped', JSON.stringify(out));
-
-    // Update stored spawnData with mapped colors so file is consistent
-    for (const d of this.spawnData){
-      const match = sorted.find(b => b.step_added === d.step);
-      if (match) { d.r = match.color.r; d.g = match.color.g; d.b = match.color.b; }
-    }
-    localStorage.setItem('ball_spawn_data', JSON.stringify(this.spawnData));
-
-    alert('Mapped! Colors updated from image and saved to storage.');
-  }
-
-  loop(){
-    if (this.current_step >= TOTAL_STEPS){
-      // Freeze on final frame but keep rendering
-      this.draw();
-      document.getElementById('mapBtn').style.display = 'inline-block';
+  start() {
+    if (this.mode === "PLAYBACK" && this.playRecords.length === 0) {
+      this.log("Load a CSV first for PLAYBACK.");
       return;
     }
+    if (this.stepNum >= CFG.TOTAL_STEPS) {
+      this.log("Finished — click Reset to replay.");
+      return;
+    }
+    this.running = true;
+    this.lastT = performance.now();
+    this.log(`Running mode: ${this.mode}`);
+    requestAnimationFrame(this.tick.bind(this));
+  }
 
-    // Spawn / Replay logic
-    if (MODE === "SPAWN"){
-      this.spawn();
-    } else {
-      this.replay();
+  pause() {
+    this.running = false;
+    this.log("Paused.");
+  }
+
+  reset() {
+    this.pause();
+    this.balls = [];
+    this.stepNum = 0;
+    this.spawnCount = 0;
+    this.playPtr = 0;
+    this.accum = 0;
+    this.lastT = 0;
+    // Keep records unless we are spawning fresh? We'll keep CSV data.
+    this.renderFrame();
+    this.log("Reset. Ready.");
+  }
+
+  tick(timestamp) {
+    if (!this.running) return;
+    if (!this.lastT) this.lastT = timestamp;
+
+    let delta = Math.min(0.05, (timestamp - this.lastT) / 1000);
+    this.lastT = timestamp;
+    this.accum += delta;
+
+    while (this.accum >= CFG.FIXED_DT && this.running) {
+      this.simStep();
+      this.accum -= CFG.FIXED_DT;
     }
 
-    // Physics
-    this.update(FIXED_DT);
+    this.renderFrame();
+    requestAnimationFrame(this.tick.bind(this));
+  }
 
-    // Render
-    this.draw();
+  simStep() {
+    // Spawn logic
+    if (this.mode === "SPAWN") {
+      if (this.stepNum % CFG.STEP_INTERVAL === 0 && this.spawnCount < CFG.MAX_OBJ) {
+        this.spawnBall();
+      }
+    } else {
+      this.spawnPlayback();
+    }
 
-    // Update stats
-    document.getElementById('stepDisplay').textContent = this.current_step;
-    document.getElementById('objDisplay').textContent = this.balls.length;
+    // Physics substeps
+    let sub = CFG.FIXED_DT / CFG.SUBSTEPS;
+    for (let i = 0; i < CFG.SUBSTEPS; i++) {
+      for (let b of this.balls) b.accelerate(this.gravity);
+      this.solveCollisions();
+      for (let b of this.balls) b.constrain();
+      for (let b of this.balls) b.update(sub);
+    }
 
-    this.current_step++;
-    requestAnimationFrame(this.loop.bind(this));
+    this.stepNum++;
+    if (this.stepNum >= CFG.TOTAL_STEPS) {
+      this.pause();
+      this.log("Simulation finished.");
+      this.applyImageColors();
+    }
+  }
+
+  spawnBall() {
+    let cx = CFG.W / 2, cy = CFG.H / 2;
+    let r = CFG.MIN_R + rand() * (CFG.MAX_R - CFG.MIN_R);
+    let color = [
+      (rand() * 155 + 100) | 0,
+      (rand() * 155 + 100) | 0,
+      (rand() * 155 + 100) | 0
+    ];
+    let b = new Ball(new V(cx, cy), r, this.stepNum, color);
+
+    // Blast outward
+    let ang = rand() * Math.PI * 2;
+    let speed = 100;
+    b.old.x = b.pos.x - Math.cos(ang) * speed * CFG.FIXED_DT;
+    b.old.y = b.pos.y - Math.sin(ang) * speed * CFG.FIXED_DT;
+
+    this.balls.push(b);
+    if (this.balls.length > CFG.MAX_OBJ) this.balls.shift();
+    this.spawnCount++;
+
+    // Save record for CSV
+    this.records.push({
+      step: this.stepNum,
+      x: b.pos.x, y: b.pos.y,
+      r: b.r,
+      oldX: b.old.x, oldY: b.old.y,
+      rC: color[0], g: color[1], b: color[2]
+    });
+  }
+
+  spawnPlayback() {
+    while (this.playPtr < this.playRecords.length) {
+      let rec = this.playRecords[this.playPtr];
+      if (rec.step > this.stepNum) break;
+
+      if (rec.step === this.stepNum) {
+        let b = new Ball(new V(rec.x, rec.y), rec.r, rec.step, [rec.rc, rec.gc, rec.bc]);
+        b.old.x = rec.oldX;
+        b.old.y = rec.oldY;
+        this.balls.push(b);
+        if (this.balls.length > CFG.MAX_OBJ) this.balls.shift();
+        this.spawnCount++;
+      }
+      this.playPtr++;
+    }
+  }
+
+  solveCollisions() {
+    let n = this.balls.length;
+    for (let i = 0; i < n; i++) {
+      for (let j = i + 1; j < n; j++) {
+        let a = this.balls[i], b = this.balls[j];
+        let dx = a.pos.x - b.pos.x;
+        let dy = a.pos.y - b.pos.y;
+        let distSq = dx * dx + dy * dy;
+        let minD = a.r + b.r;
+
+        if (distSq < minD * minD && distSq > 0.0001) {
+          let dist = Math.sqrt(distSq);
+          let nx = dx / dist;
+          let ny = dy / dist;
+          let overlap = (minD - dist) * 0.5;
+
+          let totalM = a.mass + b.mass;
+          let m1 = totalM ? b.mass / totalM : 0.5;
+          let m2 = totalM ? a.mass / totalM : 0.5;
+
+          a.pos.x += nx * overlap * m1 * CFG.DAMP;
+          a.pos.y += ny * overlap * m1 * CFG.DAMP;
+
+          b.pos.x -= nx * overlap * m2 * CFG.DAMP;
+          b.pos.y -= ny * overlap * m2 * CFG.DAMP;
+        }
+      }
+    }
+  }
+
+  renderFrame() {
+    let ctx = this.ctx;
+    ctx.fillStyle = "#000";
+    ctx.fillRect(0, 0, CFG.W, CFG.H);
+
+    for (let b of this.balls) b.draw(ctx);
+
+    ctx.fillStyle = "rgba(240,240,240,0.9)";
+    ctx.font = "bold 16px system-ui";
+    ctx.fillText(`Step: ${this.stepNum}/${CFG.TOTAL_STEPS} | Objects: ${this.balls.length}/${CFG.MAX_OBJ} | Mode: ${this.mode}`, 10, 24);
+  }
+
+  applyImageColors() {
+    // Only remaps if an image was loaded
+    if (!this.imageData) return;
+
+    // Sort by the step they were added to match CSV order
+    let sorted = [...this.balls].sort((a, b) => a.step - b.step);
+    let imgData = this.imageData.data;
+
+    let updated = [];
+
+    for (let b of sorted) {
+      // Find the original record
+      let rec = this.records.find(r => r.step === b.step);
+      if (!rec) continue;
+
+      let px = clamp(Math.floor(b.pos.x), 0, CFG.W - 1);
+      let py = clamp(Math.floor(b.pos.y), 0, CFG.H - 1);
+      let idx = (py * CFG.W + px) * 4;
+
+      let nr = imgData[idx];
+      let ng = imgData[idx + 1];
+      let nb = imgData[idx + 2];
+
+      b.color = [nr, ng, nb];
+
+      updated.push({
+        step: rec.step,
+        x: rec.x, y: rec.y,
+        r: rec.r,
+        oldX: rec.oldX, oldY: rec.oldY,
+        rc: nr, gc: ng, bc: nb
+      });
+    }
+
+    updated.sort((a, b) => a.step - b.step);
+    this.records = updated;
+
+    // Re-sort balls visually? Not needed; just redraw.
+    this.renderFrame();
+    this.log("Finished. Colors mapped from image (if loaded).");
+  }
+
+  downloadCSV() {
+    let rows = this.records.length ? this.records : this.playRecords;
+    if (!rows.length) { this.log("No data to download."); return; }
+
+    let text = rows.map(r => {
+      return [
+        r.step,
+        r.x.toFixed(2),
+        r.y.toFixed(2),
+        r.r.toFixed(2),
+        r.oldX ? r.oldX.toFixed(2) : 0,
+        r.oldY ? r.oldY.toFixed(2) : 0,
+        Math.round(r.rc || r.rC),
+        Math.round(r.gc || r.gC || r.g || 0),
+        Math.round(r.bc || r.c || r.b || 0)
+      ].join(",");
+    }).join("\n");
+
+    let blob = new Blob([text], { type: "text/csv" });
+    let a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "ball_spawn.csv";
+    a.click();
+    URL.revokeObjectURL(a.href);
+    this.log("Downloaded ball_spawn.csv");
   }
 }
 
-/* =========================================================
-   INIT
-   ========================================================= */
-const sim = new Simulation();
+/* ---------- Global Sim Instance ---------- */
+const sim = new Sim();
 
-window.addEventListener('load', () => {
-  // Optional: if you want to load previously mapped data instead of spawning
-  // try { const prev = localStorage.getItem('ball_spawn_mapped'); if(prev) ... }
-  requestAnimationFrame(sim.loop.bind(sim));
-});
+/* ---------- File Handlers ---------- */
+function loadCSV(input) {
+  if (!input.files || !input.files[0]) return;
+  let reader = new FileReader();
+  reader.onload = e => {
+    let lines = e.target.result.trim().split(/\r?\n/).filter(Boolean);
+    let parsed = [];
+
+    for (let line of lines) {
+      let p = line.split(",").map(Number);
+      if (p.length < 9 || p.some(isNaN)) continue;
+      let [step, x, y, r, ox, oy, rc, gc, bc] = p;
+      parsed.push({ step: Math.floor(step), x, y, r, oldX: ox, oldY: oy, rc, gc, bc });
+    }
+
+    parsed.sort((a, b) => a.step - b.step);
+    sim.playRecords = parsed;
+    document.getElementById("modeSelect").value = "PLAYBACK";
+    sim.mode = "PLAYBACK";
+    sim.reset();
+    sim.log(`Loaded CSV (${parsed.length} rows). Mode: PLAYBACK`);
+  };
+  reader.readAsText(input.files[0]);
+}
+
+function loadImage(input) {
+  if (!input.files || !input.files[0]) return;
+  let file = input.files[0];
+  let url = URL.createObjectURL(file);
+  let img = new Image();
+  img.onload = () => {
+    // Create offscreen canvas for pixel data
+    let off = document.createElement("canvas");
+    off.width = CFG.W;
+    off.height = CFG.H;
+    let oCtx = off.getContext("2d");
+    oCtx.drawImage(img, 0, 0, CFG.W, CFG.H);
+    sim.imageData = oCtx.getImageData(0, 0, CFG.W, CFG.H);
+    sim.log(`Image loaded (${file.name}). Will remap colors at end.`);
+  };
+  img.src = url;
+}
 </script>
 
 </body>

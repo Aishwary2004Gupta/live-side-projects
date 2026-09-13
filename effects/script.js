@@ -3,6 +3,7 @@ import * as THREE from "https://esm.sh/three@0.160.0";
 import { OrbitControls } from "https://esm.sh/three@0.160.0/examples/jsm/controls/OrbitControls.js";
 import { GLTFLoader } from "https://esm.sh/three@0.160.0/examples/jsm/loaders/GLTFLoader.js";
 import { OBJLoader } from "https://esm.sh/three@0.160.0/examples/jsm/loaders/OBJLoader.js";
+import { MeshoptDecoder } from "https://esm.sh/three@0.160.0/examples/jsm/libs/meshopt_decoder.module.js";
 // import { USDZLoader } from "https://esm.sh/three@0.160.0/examples/jsm/loaders/USDZLoader.js";
 import { AsciiEffect } from "https://esm.sh/three@0.160.0/examples/jsm/effects/AsciiEffect.js";
 /*
@@ -75,13 +76,13 @@ let isLeftPanelOpen = true;
 const sidebarWidth = 280;
 
 /* Animated layout values — lerped each frame */
-let currentLayoutWidth = window.innerWidth - sidebarWidth * 2;
+let currentLayoutWidth = Math.max(1, window.innerWidth - sidebarWidth * 2);
 let targetLayoutWidth = currentLayoutWidth;
 let currentLeftOffset = sidebarWidth;
 let targetLeftOffset = sidebarWidth;
 
 function updateCamera() {
-    const aspect = currentLayoutWidth / window.innerHeight;
+    const aspect = currentLayoutWidth / Math.max(1, window.innerHeight);
     camera.left = (-baseFrustumSize * aspect) / 2;
     camera.right = (baseFrustumSize * aspect) / 2;
     camera.top = baseFrustumSize / 2;
@@ -145,6 +146,8 @@ class MatrixRainEffect {
     }
 
     setSize(width, height) {
+        width = Math.max(1, Math.floor(width));
+        height = Math.max(1, Math.floor(height));
         this.canvas.width = width;
         this.canvas.height = height;
         this.domElement.style.width = width + "px";
@@ -378,6 +381,7 @@ scene.add(dl);
 
 /* ================= MODELS ================= */
 const gltfLoader = new GLTFLoader();
+gltfLoader.setMeshoptDecoder(MeshoptDecoder);
 const objLoader = new OBJLoader();
 let currentModel = null;
 
@@ -1111,10 +1115,12 @@ function updateAxisHUD() {
 }
 
 function recalcTargetWidth() {
-    targetLayoutWidth =
+    targetLayoutWidth = Math.max(
+        1,
         window.innerWidth -
-        targetLeftOffset -
-        (isPanelOpen ? sidebarWidth : 0);
+            targetLeftOffset -
+            (isPanelOpen ? sidebarWidth : 0),
+    );
 }
 
 function togglePanel() {
@@ -1269,7 +1275,8 @@ pixelInput.oninput = (e) => {
 };
 
 function updateLayout(width, leftOffset) {
-    const height = window.innerHeight;
+    width = Math.max(1, Math.floor(width));
+    const height = Math.max(1, Math.floor(window.innerHeight));
 
     canvasContainer.style.left = leftOffset + "px";
     canvasContainer.style.width = width + "px";

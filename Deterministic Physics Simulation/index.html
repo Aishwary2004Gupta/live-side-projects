@@ -1,0 +1,750 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Deterministic Physics Simulation</title>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: Arial, Helvetica, sans-serif;
+      background: #0b0b0b;
+      color: #eee;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      min-height: 100vh;
+      padding: 24px;
+    }
+
+    .app {
+      width: 820px;
+      max-width: 100%;
+    }
+
+    .toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+      margin-bottom: 14px;
+      padding: 12px;
+      background: #151515;
+      border: 1px solid #2b2b2b;
+      border-radius: 12px;
+    }
+
+    .toolbar label,
+    .toolbar button,
+    .toolbar select {
+      font-size: 14px;
+    }
+
+    button,
+    select,
+    input[type="file"] {
+      background: #202020;
+      color: #f2f2f2;
+      border: 1px solid #3a3a3a;
+      border-radius: 8px;
+      padding: 8px 10px;
+    }
+
+    button {
+      cursor: pointer;
+      transition: 0.2s ease;
+    }
+
+    button:hover {
+      background: #2b2b2b;
+    }
+
+    .file-group {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: #1c1c1c;
+      border: 1px solid #333;
+      border-radius: 8px;
+      padding: 6px 8px;
+    }
+
+    #status {
+      width: 100%;
+      color: #9ad1ff;
+      font-size: 13px;
+      margin-top: 4px;
+    }
+
+    canvas {
+      display: block;
+      width: 700px;
+      height: 700px;
+      max-width: 100%;
+      background: #000;
+      border: 1px solid #2b2b2b;
+      border-radius: 12px;
+      box-shadow: 0 0 24px rgba(0,0,0,0.4);
+    }
+
+    .hint {
+      margin-top: 12px;
+      color: #bbb;
+      font-size: 13px;
+      line-height: 1.45;
+    }
+
+    .hint code {
+      color: #fff;
+      background: #1a1a1a;
+      padding: 2px 5px;
+      border-radius: 6px;
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <div class="toolbar">
+      <label for="modeSelect">Mode:</label>
+      <select id="modeSelect">
+        <option value="SPAWN">SPAWN</option>
+        <option value="PLAYBACK">PLAYBACK</option>
+      </select>
+
+      <button id="startBtn">Start</button>
+      <button id="pauseBtn">Pause</button>
+      <button id="resetBtn">Reset</button>
+      <button id="downloadBtn">Download CSV</button>
+
+      <div class="file-group">
+        <label for="csvInput">Load CSV:</label>
+        <input id="csvInput" type="file" accept=".csv,text/csv" />
+      </div>
+
+      <div class="file-group">
+        <label for="imageInput">Load Image:</label>
+        <input id="imageInput" type="file" accept="image/*" />
+      </div>
+
+      <div id="status">Ready.</div>
+    </div>
+
+    <canvas id="simCanvas" width="700" height="700"></canvas>
+
+    <div class="hint">
+      Upload a CSV for <code>PLAYBACK</code>, or run <code>SPAWN</code> mode and then download the generated CSV.
+      If you upload an image, the final ball positions will be mapped to that image's colors after the simulation ends.
+    </div>
+  </div>
+
+  <script>
+    const CONFIG = {
+      WIDTH: 700,
+      HEIGHT: 700,
+      GRAVITY_Y: 981,
+      BACKGROUND_COLOR: "#000000",
+      BOUNCE_LOSS: 0.9,
+      COLLISION_DAMPING: 0.95,
+      MIN_RADIUS: 10,
+      MAX_RADIUS: 27,
+      SPAWN_STEP_INTERVAL: 1,
+      FIXED_DT: 1 / 60,
+      TOTAL_STEPS: 400,
+      SIMULATION_SUBSTEPS: 8,
+      MAX_OBJECTS: 380,
+      SEED: 42
+    };
+
+    function mulberry32(seed) {
+      return function () {
+        let t = seed += 0x6D2B79F5;
+        t = Math.imul(t ^ (t >>> 15), t | 1);
+        t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+      };
+    }
+
+    function clamp(value, min, max) {
+      return Math.max(min, Math.min(max, value));
+    }
+
+    function fmt(n) {
+      return Number(n.toFixed(4));
+    }
+
+    class Vec2 {
+      constructor(x = 0, y = 0) {
+        this.x = x;
+        this.y = y;
+      }
+
+      clone() {
+        return new Vec2(this.x, this.y);
+      }
+
+      set(x, y) {
+        this.x = x;
+        this.y = y;
+      }
+    }
+
+    class Ball {
+      constructor(position, radius, stepAdded, color = [255, 255, 255]) {
+        this.position = position.clone();
+        this.oldPosition = position.clone();
+        this.acceleration = new Vec2(0, 0);
+        this.radius = radius;
+        this.mass = Math.PI * radius * radius;
+        this.stepAdded = stepAdded;
+        this.color = color;
+      }
+
+      update(dt) {
+        const vx = this.position.x - this.oldPosition.x;
+        const vy = this.position.y - this.oldPosition.y;
+
+        this.oldPosition.set(this.position.x, this.position.y);
+
+        this.position.x += vx + this.acceleration.x * dt * dt;
+        this.position.y += vy + this.acceleration.y * dt * dt;
+
+        this.acceleration.set(0, 0);
+      }
+
+      accelerate(force) {
+        if (this.mass > 0) {
+          this.acceleration.x += force.x;
+          this.acceleration.y += force.y;
+        }
+      }
+
+      applyConstraints() {
+        const vx = this.position.x - this.oldPosition.x;
+        const vy = this.position.y - this.oldPosition.y;
+
+        if (this.position.x - this.radius < 0) {
+          this.position.x = this.radius;
+          this.oldPosition.x = this.position.x + vx * CONFIG.BOUNCE_LOSS;
+        } else if (this.position.x + this.radius > CONFIG.WIDTH) {
+          this.position.x = CONFIG.WIDTH - this.radius;
+          this.oldPosition.x = this.position.x + vx * CONFIG.BOUNCE_LOSS;
+        }
+
+        if (this.position.y - this.radius < 0) {
+          this.position.y = this.radius;
+          this.oldPosition.y = this.position.y + vy * CONFIG.BOUNCE_LOSS;
+        } else if (this.position.y + this.radius > CONFIG.HEIGHT) {
+          this.position.y = CONFIG.HEIGHT - this.radius;
+          this.oldPosition.y = this.position.y + vy * CONFIG.BOUNCE_LOSS;
+        }
+      }
+
+      draw(ctx) {
+        ctx.beginPath();
+        ctx.arc(this.position.x, this.position.y, this.radius, 0, Math.PI * 2);
+        ctx.fillStyle = `rgb(${this.color[0]}, ${this.color[1]}, ${this.color[2]})`;
+        ctx.fill();
+      }
+    }
+
+    class Simulation {
+      constructor(canvas, statusEl) {
+        this.canvas = canvas;
+        this.ctx = canvas.getContext("2d");
+        this.statusEl = statusEl;
+
+        this.offscreen = document.createElement("canvas");
+        this.offscreen.width = CONFIG.WIDTH;
+        this.offscreen.height = CONFIG.HEIGHT;
+        this.offCtx = this.offscreen.getContext("2d");
+
+        this.gravity = new Vec2(0, CONFIG.GRAVITY_Y);
+
+        this.mode = "SPAWN";
+        this.balls = [];
+        this.spawnRecords = [];
+        this.playbackRecords = [];
+        this.playbackPointer = 0;
+        this.imageData = null;
+
+        this.currentStep = 0;
+        this.ballSpawnCount = 0;
+        this.running = false;
+
+        this.accumulator = 0;
+        this.lastTime = 0;
+
+        this.rng = mulberry32(CONFIG.SEED);
+
+        this.tick = this.tick.bind(this);
+        this.draw();
+      }
+
+      setStatus(message) {
+        this.statusEl.textContent = message;
+      }
+
+      setMode(mode) {
+        this.mode = mode;
+      }
+
+      reset(clearSpawnData = this.mode === "SPAWN") {
+        this.pause();
+        this.balls = [];
+        this.currentStep = 0;
+        this.ballSpawnCount = 0;
+        this.playbackPointer = 0;
+        this.accumulator = 0;
+        this.lastTime = 0;
+        this.rng = mulberry32(CONFIG.SEED);
+
+        if (clearSpawnData) {
+          this.spawnRecords = [];
+        }
+
+        this.draw();
+      }
+
+      random(min = 0, max = 1) {
+        return min + (max - min) * this.rng();
+      }
+
+      randomInt(min, max) {
+        return Math.floor(this.random(min, max + 1));
+      }
+
+      randomColor() {
+        return [
+          this.randomInt(100, 255),
+          this.randomInt(100, 255),
+          this.randomInt(100, 255)
+        ];
+      }
+
+      addBall(ball) {
+        if (this.balls.length < CONFIG.MAX_OBJECTS) {
+          this.balls.push(ball);
+        } else if (this.balls.length > 0) {
+          this.balls.shift();
+          this.balls.push(ball);
+        }
+      }
+
+      spawnBall() {
+        if (this.ballSpawnCount >= CONFIG.MAX_OBJECTS) return;
+
+        const center = new Vec2(CONFIG.WIDTH / 2, CONFIG.HEIGHT / 2);
+        const radius = this.random(CONFIG.MIN_RADIUS, CONFIG.MAX_RADIUS);
+        const color = this.randomColor();
+        const ball = new Ball(center, radius, this.currentStep, color);
+
+        const angle = this.random(0, Math.PI * 2);
+        const blastSpeed = 100;
+        const vx = Math.cos(angle) * blastSpeed;
+        const vy = Math.sin(angle) * blastSpeed;
+
+        ball.oldPosition.x = ball.position.x - vx * CONFIG.FIXED_DT;
+        ball.oldPosition.y = ball.position.y - vy * CONFIG.FIXED_DT;
+
+        this.spawnRecords.push({
+          step: this.currentStep,
+          x: ball.position.x,
+          y: ball.position.y,
+          radius: ball.radius,
+          oldX: ball.oldPosition.x,
+          oldY: ball.oldPosition.y,
+          r: color[0],
+          g: color[1],
+          b: color[2]
+        });
+
+        this.addBall(ball);
+        this.ballSpawnCount++;
+      }
+
+      spawnPlaybackBalls() {
+        while (this.playbackPointer < this.playbackRecords.length) {
+          const rec = this.playbackRecords[this.playbackPointer];
+
+          if (rec.step > this.currentStep) break;
+
+          if (rec.step === this.currentStep) {
+            const ball = new Ball(
+              new Vec2(rec.x, rec.y),
+              rec.radius,
+              rec.step,
+              [rec.r, rec.g, rec.b]
+            );
+
+            ball.oldPosition.x = rec.oldX;
+            ball.oldPosition.y = rec.oldY;
+
+            this.addBall(ball);
+            this.ballSpawnCount++;
+          }
+
+          this.playbackPointer++;
+        }
+      }
+
+      applyGravity() {
+        for (const ball of this.balls) {
+          ball.accelerate(this.gravity);
+        }
+      }
+
+      updatePositions(dt) {
+        for (const ball of this.balls) {
+          ball.update(dt);
+        }
+      }
+
+      applyConstraints() {
+        for (const ball of this.balls) {
+          ball.applyConstraints();
+        }
+      }
+
+      solveCollisions() {
+        const numBalls = this.balls.length;
+
+        for (let i = 0; i < numBalls; i++) {
+          const ball1 = this.balls[i];
+
+          for (let j = i + 1; j < numBalls; j++) {
+            const ball2 = this.balls[j];
+
+            const dx = ball1.position.x - ball2.position.x;
+            const dy = ball1.position.y - ball2.position.y;
+            const distSq = dx * dx + dy * dy;
+            const minDist = ball1.radius + ball2.radius;
+
+            if (distSq < minDist * minDist && distSq > 0.000001) {
+              const dist = Math.sqrt(distSq);
+              const nx = dx / dist;
+              const ny = dy / dist;
+              const overlap = (minDist - dist) * 0.5;
+
+              const totalMass = ball1.mass + ball2.mass;
+              let massRatio1 = 0.5;
+              let massRatio2 = 0.5;
+
+              if (totalMass > 0) {
+                massRatio1 = ball2.mass / totalMass;
+                massRatio2 = ball1.mass / totalMass;
+              }
+
+              const sepX = nx * overlap;
+              const sepY = ny * overlap;
+
+              ball1.position.x += sepX * massRatio1 * CONFIG.COLLISION_DAMPING;
+              ball1.position.y += sepY * massRatio1 * CONFIG.COLLISION_DAMPING;
+
+              ball2.position.x -= sepX * massRatio2 * CONFIG.COLLISION_DAMPING;
+              ball2.position.y -= sepY * massRatio2 * CONFIG.COLLISION_DAMPING;
+            }
+          }
+        }
+      }
+
+      update(dt) {
+        const subDt = dt / CONFIG.SIMULATION_SUBSTEPS;
+
+        for (let i = 0; i < CONFIG.SIMULATION_SUBSTEPS; i++) {
+          this.applyGravity();
+          this.solveCollisions();
+          this.applyConstraints();
+          this.updatePositions(subDt);
+        }
+      }
+
+      stepSimulation() {
+        if (this.mode === "SPAWN") {
+          if (
+            this.currentStep % CONFIG.SPAWN_STEP_INTERVAL === 0 &&
+            this.ballSpawnCount < CONFIG.MAX_OBJECTS
+          ) {
+            this.spawnBall();
+          }
+        } else {
+          this.spawnPlaybackBalls();
+        }
+
+        this.update(CONFIG.FIXED_DT);
+        this.currentStep++;
+
+        if (this.currentStep >= CONFIG.TOTAL_STEPS) {
+          this.pause();
+          this.mapBallsToImage();
+        }
+      }
+
+      tick(timestamp) {
+        if (!this.running) return;
+
+        if (!this.lastTime) {
+          this.lastTime = timestamp;
+        }
+
+        const delta = Math.min(0.05, (timestamp - this.lastTime) / 1000);
+        this.lastTime = timestamp;
+        this.accumulator += delta;
+
+        while (this.accumulator >= CONFIG.FIXED_DT && this.running) {
+          this.stepSimulation();
+          this.accumulator -= CONFIG.FIXED_DT;
+        }
+
+        this.draw();
+        requestAnimationFrame(this.tick);
+      }
+
+      start() {
+        if (this.running) return;
+
+        if (this.mode === "PLAYBACK" && this.playbackRecords.length === 0) {
+          this.setStatus("Load a CSV first for PLAYBACK mode.");
+          return;
+        }
+
+        if (this.currentStep >= CONFIG.TOTAL_STEPS) {
+          this.setStatus("Simulation already finished. Press Reset to run again.");
+          return;
+        }
+
+        this.running = true;
+        this.lastTime = 0;
+        this.setStatus(`Running in ${this.mode} mode...`);
+        requestAnimationFrame(this.tick);
+      }
+
+      pause() {
+        this.running = false;
+      }
+
+      draw() {
+        const ctx = this.ctx;
+
+        ctx.fillStyle = CONFIG.BACKGROUND_COLOR;
+        ctx.fillRect(0, 0, CONFIG.WIDTH, CONFIG.HEIGHT);
+
+        for (const ball of this.balls) {
+          ball.draw(ctx);
+        }
+
+        ctx.fillStyle = "rgba(220,220,220,0.95)";
+        ctx.font = "20px Arial";
+        ctx.fillText(
+          `Step: ${this.currentStep}/${CONFIG.TOTAL_STEPS} | Objects: ${this.balls.length}/${CONFIG.MAX_OBJECTS} | Mode: ${this.mode}`,
+          10,
+          28
+        );
+      }
+
+      loadCSVText(text) {
+        const lines = text.trim().split(/\r?\n/).filter(Boolean);
+        const parsed = [];
+
+        for (const line of lines) {
+          const parts = line.split(",").map(Number);
+          if (parts.length < 9 || parts.some(v => Number.isNaN(v))) continue;
+
+          const [step, x, y, radius, oldX, oldY, r, g, b] = parts;
+          parsed.push({
+            step: Math.floor(step),
+            x,
+            y,
+            radius,
+            oldX,
+            oldY,
+            r: Math.round(r),
+            g: Math.round(g),
+            b: Math.round(b)
+          });
+        }
+
+        parsed.sort((a, b) => a.step - b.step);
+        this.playbackRecords = parsed;
+        this.setStatus(`Loaded ${parsed.length} CSV rows.`);
+      }
+
+      loadImageFile(file) {
+        return new Promise((resolve, reject) => {
+          const img = new Image();
+
+          img.onload = () => {
+            this.offCtx.clearRect(0, 0, CONFIG.WIDTH, CONFIG.HEIGHT);
+            this.offCtx.drawImage(img, 0, 0, CONFIG.WIDTH, CONFIG.HEIGHT);
+            this.imageData = this.offCtx.getImageData(0, 0, CONFIG.WIDTH, CONFIG.HEIGHT);
+            this.setStatus(`Loaded image: ${file.name}`);
+            resolve();
+          };
+
+          img.onerror = reject;
+          img.src = URL.createObjectURL(file);
+        });
+      }
+
+      mapBallsToImage() {
+        if (this.mode !== "SPAWN") {
+          this.setStatus("Simulation finished.");
+          return;
+        }
+
+        if (!this.imageData) {
+          this.setStatus("Simulation finished. No image loaded, so colors were not remapped.");
+          return;
+        }
+
+        const sortedBalls = [...this.balls].sort((a, b) => a.stepAdded - b.stepAdded);
+        const data = this.imageData.data;
+
+        const recordMap = new Map();
+        for (const rec of this.spawnRecords) {
+          recordMap.set(rec.step, rec);
+        }
+
+        const updatedRecords = [];
+
+        for (const ball of sortedBalls) {
+          const rec = recordMap.get(ball.stepAdded);
+          if (!rec) continue;
+
+          const x = clamp(Math.floor(ball.position.x), 0, CONFIG.WIDTH - 1);
+          const y = clamp(Math.floor(ball.position.y), 0, CONFIG.HEIGHT - 1);
+          const idx = (y * CONFIG.WIDTH + x) * 4;
+
+          const r = data[idx];
+          const g = data[idx + 1];
+          const b = data[idx + 2];
+
+          ball.color = [r, g, b];
+
+          updatedRecords.push({
+            step: rec.step,
+            x: rec.x,
+            y: rec.y,
+            radius: rec.radius,
+            oldX: rec.oldX,
+            oldY: rec.oldY,
+            r,
+            g,
+            b
+          });
+        }
+
+        updatedRecords.sort((a, b) => a.step - b.step);
+        this.spawnRecords = updatedRecords;
+
+        this.draw();
+        this.setStatus(`Simulation finished. Remapped ${updatedRecords.length} balls from the uploaded image.`);
+      }
+
+      getCSVString() {
+        const records = this.spawnRecords.length ? this.spawnRecords : this.playbackRecords;
+        if (!records.length) return "";
+
+        return records
+          .map(rec =>
+            [
+              rec.step,
+              fmt(rec.x),
+              fmt(rec.y),
+              fmt(rec.radius),
+              fmt(rec.oldX),
+              fmt(rec.oldY),
+              Math.round(rec.r),
+              Math.round(rec.g),
+              Math.round(rec.b)
+            ].join(",")
+          )
+          .join("\n");
+      }
+
+      downloadCSV(filename = "ball_spawn.csv") {
+        const csv = this.getCSVString();
+
+        if (!csv) {
+          this.setStatus("No CSV data available to download.");
+          return;
+        }
+
+        const blob = new Blob([csv], { type: "text/csv" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+
+        URL.revokeObjectURL(url);
+        this.setStatus(`Downloaded ${filename}`);
+      }
+    }
+
+    const canvas = document.getElementById("simCanvas");
+    const statusEl = document.getElementById("status");
+    const modeSelect = document.getElementById("modeSelect");
+    const startBtn = document.getElementById("startBtn");
+    const pauseBtn = document.getElementById("pauseBtn");
+    const resetBtn = document.getElementById("resetBtn");
+    const downloadBtn = document.getElementById("downloadBtn");
+    const csvInput = document.getElementById("csvInput");
+    const imageInput = document.getElementById("imageInput");
+
+    const sim = new Simulation(canvas, statusEl);
+
+    modeSelect.addEventListener("change", () => {
+      sim.setMode(modeSelect.value);
+      sim.setStatus(`Mode set to ${modeSelect.value}`);
+    });
+
+    startBtn.addEventListener("click", () => {
+      sim.start();
+    });
+
+    pauseBtn.addEventListener("click", () => {
+      sim.pause();
+      sim.setStatus("Paused.");
+    });
+
+    resetBtn.addEventListener("click", () => {
+      sim.reset(sim.mode === "SPAWN");
+      sim.setStatus("Reset complete.");
+    });
+
+    downloadBtn.addEventListener("click", () => {
+      sim.downloadCSV("ball_spawn.csv");
+    });
+
+    csvInput.addEventListener("change", async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      const text = await file.text();
+      sim.loadCSVText(text);
+      modeSelect.value = "PLAYBACK";
+      sim.setMode("PLAYBACK");
+      sim.reset(false);
+      sim.setStatus(`CSV loaded. Ready for PLAYBACK.`);
+    });
+
+    imageInput.addEventListener("change", async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      try {
+        await sim.loadImageFile(file);
+      } catch (err) {
+        sim.setStatus("Failed to load image.");
+      }
+    });
+  </script>
+</body>
+</html>

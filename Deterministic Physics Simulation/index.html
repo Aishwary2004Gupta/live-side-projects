@@ -1,447 +1,557 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Physics Sim — Fixed</title>
-<style>
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { background: #080808; color: #eee; font-family: system-ui, sans-serif; display: flex; flex-direction: column; align-items: center; padding: 16px; }
-  h2 { margin-bottom: 8px; color: #fff; }
-  #toolbar { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; align-items: center; }
-  button, select { padding: 8px 14px; font-size: 14px; border: 1px solid #333; border-radius: 6px; background: #151515; color: #fff; cursor: pointer; }
-  button:hover { background: #222; }
-  input[type="file"] { color: #ccc; font-size: 13px; }
-  canvas { background: #000; border: 1px solid #333; border-radius: 10px; box-shadow: 0 0 30px rgba(0,0,0,.6); display: block; }
-  #status { margin-top: 8px; color: #8fbcff; font-size: 14px; min-height: 22px; }
-</style>
-</head>
-<body>
-
-<h2>Physics Simulation</h2>
-
-<div id="toolbar">
-  <select id="modeSelect">
-    <option value="SPAWN">SPAWN</option>
-    <option value="PLAYBACK">PLAYBACK</option>
-  </select>
-  <button onclick="sim.start()">Start</button>
-  <button onclick="sim.pause()">Pause</button>
-  <button onclick="sim.reset()">Reset</button>
-  <button onclick="sim.downloadCSV()">Download CSV</button>
-  <label>CSV: <input type="file" id="csvIn" accept=".csv" onchange="loadCSV(this)" /></label>
-  <label>Image: <input type="file" id="imgIn" accept="image/*" onchange="loadImage(this)" /></label>
-</div>
-
-<div id="status">Ready. Mode: SPAWN. Click Start.</div>
-
-<canvas id="sim" width="700" height="700"></canvas>
-
-<script>
-/* ---------- Config ---------- */
-const CFG = {
-  W: 700, H: 700,
-  G: 981, // gravity y
-  MIN_R: 10, MAX_R: 27,
-  STEP_INTERVAL: 1,
-  FIXED_DT: 1 / 60,
-  SUBSTEPS: 8,
-  MAX_OBJ: 380,
-  BOUNCE: 0.9,
-  DAMP: 0.95,
-  TOTAL_STEPS: 400,
-  SEED: 42
-};
-
-/* ---------- Utilities ---------- */
-const rand = (() => {
-  let s = CFG.SEED;
-  return () => {
-    s |= 0; s = s + 0x9e3779b9 | 0;
-    let t = s ^ (s >>> 16);
-    t = Math.imul(t, 0x21f0aaad);
-    t = t ^ (t >>> 15);
-    t = Math.imul(t, 0x735a2d97);
-    return ((t = t ^ (t >>> 15)) >>> 0) / 4294967296;
-  };
-})();
-
-function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
-
-/* ---------- Vector ---------- */
-class V {
-  constructor(x = 0, y = 0) { this.x = x; this.y = y; }
-  clone() { return new V(this.x, this.y); }
-  set(x, y) { this.x = x; this.y = y; }
-}
-
-/* ---------- Ball ---------- */
-class Ball {
-  constructor(pos, r, step, color) {
-    this.pos = pos.clone();
-    this.old = pos.clone();
-    this.acc = new V(0, 0);
-    this.r = r;
-    this.mass = Math.PI * r * r;
-    this.step = step;
-    this.color = color || [rand()*155+100 | 0, rand()*155+100 | 0, rand()*155+100 | 0];
-  }
-
-  update(dt) {
-    let vx = this.pos.x - this.old.x;
-    let vy = this.pos.y - this.old.y;
-    this.old.set(this.pos.x, this.pos.y);
-    this.pos.x += vx + this.acc.x * dt * dt;
-    this.pos.y += vy + this.acc.y * dt * dt;
-    this.acc.set(0, 0);
-  }
-
-  accelerate(force) {
-    if (this.mass > 0) {
-      this.acc.x += force.x;
-      this.acc.y += force.y;
-    }
-  }
-
-  constrain() {
-    let vx = this.pos.x - this.old.x;
-    let vy = this.pos.y - this.old.y;
-
-    if (this.pos.x - this.r < 0) {
-      this.pos.x = this.r;
-      this.old.x = this.pos.x + vx * CFG.BOUNCE;
-    } else if (this.pos.x + this.r > CFG.W) {
-      this.pos.x = CFG.W - this.r;
-      this.old.x = this.pos.x + vx * CFG.BOUNCE;
-    }
-
-    if (this.pos.y - this.r < 0) {
-      this.pos.y = this.r;
-      this.old.y = this.pos.y + vy * CFG.BOUNCE;
-    } else if (this.pos.y + this.r > CFG.H) {
-      this.pos.y = CFG.H - this.r;
-      this.old.y = this.pos.y + vy * CFG.BOUNCE;
-    }
-  }
-
-  draw(ctx) {
-    ctx.beginPath();
-    ctx.arc(this.pos.x, this.pos.y, this.r, 0, Math.PI * 2);
-    ctx.fillStyle = `rgb(${this.color.join(",")})`;
-    ctx.fill();
-  }
-}
-
-/* ---------- Simulation ---------- */
-class Sim {
-  constructor() {
-    this.canvas = document.getElementById("sim");
-    this.ctx = this.canvas.getContext("2d");
-    this.status = document.getElementById("status");
-
-    this.balls = [];
-    this.mode = "SPAWN";
-    this.stepNum = 0;
-    this.spawnCount = 0;
-    this.records = []; // CSV data
-    this.playRecords = [];
-    this.playPtr = 0;
-    this.imageData = null;
-
-    this.running = false;
-    this.accum = 0;
-    this.lastT = 0;
-
-    this.gravity = new V(0, CFG.G);
-
-    // Pre-draw background
-    this.renderFrame();
-  }
-
-  log(msg) { this.status.textContent = msg; console.log(msg); }
-
-  start() {
-    if (this.mode === "PLAYBACK" && this.playRecords.length === 0) {
-      this.log("Load a CSV first for PLAYBACK.");
-      return;
-    }
-    if (this.stepNum >= CFG.TOTAL_STEPS) {
-      this.log("Finished — click Reset to replay.");
-      return;
-    }
-    this.running = true;
-    this.lastT = performance.now();
-    this.log(`Running mode: ${this.mode}`);
-    requestAnimationFrame(this.tick.bind(this));
-  }
-
-  pause() {
-    this.running = false;
-    this.log("Paused.");
-  }
-
-  reset() {
-    this.pause();
-    this.balls = [];
-    this.stepNum = 0;
-    this.spawnCount = 0;
-    this.playPtr = 0;
-    this.accum = 0;
-    this.lastT = 0;
-    // Keep records unless we are spawning fresh? We'll keep CSV data.
-    this.renderFrame();
-    this.log("Reset. Ready.");
-  }
-
-  tick(timestamp) {
-    if (!this.running) return;
-    if (!this.lastT) this.lastT = timestamp;
-
-    let delta = Math.min(0.05, (timestamp - this.lastT) / 1000);
-    this.lastT = timestamp;
-    this.accum += delta;
-
-    while (this.accum >= CFG.FIXED_DT && this.running) {
-      this.simStep();
-      this.accum -= CFG.FIXED_DT;
-    }
-
-    this.renderFrame();
-    requestAnimationFrame(this.tick.bind(this));
-  }
-
-  simStep() {
-    // Spawn logic
-    if (this.mode === "SPAWN") {
-      if (this.stepNum % CFG.STEP_INTERVAL === 0 && this.spawnCount < CFG.MAX_OBJ) {
-        this.spawnBall();
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Physics Sim — Fixed</title>
+    <style>
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
       }
-    } else {
-      this.spawnPlayback();
-    }
-
-    // Physics substeps
-    let sub = CFG.FIXED_DT / CFG.SUBSTEPS;
-    for (let i = 0; i < CFG.SUBSTEPS; i++) {
-      for (let b of this.balls) b.accelerate(this.gravity);
-      this.solveCollisions();
-      for (let b of this.balls) b.constrain();
-      for (let b of this.balls) b.update(sub);
-    }
-
-    this.stepNum++;
-    if (this.stepNum >= CFG.TOTAL_STEPS) {
-      this.pause();
-      this.log("Simulation finished.");
-      this.applyImageColors();
-    }
-  }
-
-  spawnBall() {
-    let cx = CFG.W / 2, cy = CFG.H / 2;
-    let r = CFG.MIN_R + rand() * (CFG.MAX_R - CFG.MIN_R);
-    let color = [
-      (rand() * 155 + 100) | 0,
-      (rand() * 155 + 100) | 0,
-      (rand() * 155 + 100) | 0
-    ];
-    let b = new Ball(new V(cx, cy), r, this.stepNum, color);
-
-    // Blast outward
-    let ang = rand() * Math.PI * 2;
-    let speed = 100;
-    b.old.x = b.pos.x - Math.cos(ang) * speed * CFG.FIXED_DT;
-    b.old.y = b.pos.y - Math.sin(ang) * speed * CFG.FIXED_DT;
-
-    this.balls.push(b);
-    if (this.balls.length > CFG.MAX_OBJ) this.balls.shift();
-    this.spawnCount++;
-
-    // Save record for CSV
-    this.records.push({
-      step: this.stepNum,
-      x: b.pos.x, y: b.pos.y,
-      r: b.r,
-      oldX: b.old.x, oldY: b.old.y,
-      rC: color[0], g: color[1], b: color[2]
-    });
-  }
-
-  spawnPlayback() {
-    while (this.playPtr < this.playRecords.length) {
-      let rec = this.playRecords[this.playPtr];
-      if (rec.step > this.stepNum) break;
-
-      if (rec.step === this.stepNum) {
-        let b = new Ball(new V(rec.x, rec.y), rec.r, rec.step, [rec.rc, rec.gc, rec.bc]);
-        b.old.x = rec.oldX;
-        b.old.y = rec.oldY;
-        this.balls.push(b);
-        if (this.balls.length > CFG.MAX_OBJ) this.balls.shift();
-        this.spawnCount++;
+      body {
+        background: #080808;
+        color: #eee;
+        font-family: system-ui, sans-serif;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding: 16px;
       }
-      this.playPtr++;
-    }
-  }
+      h2 {
+        margin-bottom: 8px;
+        color: #fff;
+      }
+      #toolbar {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        margin-bottom: 12px;
+        align-items: center;
+      }
+      button,
+      select {
+        padding: 8px 14px;
+        font-size: 14px;
+        border: 1px solid #333;
+        border-radius: 6px;
+        background: #151515;
+        color: #fff;
+        cursor: pointer;
+      }
+      button:hover {
+        background: #222;
+      }
+      input[type="file"] {
+        color: #ccc;
+        font-size: 13px;
+      }
+      canvas {
+        background: #000;
+        border: 1px solid #333;
+        border-radius: 10px;
+        box-shadow: 0 0 30px rgba(0, 0, 0, 0.6);
+        display: block;
+      }
+      #status {
+        margin-top: 8px;
+        color: #8fbcff;
+        font-size: 14px;
+        min-height: 22px;
+      }
+    </style>
+  </head>
+  <body>
+    <h2>Physics Simulation</h2>
 
-  solveCollisions() {
-    let n = this.balls.length;
-    for (let i = 0; i < n; i++) {
-      for (let j = i + 1; j < n; j++) {
-        let a = this.balls[i], b = this.balls[j];
-        let dx = a.pos.x - b.pos.x;
-        let dy = a.pos.y - b.pos.y;
-        let distSq = dx * dx + dy * dy;
-        let minD = a.r + b.r;
+    <div id="toolbar">
+      <select id="modeSelect">
+        <option value="SPAWN">SPAWN</option>
+        <option value="PLAYBACK">PLAYBACK</option>
+      </select>
+      <button onclick="sim.start()">Start</button>
+      <button onclick="sim.pause()">Pause</button>
+      <button onclick="sim.reset()">Reset</button>
+      <button onclick="sim.downloadCSV()">Download CSV</button>
+      <label
+        >CSV:
+        <input type="file" id="csvIn" accept=".csv" onchange="loadCSV(this)"
+      /></label>
+      <label
+        >Image:
+        <input
+          type="file"
+          id="imgIn"
+          accept="image/*"
+          onchange="loadImage(this)"
+      /></label>
+    </div>
 
-        if (distSq < minD * minD && distSq > 0.0001) {
-          let dist = Math.sqrt(distSq);
-          let nx = dx / dist;
-          let ny = dy / dist;
-          let overlap = (minD - dist) * 0.5;
+    <div id="status">Ready. Mode: SPAWN. Click Start.</div>
 
-          let totalM = a.mass + b.mass;
-          let m1 = totalM ? b.mass / totalM : 0.5;
-          let m2 = totalM ? a.mass / totalM : 0.5;
+    <canvas id="sim" width="700" height="700"></canvas>
 
-          a.pos.x += nx * overlap * m1 * CFG.DAMP;
-          a.pos.y += ny * overlap * m1 * CFG.DAMP;
+    <script>
+      /* ---------- Config ---------- */
+      const CFG = {
+        W: 700,
+        H: 700,
+        G: 981, // gravity y
+        MIN_R: 10,
+        MAX_R: 27,
+        STEP_INTERVAL: 1,
+        FIXED_DT: 1 / 60,
+        SUBSTEPS: 8,
+        MAX_OBJ: 380,
+        BOUNCE: 0.9,
+        DAMP: 0.95,
+        TOTAL_STEPS: 400,
+        SEED: 42,
+      };
 
-          b.pos.x -= nx * overlap * m2 * CFG.DAMP;
-          b.pos.y -= ny * overlap * m2 * CFG.DAMP;
+      /* ---------- Utilities ---------- */
+      const rand = (() => {
+        let s = CFG.SEED;
+        return () => {
+          s |= 0;
+          s = (s + 0x9e3779b9) | 0;
+          let t = s ^ (s >>> 16);
+          t = Math.imul(t, 0x21f0aaad);
+          t = t ^ (t >>> 15);
+          t = Math.imul(t, 0x735a2d97);
+          return ((t = t ^ (t >>> 15)) >>> 0) / 4294967296;
+        };
+      })();
+
+      function clamp(v, a, b) {
+        return Math.max(a, Math.min(b, v));
+      }
+
+      /* ---------- Vector ---------- */
+      class V {
+        constructor(x = 0, y = 0) {
+          this.x = x;
+          this.y = y;
+        }
+        clone() {
+          return new V(this.x, this.y);
+        }
+        set(x, y) {
+          this.x = x;
+          this.y = y;
         }
       }
-    }
-  }
 
-  renderFrame() {
-    let ctx = this.ctx;
-    ctx.fillStyle = "#000";
-    ctx.fillRect(0, 0, CFG.W, CFG.H);
+      /* ---------- Ball ---------- */
+      class Ball {
+        constructor(pos, r, step, color) {
+          this.pos = pos.clone();
+          this.old = pos.clone();
+          this.acc = new V(0, 0);
+          this.r = r;
+          this.mass = Math.PI * r * r;
+          this.step = step;
+          this.color = color || [
+            (rand() * 155 + 100) | 0,
+            (rand() * 155 + 100) | 0,
+            (rand() * 155 + 100) | 0,
+          ];
+        }
 
-    for (let b of this.balls) b.draw(ctx);
+        update(dt) {
+          let vx = this.pos.x - this.old.x;
+          let vy = this.pos.y - this.old.y;
+          this.old.set(this.pos.x, this.pos.y);
+          this.pos.x += vx + this.acc.x * dt * dt;
+          this.pos.y += vy + this.acc.y * dt * dt;
+          this.acc.set(0, 0);
+        }
 
-    ctx.fillStyle = "rgba(240,240,240,0.9)";
-    ctx.font = "bold 16px system-ui";
-    ctx.fillText(`Step: ${this.stepNum}/${CFG.TOTAL_STEPS} | Objects: ${this.balls.length}/${CFG.MAX_OBJ} | Mode: ${this.mode}`, 10, 24);
-  }
+        accelerate(force) {
+          if (this.mass > 0) {
+            this.acc.x += force.x;
+            this.acc.y += force.y;
+          }
+        }
 
-  applyImageColors() {
-    // Only remaps if an image was loaded
-    if (!this.imageData) return;
+        constrain() {
+          let vx = this.pos.x - this.old.x;
+          let vy = this.pos.y - this.old.y;
 
-    // Sort by the step they were added to match CSV order
-    let sorted = [...this.balls].sort((a, b) => a.step - b.step);
-    let imgData = this.imageData.data;
+          if (this.pos.x - this.r < 0) {
+            this.pos.x = this.r;
+            this.old.x = this.pos.x + vx * CFG.BOUNCE;
+          } else if (this.pos.x + this.r > CFG.W) {
+            this.pos.x = CFG.W - this.r;
+            this.old.x = this.pos.x + vx * CFG.BOUNCE;
+          }
 
-    let updated = [];
+          if (this.pos.y - this.r < 0) {
+            this.pos.y = this.r;
+            this.old.y = this.pos.y + vy * CFG.BOUNCE;
+          } else if (this.pos.y + this.r > CFG.H) {
+            this.pos.y = CFG.H - this.r;
+            this.old.y = this.pos.y + vy * CFG.BOUNCE;
+          }
+        }
 
-    for (let b of sorted) {
-      // Find the original record
-      let rec = this.records.find(r => r.step === b.step);
-      if (!rec) continue;
+        draw(ctx) {
+          ctx.beginPath();
+          ctx.arc(this.pos.x, this.pos.y, this.r, 0, Math.PI * 2);
+          ctx.fillStyle = `rgb(${this.color.join(",")})`;
+          ctx.fill();
+        }
+      }
 
-      let px = clamp(Math.floor(b.pos.x), 0, CFG.W - 1);
-      let py = clamp(Math.floor(b.pos.y), 0, CFG.H - 1);
-      let idx = (py * CFG.W + px) * 4;
+      /* ---------- Simulation ---------- */
+      class Sim {
+        constructor() {
+          this.canvas = document.getElementById("sim");
+          this.ctx = this.canvas.getContext("2d");
+          this.status = document.getElementById("status");
 
-      let nr = imgData[idx];
-      let ng = imgData[idx + 1];
-      let nb = imgData[idx + 2];
+          this.balls = [];
+          this.mode = "SPAWN";
+          this.stepNum = 0;
+          this.spawnCount = 0;
+          this.records = []; // CSV data
+          this.playRecords = [];
+          this.playPtr = 0;
+          this.imageData = null;
 
-      b.color = [nr, ng, nb];
+          this.running = false;
+          this.accum = 0;
+          this.lastT = 0;
 
-      updated.push({
-        step: rec.step,
-        x: rec.x, y: rec.y,
-        r: rec.r,
-        oldX: rec.oldX, oldY: rec.oldY,
-        rc: nr, gc: ng, bc: nb
-      });
-    }
+          this.gravity = new V(0, CFG.G);
 
-    updated.sort((a, b) => a.step - b.step);
-    this.records = updated;
+          // Pre-draw background
+          this.renderFrame();
+        }
 
-    // Re-sort balls visually? Not needed; just redraw.
-    this.renderFrame();
-    this.log("Finished. Colors mapped from image (if loaded).");
-  }
+        log(msg) {
+          this.status.textContent = msg;
+          console.log(msg);
+        }
 
-  downloadCSV() {
-    let rows = this.records.length ? this.records : this.playRecords;
-    if (!rows.length) { this.log("No data to download."); return; }
+        start() {
+          if (this.mode === "PLAYBACK" && this.playRecords.length === 0) {
+            this.log("Load a CSV first for PLAYBACK.");
+            return;
+          }
+          if (this.stepNum >= CFG.TOTAL_STEPS) {
+            this.log("Finished — click Reset to replay.");
+            return;
+          }
+          this.running = true;
+          this.lastT = performance.now();
+          this.log(`Running mode: ${this.mode}`);
+          requestAnimationFrame(this.tick.bind(this));
+        }
 
-    let text = rows.map(r => {
-      return [
-        r.step,
-        r.x.toFixed(2),
-        r.y.toFixed(2),
-        r.r.toFixed(2),
-        r.oldX ? r.oldX.toFixed(2) : 0,
-        r.oldY ? r.oldY.toFixed(2) : 0,
-        Math.round(r.rc || r.rC),
-        Math.round(r.gc || r.gC || r.g || 0),
-        Math.round(r.bc || r.c || r.b || 0)
-      ].join(",");
-    }).join("\n");
+        pause() {
+          this.running = false;
+          this.log("Paused.");
+        }
 
-    let blob = new Blob([text], { type: "text/csv" });
-    let a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = "ball_spawn.csv";
-    a.click();
-    URL.revokeObjectURL(a.href);
-    this.log("Downloaded ball_spawn.csv");
-  }
-}
+        reset() {
+          this.pause();
+          this.balls = [];
+          this.stepNum = 0;
+          this.spawnCount = 0;
+          this.playPtr = 0;
+          this.accum = 0;
+          this.lastT = 0;
+          // Keep records unless we are spawning fresh? We'll keep CSV data.
+          this.renderFrame();
+          this.log("Reset. Ready.");
+        }
 
-/* ---------- Global Sim Instance ---------- */
-const sim = new Sim();
+        tick(timestamp) {
+          if (!this.running) return;
+          if (!this.lastT) this.lastT = timestamp;
 
-/* ---------- File Handlers ---------- */
-function loadCSV(input) {
-  if (!input.files || !input.files[0]) return;
-  let reader = new FileReader();
-  reader.onload = e => {
-    let lines = e.target.result.trim().split(/\r?\n/).filter(Boolean);
-    let parsed = [];
+          let delta = Math.min(0.05, (timestamp - this.lastT) / 1000);
+          this.lastT = timestamp;
+          this.accum += delta;
 
-    for (let line of lines) {
-      let p = line.split(",").map(Number);
-      if (p.length < 9 || p.some(isNaN)) continue;
-      let [step, x, y, r, ox, oy, rc, gc, bc] = p;
-      parsed.push({ step: Math.floor(step), x, y, r, oldX: ox, oldY: oy, rc, gc, bc });
-    }
+          while (this.accum >= CFG.FIXED_DT && this.running) {
+            this.simStep();
+            this.accum -= CFG.FIXED_DT;
+          }
 
-    parsed.sort((a, b) => a.step - b.step);
-    sim.playRecords = parsed;
-    document.getElementById("modeSelect").value = "PLAYBACK";
-    sim.mode = "PLAYBACK";
-    sim.reset();
-    sim.log(`Loaded CSV (${parsed.length} rows). Mode: PLAYBACK`);
-  };
-  reader.readAsText(input.files[0]);
-}
+          this.renderFrame();
+          requestAnimationFrame(this.tick.bind(this));
+        }
 
-function loadImage(input) {
-  if (!input.files || !input.files[0]) return;
-  let file = input.files[0];
-  let url = URL.createObjectURL(file);
-  let img = new Image();
-  img.onload = () => {
-    // Create offscreen canvas for pixel data
-    let off = document.createElement("canvas");
-    off.width = CFG.W;
-    off.height = CFG.H;
-    let oCtx = off.getContext("2d");
-    oCtx.drawImage(img, 0, 0, CFG.W, CFG.H);
-    sim.imageData = oCtx.getImageData(0, 0, CFG.W, CFG.H);
-    sim.log(`Image loaded (${file.name}). Will remap colors at end.`);
-  };
-  img.src = url;
-}
-</script>
+        simStep() {
+          // Spawn logic
+          if (this.mode === "SPAWN") {
+            if (
+              this.stepNum % CFG.STEP_INTERVAL === 0 &&
+              this.spawnCount < CFG.MAX_OBJ
+            ) {
+              this.spawnBall();
+            }
+          } else {
+            this.spawnPlayback();
+          }
 
-</body>
+          // Physics substeps
+          let sub = CFG.FIXED_DT / CFG.SUBSTEPS;
+          for (let i = 0; i < CFG.SUBSTEPS; i++) {
+            for (let b of this.balls) b.accelerate(this.gravity);
+            this.solveCollisions();
+            for (let b of this.balls) b.constrain();
+            for (let b of this.balls) b.update(sub);
+          }
+
+          this.stepNum++;
+          if (this.stepNum >= CFG.TOTAL_STEPS) {
+            this.pause();
+            this.log("Simulation finished.");
+            this.applyImageColors();
+          }
+        }
+
+        spawnBall() {
+          let cx = CFG.W / 2,
+            cy = CFG.H / 2;
+          let r = CFG.MIN_R + rand() * (CFG.MAX_R - CFG.MIN_R);
+          let color = [
+            (rand() * 155 + 100) | 0,
+            (rand() * 155 + 100) | 0,
+            (rand() * 155 + 100) | 0,
+          ];
+          let b = new Ball(new V(cx, cy), r, this.stepNum, color);
+
+          // Blast outward
+          let ang = rand() * Math.PI * 2;
+          let speed = 100;
+          b.old.x = b.pos.x - Math.cos(ang) * speed * CFG.FIXED_DT;
+          b.old.y = b.pos.y - Math.sin(ang) * speed * CFG.FIXED_DT;
+
+          this.balls.push(b);
+          if (this.balls.length > CFG.MAX_OBJ) this.balls.shift();
+          this.spawnCount++;
+
+          // Save record for CSV
+          this.records.push({
+            step: this.stepNum,
+            x: b.pos.x,
+            y: b.pos.y,
+            r: b.r,
+            oldX: b.old.x,
+            oldY: b.old.y,
+            rC: color[0],
+            g: color[1],
+            b: color[2],
+          });
+        }
+
+        spawnPlayback() {
+          while (this.playPtr < this.playRecords.length) {
+            let rec = this.playRecords[this.playPtr];
+            if (rec.step > this.stepNum) break;
+
+            if (rec.step === this.stepNum) {
+              let b = new Ball(new V(rec.x, rec.y), rec.r, rec.step, [
+                rec.rc,
+                rec.gc,
+                rec.bc,
+              ]);
+              b.old.x = rec.oldX;
+              b.old.y = rec.oldY;
+              this.balls.push(b);
+              if (this.balls.length > CFG.MAX_OBJ) this.balls.shift();
+              this.spawnCount++;
+            }
+            this.playPtr++;
+          }
+        }
+
+        solveCollisions() {
+          let n = this.balls.length;
+          for (let i = 0; i < n; i++) {
+            for (let j = i + 1; j < n; j++) {
+              let a = this.balls[i],
+                b = this.balls[j];
+              let dx = a.pos.x - b.pos.x;
+              let dy = a.pos.y - b.pos.y;
+              let distSq = dx * dx + dy * dy;
+              let minD = a.r + b.r;
+
+              if (distSq < minD * minD && distSq > 0.0001) {
+                let dist = Math.sqrt(distSq);
+                let nx = dx / dist;
+                let ny = dy / dist;
+                let overlap = (minD - dist) * 0.5;
+
+                let totalM = a.mass + b.mass;
+                let m1 = totalM ? b.mass / totalM : 0.5;
+                let m2 = totalM ? a.mass / totalM : 0.5;
+
+                a.pos.x += nx * overlap * m1 * CFG.DAMP;
+                a.pos.y += ny * overlap * m1 * CFG.DAMP;
+
+                b.pos.x -= nx * overlap * m2 * CFG.DAMP;
+                b.pos.y -= ny * overlap * m2 * CFG.DAMP;
+              }
+            }
+          }
+        }
+
+        renderFrame() {
+          let ctx = this.ctx;
+          ctx.fillStyle = "#000";
+          ctx.fillRect(0, 0, CFG.W, CFG.H);
+
+          for (let b of this.balls) b.draw(ctx);
+
+          ctx.fillStyle = "rgba(240,240,240,0.9)";
+          ctx.font = "bold 16px system-ui";
+          ctx.fillText(
+            `Step: ${this.stepNum}/${CFG.TOTAL_STEPS} | Objects: ${this.balls.length}/${CFG.MAX_OBJ} | Mode: ${this.mode}`,
+            10,
+            24,
+          );
+        }
+
+        applyImageColors() {
+          // Only remaps if an image was loaded
+          if (!this.imageData) return;
+
+          // Sort by the step they were added to match CSV order
+          let sorted = [...this.balls].sort((a, b) => a.step - b.step);
+          let imgData = this.imageData.data;
+
+          let updated = [];
+
+          for (let b of sorted) {
+            // Find the original record
+            let rec = this.records.find((r) => r.step === b.step);
+            if (!rec) continue;
+
+            let px = clamp(Math.floor(b.pos.x), 0, CFG.W - 1);
+            let py = clamp(Math.floor(b.pos.y), 0, CFG.H - 1);
+            let idx = (py * CFG.W + px) * 4;
+
+            let nr = imgData[idx];
+            let ng = imgData[idx + 1];
+            let nb = imgData[idx + 2];
+
+            b.color = [nr, ng, nb];
+
+            updated.push({
+              step: rec.step,
+              x: rec.x,
+              y: rec.y,
+              r: rec.r,
+              oldX: rec.oldX,
+              oldY: rec.oldY,
+              rc: nr,
+              gc: ng,
+              bc: nb,
+            });
+          }
+
+          updated.sort((a, b) => a.step - b.step);
+          this.records = updated;
+
+          // Re-sort balls visually? Not needed; just redraw.
+          this.renderFrame();
+          this.log("Finished. Colors mapped from image (if loaded).");
+        }
+
+        downloadCSV() {
+          let rows = this.records.length ? this.records : this.playRecords;
+          if (!rows.length) {
+            this.log("No data to download.");
+            return;
+          }
+
+          let text = rows
+            .map((r) => {
+              return [
+                r.step,
+                r.x.toFixed(2),
+                r.y.toFixed(2),
+                r.r.toFixed(2),
+                r.oldX ? r.oldX.toFixed(2) : 0,
+                r.oldY ? r.oldY.toFixed(2) : 0,
+                Math.round(r.rc || r.rC),
+                Math.round(r.gc || r.gC || r.g || 0),
+                Math.round(r.bc || r.c || r.b || 0),
+              ].join(",");
+            })
+            .join("\n");
+
+          let blob = new Blob([text], { type: "text/csv" });
+          let a = document.createElement("a");
+          a.href = URL.createObjectURL(blob);
+          a.download = "ball_spawn.csv";
+          a.click();
+          URL.revokeObjectURL(a.href);
+          this.log("Downloaded ball_spawn.csv");
+        }
+      }
+
+      /* ---------- Global Sim Instance ---------- */
+      const sim = new Sim();
+
+      /* ---------- File Handlers ---------- */
+      function loadCSV(input) {
+        if (!input.files || !input.files[0]) return;
+        let reader = new FileReader();
+        reader.onload = (e) => {
+          let lines = e.target.result.trim().split(/\r?\n/).filter(Boolean);
+          let parsed = [];
+
+          for (let line of lines) {
+            let p = line.split(",").map(Number);
+            if (p.length < 9 || p.some(isNaN)) continue;
+            let [step, x, y, r, ox, oy, rc, gc, bc] = p;
+            parsed.push({
+              step: Math.floor(step),
+              x,
+              y,
+              r,
+              oldX: ox,
+              oldY: oy,
+              rc,
+              gc,
+              bc,
+            });
+          }
+
+          parsed.sort((a, b) => a.step - b.step);
+          sim.playRecords = parsed;
+          document.getElementById("modeSelect").value = "PLAYBACK";
+          sim.mode = "PLAYBACK";
+          sim.reset();
+          sim.log(`Loaded CSV (${parsed.length} rows). Mode: PLAYBACK`);
+        };
+        reader.readAsText(input.files[0]);
+      }
+
+      function loadImage(input) {
+        if (!input.files || !input.files[0]) return;
+        let file = input.files[0];
+        let url = URL.createObjectURL(file);
+        let img = new Image();
+        img.onload = () => {
+          // Create offscreen canvas for pixel data
+          let off = document.createElement("canvas");
+          off.width = CFG.W;
+          off.height = CFG.H;
+          let oCtx = off.getContext("2d");
+          oCtx.drawImage(img, 0, 0, CFG.W, CFG.H);
+          sim.imageData = oCtx.getImageData(0, 0, CFG.W, CFG.H);
+          sim.log(`Image loaded (${file.name}). Will remap colors at end.`);
+        };
+        img.src = url;
+      }
+    </script>
+  </body>
 </html>

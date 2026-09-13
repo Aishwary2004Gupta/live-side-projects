@@ -964,18 +964,18 @@ const MODELS = {
         rotation: { x: -0.1, y: 1.5, z: 0 },
         position: { x: 0, y: -0.7, z: 0 },
     },
-    try: {
+    tree_house: {
         url: "https://raw.githubusercontent.com/Aishwary2004Gupta/models/cloud/low_poly_treehouse.glb",
         scale: 0.06,
         rotation: { x: -0.1, y: 1.5, z: 0 },
         position: { x: 0, y: -0.7, z: 0 },
     },
-    // try: {
-    //     url: "https://raw.githubusercontent.com/Aishwary2004Gupta/models/cloud/sea_turtle1.glb",
-    //     scale: 0.6,
-    //     rotation: { x: 0, y: Math.PI, z: 0 },
-    //     position: { x: 0, y: 0, z: 0 },
-    // },
+    try: {
+        url: "https://raw.githubusercontent.com/Aishwary2004Gupta/models/cloud/sea_turtle1.glb",
+        scale: 0.6,
+        rotation: { x: 0, y: Math.PI, z: 0 },
+        position: { x: 0, y: 0, z: 0 },
+    },
 };
 
 function disposeModel(root) {

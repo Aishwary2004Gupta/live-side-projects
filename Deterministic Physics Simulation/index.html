@@ -1,354 +1,1098 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Circle Mosaic Physics — Full Coverage</title>
-<style>
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  html, body { height: 100%; overflow: hidden; }
-  body {
-    background: #07070a;
-    color: #e8e8ef;
-    font: 13px/1.3 system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-    display: flex; flex-direction: column;
-    padding: 8px; gap: 8px;
-  }
-  .header {
-    display: flex; align-items: center; gap: 10px;
-    padding: 7px 12px;
-    background: #101016; border: 1px solid #23232e; border-radius: 10px;
-    flex-shrink: 0; flex-wrap: wrap;
-  }
-  .header h1 { font-size: 15px; font-weight: 600; letter-spacing: .3px; margin-right: auto; }
-  .main { display: flex; gap: 8px; flex: 1; min-height: 0; }
-  .canvas-box {
-    flex: 1; display: flex; flex-direction: column;
-    background: #101016; border: 1px solid #23232e; border-radius: 10px;
-    overflow: hidden; min-width: 0;
-  }
-  .canvas-box .label {
-    padding: 5px 10px; font-size: 11px; color: #7a7a92;
-    text-transform: uppercase; letter-spacing: .6px;
-    border-bottom: 1px solid #23232e; flex-shrink: 0;
-    display: flex; justify-content: space-between;
-  }
-  .canvas-box .label b { color: #cfcfe4; font-weight: 500; }
-  .canvas-box canvas { flex: 1; width: 100%; height: 100%; display: block; background: #000; }
-  .controls {
-    display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center;
-    padding: 8px 12px;
-    background: #101016; border: 1px solid #23232e; border-radius: 10px;
-    flex-shrink: 0;
-  }
-  button {
-    background: #1b1b24; color: #fff; border: 1px solid #33334a;
-    border-radius: 7px; padding: 6px 11px; cursor: pointer; font-size: 12px; transition: .15s;
-  }
-  button:hover { background: #26263a; }
-  button.primary { background: #2d5cff; border-color: #2d5cff; }
-  button.primary:hover { background: #4571ff; }
-  .ctrl { display: flex; align-items: center; gap: 5px; font-size: 11px; color: #a9a9bd; }
-  .ctrl.disabled { opacity: .45; pointer-events: none; }
-  input[type=range] { width: 90px; accent-color: #2d5cff; }
-  input[type=checkbox] { accent-color: #2d5cff; width: 13px; height: 13px; }
-  .val { color: #fff; min-width: 28px; font-variant-numeric: tabular-nums; font-size: 11px; }
-  #palette { display: flex; gap: 4px; flex-wrap: wrap; }
-  .sw { width: 38px; border-radius: 5px; overflow: hidden; border: 1px solid #2a2a38; }
-  .sw i { display: block; height: 20px; }
-  .sw span { display: block; font-size: 8px; color: #9a9ab0; padding: 2px 0; background: #101016; text-align: center; }
-  #status { font-size: 11px; color: #7f8ca8; margin-left: auto; }
-  @media (max-width: 700px) { .main { flex-direction: column; } }
-</style>
-</head>
-<body>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Circle Mosaic Physics</title>
+    <style>
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      html,
+      body {
+        height: 100%;
+        overflow: hidden;
+      }
+      body {
+        background: #07070a;
+        color: #e8e8ef;
+        font:
+          13px/1.3 system-ui,
+          -apple-system,
+          Segoe UI,
+          Roboto,
+          sans-serif;
+        display: flex;
+        flex-direction: column;
+        padding: 8px;
+        gap: 8px;
+      }
 
-<div class="header">
-  <h1>◉ Circle Mosaic — No Gaps</h1>
-  <button class="primary" id="pickBtn">Choose Image</button>
-  <input type="file" id="file" accept="image/*" hidden />
-  <button id="playBtn">Pause</button>
-  <button id="resetBtn">Restart</button>
-  <button id="saveBtn">Save PNG</button>
-</div>
+      .header {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 7px 12px;
+        background: #101016;
+        border: 1px solid #23232e;
+        border-radius: 10px;
+        flex-shrink: 0;
+        flex-wrap: wrap;
+      }
+      .header h1 {
+        font-size: 15px;
+        font-weight: 600;
+        letter-spacing: 0.3px;
+        margin-right: auto;
+      }
 
-<div class="main">
-  <div class="canvas-box">
-    <div class="label"><b>Original — Whole Image (contain)</b><span id="srcInfo">—</span></div>
-    <canvas id="srcCanvas"></canvas>
-  </div>
-  <div class="canvas-box">
-    <div class="label"><b>Circle Mosaic — Full Coverage</b><span id="mosInfo">—</span></div>
-    <canvas id="c"></canvas>
-  </div>
-</div>
+      .main {
+        display: flex;
+        gap: 8px;
+        flex: 1;
+        min-height: 0;
+      }
 
-<div class="controls">
-  <div class="ctrl">Size <input type="range" id="size" min="60" max="150" step="5" value="100"><span class="val" id="sizeV">1.0×</span></div>
-  <div class="ctrl" id="glossWrap"><input type="checkbox" id="gloss"> Shading (after done)</div>
-  <div class="ctrl"><input type="checkbox" id="snap"> Palette Snap</div>
-  <div class="ctrl"><input type="checkbox" id="ghost"> Ghost</div>
-  <div id="palette"></div>
-  <div id="status">Loading sample…</div>
-</div>
+      .canvas-box {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        background: #101016;
+        border: 1px solid #23232e;
+        border-radius: 10px;
+        overflow: hidden;
+        min-width: 0;
+      }
+      .canvas-box .label {
+        padding: 5px 10px;
+        font-size: 11px;
+        color: #7a7a92;
+        text-transform: uppercase;
+        letter-spacing: 0.6px;
+        border-bottom: 1px solid #23232e;
+        flex-shrink: 0;
+        display: flex;
+        justify-content: space-between;
+      }
+      .canvas-box .label b {
+        color: #cfcfe4;
+        font-weight: 500;
+      }
+      .canvas-box canvas {
+        flex: 1;
+        width: 100%;
+        height: 100%;
+        display: block;
+        background: #000;
+        object-fit: contain;
+      }
 
-<script>
-const TAU = Math.PI*2;
-let W = 500, H = 500;
-const MAX_DETAIL = 3200;
+      .controls {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px 14px;
+        align-items: center;
+        padding: 8px 12px;
+        background: #101016;
+        border: 1px solid #23232e;
+        border-radius: 10px;
+        flex-shrink: 0;
+      }
 
-const PHYS = { G:1500, DT:1/60, SUBSTEPS:6, BOUNCE:0.35, FRICTION:0.9985, DAMP:0.92, SPAWN_PER_STEP:8, BLAST:430 };
-const S = { detail: MAX_DETAIL, sizeScale:1.0, gloss:false, snap:false, ghost:false };
+      button {
+        background: #1b1b24;
+        color: #fff;
+        border: 1px solid #33334a;
+        border-radius: 7px;
+        padding: 6px 11px;
+        cursor: pointer;
+        font-size: 12px;
+        transition: 0.15s;
+      }
+      button:hover {
+        background: #26263a;
+      }
+      button.primary {
+        background: #2d5cff;
+        border-color: #2d5cff;
+      }
+      button.primary:hover {
+        background: #4571ff;
+      }
 
-const canvas = document.getElementById('c');
-const srcCanvas = document.getElementById('srcCanvas');
-const ctx = canvas.getContext('2d');
-const sctx = srcCanvas.getContext('2d', { willReadFrequently:true });
+      .ctrl {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        font-size: 11px;
+        color: #a9a9bd;
+      }
+      input[type="range"] {
+        width: 90px;
+        accent-color: #2d5cff;
+      }
+      input[type="checkbox"] {
+        accent-color: #2d5cff;
+        width: 13px;
+        height: 13px;
+      }
+      .val {
+        color: #fff;
+        min-width: 28px;
+        font-variant-numeric: tabular-nums;
+        font-size: 11px;
+      }
 
-const el = {
-  file: document.getElementById('file'),
-  pick: document.getElementById('pickBtn'),
-  play: document.getElementById('playBtn'),
-  reset: document.getElementById('resetBtn'),
-  save: document.getElementById('saveBtn'),
-  size: document.getElementById('size'),
-  sizeV: document.getElementById('sizeV'),
-  gloss: document.getElementById('gloss'),
-  glossWrap: document.getElementById('glossWrap'),
-  snap: document.getElementById('snap'),
-  ghost: document.getElementById('ghost'),
-  palette: document.getElementById('palette'),
-  status: document.getElementById('status'),
-  srcInfo: document.getElementById('srcInfo'),
-  mosInfo: document.getElementById('mosInfo')
-};
+      #palette {
+        display: flex;
+        gap: 4px;
+        flex-wrap: wrap;
+      }
+      .sw {
+        width: 38px;
+        border-radius: 5px;
+        overflow: hidden;
+        border: 1px solid #2a2a38;
+      }
+      .sw i {
+        display: block;
+        height: 20px;
+      }
+      .sw span {
+        display: block;
+        font-size: 8px;
+        color: #9a9ab0;
+        padding: 2px 0;
+        background: #101016;
+        text-align: center;
+      }
 
-function resizeCanvases(){
-  const headerH=46, controlsH=56, gap=24;
-  const availH = window.innerHeight - headerH - controlsH - gap;
-  const availW = window.innerWidth/2 - 20;
-  const size = Math.max(280, Math.min(620, Math.min(availH, availW)));
-  W=Math.floor(size); H=Math.floor(size);
-  canvas.width=W; canvas.height=H;
-  srcCanvas.width=W; srcCanvas.height=H;
-}
-resizeCanvases();
-window.addEventListener('resize',()=>{
-  resizeCanvases();
-  if(src.loaded && src.lastImg){ drawSourceImage(src.lastImg); restart(); }
-});
+      #status {
+        font-size: 11px;
+        color: #7f8ca8;
+        font-variant-numeric: tabular-nums;
+        margin-left: auto;
+      }
 
-const src = { loaded:false, lastImg:null, data:null, palette:[], bg:[7,7,10], detailPts:[] };
+      @media (max-width: 700px) {
+        .main {
+          flex-direction: column;
+        }
+        .header h1 {
+          font-size: 13px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="header">
+      <h1>◉ Circle Mosaic</h1>
+      <button class="primary" id="pickBtn">Choose Image</button>
+      <input type="file" id="file" accept="image/*" hidden />
+      <button id="playBtn">Pause</button>
+      <button id="resetBtn">Restart</button>
+      <button id="saveBtn">Save PNG</button>
+    </div>
 
-function drawSourceImage(img){
-  sctx.fillStyle='#000'; sctx.fillRect(0,0,W,H);
-  const sc = Math.min(W/img.width, H/img.height); // CONTAIN — whole image
-  const dw = img.width*sc, dh = img.height*sc;
-  sctx.drawImage(img, (W-dw)/2, (H-dh)/2, dw, dh);
-  src.data = sctx.getImageData(0,0,W,H).data;
-  src.loaded=true;
-  el.srcInfo.textContent = `${img.width}×${img.height} → ${Math.round(dw)}×${Math.round(dh)} contained`;
-}
+    <div class="main">
+      <div class="canvas-box">
+        <div class="label"><b>Original</b><span id="srcInfo">—</span></div>
+        <canvas id="srcCanvas"></canvas>
+      </div>
+      <div class="canvas-box">
+        <div class="label"><b>Circle Mosaic</b><span id="mosInfo">—</span></div>
+        <canvas id="c"></canvas>
+      </div>
+    </div>
 
-function loadImage(file){
-  const img=new Image();
-  img.onload=()=>{
-    src.lastImg=img;
-    drawSourceImage(img);
-    analyseColors(); buildDetailMap(); restart();
-    URL.revokeObjectURL(img.src);
-  };
-  img.src=URL.createObjectURL(file);
-}
+    <div class="controls">
+      <div class="ctrl">
+        Detail
+        <input
+          type="range"
+          id="detail"
+          min="400"
+          max="3200"
+          step="100"
+          value="1500"
+        />
+        <span class="val" id="detailV">1500</span>
+      </div>
+      <div class="ctrl">
+        Size
+        <input type="range" id="size" min="60" max="150" step="5" value="100" />
+        <span class="val" id="sizeV">1.0×</span>
+      </div>
+      <div class="ctrl">
+        <input type="checkbox" id="gapfill" checked /> Gap fill
+      </div>
+      <div class="ctrl">
+        <input type="checkbox" id="gloss" checked /> Shading
+      </div>
+      <div class="ctrl"><input type="checkbox" id="snap" /> Palette</div>
+      <div class="ctrl"><input type="checkbox" id="ghost" /> Ghost</div>
+      <div id="palette"></div>
+      <div id="status">Loading sample…</div>
+    </div>
 
-function analyseColors(){
-  const d=src.data, px=[];
-  for(let y=0;y<H;y+=4) for(let x=0;x<W;x+=4){
-    const i=(y*W+x)*4; if(d[i+3]<20) continue;
-    px.push([d[i],d[i+1],d[i+2]]);
-  }
-  src.palette = medianCut(px, 10);
-  let dark=src.palette[0], best=1e9;
-  for(const c of src.palette){ const l=c[0]*.299+c[1]*.587+c[2]*.114; if(l<best){best=l; dark=c;} }
-  src.bg=[dark[0]*.30|0, dark[1]*.30|0, dark[2]*.30|0];
-  renderSwatches();
-}
-function medianCut(pixels,k){
-  if(!pixels.length) return [[200,200,200]];
-  let boxes=[pixels], guard=0;
-  while(boxes.length<k && guard++<64){
-    boxes.sort((a,b)=>boxSpan(b)-boxSpan(a));
-    const box=boxes.shift(); if(!box||box.length<2){ if(box) boxes.push(box); break; }
-    const ch=widestChannel(box); box.sort((p,q)=>p[ch]-q[ch]);
-    const mid=box.length>>1; boxes.push(box.slice(0,mid), box.slice(mid));
-  }
-  return boxes.map(avgColor).sort((a,b)=>lum(b)-lum(a));
-}
-function channelRange(box,c){ let lo=255,hi=0; for(const p of box){ if(p[c]<lo) lo=p[c]; if(p[c]>hi) hi=p[c]; } return hi-lo; }
-function widestChannel(box){ const r=channelRange(box,0), g=channelRange(box,1), b=channelRange(box,2); return r>=g&&r>=b?0:(g>=b?1:2); }
-function boxSpan(box){ return Math.max(channelRange(box,0),channelRange(box,1),channelRange(box,2))*Math.log(box.length+1); }
-function avgColor(box){ let r=0,g=0,b=0; for(const p of box){ r+=p[0]; g+=p[1]; b+=p[2]; } const n=box.length||1; return [r/n|0,g/n|0,b/n|0]; }
-const lum=c=>c[0]*.299+c[1]*.587+c[2]*.114;
-function renderSwatches(){ el.palette.innerHTML=''; for(const c of src.palette){ const d=document.createElement('div'); d.className='sw'; d.innerHTML=`<i style="background:rgb(${c[0]},${c[1]},${c[2]})"></i><span>${'#'+c.map(v=>v.toString(16).padStart(2,'0')).join('').toUpperCase()}</span>`; el.palette.appendChild(d);} }
-function buildDetailMap(){
-  const d=src.data, pts=[]; const step=3;
-  for(let y=step;y<H-step;y+=step) for(let x=step;x<W-step;x+=step){
-    const i=(y*W+x)*4, ir=(y*W+x+step)*4, id=((y+step)*W+x)*4;
-    const gx=Math.abs(d[i]-d[ir])+Math.abs(d[i+1]-d[ir+1])+Math.abs(d[i+2]-d[ir+2]);
-    const gy=Math.abs(d[i]-d[id])+Math.abs(d[i+1]-d[id+1])+Math.abs(d[i+2]-d[id+2]);
-    if(gx+gy>60) pts.push(x,y);
-  }
-  src.detailPts=pts;
-}
-const TAPS=[[0,0],[.62,0],[-.62,0],[0,.62],[0,-.62],[.45,.45],[-.45,.45],[.45,-.45],[-.45,-.45]];
-function sampleColor(x,y,r){
-  if(!src.loaded) return [130+Math.random()*125|0,130+Math.random()*125|0,130+Math.random()*125|0];
-  const d=src.data; let R=0,G=0,B=0;
-  for(const [ox,oy] of TAPS){ const px=clamp(Math.round(x+ox*r),0,W-1), py=clamp(Math.round(y+oy*r),0,H-1); const i=(py*W+px)*4; R+=d[i]; G+=d[i+1]; B+=d[i+2]; }
-  let c=[R/9|0,G/9|0,B/9|0]; if(S.snap&&src.palette.length) c=nearestPalette(c); return c;
-}
-function nearestPalette(c){ let best=src.palette[0], bd=1e9; for(const p of src.palette){ const dr=p[0]-c[0],dg=p[1]-c[1],db=p[2]-c[2]; const dd=dr*dr+dg*dg+db*db; if(dd<bd){bd=dd; best=p;} } return best; }
+    <script>
+      /* ============================================================
+   CONFIG
+============================================================ */
+      let W = 500,
+        H = 500;
+      const TAU = Math.PI * 2;
 
-class Ball{
-  constructor(x,y,r,fixed=false){ this.x=x; this.y=y; this.px=x; this.py=y; this.ax=0; this.ay=0; this.r=r; this.m=r*r; this.fixed=fixed; this.setColor(sampleColor(x,y,r)); }
-  setColor(c){ this.c=c; this.css=`rgb(${c[0]},${c[1]},${c[2]})`; this.hi=`rgb(${clamp(c[0]+42,0,255)|0},${clamp(c[1]+42,0,255)|0},${clamp(c[2]+42,0,255)|0})`; this.lo=`rgb(${c[0]*0.62|0},${c[1]*0.62|0},${c[2]*0.62|0})`; }
-}
-let balls=[], base=11, maxR=17, cell=34;
-function computeSizes(){ const AREA=W*H; base=0.5345*Math.sqrt(AREA/S.detail)*S.sizeScale; maxR=base*1.55; cell=Math.max(10,maxR*2); }
+      const PHYS = {
+        G: 1500,
+        DT: 1 / 60,
+        SUBSTEPS: 6,
+        BOUNCE: 0.35,
+        FRICTION: 0.9985,
+        DAMP: 0.92,
+        SPAWN_PER_STEP: 7,
+        BLAST: 430,
+      };
 
-class Grid{
-  constructor(cs){ this.cs=cs; this.cols=Math.ceil(W/cs)+1; this.rows=Math.ceil(H/cs)+1; this.b=Array.from({length:this.cols*this.rows},()=>[]); }
-  clear(){ for(const a of this.b) a.length=0; }
-  key(gx,gy){ return (gx<0||gy<0||gx>=this.cols||gy>=this.rows)?-1:gy*this.cols+gx; }
-  add(i,x,y){ const k=this.key((x/this.cs)|0,(y/this.cs)|0); if(k>=0) this.b[k].push(i); }
-  rebuild(){ this.clear(); for(let i=0;i<balls.length;i++) this.add(i, clamp(balls[i].x,0,W-1), clamp(balls[i].y,0,H-1)); }
-}
-let grid=new Grid(34);
+      const S = {
+        detail: 1500,
+        sizeScale: 1.0,
+        gapfill: true,
+        gloss: true,
+        snap: false,
+        ghost: false,
+      };
 
-function resolvePair(i,j){
-  const a=balls[i], b=balls[j]; const dx=a.x-b.x, dy=a.y-b.y; const d2=dx*dx+dy*dy; const md=a.r+b.r;
-  if(d2>=md*md||d2<1e-8) return; const d=Math.sqrt(d2); const nx=dx/d, ny=dy/d; const ov=(md-d)*0.5*PHYS.DAMP;
-  const tm=a.m+b.m; const r1=a.fixed?0:(b.fixed?1:b.m/tm); const r2=b.fixed?0:(a.fixed?1:a.m/tm);
-  a.x+=nx*ov*r1*2; a.y+=ny*ov*r1*2; b.x-=nx*ov*r2*2; b.y-=ny*ov*r2*2;
-}
-const NEIGH=[[1,0],[-1,1],[0,1],[1,1]];
-function solveCollisions(){
-  grid.rebuild(); const {cols,rows,b}=grid;
-  for(let gy=0;gy<rows;gy++) for(let gx=0;gx<cols;gx++){
-    const A=b[gy*cols+gx]; if(!A.length) continue;
-    for(let m=0;m<A.length;m++) for(let n=m+1;n<A.length;n++) resolvePair(A[m],A[n]);
-    for(const [dx,dy] of NEIGH){ const k=grid.key(gx+dx,gy+dy); if(k<0) continue; const B=b[k]; for(let m=0;m<A.length;m++) for(let n=0;n<B.length;n++) resolvePair(A[m],B[n]); }
-  }
-}
-function constrain(b){ const vx=b.x-b.px, vy=b.y-b.py; if(b.x-b.r<0){b.x=b.r; b.px=b.x+vx*PHYS.BOUNCE;} else if(b.x+b.r>W){b.x=W-b.r; b.px=b.x+vx*PHYS.BOUNCE;} if(b.y-b.r<0){b.y=b.r; b.py=b.y+vy*PHYS.BOUNCE;} else if(b.y+b.r>H){b.y=H-b.r; b.py=b.y+vy*PHYS.BOUNCE;} }
-function integrate(b,dt){ const vx=(b.x-b.px)*PHYS.FRICTION, vy=(b.y-b.py)*PHYS.FRICTION; b.px=b.x; b.py=b.y; b.x+=vx+b.ax*dt*dt; b.y+=vy+b.ay*dt*dt; b.ax=0; b.ay=0; }
-function physicsStep(){ const sub=PHYS.DT/PHYS.SUBSTEPS; for(let s=0;s<PHYS.SUBSTEPS;s++){ for(const b of balls) if(!b.fixed) b.ay+=PHYS.G; solveCollisions(); for(const b of balls) constrain(b); for(const b of balls) if(!b.fixed) integrate(b,sub); } }
-function avgSpeed(){ if(!balls.length) return 0; let s=0; for(const b of balls) s+=Math.abs(b.x-b.px)+Math.abs(b.y-b.py); return s/balls.length; }
+      /* ============================================================
+   DOM
+============================================================ */
+      const canvas = document.getElementById("c");
+      const srcCanvas = document.getElementById("srcCanvas");
+      const ctx = canvas.getContext("2d");
+      const sctx = srcCanvas.getContext("2d", { willReadFrequently: true });
 
-let fillAttempts=0, fillMisses=0, maxTotal=12000;
-function freeRadiusAt(x,y,limit){
-  let best=Math.min(x,y,W-x,H-y); if(best<=0) return 0; if(best>limit) best=limit;
-  const range=Math.ceil((limit+maxR)/grid.cs)+1, cx=(x/grid.cs)|0, cy=(y/grid.cs)|0;
-  for(let gy=cy-range;gy<=cy+range;gy++) for(let gx=cx-range;gx<=cx+range;gx++){ const k=grid.key(gx,gy); if(k<0) continue; for(const i of grid.b[k]){ const b=balls[i]; const d=Math.hypot(x-b.x,y-b.y)-b.r; if(d<best){best=d; if(best<=0) return 0;} } }
-  return best;
-}
-function fillStep(budget){
-  const fMax=base*0.95, fMin=Math.max(0.8, base*0.12); // tiny min = no gaps
-  const pts=src.detailPts, np=pts.length/2;
-  let added=0;
-  for(let t=0;t<budget && balls.length<maxTotal;t++){
-    fillAttempts++; let x,y;
-    if(np && Math.random()<0.7){ const i=(Math.random()*np)|0; x=pts[i*2]+(Math.random()-.5)*3; y=pts[i*2+1]+(Math.random()-.5)*3; }
-    else { x=Math.random()*W; y=Math.random()*H; }
-    const r=freeRadiusAt(x,y,fMax);
-    if(r>=fMin){ const b=new Ball(x,y,r*0.98,true); balls.push(b); grid.add(balls.length-1, clamp(x,0,W-1), clamp(y,0,H-1)); added++; fillMisses=0; }
-    else fillMisses++;
-  }
-  return added;
-}
+      const el = {
+        file: document.getElementById("file"),
+        pick: document.getElementById("pickBtn"),
+        play: document.getElementById("playBtn"),
+        reset: document.getElementById("resetBtn"),
+        save: document.getElementById("saveBtn"),
+        detail: document.getElementById("detail"),
+        detailV: document.getElementById("detailV"),
+        size: document.getElementById("size"),
+        sizeV: document.getElementById("sizeV"),
+        gapfill: document.getElementById("gapfill"),
+        gloss: document.getElementById("gloss"),
+        snap: document.getElementById("snap"),
+        ghost: document.getElementById("ghost"),
+        palette: document.getElementById("palette"),
+        status: document.getElementById("status"),
+        srcInfo: document.getElementById("srcInfo"),
+        mosInfo: document.getElementById("mosInfo"),
+      };
 
-function render(){
-  ctx.fillStyle=`rgb(${src.bg[0]},${src.bg[1]},${src.bg[2]})`; ctx.fillRect(0,0,W,H);
-  if(S.ghost && src.loaded){ ctx.globalAlpha=0.18; ctx.drawImage(srcCanvas,0,0); ctx.globalAlpha=1; }
-  const useGloss=S.gloss;
-  for(const b of balls){
-    ctx.beginPath(); ctx.arc(b.x,b.y,b.r,0,TAU);
-    if(useGloss && b.r>1.4){
-      const g=ctx.createRadialGradient(b.x-b.r*.34,b.y-b.r*.34,b.r*.08,b.x,b.y,b.r);
-      g.addColorStop(0,b.hi); g.addColorStop(.55,b.css); g.addColorStop(1,b.lo); ctx.fillStyle=g;
-    } else ctx.fillStyle=b.css;
-    ctx.fill();
-  }
-}
+      /* ============================================================
+   CANVAS SIZING (no scroll, fits viewport)
+============================================================ */
+      function resizeCanvases() {
+        const headerH = 50;
+        const controlsH = 60;
+        const gap = 24;
+        const availH = window.innerHeight - headerH - controlsH - gap;
+        const availW = window.innerWidth / 2 - 20;
+        const size = Math.max(280, Math.min(600, Math.min(availH, availW)));
+        W = Math.floor(size);
+        H = Math.floor(size);
+        canvas.width = W;
+        canvas.height = H;
+        srcCanvas.width = W;
+        srcCanvas.height = H;
+      }
+      resizeCanvases();
+      window.addEventListener("resize", () => {
+        resizeCanvases();
+        if (src.loaded) {
+          drawSourceImage(src.lastImg);
+          restart();
+        }
+      });
 
-let phase='IDLE', spawned=0, settleWait=0, running=false, acc=0, last=0, fps=60, frame=0;
+      /* ============================================================
+   SOURCE IMAGE + COLOR ANALYSIS
+============================================================ */
+      const src = {
+        loaded: false,
+        lastImg: null,
+        data: null,
+        palette: [],
+        bg: [7, 7, 10],
+        detailPts: [],
+      };
 
-function restart(){
-  computeSizes(); grid=new Grid(cell); balls=[]; spawned=0; settleWait=0; fillAttempts=0; fillMisses=0; acc=0; last=0;
-  maxTotal=Math.min(20000, S.detail*6); // enough to cover every pixel
-  phase='SPAWN'; running=true;
-  S.gloss=false; el.gloss.checked=false; el.gloss.disabled=true; el.glossWrap.classList.add('disabled');
-  el.play.textContent='Pause'; render(); requestAnimationFrame(loop);
-}
-function spawnBall(){
-  const cx=W/2+(Math.random()-.5)*6, cy=H/2+(Math.random()-.5)*6;
-  const t=Math.random(); const r=base*(0.55+t*t);
-  const b=new Ball(cx,cy,r); const a=Math.random()*TAU;
-  b.px=cx-Math.cos(a)*PHYS.BLAST*PHYS.DT; b.py=cy-Math.sin(a)*PHYS.BLAST*PHYS.DT;
-  balls.push(b); spawned++;
-}
-function recolorMoving(){ for(const b of balls) if(!b.fixed) b.setColor(sampleColor(b.x,b.y,b.r)); }
-function step(){
-  if(phase==='SPAWN'){ for(let i=0;i<PHYS.SPAWN_PER_STEP && spawned<S.detail;i++) spawnBall(); physicsStep(); if(spawned>=S.detail) phase='SETTLE'; }
-  else if(phase==='SETTLE'){ physicsStep(); settleWait++; if((avgSpeed()<0.09 && settleWait>40)||settleWait>620){ for(const b of balls){ b.fixed=true; b.setColor(sampleColor(b.x,b.y,b.r)); } grid.rebuild(); phase='FILL'; } }
-  else if(phase==='FILL'){ fillStep(1800); if(balls.length>=maxTotal || fillAttempts>260000 || fillMisses>16000){ phase='DONE'; finish(); } }
-}
-function finish(){
-  render();
-  // Enable shading only now
-  el.gloss.disabled=false; el.glossWrap.classList.remove('disabled');
-  el.status.textContent=`complete · circles: ${balls.length} · no gaps · shading ready`;
-  el.mosInfo.textContent=`${balls.length} circles — full coverage`;
-}
-function loop(ts){
-  if(!running) return; if(!last) last=ts;
-  const dt=Math.min(0.05,(ts-last)/1000); fps=fps*0.9+(1/Math.max(dt,1e-4))*0.1; last=ts;
-  if(phase!=='DONE'){ acc+=dt; let guard=0; while(acc>=PHYS.DT && guard++<4){ step(); acc-=PHYS.DT; } frame++; if(phase!=='FILL' && frame%2===0) recolorMoving(); render(); el.status.textContent=`${phase.toLowerCase()} · circles: ${balls.length} · ${fps.toFixed(0)} fps`; el.mosInfo.textContent=`${balls.length} circles`; }
-  requestAnimationFrame(loop);
-}
+      /* Draw image with CONTAIN fit (whole image visible, no cropping) */
+      function drawSourceImage(img) {
+        sctx.fillStyle = "#000";
+        sctx.fillRect(0, 0, W, H);
+        // Contain fit — whole image visible
+        const sc = Math.min(W / img.width, H / img.height);
+        const dw = img.width * sc,
+          dh = img.height * sc;
+        sctx.drawImage(img, (W - dw) / 2, (H - dh) / 2, dw, dh);
+        src.data = sctx.getImageData(0, 0, W, H).data;
+        src.loaded = true;
+        el.srcInfo.textContent = `${img.width}×${img.height}`;
+      }
 
-const clamp=(v,a,b)=>v<a?a:(v>b?b:v);
+      function loadImage(file) {
+        const img = new Image();
+        img.onload = () => {
+          src.lastImg = img;
+          drawSourceImage(img);
+          analyseColors();
+          buildDetailMap();
+          restart();
+          URL.revokeObjectURL(img.src);
+        };
+        img.onerror = () => setStatus("Could not read that image.");
+        img.src = URL.createObjectURL(file);
+      }
 
-el.pick.onclick=()=>el.file.click();
-el.file.onchange=e=>{ if(e.target.files[0]) loadImage(e.target.files[0]); };
-el.play.onclick=()=>{ if(phase==='DONE') return; running=!running; el.play.textContent=running?'Pause':'Resume'; if(running){ last=0; requestAnimationFrame(loop);} };
-el.reset.onclick=restart;
-el.save.onclick=()=>{ render(); const a=document.createElement('a'); a.download='circle-mosaic-full.png'; a.href=canvas.toDataURL('image/png'); a.click(); };
-el.size.oninput=e=>{ S.sizeScale=e.target.value/100; el.sizeV.textContent=S.sizeScale.toFixed(2)+'×'; };
-el.size.onchange=restart;
-el.gloss.onchange=e=>{ S.gloss=e.target.checked; render(); };
-el.snap.onchange=e=>{ S.snap=e.target.checked; for(const b of balls) b.setColor(sampleColor(b.x,b.y,b.r)); render(); };
-el.ghost.onchange=e=>{ S.ghost=e.target.checked; render(); };
+      /* --- Median-cut palette extraction --- */
+      function analyseColors() {
+        const d = src.data,
+          px = [];
+        for (let y = 0; y < H; y += 5) {
+          for (let x = 0; x < W; x += 5) {
+            const i = (y * W + x) * 4;
+            if (d[i + 3] < 20) continue;
+            px.push([d[i], d[i + 1], d[i + 2]]);
+          }
+        }
+        src.palette = medianCut(px, 10);
 
-document.body.addEventListener('dragover',e=>e.preventDefault());
-document.body.addEventListener('drop',e=>{ e.preventDefault(); const f=e.dataTransfer.files[0]; if(f&&f.type.startsWith('image/')) loadImage(f); });
-window.addEventListener('paste',e=>{ for(const it of e.clipboardData.items) if(it.type.startsWith('image/')){ loadImage(it.getAsFile()); break; } });
+        let dark = src.palette[0],
+          best = 1e9;
+        for (const c of src.palette) {
+          const l = c[0] * 0.299 + c[1] * 0.587 + c[2] * 0.114;
+          if (l < best) {
+            best = l;
+            dark = c;
+          }
+        }
+        src.bg = [
+          (dark[0] * 0.3) | 0,
+          (dark[1] * 0.3) | 0,
+          (dark[2] * 0.3) | 0,
+        ];
+        renderSwatches();
+      }
 
-function generateSampleImage(){
-  const img=document.createElement('canvas'); img.width=800; img.height=800; const c=img.getContext('2d');
-  const sky=c.createLinearGradient(0,0,0,800); sky.addColorStop(0,'#0a0a2e'); sky.addColorStop(0.3,'#2d1b69'); sky.addColorStop(0.5,'#ff6b6b'); sky.addColorStop(0.6,'#ffa07a'); sky.addColorStop(0.65,'#1a0f3e'); sky.addColorStop(1,'#050510');
-  c.fillStyle=sky; c.fillRect(0,0,800,800);
-  for(let i=0;i<150;i++){ c.globalAlpha=Math.random()*0.8+0.2; c.fillStyle='#fff'; const s=Math.random()*2+0.5; c.fillRect(Math.random()*800,Math.random()*280,s,s); } c.globalAlpha=1;
-  const sx=400,sy=480; const glow=c.createRadialGradient(sx,sy,10,sx,sy,200); glow.addColorStop(0,'rgba(255,240,200,1)'); glow.addColorStop(0.3,'rgba(255,200,100,.9)'); glow.addColorStop(0.7,'rgba(255,120,60,.3)'); glow.addColorStop(1,'rgba(255,100,60,0)'); c.fillStyle=glow; c.fillRect(0,0,800,800);
-  c.fillStyle='#fff6d8'; c.beginPath(); c.arc(sx,sy,70,0,TAU); c.fill();
-  c.fillStyle='#1e1245'; c.beginPath(); c.moveTo(0,520); for(let x=0;x<=800;x+=60) c.lineTo(x,520-Math.random()*140-20); c.lineTo(800,800); c.lineTo(0,800); c.closePath(); c.fill();
-  c.fillStyle='#120b2e'; c.beginPath(); c.moveTo(0,580); for(let x=0;x<=800;x+=50) c.lineTo(x,580-Math.random()*100-10); c.lineTo(800,800); c.lineTo(0,800); c.closePath(); c.fill();
-  const water=c.createLinearGradient(0,620,0,800); water.addColorStop(0,'#ff8a5c'); water.addColorStop(0.3,'#5a2a6a'); water.addColorStop(1,'#050510'); c.fillStyle=water; c.fillRect(0,620,800,180);
-  for(let i=0;i<40;i++){ const y=640+i*4+Math.random()*3; const w=140-i*2+Math.random()*50; c.globalAlpha=Math.max(0,0.5-i*0.012); c.fillStyle='#ffefd0'; c.fillRect(sx-w/2,y,w,3); } c.globalAlpha=1;
-  return img;
-}
-const sampleImg=generateSampleImage();
-src.lastImg=sampleImg; drawSourceImage(sampleImg); analyseColors(); buildDetailMap(); restart();
-</script>
-</body>
+      function medianCut(pixels, k) {
+        if (!pixels.length) return [[200, 200, 200]];
+        let boxes = [pixels];
+        let guard = 0;
+        while (boxes.length < k && guard++ < 64) {
+          boxes.sort((a, b) => boxSpan(b) - boxSpan(a));
+          const box = boxes.shift();
+          if (!box || box.length < 2) {
+            if (box) boxes.push(box);
+            break;
+          }
+          const ch = widestChannel(box);
+          box.sort((p, q) => p[ch] - q[ch]);
+          const mid = box.length >> 1;
+          boxes.push(box.slice(0, mid), box.slice(mid));
+        }
+        return boxes.map(avgColor).sort((a, b) => lum(b) - lum(a));
+      }
+      function channelRange(box, c) {
+        let lo = 255,
+          hi = 0;
+        for (const p of box) {
+          if (p[c] < lo) lo = p[c];
+          if (p[c] > hi) hi = p[c];
+        }
+        return hi - lo;
+      }
+      function widestChannel(box) {
+        const r = channelRange(box, 0),
+          g = channelRange(box, 1),
+          b = channelRange(box, 2);
+        return r >= g && r >= b ? 0 : g >= b ? 1 : 2;
+      }
+      function boxSpan(box) {
+        return (
+          Math.max(
+            channelRange(box, 0),
+            channelRange(box, 1),
+            channelRange(box, 2),
+          ) * Math.log(box.length + 1)
+        );
+      }
+      function avgColor(box) {
+        let r = 0,
+          g = 0,
+          b = 0;
+        for (const p of box) {
+          r += p[0];
+          g += p[1];
+          b += p[2];
+        }
+        const n = box.length || 1;
+        return [(r / n) | 0, (g / n) | 0, (b / n) | 0];
+      }
+      const lum = (c) => c[0] * 0.299 + c[1] * 0.587 + c[2] * 0.114;
+
+      function renderSwatches() {
+        el.palette.innerHTML = "";
+        for (const c of src.palette) {
+          const d = document.createElement("div");
+          d.className = "sw";
+          d.innerHTML = `<i style="background:rgb(${c[0]},${c[1]},${c[2]})"></i><span>${hex(c)}</span>`;
+          el.palette.appendChild(d);
+        }
+      }
+      const hex = (c) =>
+        "#" +
+        c
+          .map((v) => v.toString(16).padStart(2, "0"))
+          .join("")
+          .toUpperCase();
+
+      function buildDetailMap() {
+        const d = src.data,
+          pts = [];
+        const step = 3;
+        for (let y = step; y < H - step; y += step) {
+          for (let x = step; x < W - step; x += step) {
+            const i = (y * W + x) * 4;
+            const ir = (y * W + x + step) * 4;
+            const id = ((y + step) * W + x) * 4;
+            const gx =
+              Math.abs(d[i] - d[ir]) +
+              Math.abs(d[i + 1] - d[ir + 1]) +
+              Math.abs(d[i + 2] - d[ir + 2]);
+            const gy =
+              Math.abs(d[i] - d[id]) +
+              Math.abs(d[i + 1] - d[id + 1]) +
+              Math.abs(d[i + 2] - d[id + 2]);
+            if (gx + gy > 60) pts.push(x, y);
+          }
+        }
+        src.detailPts = pts;
+      }
+
+      const TAPS = [
+        [0, 0],
+        [0.62, 0],
+        [-0.62, 0],
+        [0, 0.62],
+        [0, -0.62],
+        [0.45, 0.45],
+        [-0.45, 0.45],
+        [0.45, -0.45],
+        [-0.45, -0.45],
+      ];
+      function sampleColor(x, y, r) {
+        if (!src.loaded) {
+          return [
+            (120 + Math.random() * 135) | 0,
+            (120 + Math.random() * 135) | 0,
+            (120 + Math.random() * 135) | 0,
+          ];
+        }
+        const d = src.data;
+        let R = 0,
+          G = 0,
+          B = 0;
+        for (const [ox, oy] of TAPS) {
+          const px = clamp(Math.round(x + ox * r), 0, W - 1);
+          const py = clamp(Math.round(y + oy * r), 0, H - 1);
+          const i = (py * W + px) * 4;
+          R += d[i];
+          G += d[i + 1];
+          B += d[i + 2];
+        }
+        let c = [(R / 9) | 0, (G / 9) | 0, (B / 9) | 0];
+        if (S.snap && src.palette.length) c = nearestPalette(c);
+        return c;
+      }
+      function nearestPalette(c) {
+        let best = src.palette[0],
+          bd = 1e9;
+        for (const p of src.palette) {
+          const dr = p[0] - c[0],
+            dg = p[1] - c[1],
+            db = p[2] - c[2];
+          const dd = dr * dr + dg * dg + db * db;
+          if (dd < bd) {
+            bd = dd;
+            best = p;
+          }
+        }
+        return best;
+      }
+
+      /* ============================================================
+   BALLS
+============================================================ */
+      class Ball {
+        constructor(x, y, r, fixed = false) {
+          this.x = x;
+          this.y = y;
+          this.px = x;
+          this.py = y;
+          this.ax = 0;
+          this.ay = 0;
+          this.r = r;
+          this.m = r * r;
+          this.fixed = fixed;
+          this.setColor(sampleColor(x, y, r));
+        }
+        setColor(c) {
+          this.c = c;
+          this.css = `rgb(${c[0]},${c[1]},${c[2]})`;
+          this.hi = `rgb(${clamp(c[0] + 42, 0, 255) | 0},${clamp(c[1] + 42, 0, 255) | 0},${clamp(c[2] + 42, 0, 255) | 0})`;
+          this.lo = `rgb(${(c[0] * 0.62) | 0},${(c[1] * 0.62) | 0},${(c[2] * 0.62) | 0})`;
+        }
+      }
+
+      let balls = [];
+      let base = 11,
+        maxR = 17,
+        cell = 34;
+
+      function computeSizes() {
+        const AREA = W * H;
+        base = 0.5345 * Math.sqrt(AREA / S.detail) * S.sizeScale;
+        maxR = base * 1.55;
+        cell = Math.max(10, maxR * 2);
+      }
+
+      /* ============================================================
+   SPATIAL HASH GRID
+============================================================ */
+      class Grid {
+        constructor(cs) {
+          this.cs = cs;
+          this.cols = Math.ceil(W / cs) + 1;
+          this.rows = Math.ceil(H / cs) + 1;
+          this.b = Array.from({ length: this.cols * this.rows }, () => []);
+        }
+        clear() {
+          for (const a of this.b) a.length = 0;
+        }
+        key(gx, gy) {
+          return gx < 0 || gy < 0 || gx >= this.cols || gy >= this.rows
+            ? -1
+            : gy * this.cols + gx;
+        }
+        add(i, x, y) {
+          const k = this.key((x / this.cs) | 0, (y / this.cs) | 0);
+          if (k >= 0) this.b[k].push(i);
+        }
+        rebuild() {
+          this.clear();
+          for (let i = 0; i < balls.length; i++)
+            this.add(
+              i,
+              clamp(balls[i].x, 0, W - 1),
+              clamp(balls[i].y, 0, H - 1),
+            );
+        }
+      }
+      let grid = new Grid(34);
+
+      /* ============================================================
+   PHYSICS
+============================================================ */
+      function resolvePair(i, j) {
+        const a = balls[i],
+          b = balls[j];
+        const dx = a.x - b.x,
+          dy = a.y - b.y;
+        const d2 = dx * dx + dy * dy;
+        const md = a.r + b.r;
+        if (d2 >= md * md || d2 < 1e-8) return;
+
+        const d = Math.sqrt(d2);
+        const nx = dx / d,
+          ny = dy / d;
+        const ov = (md - d) * 0.5 * PHYS.DAMP;
+        const tm = a.m + b.m;
+        const r1 = a.fixed ? 0 : b.fixed ? 1 : b.m / tm;
+        const r2 = b.fixed ? 0 : a.fixed ? 1 : a.m / tm;
+
+        a.x += nx * ov * r1 * 2;
+        a.y += ny * ov * r1 * 2;
+        b.x -= nx * ov * r2 * 2;
+        b.y -= ny * ov * r2 * 2;
+      }
+
+      const NEIGH = [
+        [1, 0],
+        [-1, 1],
+        [0, 1],
+        [1, 1],
+      ];
+      function solveCollisions() {
+        grid.rebuild();
+        const { cols, rows, b } = grid;
+        for (let gy = 0; gy < rows; gy++) {
+          for (let gx = 0; gx < cols; gx++) {
+            const A = b[gy * cols + gx];
+            if (!A.length) continue;
+            for (let m = 0; m < A.length; m++)
+              for (let n = m + 1; n < A.length; n++) resolvePair(A[m], A[n]);
+            for (const [dx, dy] of NEIGH) {
+              const k = grid.key(gx + dx, gy + dy);
+              if (k < 0) continue;
+              const B = b[k];
+              for (let m = 0; m < A.length; m++)
+                for (let n = 0; n < B.length; n++) resolvePair(A[m], B[n]);
+            }
+          }
+        }
+      }
+
+      function constrain(b) {
+        const vx = b.x - b.px,
+          vy = b.y - b.py;
+        if (b.x - b.r < 0) {
+          b.x = b.r;
+          b.px = b.x + vx * PHYS.BOUNCE;
+        } else if (b.x + b.r > W) {
+          b.x = W - b.r;
+          b.px = b.x + vx * PHYS.BOUNCE;
+        }
+        if (b.y - b.r < 0) {
+          b.y = b.r;
+          b.py = b.y + vy * PHYS.BOUNCE;
+        } else if (b.y + b.r > H) {
+          b.y = H - b.r;
+          b.py = b.y + vy * PHYS.BOUNCE;
+        }
+      }
+
+      function integrate(b, dt) {
+        const vx = (b.x - b.px) * PHYS.FRICTION;
+        const vy = (b.y - b.py) * PHYS.FRICTION;
+        b.px = b.x;
+        b.py = b.y;
+        b.x += vx + b.ax * dt * dt;
+        b.y += vy + b.ay * dt * dt;
+        b.ax = 0;
+        b.ay = 0;
+      }
+
+      function physicsStep() {
+        const sub = PHYS.DT / PHYS.SUBSTEPS;
+        for (let s = 0; s < PHYS.SUBSTEPS; s++) {
+          for (const b of balls) if (!b.fixed) b.ay += PHYS.G;
+          solveCollisions();
+          for (const b of balls) constrain(b);
+          for (const b of balls) if (!b.fixed) integrate(b, sub);
+        }
+      }
+
+      function avgSpeed() {
+        if (!balls.length) return 0;
+        let s = 0;
+        for (const b of balls) s += Math.abs(b.x - b.px) + Math.abs(b.y - b.py);
+        return s / balls.length;
+      }
+
+      /* ============================================================
+   GAP FILLING
+============================================================ */
+      let fillAttempts = 0,
+        fillMisses = 0,
+        maxTotal = 9000;
+
+      function freeRadiusAt(x, y, limit) {
+        let best = Math.min(x, y, W - x, H - y);
+        if (best <= 0) return 0;
+        if (best > limit) best = limit;
+        const range = Math.ceil((limit + maxR) / grid.cs) + 1;
+        const cx = (x / grid.cs) | 0,
+          cy = (y / grid.cs) | 0;
+        for (let gy = cy - range; gy <= cy + range; gy++) {
+          for (let gx = cx - range; gx <= cx + range; gx++) {
+            const k = grid.key(gx, gy);
+            if (k < 0) continue;
+            for (const i of grid.b[k]) {
+              const b = balls[i];
+              const d = Math.hypot(x - b.x, y - b.y) - b.r;
+              if (d < best) {
+                best = d;
+                if (best <= 0) return 0;
+              }
+            }
+          }
+        }
+        return best;
+      }
+
+      function fillStep(budget) {
+        const fMax = base * 0.95,
+          fMin = Math.max(0.9, base * 0.15);
+        const pts = src.detailPts,
+          np = pts.length / 2;
+        let added = 0;
+
+        for (let t = 0; t < budget && balls.length < maxTotal; t++) {
+          fillAttempts++;
+          let x, y;
+          if (np && Math.random() < 0.65) {
+            const i = (Math.random() * np) | 0;
+            x = pts[i * 2] + (Math.random() - 0.5) * 4;
+            y = pts[i * 2 + 1] + (Math.random() - 0.5) * 4;
+          } else {
+            x = Math.random() * W;
+            y = Math.random() * H;
+          }
+          const r = freeRadiusAt(x, y, fMax);
+          if (r >= fMin) {
+            const b = new Ball(x, y, r * 0.97, true);
+            balls.push(b);
+            grid.add(balls.length - 1, clamp(x, 0, W - 1), clamp(y, 0, H - 1));
+            added++;
+            fillMisses = 0;
+          } else fillMisses++;
+        }
+        return added;
+      }
+
+      /* ============================================================
+   RENDER
+============================================================ */
+      function render(highQuality = false) {
+        ctx.fillStyle = `rgb(${src.bg[0]},${src.bg[1]},${src.bg[2]})`;
+        ctx.fillRect(0, 0, W, H);
+
+        if (S.ghost && src.loaded) {
+          ctx.globalAlpha = 0.16;
+          ctx.drawImage(srcCanvas, 0, 0);
+          ctx.globalAlpha = 1;
+        }
+
+        const useGloss = S.gloss && (highQuality || balls.length < 1100);
+
+        for (const b of balls) {
+          ctx.beginPath();
+          ctx.arc(b.x, b.y, b.r, 0, TAU);
+          if (useGloss && b.r > 1.6) {
+            const g = ctx.createRadialGradient(
+              b.x - b.r * 0.34,
+              b.y - b.r * 0.34,
+              b.r * 0.08,
+              b.x,
+              b.y,
+              b.r,
+            );
+            g.addColorStop(0, b.hi);
+            g.addColorStop(0.55, b.css);
+            g.addColorStop(1, b.lo);
+            ctx.fillStyle = g;
+          } else {
+            ctx.fillStyle = b.css;
+          }
+          ctx.fill();
+        }
+      }
+
+      /* ============================================================
+   MAIN LOOP
+============================================================ */
+      let phase = "IDLE";
+      let spawned = 0,
+        settleWait = 0,
+        running = false;
+      let acc = 0,
+        last = 0,
+        fps = 60,
+        frame = 0;
+
+      function restart() {
+        computeSizes();
+        grid = new Grid(cell);
+        balls = [];
+        spawned = 0;
+        settleWait = 0;
+        fillAttempts = 0;
+        fillMisses = 0;
+        acc = 0;
+        last = 0;
+        maxTotal = Math.min(11000, S.detail * 4);
+        phase = "SPAWN";
+        running = true;
+        el.play.textContent = "Pause";
+        render();
+        requestAnimationFrame(loop);
+      }
+
+      function spawnBall() {
+        const cx = W / 2 + (Math.random() - 0.5) * 6;
+        const cy = H / 2 + (Math.random() - 0.5) * 6;
+        const t = Math.random();
+        const r = base * (0.55 + t * t);
+        const b = new Ball(cx, cy, r);
+        const a = Math.random() * TAU;
+        b.px = cx - Math.cos(a) * PHYS.BLAST * PHYS.DT;
+        b.py = cy - Math.sin(a) * PHYS.BLAST * PHYS.DT;
+        balls.push(b);
+        spawned++;
+      }
+
+      function recolorMoving() {
+        for (const b of balls)
+          if (!b.fixed) b.setColor(sampleColor(b.x, b.y, b.r));
+      }
+
+      function step() {
+        if (phase === "SPAWN") {
+          for (let i = 0; i < PHYS.SPAWN_PER_STEP && spawned < S.detail; i++)
+            spawnBall();
+          physicsStep();
+          if (spawned >= S.detail) phase = "SETTLE";
+        } else if (phase === "SETTLE") {
+          physicsStep();
+          settleWait++;
+          if ((avgSpeed() < 0.09 && settleWait > 40) || settleWait > 620) {
+            for (const b of balls) {
+              b.fixed = true;
+              b.setColor(sampleColor(b.x, b.y, b.r));
+            }
+            grid.rebuild();
+            phase = S.gapfill ? "FILL" : "DONE";
+            if (phase === "DONE") finish();
+          }
+        } else if (phase === "FILL") {
+          fillStep(1400);
+          if (
+            balls.length >= maxTotal ||
+            fillAttempts > 160000 ||
+            fillMisses > 9000
+          ) {
+            phase = "DONE";
+            finish();
+          }
+        }
+      }
+
+      function finish() {
+        render(true);
+        setStatus();
+      }
+
+      function loop(ts) {
+        if (!running) return;
+        if (!last) last = ts;
+        const dt = Math.min(0.05, (ts - last) / 1000);
+        fps = fps * 0.9 + (1 / Math.max(dt, 1e-4)) * 0.1;
+        last = ts;
+
+        if (phase !== "DONE") {
+          acc += dt;
+          let guard = 0;
+          while (acc >= PHYS.DT && guard++ < 4) {
+            step();
+            acc -= PHYS.DT;
+          }
+
+          frame++;
+          if (phase !== "FILL" && frame % 2 === 0) recolorMoving();
+          render();
+          setStatus();
+        }
+        requestAnimationFrame(loop);
+      }
+
+      function setStatus() {
+        const names = {
+          IDLE: "idle",
+          SPAWN: "spawning",
+          SETTLE: "settling",
+          FILL: "filling gaps",
+          DONE: "complete",
+        };
+        el.status.textContent = `${names[phase]} · circles: ${balls.length} · ${fps.toFixed(0)} fps`;
+        el.mosInfo.textContent = `${balls.length} circles`;
+      }
+
+      /* ============================================================
+   SAMPLE IMAGE (procedural — loads instantly)
+============================================================ */
+      function generateSampleImage() {
+        const img = document.createElement("canvas");
+        img.width = 800;
+        img.height = 800;
+        const c = img.getContext("2d");
+
+        // Sky gradient
+        const sky = c.createLinearGradient(0, 0, 0, 800);
+        sky.addColorStop(0, "#0a0a2e");
+        sky.addColorStop(0.3, "#2d1b69");
+        sky.addColorStop(0.5, "#ff6b6b");
+        sky.addColorStop(0.6, "#ffa07a");
+        sky.addColorStop(0.65, "#1a0f3e");
+        sky.addColorStop(1, "#050510");
+        c.fillStyle = sky;
+        c.fillRect(0, 0, 800, 800);
+
+        // Stars
+        for (let i = 0; i < 150; i++) {
+          c.globalAlpha = Math.random() * 0.8 + 0.2;
+          c.fillStyle = "#fff";
+          const s = Math.random() * 2 + 0.5;
+          c.fillRect(Math.random() * 800, Math.random() * 280, s, s);
+        }
+        c.globalAlpha = 1;
+
+        // Sun
+        const sx = 400,
+          sy = 480;
+        const glow = c.createRadialGradient(sx, sy, 10, sx, sy, 200);
+        glow.addColorStop(0, "rgba(255,240,200,1)");
+        glow.addColorStop(0.3, "rgba(255,200,100,.9)");
+        glow.addColorStop(0.7, "rgba(255,120,60,.3)");
+        glow.addColorStop(1, "rgba(255,100,60,0)");
+        c.fillStyle = glow;
+        c.fillRect(0, 0, 800, 800);
+
+        c.fillStyle = "#fff6d8";
+        c.beginPath();
+        c.arc(sx, sy, 70, 0, TAU);
+        c.fill();
+
+        // Mountains
+        c.fillStyle = "#1e1245";
+        c.beginPath();
+        c.moveTo(0, 520);
+        for (let x = 0; x <= 800; x += 60)
+          c.lineTo(x, 520 - Math.random() * 140 - 20);
+        c.lineTo(800, 800);
+        c.lineTo(0, 800);
+        c.closePath();
+        c.fill();
+
+        c.fillStyle = "#120b2e";
+        c.beginPath();
+        c.moveTo(0, 580);
+        for (let x = 0; x <= 800; x += 50)
+          c.lineTo(x, 580 - Math.random() * 100 - 10);
+        c.lineTo(800, 800);
+        c.lineTo(0, 800);
+        c.closePath();
+        c.fill();
+
+        // Water
+        const water = c.createLinearGradient(0, 620, 0, 800);
+        water.addColorStop(0, "#ff8a5c");
+        water.addColorStop(0.3, "#5a2a6a");
+        water.addColorStop(1, "#050510");
+        c.fillStyle = water;
+        c.fillRect(0, 620, 800, 180);
+
+        // Water reflections
+        for (let i = 0; i < 40; i++) {
+          const y = 640 + i * 4 + Math.random() * 3;
+          const w = 140 - i * 2 + Math.random() * 50;
+          c.globalAlpha = Math.max(0, 0.5 - i * 0.012);
+          c.fillStyle = "#ffefd0";
+          c.fillRect(sx - w / 2, y, w, 3);
+        }
+        c.globalAlpha = 1;
+
+        return img;
+      }
+
+      /* ============================================================
+   UI
+============================================================ */
+      const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
+
+      el.pick.onclick = () => el.file.click();
+      el.file.onchange = (e) => {
+        if (e.target.files[0]) loadImage(e.target.files[0]);
+      };
+
+      el.play.onclick = () => {
+        if (phase === "DONE") return;
+        running = !running;
+        el.play.textContent = running ? "Pause" : "Resume";
+        if (running) {
+          last = 0;
+          requestAnimationFrame(loop);
+        }
+      };
+      el.reset.onclick = restart;
+
+      el.save.onclick = () => {
+        render(true);
+        const a = document.createElement("a");
+        a.download = "circle-mosaic.png";
+        a.href = canvas.toDataURL("image/png");
+        a.click();
+      };
+
+      el.detail.oninput = (e) => {
+        S.detail = +e.target.value;
+        el.detailV.textContent = S.detail;
+      };
+      el.detail.onchange = restart;
+      el.size.oninput = (e) => {
+        S.sizeScale = e.target.value / 100;
+        el.sizeV.textContent = S.sizeScale.toFixed(2) + "×";
+      };
+      el.size.onchange = restart;
+
+      el.gapfill.onchange = (e) => {
+        S.gapfill = e.target.checked;
+      };
+      el.gloss.onchange = (e) => {
+        S.gloss = e.target.checked;
+        render(phase === "DONE");
+      };
+      el.ghost.onchange = (e) => {
+        S.ghost = e.target.checked;
+        render(phase === "DONE");
+      };
+      el.snap.onchange = (e) => {
+        S.snap = e.target.checked;
+        for (const b of balls) b.setColor(sampleColor(b.x, b.y, b.r));
+        render(phase === "DONE");
+      };
+
+      /* drag + drop / paste */
+      ["dragenter", "dragover"].forEach((ev) =>
+        document.body.addEventListener(ev, (e) => {
+          e.preventDefault();
+        }),
+      );
+      document.body.addEventListener("drop", (e) => {
+        e.preventDefault();
+        const f = e.dataTransfer.files[0];
+        if (f && f.type.startsWith("image/")) loadImage(f);
+      });
+      window.addEventListener("paste", (e) => {
+        for (const item of e.clipboardData.items) {
+          if (item.type.startsWith("image/")) {
+            loadImage(item.getAsFile());
+            break;
+          }
+        }
+      });
+
+      /* Load sample image on start */
+      const sampleImg = generateSampleImage();
+      src.lastImg = sampleImg;
+      drawSourceImage(sampleImg);
+      analyseColors();
+      buildDetailMap();
+      restart();
+    </script>
+  </body>
 </html>

@@ -1,667 +1,969 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Circle Mosaic Physics</title>
-<style>
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body {
-    background: #07070a;
-    color: #e8e8ef;
-    font: 14px/1.4 system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-    display: flex; flex-direction: column; align-items: center;
-    padding: 18px 14px 40px;
-  }
-  h1 { font-size: 18px; letter-spacing: .4px; margin-bottom: 12px; font-weight: 600; }
-  .wrap { width: 100%; max-width: 980px; }
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Circle Mosaic Physics</title>
+    <style>
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      body {
+        background: #07070a;
+        color: #e8e8ef;
+        font:
+          14px/1.4 system-ui,
+          -apple-system,
+          Segoe UI,
+          Roboto,
+          sans-serif;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding: 18px 14px 40px;
+      }
+      h1 {
+        font-size: 18px;
+        letter-spacing: 0.4px;
+        margin-bottom: 12px;
+        font-weight: 600;
+      }
+      .wrap {
+        width: 100%;
+        max-width: 980px;
+      }
 
-  .panel {
-    background: #101016; border: 1px solid #23232e; border-radius: 14px;
-    padding: 12px 14px; margin-bottom: 12px;
-    display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center;
-  }
-  button {
-    background: #1b1b24; color: #fff; border: 1px solid #33334a;
-    border-radius: 9px; padding: 9px 14px; cursor: pointer; font-size: 13px;
-    transition: .15s;
-  }
-  button:hover { background: #26263a; border-color: #4a4a6a; }
-  button.primary { background: #2d5cff; border-color: #2d5cff; }
-  button.primary:hover { background: #4571ff; }
+      .panel {
+        background: #101016;
+        border: 1px solid #23232e;
+        border-radius: 14px;
+        padding: 12px 14px;
+        margin-bottom: 12px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px 16px;
+        align-items: center;
+      }
+      button {
+        background: #1b1b24;
+        color: #fff;
+        border: 1px solid #33334a;
+        border-radius: 9px;
+        padding: 9px 14px;
+        cursor: pointer;
+        font-size: 13px;
+        transition: 0.15s;
+      }
+      button:hover {
+        background: #26263a;
+        border-color: #4a4a6a;
+      }
+      button.primary {
+        background: #2d5cff;
+        border-color: #2d5cff;
+      }
+      button.primary:hover {
+        background: #4571ff;
+      }
 
-  .ctrl { display: flex; align-items: center; gap: 7px; font-size: 12px; color: #a9a9bd; }
-  input[type=range] { width: 118px; accent-color: #2d5cff; }
-  input[type=checkbox] { accent-color: #2d5cff; width: 15px; height: 15px; }
-  .val { color: #fff; min-width: 34px; font-variant-numeric: tabular-nums; }
+      .ctrl {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        font-size: 12px;
+        color: #a9a9bd;
+      }
+      input[type="range"] {
+        width: 118px;
+        accent-color: #2d5cff;
+      }
+      input[type="checkbox"] {
+        accent-color: #2d5cff;
+        width: 15px;
+        height: 15px;
+      }
+      .val {
+        color: #fff;
+        min-width: 34px;
+        font-variant-numeric: tabular-nums;
+      }
 
-  #drop {
-    position: relative; border-radius: 16px; overflow: hidden;
-    border: 1px solid #23232e; background: #000; line-height: 0;
-  }
-  #drop.over { border-color: #2d5cff; box-shadow: 0 0 0 3px rgba(45,92,255,.25); }
-  canvas { width: 100%; height: auto; display: block; touch-action: none; }
+      #drop {
+        position: relative;
+        border-radius: 16px;
+        overflow: hidden;
+        border: 1px solid #23232e;
+        background: #000;
+        line-height: 0;
+      }
+      #drop.over {
+        border-color: #2d5cff;
+        box-shadow: 0 0 0 3px rgba(45, 92, 255, 0.25);
+      }
+      canvas {
+        width: 100%;
+        height: auto;
+        display: block;
+        touch-action: none;
+      }
 
-  #hint {
-    position: absolute; inset: 0; display: flex; flex-direction: column;
-    align-items: center; justify-content: center; gap: 6px;
-    color: #7a7a92; font-size: 15px; pointer-events: none; line-height: 1.5;
-    text-align: center;
-  }
-  #hint b { color: #cfcfe4; font-weight: 600; }
+      #hint {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        color: #7a7a92;
+        font-size: 15px;
+        pointer-events: none;
+        line-height: 1.5;
+        text-align: center;
+      }
+      #hint b {
+        color: #cfcfe4;
+        font-weight: 600;
+      }
 
-  #palette { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 12px; }
-  .sw {
-    width: 54px; border-radius: 8px; overflow: hidden;
-    border: 1px solid #2a2a38; text-align: center;
-  }
-  .sw i { display: block; height: 34px; }
-  .sw span { display: block; font-size: 9px; color: #9a9ab0; padding: 3px 0; background: #101016; }
+      #palette {
+        display: flex;
+        gap: 6px;
+        flex-wrap: wrap;
+        margin-top: 12px;
+      }
+      .sw {
+        width: 54px;
+        border-radius: 8px;
+        overflow: hidden;
+        border: 1px solid #2a2a38;
+        text-align: center;
+      }
+      .sw i {
+        display: block;
+        height: 34px;
+      }
+      .sw span {
+        display: block;
+        font-size: 9px;
+        color: #9a9ab0;
+        padding: 3px 0;
+        background: #101016;
+      }
 
-  #status { margin-top: 10px; color: #7f8ca8; font-size: 12.5px; font-variant-numeric: tabular-nums; }
-</style>
-</head>
-<body>
-<div class="wrap">
-  <h1>Circle Mosaic Physics</h1>
+      #status {
+        margin-top: 10px;
+        color: #7f8ca8;
+        font-size: 12.5px;
+        font-variant-numeric: tabular-nums;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <h1>Circle Mosaic Physics</h1>
 
-  <div class="panel">
-    <button class="primary" id="pickBtn">Choose Image</button>
-    <input type="file" id="file" accept="image/*" hidden />
-    <button id="playBtn">Pause</button>
-    <button id="resetBtn">Restart</button>
-    <button id="saveBtn">Save PNG</button>
+      <div class="panel">
+        <button class="primary" id="pickBtn">Choose Image</button>
+        <input type="file" id="file" accept="image/*" hidden />
+        <button id="playBtn">Pause</button>
+        <button id="resetBtn">Restart</button>
+        <button id="saveBtn">Save PNG</button>
 
-    <div class="ctrl">Detail
-      <input type="range" id="detail" min="400" max="3200" step="100" value="1500">
-      <span class="val" id="detailV">1500</span>
+        <div class="ctrl">
+          Detail
+          <input
+            type="range"
+            id="detail"
+            min="400"
+            max="3200"
+            step="100"
+            value="1500"
+          />
+          <span class="val" id="detailV">1500</span>
+        </div>
+        <div class="ctrl">
+          Size
+          <input
+            type="range"
+            id="size"
+            min="60"
+            max="150"
+            step="5"
+            value="100"
+          />
+          <span class="val" id="sizeV">1.0×</span>
+        </div>
+        <div class="ctrl">
+          <input type="checkbox" id="gapfill" checked /> Gap fill
+        </div>
+        <div class="ctrl">
+          <input type="checkbox" id="gloss" checked /> Shading
+        </div>
+        <div class="ctrl">
+          <input type="checkbox" id="snap" /> Snap to palette
+        </div>
+        <div class="ctrl"><input type="checkbox" id="ghost" /> Ghost image</div>
+      </div>
+
+      <div id="drop">
+        <canvas id="c"></canvas>
+        <div id="hint">
+          <b>Drop an image here</b
+          ><span>or click “Choose Image” · Ctrl+V also works</span>
+        </div>
+      </div>
+
+      <div id="palette"></div>
+      <div id="status">Waiting for an image…</div>
     </div>
-    <div class="ctrl">Size
-      <input type="range" id="size" min="60" max="150" step="5" value="100">
-      <span class="val" id="sizeV">1.0×</span>
-    </div>
-    <div class="ctrl"><input type="checkbox" id="gapfill" checked> Gap fill</div>
-    <div class="ctrl"><input type="checkbox" id="gloss" checked> Shading</div>
-    <div class="ctrl"><input type="checkbox" id="snap"> Snap to palette</div>
-    <div class="ctrl"><input type="checkbox" id="ghost"> Ghost image</div>
-  </div>
 
-  <div id="drop">
-    <canvas id="c"></canvas>
-    <div id="hint"><b>Drop an image here</b><span>or click “Choose Image” · Ctrl+V also works</span></div>
-  </div>
-
-  <div id="palette"></div>
-  <div id="status">Waiting for an image…</div>
-</div>
-
-<script>
-/* ============================================================
+    <script>
+      /* ============================================================
    CONFIG
 ============================================================ */
-const W = 760, H = 760, AREA = W * H, TAU = Math.PI * 2;
+      const W = 760,
+        H = 760,
+        AREA = W * H,
+        TAU = Math.PI * 2;
 
-const PHYS = {
-  G: 1500,          // gravity px/s^2
-  DT: 1 / 60,
-  SUBSTEPS: 6,
-  BOUNCE: 0.35,     // wall energy kept
-  FRICTION: 0.9985, // air drag
-  DAMP: 0.92,       // collision separation damping
-  SPAWN_PER_STEP: 7,
-  BLAST: 430        // initial outward speed
-};
+      const PHYS = {
+        G: 1500, // gravity px/s^2
+        DT: 1 / 60,
+        SUBSTEPS: 6,
+        BOUNCE: 0.35, // wall energy kept
+        FRICTION: 0.9985, // air drag
+        DAMP: 0.92, // collision separation damping
+        SPAWN_PER_STEP: 7,
+        BLAST: 430, // initial outward speed
+      };
 
-const S = {
-  detail: 1500,
-  sizeScale: 1.0,
-  gapfill: true,
-  gloss: true,
-  snap: false,
-  ghost: false
-};
+      const S = {
+        detail: 1500,
+        sizeScale: 1.0,
+        gapfill: true,
+        gloss: true,
+        snap: false,
+        ghost: false,
+      };
 
-/* ============================================================
+      /* ============================================================
    DOM
 ============================================================ */
-const canvas = document.getElementById('c');
-canvas.width = W; canvas.height = H;
-const ctx = canvas.getContext('2d');
+      const canvas = document.getElementById("c");
+      canvas.width = W;
+      canvas.height = H;
+      const ctx = canvas.getContext("2d");
 
-const el = {
-  drop: document.getElementById('drop'),
-  hint: document.getElementById('hint'),
-  file: document.getElementById('file'),
-  pick: document.getElementById('pickBtn'),
-  play: document.getElementById('playBtn'),
-  reset: document.getElementById('resetBtn'),
-  save: document.getElementById('saveBtn'),
-  detail: document.getElementById('detail'),
-  detailV: document.getElementById('detailV'),
-  size: document.getElementById('size'),
-  sizeV: document.getElementById('sizeV'),
-  gapfill: document.getElementById('gapfill'),
-  gloss: document.getElementById('gloss'),
-  snap: document.getElementById('snap'),
-  ghost: document.getElementById('ghost'),
-  palette: document.getElementById('palette'),
-  status: document.getElementById('status')
-};
+      const el = {
+        drop: document.getElementById("drop"),
+        hint: document.getElementById("hint"),
+        file: document.getElementById("file"),
+        pick: document.getElementById("pickBtn"),
+        play: document.getElementById("playBtn"),
+        reset: document.getElementById("resetBtn"),
+        save: document.getElementById("saveBtn"),
+        detail: document.getElementById("detail"),
+        detailV: document.getElementById("detailV"),
+        size: document.getElementById("size"),
+        sizeV: document.getElementById("sizeV"),
+        gapfill: document.getElementById("gapfill"),
+        gloss: document.getElementById("gloss"),
+        snap: document.getElementById("snap"),
+        ghost: document.getElementById("ghost"),
+        palette: document.getElementById("palette"),
+        status: document.getElementById("status"),
+      };
 
-/* ============================================================
+      /* ============================================================
    SOURCE IMAGE + COLOR ANALYSIS
 ============================================================ */
-const src = {
-  loaded: false,
-  canvas: document.createElement('canvas'),
-  data: null,
-  palette: [],
-  bg: [7, 7, 10],
-  detailPts: []   // high-contrast pixel locations for smart gap filling
-};
-src.canvas.width = W; src.canvas.height = H;
-const sctx = src.canvas.getContext('2d', { willReadFrequently: true });
+      const src = {
+        loaded: false,
+        canvas: document.createElement("canvas"),
+        data: null,
+        palette: [],
+        bg: [7, 7, 10],
+        detailPts: [], // high-contrast pixel locations for smart gap filling
+      };
+      src.canvas.width = W;
+      src.canvas.height = H;
+      const sctx = src.canvas.getContext("2d", { willReadFrequently: true });
 
-function loadImage(file) {
-  const img = new Image();
-  img.onload = () => {
-    // "cover" fit so the picture never distorts
-    const sc = Math.max(W / img.width, H / img.height);
-    const dw = img.width * sc, dh = img.height * sc;
-    sctx.clearRect(0, 0, W, H);
-    sctx.drawImage(img, (W - dw) / 2, (H - dh) / 2, dw, dh);
+      function loadImage(file) {
+        const img = new Image();
+        img.onload = () => {
+          // "cover" fit so the picture never distorts
+          const sc = Math.max(W / img.width, H / img.height);
+          const dw = img.width * sc,
+            dh = img.height * sc;
+          sctx.clearRect(0, 0, W, H);
+          sctx.drawImage(img, (W - dw) / 2, (H - dh) / 2, dw, dh);
 
-    src.data = sctx.getImageData(0, 0, W, H).data;
-    src.loaded = true;
+          src.data = sctx.getImageData(0, 0, W, H).data;
+          src.loaded = true;
 
-    analyseColors();          // <-- palette identified immediately
-    buildDetailMap();         // <-- where the fine detail lives
-    el.hint.style.display = 'none';
-    restart();
-    URL.revokeObjectURL(img.src);
-  };
-  img.onerror = () => setStatus('Could not read that image.');
-  img.src = URL.createObjectURL(file);
-}
+          analyseColors(); // <-- palette identified immediately
+          buildDetailMap(); // <-- where the fine detail lives
+          el.hint.style.display = "none";
+          restart();
+          URL.revokeObjectURL(img.src);
+        };
+        img.onerror = () => setStatus("Could not read that image.");
+        img.src = URL.createObjectURL(file);
+      }
 
-/* --- Median-cut palette extraction --- */
-function analyseColors() {
-  const d = src.data, px = [];
-  for (let y = 0; y < H; y += 5) {
-    for (let x = 0; x < W; x += 5) {
-      const i = (y * W + x) * 4;
-      if (d[i + 3] < 20) continue;
-      px.push([d[i], d[i + 1], d[i + 2]]);
-    }
-  }
-  src.palette = medianCut(px, 12);
+      /* --- Median-cut palette extraction --- */
+      function analyseColors() {
+        const d = src.data,
+          px = [];
+        for (let y = 0; y < H; y += 5) {
+          for (let x = 0; x < W; x += 5) {
+            const i = (y * W + x) * 4;
+            if (d[i + 3] < 20) continue;
+            px.push([d[i], d[i + 1], d[i + 2]]);
+          }
+        }
+        src.palette = medianCut(px, 12);
 
-  // background = darkest palette entry, dimmed
-  let dark = src.palette[0], best = 1e9;
-  for (const c of src.palette) {
-    const l = c[0] * .299 + c[1] * .587 + c[2] * .114;
-    if (l < best) { best = l; dark = c; }
-  }
-  src.bg = [dark[0] * .30 | 0, dark[1] * .30 | 0, dark[2] * .30 | 0];
-  renderSwatches();
-}
+        // background = darkest palette entry, dimmed
+        let dark = src.palette[0],
+          best = 1e9;
+        for (const c of src.palette) {
+          const l = c[0] * 0.299 + c[1] * 0.587 + c[2] * 0.114;
+          if (l < best) {
+            best = l;
+            dark = c;
+          }
+        }
+        src.bg = [
+          (dark[0] * 0.3) | 0,
+          (dark[1] * 0.3) | 0,
+          (dark[2] * 0.3) | 0,
+        ];
+        renderSwatches();
+      }
 
-function medianCut(pixels, k) {
-  if (!pixels.length) return [[200, 200, 200]];
-  let boxes = [pixels];
-  let guard = 0;
-  while (boxes.length < k && guard++ < 64) {
-    boxes.sort((a, b) => boxSpan(b) - boxSpan(a));
-    const box = boxes.shift();
-    if (!box || box.length < 2) { if (box) boxes.push(box); break; }
-    const ch = widestChannel(box);
-    box.sort((p, q) => p[ch] - q[ch]);
-    const mid = box.length >> 1;
-    boxes.push(box.slice(0, mid), box.slice(mid));
-  }
-  return boxes.map(avgColor)
-    .sort((a, b) => lum(b) - lum(a));
-}
-function channelRange(box, c) {
-  let lo = 255, hi = 0;
-  for (const p of box) { if (p[c] < lo) lo = p[c]; if (p[c] > hi) hi = p[c]; }
-  return hi - lo;
-}
-function widestChannel(box) {
-  const r = channelRange(box, 0), g = channelRange(box, 1), b = channelRange(box, 2);
-  return r >= g && r >= b ? 0 : (g >= b ? 1 : 2);
-}
-function boxSpan(box) {
-  return Math.max(channelRange(box, 0), channelRange(box, 1), channelRange(box, 2)) * Math.log(box.length + 1);
-}
-function avgColor(box) {
-  let r = 0, g = 0, b = 0;
-  for (const p of box) { r += p[0]; g += p[1]; b += p[2]; }
-  const n = box.length || 1;
-  return [r / n | 0, g / n | 0, b / n | 0];
-}
-const lum = c => c[0] * .299 + c[1] * .587 + c[2] * .114;
+      function medianCut(pixels, k) {
+        if (!pixels.length) return [[200, 200, 200]];
+        let boxes = [pixels];
+        let guard = 0;
+        while (boxes.length < k && guard++ < 64) {
+          boxes.sort((a, b) => boxSpan(b) - boxSpan(a));
+          const box = boxes.shift();
+          if (!box || box.length < 2) {
+            if (box) boxes.push(box);
+            break;
+          }
+          const ch = widestChannel(box);
+          box.sort((p, q) => p[ch] - q[ch]);
+          const mid = box.length >> 1;
+          boxes.push(box.slice(0, mid), box.slice(mid));
+        }
+        return boxes.map(avgColor).sort((a, b) => lum(b) - lum(a));
+      }
+      function channelRange(box, c) {
+        let lo = 255,
+          hi = 0;
+        for (const p of box) {
+          if (p[c] < lo) lo = p[c];
+          if (p[c] > hi) hi = p[c];
+        }
+        return hi - lo;
+      }
+      function widestChannel(box) {
+        const r = channelRange(box, 0),
+          g = channelRange(box, 1),
+          b = channelRange(box, 2);
+        return r >= g && r >= b ? 0 : g >= b ? 1 : 2;
+      }
+      function boxSpan(box) {
+        return (
+          Math.max(
+            channelRange(box, 0),
+            channelRange(box, 1),
+            channelRange(box, 2),
+          ) * Math.log(box.length + 1)
+        );
+      }
+      function avgColor(box) {
+        let r = 0,
+          g = 0,
+          b = 0;
+        for (const p of box) {
+          r += p[0];
+          g += p[1];
+          b += p[2];
+        }
+        const n = box.length || 1;
+        return [(r / n) | 0, (g / n) | 0, (b / n) | 0];
+      }
+      const lum = (c) => c[0] * 0.299 + c[1] * 0.587 + c[2] * 0.114;
 
-function renderSwatches() {
-  el.palette.innerHTML = '';
-  for (const c of src.palette) {
-    const d = document.createElement('div');
-    d.className = 'sw';
-    d.innerHTML = `<i style="background:rgb(${c[0]},${c[1]},${c[2]})"></i><span>${hex(c)}</span>`;
-    el.palette.appendChild(d);
-  }
-}
-const hex = c => '#' + c.map(v => v.toString(16).padStart(2, '0')).join('').toUpperCase();
+      function renderSwatches() {
+        el.palette.innerHTML = "";
+        for (const c of src.palette) {
+          const d = document.createElement("div");
+          d.className = "sw";
+          d.innerHTML = `<i style="background:rgb(${c[0]},${c[1]},${c[2]})"></i><span>${hex(c)}</span>`;
+          el.palette.appendChild(d);
+        }
+      }
+      const hex = (c) =>
+        "#" +
+        c
+          .map((v) => v.toString(16).padStart(2, "0"))
+          .join("")
+          .toUpperCase();
 
-/* --- Edge/detail map: gap-fill circles go where the image is busiest --- */
-function buildDetailMap() {
-  const d = src.data, pts = [];
-  const step = 3;
-  for (let y = step; y < H - step; y += step) {
-    for (let x = step; x < W - step; x += step) {
-      const i = (y * W + x) * 4;
-      const ir = (y * W + x + step) * 4;
-      const id = ((y + step) * W + x) * 4;
-      const gx = Math.abs(d[i] - d[ir]) + Math.abs(d[i + 1] - d[ir + 1]) + Math.abs(d[i + 2] - d[ir + 2]);
-      const gy = Math.abs(d[i] - d[id]) + Math.abs(d[i + 1] - d[id + 1]) + Math.abs(d[i + 2] - d[id + 2]);
-      if (gx + gy > 60) pts.push(x, y);
-    }
-  }
-  src.detailPts = pts;
-}
+      /* --- Edge/detail map: gap-fill circles go where the image is busiest --- */
+      function buildDetailMap() {
+        const d = src.data,
+          pts = [];
+        const step = 3;
+        for (let y = step; y < H - step; y += step) {
+          for (let x = step; x < W - step; x += step) {
+            const i = (y * W + x) * 4;
+            const ir = (y * W + x + step) * 4;
+            const id = ((y + step) * W + x) * 4;
+            const gx =
+              Math.abs(d[i] - d[ir]) +
+              Math.abs(d[i + 1] - d[ir + 1]) +
+              Math.abs(d[i + 2] - d[ir + 2]);
+            const gy =
+              Math.abs(d[i] - d[id]) +
+              Math.abs(d[i + 1] - d[id + 1]) +
+              Math.abs(d[i + 2] - d[id + 2]);
+            if (gx + gy > 60) pts.push(x, y);
+          }
+        }
+        src.detailPts = pts;
+      }
 
-/* --- Sample the image with 9 taps across the circle's face --- */
-const TAPS = [[0,0],[.62,0],[-.62,0],[0,.62],[0,-.62],[.45,.45],[-.45,.45],[.45,-.45],[-.45,-.45]];
-function sampleColor(x, y, r) {
-  if (!src.loaded) {
-    return [120 + Math.random() * 135 | 0, 120 + Math.random() * 135 | 0, 120 + Math.random() * 135 | 0];
-  }
-  const d = src.data;
-  let R = 0, G = 0, B = 0;
-  for (const [ox, oy] of TAPS) {
-    const px = clamp(Math.round(x + ox * r), 0, W - 1);
-    const py = clamp(Math.round(y + oy * r), 0, H - 1);
-    const i = (py * W + px) * 4;
-    R += d[i]; G += d[i + 1]; B += d[i + 2];
-  }
-  let c = [R / 9 | 0, G / 9 | 0, B / 9 | 0];
-  if (S.snap && src.palette.length) c = nearestPalette(c);
-  return c;
-}
-function nearestPalette(c) {
-  let best = src.palette[0], bd = 1e9;
-  for (const p of src.palette) {
-    const dr = p[0] - c[0], dg = p[1] - c[1], db = p[2] - c[2];
-    const dd = dr * dr + dg * dg + db * db;
-    if (dd < bd) { bd = dd; best = p; }
-  }
-  return best;
-}
+      /* --- Sample the image with 9 taps across the circle's face --- */
+      const TAPS = [
+        [0, 0],
+        [0.62, 0],
+        [-0.62, 0],
+        [0, 0.62],
+        [0, -0.62],
+        [0.45, 0.45],
+        [-0.45, 0.45],
+        [0.45, -0.45],
+        [-0.45, -0.45],
+      ];
+      function sampleColor(x, y, r) {
+        if (!src.loaded) {
+          return [
+            (120 + Math.random() * 135) | 0,
+            (120 + Math.random() * 135) | 0,
+            (120 + Math.random() * 135) | 0,
+          ];
+        }
+        const d = src.data;
+        let R = 0,
+          G = 0,
+          B = 0;
+        for (const [ox, oy] of TAPS) {
+          const px = clamp(Math.round(x + ox * r), 0, W - 1);
+          const py = clamp(Math.round(y + oy * r), 0, H - 1);
+          const i = (py * W + px) * 4;
+          R += d[i];
+          G += d[i + 1];
+          B += d[i + 2];
+        }
+        let c = [(R / 9) | 0, (G / 9) | 0, (B / 9) | 0];
+        if (S.snap && src.palette.length) c = nearestPalette(c);
+        return c;
+      }
+      function nearestPalette(c) {
+        let best = src.palette[0],
+          bd = 1e9;
+        for (const p of src.palette) {
+          const dr = p[0] - c[0],
+            dg = p[1] - c[1],
+            db = p[2] - c[2];
+          const dd = dr * dr + dg * dg + db * db;
+          if (dd < bd) {
+            bd = dd;
+            best = p;
+          }
+        }
+        return best;
+      }
 
-/* ============================================================
+      /* ============================================================
    BALLS
 ============================================================ */
-class Ball {
-  constructor(x, y, r, fixed = false) {
-    this.x = x; this.y = y; this.px = x; this.py = y;
-    this.ax = 0; this.ay = 0;
-    this.r = r; this.m = r * r;
-    this.fixed = fixed;
-    this.setColor(sampleColor(x, y, r));
-  }
-  setColor(c) {
-    this.c = c;
-    this.css = `rgb(${c[0]},${c[1]},${c[2]})`;
-    this.hi  = `rgb(${clamp(c[0]+42,0,255)|0},${clamp(c[1]+42,0,255)|0},${clamp(c[2]+42,0,255)|0})`;
-    this.lo  = `rgb(${c[0]*0.62|0},${c[1]*0.62|0},${c[2]*0.62|0})`;
-  }
-}
+      class Ball {
+        constructor(x, y, r, fixed = false) {
+          this.x = x;
+          this.y = y;
+          this.px = x;
+          this.py = y;
+          this.ax = 0;
+          this.ay = 0;
+          this.r = r;
+          this.m = r * r;
+          this.fixed = fixed;
+          this.setColor(sampleColor(x, y, r));
+        }
+        setColor(c) {
+          this.c = c;
+          this.css = `rgb(${c[0]},${c[1]},${c[2]})`;
+          this.hi = `rgb(${clamp(c[0] + 42, 0, 255) | 0},${clamp(c[1] + 42, 0, 255) | 0},${clamp(c[2] + 42, 0, 255) | 0})`;
+          this.lo = `rgb(${(c[0] * 0.62) | 0},${(c[1] * 0.62) | 0},${(c[2] * 0.62) | 0})`;
+        }
+      }
 
-let balls = [];
-let base = 11, maxR = 17, cell = 34;
+      let balls = [];
+      let base = 11,
+        maxR = 17,
+        cell = 34;
 
-function computeSizes() {
-  base = 0.5345 * Math.sqrt(AREA / S.detail) * S.sizeScale;
-  maxR = base * 1.55;
-  cell = Math.max(10, maxR * 2);
-}
+      function computeSizes() {
+        base = 0.5345 * Math.sqrt(AREA / S.detail) * S.sizeScale;
+        maxR = base * 1.55;
+        cell = Math.max(10, maxR * 2);
+      }
 
-/* ============================================================
+      /* ============================================================
    SPATIAL HASH GRID
 ============================================================ */
-class Grid {
-  constructor(cs) {
-    this.cs = cs;
-    this.cols = Math.ceil(W / cs) + 1;
-    this.rows = Math.ceil(H / cs) + 1;
-    this.b = Array.from({ length: this.cols * this.rows }, () => []);
-  }
-  clear() { for (const a of this.b) a.length = 0; }
-  key(gx, gy) {
-    return (gx < 0 || gy < 0 || gx >= this.cols || gy >= this.rows) ? -1 : gy * this.cols + gx;
-  }
-  add(i, x, y) {
-    const k = this.key((x / this.cs) | 0, (y / this.cs) | 0);
-    if (k >= 0) this.b[k].push(i);
-  }
-  rebuild() {
-    this.clear();
-    for (let i = 0; i < balls.length; i++) this.add(i, clamp(balls[i].x, 0, W - 1), clamp(balls[i].y, 0, H - 1));
-  }
-}
-let grid = new Grid(34);
+      class Grid {
+        constructor(cs) {
+          this.cs = cs;
+          this.cols = Math.ceil(W / cs) + 1;
+          this.rows = Math.ceil(H / cs) + 1;
+          this.b = Array.from({ length: this.cols * this.rows }, () => []);
+        }
+        clear() {
+          for (const a of this.b) a.length = 0;
+        }
+        key(gx, gy) {
+          return gx < 0 || gy < 0 || gx >= this.cols || gy >= this.rows
+            ? -1
+            : gy * this.cols + gx;
+        }
+        add(i, x, y) {
+          const k = this.key((x / this.cs) | 0, (y / this.cs) | 0);
+          if (k >= 0) this.b[k].push(i);
+        }
+        rebuild() {
+          this.clear();
+          for (let i = 0; i < balls.length; i++)
+            this.add(
+              i,
+              clamp(balls[i].x, 0, W - 1),
+              clamp(balls[i].y, 0, H - 1),
+            );
+        }
+      }
+      let grid = new Grid(34);
 
-/* ============================================================
+      /* ============================================================
    PHYSICS
 ============================================================ */
-function resolvePair(i, j) {
-  const a = balls[i], b = balls[j];
-  const dx = a.x - b.x, dy = a.y - b.y;
-  const d2 = dx * dx + dy * dy;
-  const md = a.r + b.r;
-  if (d2 >= md * md || d2 < 1e-8) return;
+      function resolvePair(i, j) {
+        const a = balls[i],
+          b = balls[j];
+        const dx = a.x - b.x,
+          dy = a.y - b.y;
+        const d2 = dx * dx + dy * dy;
+        const md = a.r + b.r;
+        if (d2 >= md * md || d2 < 1e-8) return;
 
-  const d = Math.sqrt(d2);
-  const nx = dx / d, ny = dy / d;
-  const ov = (md - d) * 0.5 * PHYS.DAMP;
-  const tm = a.m + b.m;
-  const r1 = a.fixed ? 0 : (b.fixed ? 1 : b.m / tm);
-  const r2 = b.fixed ? 0 : (a.fixed ? 1 : a.m / tm);
+        const d = Math.sqrt(d2);
+        const nx = dx / d,
+          ny = dy / d;
+        const ov = (md - d) * 0.5 * PHYS.DAMP;
+        const tm = a.m + b.m;
+        const r1 = a.fixed ? 0 : b.fixed ? 1 : b.m / tm;
+        const r2 = b.fixed ? 0 : a.fixed ? 1 : a.m / tm;
 
-  a.x += nx * ov * r1 * 2; a.y += ny * ov * r1 * 2;
-  b.x -= nx * ov * r2 * 2; b.y -= ny * ov * r2 * 2;
-}
-
-const NEIGH = [[1, 0], [-1, 1], [0, 1], [1, 1]];
-function solveCollisions() {
-  grid.rebuild();
-  const { cols, rows, b } = grid;
-  for (let gy = 0; gy < rows; gy++) {
-    for (let gx = 0; gx < cols; gx++) {
-      const A = b[gy * cols + gx];
-      if (!A.length) continue;
-      for (let m = 0; m < A.length; m++)
-        for (let n = m + 1; n < A.length; n++) resolvePair(A[m], A[n]);
-      for (const [dx, dy] of NEIGH) {
-        const k = grid.key(gx + dx, gy + dy);
-        if (k < 0) continue;
-        const B = b[k];
-        for (let m = 0; m < A.length; m++)
-          for (let n = 0; n < B.length; n++) resolvePair(A[m], B[n]);
+        a.x += nx * ov * r1 * 2;
+        a.y += ny * ov * r1 * 2;
+        b.x -= nx * ov * r2 * 2;
+        b.y -= ny * ov * r2 * 2;
       }
-    }
-  }
-}
 
-function constrain(b) {
-  const vx = b.x - b.px, vy = b.y - b.py;
-  if (b.x - b.r < 0)      { b.x = b.r;      b.px = b.x + vx * PHYS.BOUNCE; }
-  else if (b.x + b.r > W) { b.x = W - b.r;  b.px = b.x + vx * PHYS.BOUNCE; }
-  if (b.y - b.r < 0)      { b.y = b.r;      b.py = b.y + vy * PHYS.BOUNCE; }
-  else if (b.y + b.r > H) { b.y = H - b.r;  b.py = b.y + vy * PHYS.BOUNCE; }
-}
+      const NEIGH = [
+        [1, 0],
+        [-1, 1],
+        [0, 1],
+        [1, 1],
+      ];
+      function solveCollisions() {
+        grid.rebuild();
+        const { cols, rows, b } = grid;
+        for (let gy = 0; gy < rows; gy++) {
+          for (let gx = 0; gx < cols; gx++) {
+            const A = b[gy * cols + gx];
+            if (!A.length) continue;
+            for (let m = 0; m < A.length; m++)
+              for (let n = m + 1; n < A.length; n++) resolvePair(A[m], A[n]);
+            for (const [dx, dy] of NEIGH) {
+              const k = grid.key(gx + dx, gy + dy);
+              if (k < 0) continue;
+              const B = b[k];
+              for (let m = 0; m < A.length; m++)
+                for (let n = 0; n < B.length; n++) resolvePair(A[m], B[n]);
+            }
+          }
+        }
+      }
 
-function integrate(b, dt) {
-  const vx = (b.x - b.px) * PHYS.FRICTION;
-  const vy = (b.y - b.py) * PHYS.FRICTION;
-  b.px = b.x; b.py = b.y;
-  b.x += vx + b.ax * dt * dt;
-  b.y += vy + b.ay * dt * dt;
-  b.ax = 0; b.ay = 0;
-}
+      function constrain(b) {
+        const vx = b.x - b.px,
+          vy = b.y - b.py;
+        if (b.x - b.r < 0) {
+          b.x = b.r;
+          b.px = b.x + vx * PHYS.BOUNCE;
+        } else if (b.x + b.r > W) {
+          b.x = W - b.r;
+          b.px = b.x + vx * PHYS.BOUNCE;
+        }
+        if (b.y - b.r < 0) {
+          b.y = b.r;
+          b.py = b.y + vy * PHYS.BOUNCE;
+        } else if (b.y + b.r > H) {
+          b.y = H - b.r;
+          b.py = b.y + vy * PHYS.BOUNCE;
+        }
+      }
 
-function physicsStep() {
-  const sub = PHYS.DT / PHYS.SUBSTEPS;
-  for (let s = 0; s < PHYS.SUBSTEPS; s++) {
-    for (const b of balls) if (!b.fixed) b.ay += PHYS.G;
-    solveCollisions();
-    for (const b of balls) constrain(b);
-    for (const b of balls) if (!b.fixed) integrate(b, sub);
-  }
-}
+      function integrate(b, dt) {
+        const vx = (b.x - b.px) * PHYS.FRICTION;
+        const vy = (b.y - b.py) * PHYS.FRICTION;
+        b.px = b.x;
+        b.py = b.y;
+        b.x += vx + b.ax * dt * dt;
+        b.y += vy + b.ay * dt * dt;
+        b.ax = 0;
+        b.ay = 0;
+      }
 
-function avgSpeed() {
-  if (!balls.length) return 0;
-  let s = 0;
-  for (const b of balls) s += Math.abs(b.x - b.px) + Math.abs(b.y - b.py);
-  return s / balls.length;
-}
+      function physicsStep() {
+        const sub = PHYS.DT / PHYS.SUBSTEPS;
+        for (let s = 0; s < PHYS.SUBSTEPS; s++) {
+          for (const b of balls) if (!b.fixed) b.ay += PHYS.G;
+          solveCollisions();
+          for (const b of balls) constrain(b);
+          for (const b of balls) if (!b.fixed) integrate(b, sub);
+        }
+      }
 
-/* ============================================================
+      function avgSpeed() {
+        if (!balls.length) return 0;
+        let s = 0;
+        for (const b of balls) s += Math.abs(b.x - b.px) + Math.abs(b.y - b.py);
+        return s / balls.length;
+      }
+
+      /* ============================================================
    GAP FILLING (detail pass)
 ============================================================ */
-let fillAttempts = 0, fillMisses = 0, maxTotal = 9000;
+      let fillAttempts = 0,
+        fillMisses = 0,
+        maxTotal = 9000;
 
-function freeRadiusAt(x, y, limit) {
-  let best = Math.min(x, y, W - x, H - y);
-  if (best <= 0) return 0;
-  if (best > limit) best = limit;
-  const range = Math.ceil((limit + maxR) / grid.cs) + 1;
-  const cx = (x / grid.cs) | 0, cy = (y / grid.cs) | 0;
-  for (let gy = cy - range; gy <= cy + range; gy++) {
-    for (let gx = cx - range; gx <= cx + range; gx++) {
-      const k = grid.key(gx, gy);
-      if (k < 0) continue;
-      for (const i of grid.b[k]) {
-        const b = balls[i];
-        const d = Math.hypot(x - b.x, y - b.y) - b.r;
-        if (d < best) { best = d; if (best <= 0) return 0; }
+      function freeRadiusAt(x, y, limit) {
+        let best = Math.min(x, y, W - x, H - y);
+        if (best <= 0) return 0;
+        if (best > limit) best = limit;
+        const range = Math.ceil((limit + maxR) / grid.cs) + 1;
+        const cx = (x / grid.cs) | 0,
+          cy = (y / grid.cs) | 0;
+        for (let gy = cy - range; gy <= cy + range; gy++) {
+          for (let gx = cx - range; gx <= cx + range; gx++) {
+            const k = grid.key(gx, gy);
+            if (k < 0) continue;
+            for (const i of grid.b[k]) {
+              const b = balls[i];
+              const d = Math.hypot(x - b.x, y - b.y) - b.r;
+              if (d < best) {
+                best = d;
+                if (best <= 0) return 0;
+              }
+            }
+          }
+        }
+        return best;
       }
-    }
-  }
-  return best;
-}
 
-function fillStep(budget) {
-  const fMax = base * 0.95, fMin = Math.max(0.9, base * 0.15);
-  const pts = src.detailPts, np = pts.length / 2;
-  let added = 0;
+      function fillStep(budget) {
+        const fMax = base * 0.95,
+          fMin = Math.max(0.9, base * 0.15);
+        const pts = src.detailPts,
+          np = pts.length / 2;
+        let added = 0;
 
-  for (let t = 0; t < budget && balls.length < maxTotal; t++) {
-    fillAttempts++;
-    let x, y;
-    if (np && Math.random() < 0.65) {
-      const i = (Math.random() * np) | 0;
-      x = pts[i * 2] + (Math.random() - .5) * 4;
-      y = pts[i * 2 + 1] + (Math.random() - .5) * 4;
-    } else {
-      x = Math.random() * W; y = Math.random() * H;
-    }
-    const r = freeRadiusAt(x, y, fMax);
-    if (r >= fMin) {
-      const b = new Ball(x, y, r * 0.97, true);
-      balls.push(b);
-      grid.add(balls.length - 1, clamp(x, 0, W - 1), clamp(y, 0, H - 1));
-      added++; fillMisses = 0;
-    } else fillMisses++;
-  }
-  return added;
-}
+        for (let t = 0; t < budget && balls.length < maxTotal; t++) {
+          fillAttempts++;
+          let x, y;
+          if (np && Math.random() < 0.65) {
+            const i = (Math.random() * np) | 0;
+            x = pts[i * 2] + (Math.random() - 0.5) * 4;
+            y = pts[i * 2 + 1] + (Math.random() - 0.5) * 4;
+          } else {
+            x = Math.random() * W;
+            y = Math.random() * H;
+          }
+          const r = freeRadiusAt(x, y, fMax);
+          if (r >= fMin) {
+            const b = new Ball(x, y, r * 0.97, true);
+            balls.push(b);
+            grid.add(balls.length - 1, clamp(x, 0, W - 1), clamp(y, 0, H - 1));
+            added++;
+            fillMisses = 0;
+          } else fillMisses++;
+        }
+        return added;
+      }
 
-/* ============================================================
+      /* ============================================================
    RENDER
 ============================================================ */
-function render(highQuality = false) {
-  ctx.fillStyle = `rgb(${src.bg[0]},${src.bg[1]},${src.bg[2]})`;
-  ctx.fillRect(0, 0, W, H);
+      function render(highQuality = false) {
+        ctx.fillStyle = `rgb(${src.bg[0]},${src.bg[1]},${src.bg[2]})`;
+        ctx.fillRect(0, 0, W, H);
 
-  if (S.ghost && src.loaded) {
-    ctx.globalAlpha = 0.16;
-    ctx.drawImage(src.canvas, 0, 0);
-    ctx.globalAlpha = 1;
-  }
+        if (S.ghost && src.loaded) {
+          ctx.globalAlpha = 0.16;
+          ctx.drawImage(src.canvas, 0, 0);
+          ctx.globalAlpha = 1;
+        }
 
-  const useGloss = S.gloss && (highQuality || balls.length < 1100);
+        const useGloss = S.gloss && (highQuality || balls.length < 1100);
 
-  for (const b of balls) {
-    ctx.beginPath();
-    ctx.arc(b.x, b.y, b.r, 0, TAU);
-    if (useGloss && b.r > 1.6) {
-      const g = ctx.createRadialGradient(
-        b.x - b.r * .34, b.y - b.r * .34, b.r * .08,
-        b.x, b.y, b.r
-      );
-      g.addColorStop(0, b.hi);
-      g.addColorStop(.55, b.css);
-      g.addColorStop(1, b.lo);
-      ctx.fillStyle = g;
-    } else {
-      ctx.fillStyle = b.css;
-    }
-    ctx.fill();
-  }
-}
+        for (const b of balls) {
+          ctx.beginPath();
+          ctx.arc(b.x, b.y, b.r, 0, TAU);
+          if (useGloss && b.r > 1.6) {
+            const g = ctx.createRadialGradient(
+              b.x - b.r * 0.34,
+              b.y - b.r * 0.34,
+              b.r * 0.08,
+              b.x,
+              b.y,
+              b.r,
+            );
+            g.addColorStop(0, b.hi);
+            g.addColorStop(0.55, b.css);
+            g.addColorStop(1, b.lo);
+            ctx.fillStyle = g;
+          } else {
+            ctx.fillStyle = b.css;
+          }
+          ctx.fill();
+        }
+      }
 
-/* ============================================================
+      /* ============================================================
    MAIN LOOP
 ============================================================ */
-let phase = 'IDLE';      // IDLE | SPAWN | SETTLE | FILL | DONE
-let spawned = 0, settleWait = 0, running = false;
-let acc = 0, last = 0, fps = 60, frame = 0;
+      let phase = "IDLE"; // IDLE | SPAWN | SETTLE | FILL | DONE
+      let spawned = 0,
+        settleWait = 0,
+        running = false;
+      let acc = 0,
+        last = 0,
+        fps = 60,
+        frame = 0;
 
-function restart() {
-  computeSizes();
-  grid = new Grid(cell);
-  balls = [];
-  spawned = 0; settleWait = 0;
-  fillAttempts = 0; fillMisses = 0;
-  acc = 0; last = 0;
-  maxTotal = Math.min(11000, S.detail * 4);
-  phase = 'SPAWN';
-  running = true;
-  el.play.textContent = 'Pause';
-  render();
-  requestAnimationFrame(loop);
-}
+      function restart() {
+        computeSizes();
+        grid = new Grid(cell);
+        balls = [];
+        spawned = 0;
+        settleWait = 0;
+        fillAttempts = 0;
+        fillMisses = 0;
+        acc = 0;
+        last = 0;
+        maxTotal = Math.min(11000, S.detail * 4);
+        phase = "SPAWN";
+        running = true;
+        el.play.textContent = "Pause";
+        render();
+        requestAnimationFrame(loop);
+      }
 
-function spawnBall() {
-  const cx = W / 2 + (Math.random() - .5) * 6;
-  const cy = H / 2 + (Math.random() - .5) * 6;
-  const t = Math.random();
-  const r = base * (0.55 + t * t);              // many small, a few large
-  const b = new Ball(cx, cy, r);
-  const a = Math.random() * TAU;
-  b.px = cx - Math.cos(a) * PHYS.BLAST * PHYS.DT;
-  b.py = cy - Math.sin(a) * PHYS.BLAST * PHYS.DT;
-  balls.push(b);
-  spawned++;
-}
+      function spawnBall() {
+        const cx = W / 2 + (Math.random() - 0.5) * 6;
+        const cy = H / 2 + (Math.random() - 0.5) * 6;
+        const t = Math.random();
+        const r = base * (0.55 + t * t); // many small, a few large
+        const b = new Ball(cx, cy, r);
+        const a = Math.random() * TAU;
+        b.px = cx - Math.cos(a) * PHYS.BLAST * PHYS.DT;
+        b.py = cy - Math.sin(a) * PHYS.BLAST * PHYS.DT;
+        balls.push(b);
+        spawned++;
+      }
 
-function recolorMoving() {
-  for (const b of balls) if (!b.fixed) b.setColor(sampleColor(b.x, b.y, b.r));
-}
+      function recolorMoving() {
+        for (const b of balls)
+          if (!b.fixed) b.setColor(sampleColor(b.x, b.y, b.r));
+      }
 
-function step() {
-  if (phase === 'SPAWN') {
-    for (let i = 0; i < PHYS.SPAWN_PER_STEP && spawned < S.detail; i++) spawnBall();
-    physicsStep();
-    if (spawned >= S.detail) phase = 'SETTLE';
-  }
-  else if (phase === 'SETTLE') {
-    physicsStep();
-    settleWait++;
-    if ((avgSpeed() < 0.09 && settleWait > 40) || settleWait > 620) {
-      for (const b of balls) { b.fixed = true; b.setColor(sampleColor(b.x, b.y, b.r)); }
-      grid.rebuild();
-      phase = S.gapfill ? 'FILL' : 'DONE';
-      if (phase === 'DONE') finish();
-    }
-  }
-  else if (phase === 'FILL') {
-    fillStep(1400);
-    if (balls.length >= maxTotal || fillAttempts > 160000 || fillMisses > 9000) {
-      phase = 'DONE';
-      finish();
-    }
-  }
-}
+      function step() {
+        if (phase === "SPAWN") {
+          for (let i = 0; i < PHYS.SPAWN_PER_STEP && spawned < S.detail; i++)
+            spawnBall();
+          physicsStep();
+          if (spawned >= S.detail) phase = "SETTLE";
+        } else if (phase === "SETTLE") {
+          physicsStep();
+          settleWait++;
+          if ((avgSpeed() < 0.09 && settleWait > 40) || settleWait > 620) {
+            for (const b of balls) {
+              b.fixed = true;
+              b.setColor(sampleColor(b.x, b.y, b.r));
+            }
+            grid.rebuild();
+            phase = S.gapfill ? "FILL" : "DONE";
+            if (phase === "DONE") finish();
+          }
+        } else if (phase === "FILL") {
+          fillStep(1400);
+          if (
+            balls.length >= maxTotal ||
+            fillAttempts > 160000 ||
+            fillMisses > 9000
+          ) {
+            phase = "DONE";
+            finish();
+          }
+        }
+      }
 
-function finish() {
-  render(true);
-  setStatus();
-}
+      function finish() {
+        render(true);
+        setStatus();
+      }
 
-function loop(ts) {
-  if (!running) return;
-  if (!last) last = ts;
-  const dt = Math.min(0.05, (ts - last) / 1000);
-  fps = fps * 0.9 + (1 / Math.max(dt, 1e-4)) * 0.1;
-  last = ts;
+      function loop(ts) {
+        if (!running) return;
+        if (!last) last = ts;
+        const dt = Math.min(0.05, (ts - last) / 1000);
+        fps = fps * 0.9 + (1 / Math.max(dt, 1e-4)) * 0.1;
+        last = ts;
 
-  if (phase !== 'DONE') {
-    acc += dt;
-    let guard = 0;
-    while (acc >= PHYS.DT && guard++ < 4) { step(); acc -= PHYS.DT; }
+        if (phase !== "DONE") {
+          acc += dt;
+          let guard = 0;
+          while (acc >= PHYS.DT && guard++ < 4) {
+            step();
+            acc -= PHYS.DT;
+          }
 
-    frame++;
-    if (phase !== 'FILL' && frame % 2 === 0) recolorMoving();
-    render();
-    setStatus();
-  }
-  requestAnimationFrame(loop);
-}
+          frame++;
+          if (phase !== "FILL" && frame % 2 === 0) recolorMoving();
+          render();
+          setStatus();
+        }
+        requestAnimationFrame(loop);
+      }
 
-function setStatus() {
-  const names = { IDLE: 'idle', SPAWN: 'spawning', SETTLE: 'settling', FILL: 'filling gaps', DONE: 'complete' };
-  el.status.textContent =
-    `${names[phase]} · circles: ${balls.length} · palette: ${src.palette.length} colours · ${fps.toFixed(0)} fps`;
-}
+      function setStatus() {
+        const names = {
+          IDLE: "idle",
+          SPAWN: "spawning",
+          SETTLE: "settling",
+          FILL: "filling gaps",
+          DONE: "complete",
+        };
+        el.status.textContent = `${names[phase]} · circles: ${balls.length} · palette: ${src.palette.length} colours · ${fps.toFixed(0)} fps`;
+      }
 
-/* ============================================================
+      /* ============================================================
    UI
 ============================================================ */
-const clamp = (v, a, b) => v < a ? a : (v > b ? b : v);
+      const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
 
-el.pick.onclick = () => el.file.click();
-el.file.onchange = e => { if (e.target.files[0]) loadImage(e.target.files[0]); };
+      el.pick.onclick = () => el.file.click();
+      el.file.onchange = (e) => {
+        if (e.target.files[0]) loadImage(e.target.files[0]);
+      };
 
-el.play.onclick = () => {
-  if (phase === 'DONE') return;
-  running = !running;
-  el.play.textContent = running ? 'Pause' : 'Resume';
-  if (running) { last = 0; requestAnimationFrame(loop); }
-};
-el.reset.onclick = restart;
+      el.play.onclick = () => {
+        if (phase === "DONE") return;
+        running = !running;
+        el.play.textContent = running ? "Pause" : "Resume";
+        if (running) {
+          last = 0;
+          requestAnimationFrame(loop);
+        }
+      };
+      el.reset.onclick = restart;
 
-el.save.onclick = () => {
-  render(true);
-  const a = document.createElement('a');
-  a.download = 'circle-mosaic.png';
-  a.href = canvas.toDataURL('image/png');
-  a.click();
-};
+      el.save.onclick = () => {
+        render(true);
+        const a = document.createElement("a");
+        a.download = "circle-mosaic.png";
+        a.href = canvas.toDataURL("image/png");
+        a.click();
+      };
 
-el.detail.oninput = e => { S.detail = +e.target.value; el.detailV.textContent = S.detail; };
-el.detail.onchange = restart;
-el.size.oninput = e => { S.sizeScale = e.target.value / 100; el.sizeV.textContent = S.sizeScale.toFixed(2) + '×'; };
-el.size.onchange = restart;
+      el.detail.oninput = (e) => {
+        S.detail = +e.target.value;
+        el.detailV.textContent = S.detail;
+      };
+      el.detail.onchange = restart;
+      el.size.oninput = (e) => {
+        S.sizeScale = e.target.value / 100;
+        el.sizeV.textContent = S.sizeScale.toFixed(2) + "×";
+      };
+      el.size.onchange = restart;
 
-el.gapfill.onchange = e => { S.gapfill = e.target.checked; };
-el.gloss.onchange = e => { S.gloss = e.target.checked; render(phase === 'DONE'); };
-el.ghost.onchange = e => { S.ghost = e.target.checked; render(phase === 'DONE'); };
-el.snap.onchange = e => {
-  S.snap = e.target.checked;
-  for (const b of balls) b.setColor(sampleColor(b.x, b.y, b.r));
-  render(phase === 'DONE');
-};
+      el.gapfill.onchange = (e) => {
+        S.gapfill = e.target.checked;
+      };
+      el.gloss.onchange = (e) => {
+        S.gloss = e.target.checked;
+        render(phase === "DONE");
+      };
+      el.ghost.onchange = (e) => {
+        S.ghost = e.target.checked;
+        render(phase === "DONE");
+      };
+      el.snap.onchange = (e) => {
+        S.snap = e.target.checked;
+        for (const b of balls) b.setColor(sampleColor(b.x, b.y, b.r));
+        render(phase === "DONE");
+      };
 
-/* drag + drop / paste */
-['dragenter', 'dragover'].forEach(ev =>
-  el.drop.addEventListener(ev, e => { e.preventDefault(); el.drop.classList.add('over'); }));
-['dragleave', 'drop'].forEach(ev =>
-  el.drop.addEventListener(ev, e => { e.preventDefault(); el.drop.classList.remove('over'); }));
-el.drop.addEventListener('drop', e => {
-  const f = e.dataTransfer.files[0];
-  if (f && f.type.startsWith('image/')) loadImage(f);
-});
-window.addEventListener('paste', e => {
-  for (const item of e.clipboardData.items) {
-    if (item.type.startsWith('image/')) { loadImage(item.getAsFile()); break; }
-  }
-});
+      /* drag + drop / paste */
+      ["dragenter", "dragover"].forEach((ev) =>
+        el.drop.addEventListener(ev, (e) => {
+          e.preventDefault();
+          el.drop.classList.add("over");
+        }),
+      );
+      ["dragleave", "drop"].forEach((ev) =>
+        el.drop.addEventListener(ev, (e) => {
+          e.preventDefault();
+          el.drop.classList.remove("over");
+        }),
+      );
+      el.drop.addEventListener("drop", (e) => {
+        const f = e.dataTransfer.files[0];
+        if (f && f.type.startsWith("image/")) loadImage(f);
+      });
+      window.addEventListener("paste", (e) => {
+        for (const item of e.clipboardData.items) {
+          if (item.type.startsWith("image/")) {
+            loadImage(item.getAsFile());
+            break;
+          }
+        }
+      });
 
-/* first paint */
-render();
-</script>
-</body>
+      /* first paint */
+      render();
+    </script>
+  </body>
 </html>

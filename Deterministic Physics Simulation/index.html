@@ -6,110 +6,147 @@
 <title>Circle Mosaic Physics</title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; overflow: hidden; }
   body {
     background: #07070a;
     color: #e8e8ef;
-    font: 14px/1.4 system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-    display: flex; flex-direction: column; align-items: center;
-    padding: 18px 14px 40px;
+    font: 13px/1.3 system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+    display: flex; flex-direction: column;
+    padding: 8px;
+    gap: 8px;
   }
-  h1 { font-size: 18px; letter-spacing: .4px; margin-bottom: 12px; font-weight: 600; }
-  .wrap { width: 100%; max-width: 980px; }
 
-  .panel {
-    background: #101016; border: 1px solid #23232e; border-radius: 14px;
-    padding: 12px 14px; margin-bottom: 12px;
-    display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center;
+  .header {
+    display: flex; align-items: center; gap: 10px;
+    padding: 7px 12px;
+    background: #101016; border: 1px solid #23232e; border-radius: 10px;
+    flex-shrink: 0;
+    flex-wrap: wrap;
   }
+  .header h1 { font-size: 15px; font-weight: 600; letter-spacing: .3px; margin-right: auto; }
+
+  .main {
+    display: flex; gap: 8px;
+    flex: 1;
+    min-height: 0;
+  }
+
+  .canvas-box {
+    flex: 1;
+    display: flex; flex-direction: column;
+    background: #101016; border: 1px solid #23232e; border-radius: 10px;
+    overflow: hidden;
+    min-width: 0;
+  }
+  .canvas-box .label {
+    padding: 5px 10px;
+    font-size: 11px;
+    color: #7a7a92;
+    text-transform: uppercase;
+    letter-spacing: .6px;
+    border-bottom: 1px solid #23232e;
+    flex-shrink: 0;
+    display: flex; justify-content: space-between;
+  }
+  .canvas-box .label b { color: #cfcfe4; font-weight: 500; }
+  .canvas-box canvas {
+    flex: 1;
+    width: 100%;
+    height: 100%;
+    display: block;
+    background: #000;
+    object-fit: contain;
+  }
+
+  .controls {
+    display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center;
+    padding: 8px 12px;
+    background: #101016; border: 1px solid #23232e; border-radius: 10px;
+    flex-shrink: 0;
+  }
+
   button {
     background: #1b1b24; color: #fff; border: 1px solid #33334a;
-    border-radius: 9px; padding: 9px 14px; cursor: pointer; font-size: 13px;
+    border-radius: 7px; padding: 6px 11px; cursor: pointer; font-size: 12px;
     transition: .15s;
   }
-  button:hover { background: #26263a; border-color: #4a4a6a; }
+  button:hover { background: #26263a; }
   button.primary { background: #2d5cff; border-color: #2d5cff; }
   button.primary:hover { background: #4571ff; }
 
-  .ctrl { display: flex; align-items: center; gap: 7px; font-size: 12px; color: #a9a9bd; }
-  input[type=range] { width: 118px; accent-color: #2d5cff; }
-  input[type=checkbox] { accent-color: #2d5cff; width: 15px; height: 15px; }
-  .val { color: #fff; min-width: 34px; font-variant-numeric: tabular-nums; }
+  .ctrl { display: flex; align-items: center; gap: 5px; font-size: 11px; color: #a9a9bd; }
+  input[type=range] { width: 90px; accent-color: #2d5cff; }
+  input[type=checkbox] { accent-color: #2d5cff; width: 13px; height: 13px; }
+  .val { color: #fff; min-width: 28px; font-variant-numeric: tabular-nums; font-size: 11px; }
 
-  #drop {
-    position: relative; border-radius: 16px; overflow: hidden;
-    border: 1px solid #23232e; background: #000; line-height: 0;
+  #palette { display: flex; gap: 4px; flex-wrap: wrap; }
+  .sw { width: 38px; border-radius: 5px; overflow: hidden; border: 1px solid #2a2a38; }
+  .sw i { display: block; height: 20px; }
+  .sw span { display: block; font-size: 8px; color: #9a9ab0; padding: 2px 0; background: #101016; text-align: center; }
+
+  #status { font-size: 11px; color: #7f8ca8; font-variant-numeric: tabular-nums; margin-left: auto; }
+
+  @media (max-width: 700px) {
+    .main { flex-direction: column; }
+    .header h1 { font-size: 13px; }
   }
-  #drop.over { border-color: #2d5cff; box-shadow: 0 0 0 3px rgba(45,92,255,.25); }
-  canvas { width: 100%; height: auto; display: block; touch-action: none; }
-
-  #hint {
-    position: absolute; inset: 0; display: flex; flex-direction: column;
-    align-items: center; justify-content: center; gap: 6px;
-    color: #7a7a92; font-size: 15px; pointer-events: none; line-height: 1.5;
-    text-align: center;
-  }
-  #hint b { color: #cfcfe4; font-weight: 600; }
-
-  #palette { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 12px; }
-  .sw {
-    width: 54px; border-radius: 8px; overflow: hidden;
-    border: 1px solid #2a2a38; text-align: center;
-  }
-  .sw i { display: block; height: 34px; }
-  .sw span { display: block; font-size: 9px; color: #9a9ab0; padding: 3px 0; background: #101016; }
-
-  #status { margin-top: 10px; color: #7f8ca8; font-size: 12.5px; font-variant-numeric: tabular-nums; }
 </style>
 </head>
 <body>
-<div class="wrap">
-  <h1>Circle Mosaic Physics</h1>
 
-  <div class="panel">
-    <button class="primary" id="pickBtn">Choose Image</button>
-    <input type="file" id="file" accept="image/*" hidden />
-    <button id="playBtn">Pause</button>
-    <button id="resetBtn">Restart</button>
-    <button id="saveBtn">Save PNG</button>
+<div class="header">
+  <h1>◉ Circle Mosaic</h1>
+  <button class="primary" id="pickBtn">Choose Image</button>
+  <input type="file" id="file" accept="image/*" hidden />
+  <button id="playBtn">Pause</button>
+  <button id="resetBtn">Restart</button>
+  <button id="saveBtn">Save PNG</button>
+</div>
 
-    <div class="ctrl">Detail
-      <input type="range" id="detail" min="400" max="3200" step="100" value="1500">
-      <span class="val" id="detailV">1500</span>
-    </div>
-    <div class="ctrl">Size
-      <input type="range" id="size" min="60" max="150" step="5" value="100">
-      <span class="val" id="sizeV">1.0×</span>
-    </div>
-    <div class="ctrl"><input type="checkbox" id="gapfill" checked> Gap fill</div>
-    <div class="ctrl"><input type="checkbox" id="gloss" checked> Shading</div>
-    <div class="ctrl"><input type="checkbox" id="snap"> Snap to palette</div>
-    <div class="ctrl"><input type="checkbox" id="ghost"> Ghost image</div>
+<div class="main">
+  <div class="canvas-box">
+    <div class="label"><b>Original</b><span id="srcInfo">—</span></div>
+    <canvas id="srcCanvas"></canvas>
   </div>
-
-  <div id="drop">
+  <div class="canvas-box">
+    <div class="label"><b>Circle Mosaic</b><span id="mosInfo">—</span></div>
     <canvas id="c"></canvas>
-    <div id="hint"><b>Drop an image here</b><span>or click “Choose Image” · Ctrl+V also works</span></div>
   </div>
+</div>
 
+<div class="controls">
+  <div class="ctrl">Detail
+    <input type="range" id="detail" min="400" max="3200" step="100" value="1500">
+    <span class="val" id="detailV">1500</span>
+  </div>
+  <div class="ctrl">Size
+    <input type="range" id="size" min="60" max="150" step="5" value="100">
+    <span class="val" id="sizeV">1.0×</span>
+  </div>
+  <div class="ctrl"><input type="checkbox" id="gapfill" checked> Gap fill</div>
+  <div class="ctrl"><input type="checkbox" id="gloss" checked> Shading</div>
+  <div class="ctrl"><input type="checkbox" id="snap"> Palette</div>
+  <div class="ctrl"><input type="checkbox" id="ghost"> Ghost</div>
   <div id="palette"></div>
-  <div id="status">Waiting for an image…</div>
+  <div id="status">Loading sample…</div>
 </div>
 
 <script>
 /* ============================================================
    CONFIG
 ============================================================ */
-const W = 760, H = 760, AREA = W * H, TAU = Math.PI * 2;
+let W = 500, H = 500;
+const TAU = Math.PI * 2;
 
 const PHYS = {
-  G: 1500,          // gravity px/s^2
+  G: 1500,
   DT: 1 / 60,
   SUBSTEPS: 6,
-  BOUNCE: 0.35,     // wall energy kept
-  FRICTION: 0.9985, // air drag
-  DAMP: 0.92,       // collision separation damping
+  BOUNCE: 0.35,
+  FRICTION: 0.9985,
+  DAMP: 0.92,
   SPAWN_PER_STEP: 7,
-  BLAST: 430        // initial outward speed
+  BLAST: 430
 };
 
 const S = {
@@ -125,12 +162,11 @@ const S = {
    DOM
 ============================================================ */
 const canvas = document.getElementById('c');
-canvas.width = W; canvas.height = H;
+const srcCanvas = document.getElementById('srcCanvas');
 const ctx = canvas.getContext('2d');
+const sctx = srcCanvas.getContext('2d', { willReadFrequently: true });
 
 const el = {
-  drop: document.getElementById('drop'),
-  hint: document.getElementById('hint'),
   file: document.getElementById('file'),
   pick: document.getElementById('pickBtn'),
   play: document.getElementById('playBtn'),
@@ -145,38 +181,67 @@ const el = {
   snap: document.getElementById('snap'),
   ghost: document.getElementById('ghost'),
   palette: document.getElementById('palette'),
-  status: document.getElementById('status')
+  status: document.getElementById('status'),
+  srcInfo: document.getElementById('srcInfo'),
+  mosInfo: document.getElementById('mosInfo')
 };
+
+/* ============================================================
+   CANVAS SIZING (no scroll, fits viewport)
+============================================================ */
+function resizeCanvases() {
+  const headerH = 50;
+  const controlsH = 60;
+  const gap = 24;
+  const availH = window.innerHeight - headerH - controlsH - gap;
+  const availW = window.innerWidth / 2 - 20;
+  const size = Math.max(280, Math.min(600, Math.min(availH, availW)));
+  W = Math.floor(size);
+  H = Math.floor(size);
+  canvas.width = W; canvas.height = H;
+  srcCanvas.width = W; srcCanvas.height = H;
+}
+resizeCanvases();
+window.addEventListener('resize', () => {
+  resizeCanvases();
+  if (src.loaded) {
+    drawSourceImage(src.lastImg);
+    restart();
+  }
+});
 
 /* ============================================================
    SOURCE IMAGE + COLOR ANALYSIS
 ============================================================ */
 const src = {
   loaded: false,
-  canvas: document.createElement('canvas'),
+  lastImg: null,
   data: null,
   palette: [],
   bg: [7, 7, 10],
-  detailPts: []   // high-contrast pixel locations for smart gap filling
+  detailPts: []
 };
-src.canvas.width = W; src.canvas.height = H;
-const sctx = src.canvas.getContext('2d', { willReadFrequently: true });
+
+/* Draw image with CONTAIN fit (whole image visible, no cropping) */
+function drawSourceImage(img) {
+  sctx.fillStyle = '#000';
+  sctx.fillRect(0, 0, W, H);
+  // Contain fit — whole image visible
+  const sc = Math.min(W / img.width, H / img.height);
+  const dw = img.width * sc, dh = img.height * sc;
+  sctx.drawImage(img, (W - dw) / 2, (H - dh) / 2, dw, dh);
+  src.data = sctx.getImageData(0, 0, W, H).data;
+  src.loaded = true;
+  el.srcInfo.textContent = `${img.width}×${img.height}`;
+}
 
 function loadImage(file) {
   const img = new Image();
   img.onload = () => {
-    // "cover" fit so the picture never distorts
-    const sc = Math.max(W / img.width, H / img.height);
-    const dw = img.width * sc, dh = img.height * sc;
-    sctx.clearRect(0, 0, W, H);
-    sctx.drawImage(img, (W - dw) / 2, (H - dh) / 2, dw, dh);
-
-    src.data = sctx.getImageData(0, 0, W, H).data;
-    src.loaded = true;
-
-    analyseColors();          // <-- palette identified immediately
-    buildDetailMap();         // <-- where the fine detail lives
-    el.hint.style.display = 'none';
+    src.lastImg = img;
+    drawSourceImage(img);
+    analyseColors();
+    buildDetailMap();
     restart();
     URL.revokeObjectURL(img.src);
   };
@@ -194,9 +259,8 @@ function analyseColors() {
       px.push([d[i], d[i + 1], d[i + 2]]);
     }
   }
-  src.palette = medianCut(px, 12);
+  src.palette = medianCut(px, 10);
 
-  // background = darkest palette entry, dimmed
   let dark = src.palette[0], best = 1e9;
   for (const c of src.palette) {
     const l = c[0] * .299 + c[1] * .587 + c[2] * .114;
@@ -219,8 +283,7 @@ function medianCut(pixels, k) {
     const mid = box.length >> 1;
     boxes.push(box.slice(0, mid), box.slice(mid));
   }
-  return boxes.map(avgColor)
-    .sort((a, b) => lum(b) - lum(a));
+  return boxes.map(avgColor).sort((a, b) => lum(b) - lum(a));
 }
 function channelRange(box, c) {
   let lo = 255, hi = 0;
@@ -253,7 +316,6 @@ function renderSwatches() {
 }
 const hex = c => '#' + c.map(v => v.toString(16).padStart(2, '0')).join('').toUpperCase();
 
-/* --- Edge/detail map: gap-fill circles go where the image is busiest --- */
 function buildDetailMap() {
   const d = src.data, pts = [];
   const step = 3;
@@ -270,7 +332,6 @@ function buildDetailMap() {
   src.detailPts = pts;
 }
 
-/* --- Sample the image with 9 taps across the circle's face --- */
 const TAPS = [[0,0],[.62,0],[-.62,0],[0,.62],[0,-.62],[.45,.45],[-.45,.45],[.45,-.45],[-.45,-.45]];
 function sampleColor(x, y, r) {
   if (!src.loaded) {
@@ -321,6 +382,7 @@ let balls = [];
 let base = 11, maxR = 17, cell = 34;
 
 function computeSizes() {
+  const AREA = W * H;
   base = 0.5345 * Math.sqrt(AREA / S.detail) * S.sizeScale;
   maxR = base * 1.55;
   cell = Math.max(10, maxR * 2);
@@ -428,7 +490,7 @@ function avgSpeed() {
 }
 
 /* ============================================================
-   GAP FILLING (detail pass)
+   GAP FILLING
 ============================================================ */
 let fillAttempts = 0, fillMisses = 0, maxTotal = 9000;
 
@@ -487,7 +549,7 @@ function render(highQuality = false) {
 
   if (S.ghost && src.loaded) {
     ctx.globalAlpha = 0.16;
-    ctx.drawImage(src.canvas, 0, 0);
+    ctx.drawImage(srcCanvas, 0, 0);
     ctx.globalAlpha = 1;
   }
 
@@ -515,7 +577,7 @@ function render(highQuality = false) {
 /* ============================================================
    MAIN LOOP
 ============================================================ */
-let phase = 'IDLE';      // IDLE | SPAWN | SETTLE | FILL | DONE
+let phase = 'IDLE';
 let spawned = 0, settleWait = 0, running = false;
 let acc = 0, last = 0, fps = 60, frame = 0;
 
@@ -538,7 +600,7 @@ function spawnBall() {
   const cx = W / 2 + (Math.random() - .5) * 6;
   const cy = H / 2 + (Math.random() - .5) * 6;
   const t = Math.random();
-  const r = base * (0.55 + t * t);              // many small, a few large
+  const r = base * (0.55 + t * t);
   const b = new Ball(cx, cy, r);
   const a = Math.random() * TAU;
   b.px = cx - Math.cos(a) * PHYS.BLAST * PHYS.DT;
@@ -603,8 +665,87 @@ function loop(ts) {
 
 function setStatus() {
   const names = { IDLE: 'idle', SPAWN: 'spawning', SETTLE: 'settling', FILL: 'filling gaps', DONE: 'complete' };
-  el.status.textContent =
-    `${names[phase]} · circles: ${balls.length} · palette: ${src.palette.length} colours · ${fps.toFixed(0)} fps`;
+  el.status.textContent = `${names[phase]} · circles: ${balls.length} · ${fps.toFixed(0)} fps`;
+  el.mosInfo.textContent = `${balls.length} circles`;
+}
+
+/* ============================================================
+   SAMPLE IMAGE (procedural — loads instantly)
+============================================================ */
+function generateSampleImage() {
+  const img = document.createElement('canvas');
+  img.width = 800; img.height = 800;
+  const c = img.getContext('2d');
+
+  // Sky gradient
+  const sky = c.createLinearGradient(0, 0, 0, 800);
+  sky.addColorStop(0, '#0a0a2e');
+  sky.addColorStop(0.3, '#2d1b69');
+  sky.addColorStop(0.5, '#ff6b6b');
+  sky.addColorStop(0.6, '#ffa07a');
+  sky.addColorStop(0.65, '#1a0f3e');
+  sky.addColorStop(1, '#050510');
+  c.fillStyle = sky;
+  c.fillRect(0, 0, 800, 800);
+
+  // Stars
+  for (let i = 0; i < 150; i++) {
+    c.globalAlpha = Math.random() * 0.8 + 0.2;
+    c.fillStyle = '#fff';
+    const s = Math.random() * 2 + 0.5;
+    c.fillRect(Math.random() * 800, Math.random() * 280, s, s);
+  }
+  c.globalAlpha = 1;
+
+  // Sun
+  const sx = 400, sy = 480;
+  const glow = c.createRadialGradient(sx, sy, 10, sx, sy, 200);
+  glow.addColorStop(0, 'rgba(255,240,200,1)');
+  glow.addColorStop(0.3, 'rgba(255,200,100,.9)');
+  glow.addColorStop(0.7, 'rgba(255,120,60,.3)');
+  glow.addColorStop(1, 'rgba(255,100,60,0)');
+  c.fillStyle = glow;
+  c.fillRect(0, 0, 800, 800);
+
+  c.fillStyle = '#fff6d8';
+  c.beginPath();
+  c.arc(sx, sy, 70, 0, TAU);
+  c.fill();
+
+  // Mountains
+  c.fillStyle = '#1e1245';
+  c.beginPath();
+  c.moveTo(0, 520);
+  for (let x = 0; x <= 800; x += 60) c.lineTo(x, 520 - Math.random() * 140 - 20);
+  c.lineTo(800, 800); c.lineTo(0, 800);
+  c.closePath(); c.fill();
+
+  c.fillStyle = '#120b2e';
+  c.beginPath();
+  c.moveTo(0, 580);
+  for (let x = 0; x <= 800; x += 50) c.lineTo(x, 580 - Math.random() * 100 - 10);
+  c.lineTo(800, 800); c.lineTo(0, 800);
+  c.closePath(); c.fill();
+
+  // Water
+  const water = c.createLinearGradient(0, 620, 0, 800);
+  water.addColorStop(0, '#ff8a5c');
+  water.addColorStop(0.3, '#5a2a6a');
+  water.addColorStop(1, '#050510');
+  c.fillStyle = water;
+  c.fillRect(0, 620, 800, 180);
+
+  // Water reflections
+  for (let i = 0; i < 40; i++) {
+    const y = 640 + i * 4 + Math.random() * 3;
+    const w = 140 - i * 2 + Math.random() * 50;
+    c.globalAlpha = Math.max(0, 0.5 - i * 0.012);
+    c.fillStyle = '#ffefd0';
+    c.fillRect(sx - w / 2, y, w, 3);
+  }
+  c.globalAlpha = 1;
+
+  return img;
 }
 
 /* ============================================================
@@ -647,10 +788,9 @@ el.snap.onchange = e => {
 
 /* drag + drop / paste */
 ['dragenter', 'dragover'].forEach(ev =>
-  el.drop.addEventListener(ev, e => { e.preventDefault(); el.drop.classList.add('over'); }));
-['dragleave', 'drop'].forEach(ev =>
-  el.drop.addEventListener(ev, e => { e.preventDefault(); el.drop.classList.remove('over'); }));
-el.drop.addEventListener('drop', e => {
+  document.body.addEventListener(ev, e => { e.preventDefault(); }));
+document.body.addEventListener('drop', e => {
+  e.preventDefault();
   const f = e.dataTransfer.files[0];
   if (f && f.type.startsWith('image/')) loadImage(f);
 });
@@ -660,8 +800,13 @@ window.addEventListener('paste', e => {
   }
 });
 
-/* first paint */
-render();
+/* Load sample image on start */
+const sampleImg = generateSampleImage();
+src.lastImg = sampleImg;
+drawSourceImage(sampleImg);
+analyseColors();
+buildDetailMap();
+restart();
 </script>
 </body>
 </html>

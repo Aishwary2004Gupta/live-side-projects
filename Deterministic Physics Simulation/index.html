@@ -1,1201 +1,404 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Circle Mosaic Physics</title>
-    <style>
-      * {
-        box-sizing: border-box;
-        margin: 0;
-        padding: 0;
-      }
-      html,
-      body {
-        height: 100%;
-        overflow: hidden;
-      }
-      body {
-        background: #07070a;
-        color: #e8e8ef;
-        font:
-          13px/1.3 system-ui,
-          -apple-system,
-          Segoe UI,
-          Roboto,
-          sans-serif;
-        display: flex;
-        flex-direction: column;
-        padding: 8px;
-        gap: 8px;
-      }
-      .header {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        padding: 7px 12px;
-        background: #101016;
-        border: 1px solid #23232e;
-        border-radius: 10px;
-        flex-shrink: 0;
-        flex-wrap: wrap;
-      }
-      .header h1 {
-        font-size: 15px;
-        font-weight: 600;
-        letter-spacing: 0.3px;
-        margin-right: auto;
-      }
-      .main {
-        display: flex;
-        gap: 8px;
-        flex: 1;
-        min-height: 0;
-      }
-      .canvas-box {
-        flex: 1;
-        display: flex;
-        flex-direction: column;
-        background: #101016;
-        border: 1px solid #23232e;
-        border-radius: 10px;
-        overflow: hidden;
-        min-width: 0;
-      }
-      .canvas-box .label {
-        padding: 5px 10px;
-        font-size: 11px;
-        color: #7a7a92;
-        text-transform: uppercase;
-        letter-spacing: 0.6px;
-        border-bottom: 1px solid #23232e;
-        flex-shrink: 0;
-        display: flex;
-        justify-content: space-between;
-      }
-      .canvas-box .label b {
-        color: #cfcfe4;
-        font-weight: 500;
-      }
-      .canvas-box canvas {
-        flex: 1;
-        width: 100%;
-        height: 100%;
-        display: block;
-        background: #000;
-        object-fit: contain;
-      }
-      .controls {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 8px 14px;
-        align-items: center;
-        padding: 8px 12px;
-        background: #101016;
-        border: 1px solid #23232e;
-        border-radius: 10px;
-        flex-shrink: 0;
-      }
-      button {
-        background: #1b1b24;
-        color: #fff;
-        border: 1px solid #33334a;
-        border-radius: 7px;
-        padding: 6px 11px;
-        cursor: pointer;
-        font-size: 12px;
-        transition: 0.15s;
-      }
-      button:hover {
-        background: #26263a;
-      }
-      button.primary {
-        background: #2d5cff;
-        border-color: #2d5cff;
-      }
-      button.primary:hover {
-        background: #4571ff;
-      }
-      .ctrl {
-        display: flex;
-        align-items: center;
-        gap: 5px;
-        font-size: 11px;
-        color: #a9a9bd;
-      }
-      input[type="range"] {
-        width: 90px;
-        accent-color: #2d5cff;
-      }
-      input[type="checkbox"] {
-        accent-color: #2d5cff;
-        width: 13px;
-        height: 13px;
-      }
-      .val {
-        color: #fff;
-        min-width: 28px;
-        font-variant-numeric: tabular-nums;
-        font-size: 11px;
-      }
-      #palette {
-        display: flex;
-        gap: 4px;
-        flex-wrap: wrap;
-      }
-      .sw {
-        width: 38px;
-        border-radius: 5px;
-        overflow: hidden;
-        border: 1px solid #2a2a38;
-      }
-      .sw i {
-        display: block;
-        height: 20px;
-      }
-      .sw span {
-        display: block;
-        font-size: 8px;
-        color: #9a9ab0;
-        padding: 2px 0;
-        background: #101016;
-        text-align: center;
-      }
-      #status {
-        font-size: 11px;
-        color: #7f8ca8;
-        font-variant-numeric: tabular-nums;
-        margin-left: auto;
-      }
-      @media (max-width: 700px) {
-        .main {
-          flex-direction: column;
-        }
-        .header h1 {
-          font-size: 13px;
-        }
-      }
-    </style>
-  </head>
-  <body>
-    <div class="header">
-      <h1>◉ Circle Mosaic</h1>
-      <button class="primary" id="pickBtn">Choose Image</button>
-      <input type="file" id="file" accept="image/*" hidden />
-      <button id="playBtn">Pause</button>
-      <button id="resetBtn">Restart</button>
-      <button id="saveBtn">Save PNG</button>
-    </div>
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Circle Mosaic</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%;overflow:hidden}
+  body{background:#07070a;color:#e8e8ef;font:13px/1.3 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;display:flex;flex-direction:column;padding:8px;gap:8px}
+  .header{display:flex;align-items:center;gap:10px;padding:7px 12px;background:#101016;border:1px solid #23232e;border-radius:10px;flex-shrink:0;flex-wrap:wrap}
+  .header h1{font-size:15px;font-weight:600;letter-spacing:.3px;margin-right:auto}
+  .main{display:flex;gap:8px;flex:1;min-height:0}
+  .canvas-box{flex:1;display:flex;flex-direction:column;background:#101016;border:1px solid #23232e;border-radius:10px;overflow:hidden;min-width:0}
+  .canvas-box .label{padding:5px 10px;font-size:11px;color:#7a7a92;text-transform:uppercase;letter-spacing:.6px;border-bottom:1px solid #23232e;flex-shrink:0;display:flex;justify-content:space-between}
+  .canvas-box .label b{color:#cfcfe4;font-weight:500}
+  .canvas-box canvas{flex:1;width:100%;height:100%;display:block;background:#000}
+  .controls{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;padding:8px 12px;background:#101016;border:1px solid #23232e;border-radius:10px;flex-shrink:0}
+  button{background:#1b1b24;color:#fff;border:1px solid #33334a;border-radius:7px;padding:6px 11px;cursor:pointer;font-size:12px;transition:.15s}
+  button:hover{background:#26263a}
+  button.primary{background:#2d5cff;border-color:#2d5cff}
+  button.primary:hover{background:#4571ff}
+  .ctrl{display:flex;align-items:center;gap:5px;font-size:11px;color:#a9a9bd}
+  input[type=checkbox]{accent-color:#2d5cff;width:13px;height:13px}
+  #palette{display:flex;gap:4px;flex-wrap:wrap}
+  .sw{width:38px;border-radius:5px;overflow:hidden;border:1px solid #2a2a38}
+  .sw i{display:block;height:20px}
+  .sw span{display:block;font-size:8px;color:#9a9ab0;padding:2px 0;background:#101016;text-align:center}
+  #status{font-size:11px;color:#7f8ca8;margin-left:auto}
+  @media(max-width:700px){.main{flex-direction:column}}
+</style>
+</head>
+<body>
 
-    <div class="main">
-      <div class="canvas-box">
-        <div class="label"><b>Original</b><span id="srcInfo">—</span></div>
-        <canvas id="srcCanvas"></canvas>
-      </div>
-      <div class="canvas-box">
-        <div class="label"><b>Circle Mosaic</b><span id="mosInfo">—</span></div>
-        <canvas id="c"></canvas>
-      </div>
-    </div>
+<div class="header">
+  <h1>◉ Circle Mosaic</h1>
+  <button class="primary" id="pickBtn">Choose Image</button>
+  <input type="file" id="file" accept="image/*" hidden />
+  <button id="playBtn">Pause</button>
+  <button id="resetBtn">Restart</button>
+  <button id="saveBtn">Save PNG</button>
+</div>
 
-    <div class="controls">
-      <div class="ctrl">
-        Detail
-        <input
-          type="range"
-          id="detail"
-          min="400"
-          max="3200"
-          step="100"
-          value="1500"
-        />
-        <span class="val" id="detailV">1500</span>
-      </div>
-      <div class="ctrl">
-        Size
-        <input type="range" id="size" min="60" max="150" step="5" value="100" />
-        <span class="val" id="sizeV">1.0×</span>
-      </div>
-      <div class="ctrl"><input type="checkbox" id="snap" /> Palette</div>
-      <div class="ctrl"><input type="checkbox" id="ghost" /> Ghost</div>
-      <div id="palette"></div>
-      <div id="status">Loading sample…</div>
-    </div>
+<div class="main">
+  <div class="canvas-box">
+    <div class="label"><b>Original</b><span id="srcInfo">—</span></div>
+    <canvas id="srcCanvas"></canvas>
+  </div>
+  <div class="canvas-box">
+    <div class="label"><b>Circle Mosaic</b><span id="mosInfo">—</span></div>
+    <canvas id="c"></canvas>
+  </div>
+</div>
 
-    <script>
-      /* CONFIG */
-      let W = 500,
-        H = 500;
-      const TAU = Math.PI * 2;
+<div class="controls">
+  <div class="ctrl"><input type="checkbox" id="snap" /> Palette</div>
+  <div class="ctrl"><input type="checkbox" id="ghost" /> Ghost</div>
+  <div id="palette"></div>
+  <div id="status">Loading image…</div>
+</div>
 
-      const PHYS = {
-        G: 1500,
-        DT: 1 / 60,
-        SUBSTEPS: 6,
-        BOUNCE: 0.35,
-        FRICTION: 0.9985,
-        DAMP: 0.92,
-        SPAWN_PER_STEP: 7,
-        BLAST: 430,
-        DROP_PER_STEP: 6,
-        TOPUP_MAX: 1000,
-      };
+<script>
+let W = 500, H = 500;
+const TAU = Math.PI * 2;
 
-      const S = {
-        detail: 1500,
-        sizeScale: 1.0,
-        snap: false,
-        ghost: false,
-      };
+const PHYS = { G: 1500, DT: 1/60, SUBSTEPS: 4, BOUNCE: 0.35, FRICTION: 0.9985, DAMP: 0.92, SPAWN_PER_STEP: 32, BLAST: 380 };
+const S = { detail: 5200, sizeScale: 1.0, snap: false, ghost: false };
 
-      const RENDER_OVERLAP = 1.12; // draw slightly larger so circles visually close gaps
+const canvas = document.getElementById("c");
+const srcCanvas = document.getElementById("srcCanvas");
+const ctx = canvas.getContext("2d");
+const sctx = srcCanvas.getContext("2d", { willReadFrequently: true });
 
-      /* DOM */
-      const canvas = document.getElementById("c");
-      const srcCanvas = document.getElementById("srcCanvas");
-      const ctx = canvas.getContext("2d");
-      const sctx = srcCanvas.getContext("2d", { willReadFrequently: true });
+const el = {
+  file: document.getElementById("file"),
+  pick: document.getElementById("pickBtn"),
+  play: document.getElementById("playBtn"),
+  reset: document.getElementById("resetBtn"),
+  save: document.getElementById("saveBtn"),
+  snap: document.getElementById("snap"),
+  ghost: document.getElementById("ghost"),
+  palette: document.getElementById("palette"),
+  status: document.getElementById("status"),
+  srcInfo: document.getElementById("srcInfo"),
+  mosInfo: document.getElementById("mosInfo"),
+};
 
-      const el = {
-        file: document.getElementById("file"),
-        pick: document.getElementById("pickBtn"),
-        play: document.getElementById("playBtn"),
-        reset: document.getElementById("resetBtn"),
-        save: document.getElementById("saveBtn"),
-        detail: document.getElementById("detail"),
-        detailV: document.getElementById("detailV"),
-        size: document.getElementById("size"),
-        sizeV: document.getElementById("sizeV"),
-        snap: document.getElementById("snap"),
-        ghost: document.getElementById("ghost"),
-        palette: document.getElementById("palette"),
-        status: document.getElementById("status"),
-        srcInfo: document.getElementById("srcInfo"),
-        mosInfo: document.getElementById("mosInfo"),
-      };
+function resizeCanvases() {
+  const headerH = 50, controlsH = 52, gap = 24;
+  const availH = window.innerHeight - headerH - controlsH - gap;
+  const availW = window.innerWidth / 2 - 20;
+  const size = Math.max(320, Math.min(620, Math.min(availH, availW)));
+  W = Math.floor(size); H = Math.floor(size);
+  canvas.width = W; canvas.height = H;
+  srcCanvas.width = W; srcCanvas.height = H;
+}
+resizeCanvases();
 
-      /* CANVAS SIZING */
-      function resizeCanvases() {
-        const headerH = 50,
-          controlsH = 60,
-          gap = 24;
-        const availH = window.innerHeight - headerH - controlsH - gap;
-        const availW = window.innerWidth / 2 - 20;
-        const size = Math.max(280, Math.min(600, Math.min(availH, availW)));
-        W = Math.floor(size);
-        H = Math.floor(size);
-        canvas.width = W;
-        canvas.height = H;
-        srcCanvas.width = W;
-        srcCanvas.height = H;
-      }
-      resizeCanvases();
-      window.addEventListener("resize", () => {
-        resizeCanvases();
-        if (src.loaded) {
-          drawSourceImage(src.lastImg);
-          restart();
-        }
-      });
+const src = { loaded: false, lastImg: null, data: null, palette: [], bg: [7,7,10] };
 
-      /* SOURCE IMAGE */
-      const src = {
-        loaded: false,
-        lastImg: null,
-        data: null,
-        palette: [],
-        bg: [7, 7, 10],
-      };
+function drawSourceImage(img) {
+  sctx.fillStyle = "#000";
+  sctx.fillRect(0, 0, W, H);
+  const sc = Math.min(W / img.width, H / img.height);
+  const dw = img.width * sc, dh = img.height * sc;
+  sctx.drawImage(img, (W - dw) / 2, (H - dh) / 2, dw, dh);
+  src.data = sctx.getImageData(0, 0, W, H).data;
+  src.loaded = true;
+  el.srcInfo.textContent = `${img.width}×${img.height}`;
+}
 
-      function drawSourceImage(img) {
-        sctx.fillStyle = "#000";
-        sctx.fillRect(0, 0, W, H);
-        const sc = Math.min(W / img.width, H / img.height); // contain - whole image
-        const dw = img.width * sc,
-          dh = img.height * sc;
-        sctx.drawImage(img, (W - dw) / 2, (H - dh) / 2, dw, dh);
-        src.data = sctx.getImageData(0, 0, W, H).data;
-        src.loaded = true;
-        el.srcInfo.textContent = `${img.width}×${img.height}`;
-      }
+function loadImage(file) {
+  const img = new Image();
+  img.onload = () => {
+    src.lastImg = img;
+    drawSourceImage(img);
+    analyseColors();
+    restart();
+    URL.revokeObjectURL(img.src);
+  };
+  img.src = URL.createObjectURL(file);
+}
 
-      function loadImage(file) {
-        const img = new Image();
-        img.onload = () => {
-          src.lastImg = img;
-          drawSourceImage(img);
-          analyseColors();
-          restart();
-          URL.revokeObjectURL(img.src);
-        };
-        img.onerror = () => setStatus("Could not read that image.");
-        img.src = URL.createObjectURL(file);
-      }
+function analyseColors() {
+  const d = src.data, px = [];
+  for (let y = 0; y < H; y += 4) for (let x = 0; x < W; x += 4) {
+    const i = (y * W + x) * 4; if (d[i + 3] < 20) continue;
+    px.push([d[i], d[i + 1], d[i + 2]]);
+  }
+  src.palette = medianCut(px, 10);
+  let dark = src.palette[0], best = 1e9;
+  for (const c of src.palette) { const l = c[0] * .299 + c[1] * .587 + c[2] * .114; if (l < best) { best = l; dark = c; } }
+  src.bg = [dark[0] * .25 | 0, dark[1] * .25 | 0, dark[2] * .25 | 0];
+  renderSwatches();
+}
 
-      function analyseColors() {
-        const d = src.data,
-          px = [];
-        for (let y = 0; y < H; y += 5) {
-          for (let x = 0; x < W; x += 5) {
-            const i = (y * W + x) * 4;
-            if (d[i + 3] < 20) continue;
-            px.push([d[i], d[i + 1], d[i + 2]]);
-          }
-        }
-        src.palette = medianCut(px, 10);
-        let dark = src.palette[0],
-          best = 1e9;
-        for (const c of src.palette) {
-          const l = c[0] * 0.299 + c[1] * 0.587 + c[2] * 0.114;
-          if (l < best) {
-            best = l;
-            dark = c;
-          }
-        }
-        src.bg = [
-          (dark[0] * 0.3) | 0,
-          (dark[1] * 0.3) | 0,
-          (dark[2] * 0.3) | 0,
-        ];
-        renderSwatches();
-      }
-      function medianCut(pixels, k) {
-        if (!pixels.length) return [[200, 200, 200]];
-        let boxes = [pixels],
-          guard = 0;
-        while (boxes.length < k && guard++ < 64) {
-          boxes.sort((a, b) => boxSpan(b) - boxSpan(a));
-          const box = boxes.shift();
-          if (!box || box.length < 2) {
-            if (box) boxes.push(box);
-            break;
-          }
-          const ch = widestChannel(box);
-          box.sort((p, q) => p[ch] - q[ch]);
-          const mid = box.length >> 1;
-          boxes.push(box.slice(0, mid), box.slice(mid));
-        }
-        return boxes.map(avgColor).sort((a, b) => lum(b) - lum(a));
-      }
-      function channelRange(box, c) {
-        let lo = 255,
-          hi = 0;
-        for (const p of box) {
-          if (p[c] < lo) lo = p[c];
-          if (p[c] > hi) hi = p[c];
-        }
-        return hi - lo;
-      }
-      function widestChannel(box) {
-        const r = channelRange(box, 0),
-          g = channelRange(box, 1),
-          b = channelRange(box, 2);
-        return r >= g && r >= b ? 0 : g >= b ? 1 : 2;
-      }
-      function boxSpan(box) {
-        return (
-          Math.max(
-            channelRange(box, 0),
-            channelRange(box, 1),
-            channelRange(box, 2),
-          ) * Math.log(box.length + 1)
-        );
-      }
-      function avgColor(box) {
-        let r = 0,
-          g = 0,
-          b = 0;
-        for (const p of box) {
-          r += p[0];
-          g += p[1];
-          b += p[2];
-        }
-        const n = box.length || 1;
-        return [(r / n) | 0, (g / n) | 0, (b / n) | 0];
-      }
-      const lum = (c) => c[0] * 0.299 + c[1] * 0.587 + c[2] * 0.114;
-      function renderSwatches() {
-        el.palette.innerHTML = "";
-        for (const c of src.palette) {
-          const d = document.createElement("div");
-          d.className = "sw";
-          d.innerHTML = `<i style="background:rgb(${c[0]},${c[1]},${c[2]})"></i><span>${hex(c)}</span>`;
-          el.palette.appendChild(d);
-        }
-      }
-      const hex = (c) =>
-        "#" +
-        c
-          .map((v) => v.toString(16).padStart(2, "0"))
-          .join("")
-          .toUpperCase();
+function medianCut(pixels, k) {
+  if (!pixels.length) return [[200, 200, 200]];
+  let boxes = [pixels], guard = 0;
+  while (boxes.length < k && guard++ < 64) {
+    boxes.sort((a, b) => boxSpan(b) - boxSpan(a));
+    const box = boxes.shift();
+    if (!box || box.length < 2) { if (box) boxes.push(box); break; }
+    const ch = widestChannel(box); box.sort((p, q) => p[ch] - q[ch]);
+    const mid = box.length >> 1; boxes.push(box.slice(0, mid), box.slice(mid));
+  }
+  return boxes.map(avgColor).sort((a, b) => lum(b) - lum(a));
+}
+function channelRange(box, c) { let lo = 255, hi = 0; for (const p of box) { if (p[c] < lo) lo = p[c]; if (p[c] > hi) hi = p[c]; } return hi - lo; }
+function widestChannel(box) { const r = channelRange(box, 0), g = channelRange(box, 1), b = channelRange(box, 2); return r >= g && r >= b ? 0 : g >= b ? 1 : 2; }
+function boxSpan(box) { return Math.max(channelRange(box, 0), channelRange(box, 1), channelRange(box, 2)) * Math.log(box.length + 1); }
+function avgColor(box) { let r = 0, g = 0, b = 0; for (const p of box) { r += p[0]; g += p[1]; b += p[2]; } const n = box.length || 1; return [r / n | 0, g / n | 0, b / n | 0]; }
+const lum = c => c[0] * .299 + c[1] * .587 + c[2] * .114;
 
-      const TAPS = [
-        [0, 0],
-        [0.62, 0],
-        [-0.62, 0],
-        [0, 0.62],
-        [0, -0.62],
-        [0.45, 0.45],
-        [-0.45, 0.45],
-        [0.45, -0.45],
-        [-0.45, -0.45],
-      ];
-      function sampleColor(x, y, r) {
-        if (!src.loaded)
-          return [
-            (120 + Math.random() * 135) | 0,
-            (120 + Math.random() * 135) | 0,
-            (120 + Math.random() * 135) | 0,
-          ];
-        const d = src.data;
-        let R = 0,
-          G = 0,
-          B = 0;
-        for (const [ox, oy] of TAPS) {
-          const px = clamp(Math.round(x + ox * r), 0, W - 1);
-          const py = clamp(Math.round(y + oy * r), 0, H - 1);
-          const i = (py * W + px) * 4;
-          R += d[i];
-          G += d[i + 1];
-          B += d[i + 2];
-        }
-        let c = [(R / 9) | 0, (G / 9) | 0, (B / 9) | 0];
-        if (S.snap && src.palette.length) c = nearestPalette(c);
-        return c;
-      }
-      function nearestPalette(c) {
-        let best = src.palette[0],
-          bd = 1e9;
-        for (const p of src.palette) {
-          const dr = p[0] - c[0],
-            dg = p[1] - c[1],
-            db = p[2] - c[2];
-          const dd = dr * dr + dg * dg + db * db;
-          if (dd < bd) {
-            bd = dd;
-            best = p;
-          }
-        }
-        return best;
-      }
+function renderSwatches() {
+  el.palette.innerHTML = "";
+  for (const c of src.palette) {
+    const d = document.createElement("div"); d.className = "sw";
+    d.innerHTML = `<i style="background:rgb(${c[0]},${c[1]},${c[2]})"></i><span>${hex(c)}</span>`;
+    el.palette.appendChild(d);
+  }
+}
+const hex = c => "#" + c.map(v => v.toString(16).padStart(2, "0")).join("").toUpperCase();
 
-      /* BALLS - flat, no shading */
-      class Ball {
-        constructor(x, y, r, fixed = false) {
-          this.x = x;
-          this.y = y;
-          this.px = x;
-          this.py = y;
-          this.ax = 0;
-          this.ay = 0;
-          this.r = r;
-          this.m = r * r;
-          this.fixed = fixed;
-          this.rest = 0;
-          this.setColor(sampleColor(x, y, r));
-        }
-        setColor(c) {
-          this.c = c;
-          this.css = `rgb(${c[0]},${c[1]},${c[2]})`;
-        }
-      }
-      let balls = [];
-      let base = 11,
-        maxR = 17,
-        cell = 34;
-      function computeSizes() {
-        const AREA = W * H;
-        base = 0.5345 * Math.sqrt(AREA / S.detail) * S.sizeScale;
-        maxR = base * 1.55;
-        cell = Math.max(10, maxR * 2);
-      }
+const TAPS = [[0,0],[.6,0],[-.6,0],[0,.6],[0,-.6],[.42,.42],[-.42,.42],[.42,-.42],[-.42,-.42]];
+function sampleColor(x, y, r) {
+  if (!src.loaded) return [130 + Math.random() * 125 | 0, 130 + Math.random() * 125 | 0, 130 + Math.random() * 125 | 0];
+  const d = src.data;
+  let R = 0, G = 0, B = 0;
+  for (const [ox, oy] of TAPS) {
+    const px = clamp(Math.round(x + ox * r), 0, W - 1);
+    const py = clamp(Math.round(y + oy * r), 0, H - 1);
+    const i = (py * W + px) * 4; R += d[i]; G += d[i + 1]; B += d[i + 2];
+  }
+  let c = [R / 9 | 0, G / 9 | 0, B / 9 | 0];
+  if (S.snap && src.palette.length) c = nearestPalette(c);
+  return c;
+}
+function nearestPalette(c) {
+  let best = src.palette[0], bd = 1e9;
+  for (const p of src.palette) {
+    const dr = p[0] - c[0], dg = p[1] - c[1], db = p[2] - c[2];
+    const dd = dr * dr + dg * dg + db * db; if (dd < bd) { bd = dd; best = p; }
+  }
+  return best;
+}
 
-      /* GRID */
-      class Grid {
-        constructor(cs) {
-          this.cs = cs;
-          this.cols = Math.ceil(W / cs) + 1;
-          this.rows = Math.ceil(H / cs) + 1;
-          this.b = Array.from({ length: this.cols * this.rows }, () => []);
-        }
-        clear() {
-          for (const a of this.b) a.length = 0;
-        }
-        key(gx, gy) {
-          return gx < 0 || gy < 0 || gx >= this.cols || gy >= this.rows
-            ? -1
-            : gy * this.cols + gx;
-        }
-        add(i, x, y) {
-          const k = this.key((x / this.cs) | 0, (y / this.cs) | 0);
-          if (k >= 0) this.b[k].push(i);
-        }
-        rebuild() {
-          this.clear();
-          for (let i = 0; i < balls.length; i++)
-            this.add(
-              i,
-              clamp(balls[i].x, 0, W - 1),
-              clamp(balls[i].y, 0, H - 1),
-            );
-        }
-      }
-      let grid = new Grid(34);
+class Ball {
+  constructor(x, y, r) {
+    this.x = x; this.y = y; this.px = x; this.py = y;
+    this.ax = 0; this.ay = 0; this.r = r; this.m = r * r;
+    this.setColor(sampleColor(x, y, r));
+  }
+  setColor(c) { this.c = c; this.css = `rgb(${c[0]},${c[1]},${c[2]})`; }
+}
 
-      /* PHYSICS */
-      function resolvePair(i, j) {
-        const a = balls[i],
-          b = balls[j];
-        const dx = a.x - b.x,
-          dy = a.y - b.y;
-        const d2 = dx * dx + dy * dy,
-          md = a.r + b.r;
-        if (d2 >= md * md || d2 < 1e-8) return;
-        const d = Math.sqrt(d2),
-          nx = dx / d,
-          ny = dy / d;
-        const ov = (md - d) * 0.5 * PHYS.DAMP;
-        const tm = a.m + b.m;
-        const r1 = a.fixed ? 0 : b.fixed ? 1 : b.m / tm;
-        const r2 = b.fixed ? 0 : a.fixed ? 1 : a.m / tm;
-        a.x += nx * ov * r1 * 2;
-        a.y += ny * ov * r1 * 2;
-        b.x -= nx * ov * r2 * 2;
-        b.y -= ny * ov * r2 * 2;
-      }
-      const NEIGH = [
-        [1, 0],
-        [-1, 1],
-        [0, 1],
-        [1, 1],
-      ];
-      function solveCollisions() {
-        grid.rebuild();
-        const { cols, rows, b } = grid;
-        for (let gy = 0; gy < rows; gy++) {
-          for (let gx = 0; gx < cols; gx++) {
-            const A = b[gy * cols + gx];
-            if (!A.length) continue;
-            for (let m = 0; m < A.length; m++)
-              for (let n = m + 1; n < A.length; n++) resolvePair(A[m], A[n]);
-            for (const [dx, dy] of NEIGH) {
-              const k = grid.key(gx + dx, gy + dy);
-              if (k < 0) continue;
-              const B = b[k];
-              for (let m = 0; m < A.length; m++)
-                for (let n = 0; n < B.length; n++) resolvePair(A[m], B[n]);
-            }
-          }
-        }
-      }
-      function constrain(b) {
-        const vx = b.x - b.px,
-          vy = b.y - b.py;
-        if (b.x - b.r < 0) {
-          b.x = b.r;
-          b.px = b.x + vx * PHYS.BOUNCE;
-        } else if (b.x + b.r > W) {
-          b.x = W - b.r;
-          b.px = b.x + vx * PHYS.BOUNCE;
-        }
-        if (b.y - b.r < 0) {
-          if (b.y < 0) {
-            /* entering from above - let it fall in */
-          } else {
-            b.y = b.r;
-            b.py = b.y + vy * PHYS.BOUNCE;
-          }
-        } else if (b.y + b.r > H) {
-          b.y = H - b.r;
-          b.py = b.y + vy * PHYS.BOUNCE;
-        }
-      }
-      function integrate(b, dt) {
-        const vx = (b.x - b.px) * PHYS.FRICTION,
-          vy = (b.y - b.py) * PHYS.FRICTION;
-        b.px = b.x;
-        b.py = b.y;
-        b.x += vx + b.ax * dt * dt;
-        b.y += vy + b.ay * dt * dt;
-        b.ax = 0;
-        b.ay = 0;
-      }
-      function physicsStep() {
-        const sub = PHYS.DT / PHYS.SUBSTEPS;
-        for (let s = 0; s < PHYS.SUBSTEPS; s++) {
-          for (const b of balls) if (!b.fixed) b.ay += PHYS.G;
-          solveCollisions();
-          for (const b of balls) constrain(b);
-          for (const b of balls) if (!b.fixed) integrate(b, sub);
-        }
-      }
-      function avgSpeed() {
-        if (!balls.length) return 0;
-        let s = 0;
-        for (const b of balls) s += Math.abs(b.x - b.px) + Math.abs(b.y - b.py);
-        return s / balls.length;
-      }
+let balls = [], base = 6.2, cell = 14;
 
-      /* DROPS - gaps filled only by falling balls */
-      function spawnDropBall() {
-        const r = base * (0.32 + Math.random() * 0.38);
-        const x = r + Math.random() * Math.max(1, W - 2 * r);
-        const y = -r - Math.random() * 20;
-        const b = new Ball(x, y, r, false);
-        b.px = x;
-        b.py = y - 2 - Math.random() * 3;
-        b.rest = 0;
-        balls.push(b);
-      }
+function computeSizes() {
+  const area = W * H;
+  S.detail = Math.min(8500, Math.max(5200, Math.floor(area / 18)));
+  base = Math.sqrt(area / (S.detail * Math.PI)) * 1.72;
+  cell = Math.max(11, base * 2.1);
+}
 
-      /* RENDER - flat circles, no shading */
-      function render() {
-        ctx.fillStyle = `rgb(${src.bg[0]},${src.bg[1]},${src.bg[2]})`;
-        ctx.fillRect(0, 0, W, H);
-        if (S.ghost && src.loaded) {
-          ctx.globalAlpha = 0.16;
-          ctx.drawImage(srcCanvas, 0, 0);
-          ctx.globalAlpha = 1;
-        }
-        for (const b of balls) {
-          if (b.y < -b.r * 2) continue;
-          ctx.fillStyle = b.css;
-          ctx.beginPath();
-          ctx.arc(b.x, b.y, b.r * RENDER_OVERLAP, 0, TAU);
-          ctx.fill();
-        }
-      }
+class Grid {
+  constructor(cs) { this.cs = cs; this.cols = Math.ceil(W / cs) + 1; this.rows = Math.ceil(H / cs) + 1; this.b = Array.from({ length: this.cols * this.rows }, () => []); }
+  clear() { for (const a of this.b) a.length = 0; }
+  key(gx, gy) { return gx < 0 || gy < 0 || gx >= this.cols || gy >= this.rows ? -1 : gy * this.cols + gx; }
+  add(i, x, y) { const k = this.key((x / this.cs) | 0, (y / this.cs) | 0); if (k >= 0) this.b[k].push(i); }
+  rebuild() { this.clear(); for (let i = 0; i < balls.length; i++) this.add(i, clamp(balls[i].x, 0, W - 1), clamp(balls[i].y, 0, H - 1)); }
+}
+let grid = new Grid(14);
 
-      /* LOOP */
-      let phase = "IDLE";
-      let spawned = 0,
-        settleWait = 0,
-        topupSteps = 0,
-        maxTotal = 9000,
-        running = false;
-      let acc = 0,
-        last = 0,
-        fps = 60,
-        frame = 0;
+function resolvePair(i, j) {
+  const a = balls[i], b = balls[j];
+  const dx = a.x - b.x, dy = a.y - b.y; const d2 = dx * dx + dy * dy; const md = a.r + b.r;
+  if (d2 >= md * md || d2 < 1e-8) return;
+  const d = Math.sqrt(d2), nx = dx / d, ny = dy / d;
+  const ov = (md - d) * 0.5 * PHYS.DAMP;
+  const tm = a.m + b.m, r1 = b.m / tm, r2 = a.m / tm;
+  a.x += nx * ov * r1 * 2; a.y += ny * ov * r1 * 2;
+  b.x -= nx * ov * r2 * 2; b.y -= ny * ov * r2 * 2;
+}
+const NEIGH = [[1,0],[-1,1],[0,1],[1,1]];
+function solveCollisions() {
+  grid.rebuild();
+  const { cols, rows, b } = grid;
+  for (let gy = 0; gy < rows; gy++) for (let gx = 0; gx < cols; gx++) {
+    const A = b[gy * cols + gx]; if (!A.length) continue;
+    for (let m = 0; m < A.length; m++) for (let n = m + 1; n < A.length; n++) resolvePair(A[m], A[n]);
+    for (const [dx, dy] of NEIGH) {
+      const k = grid.key(gx + dx, gy + dy); if (k < 0) continue;
+      const B = b[k];
+      for (let m = 0; m < A.length; m++) for (let n = 0; n < B.length; n++) resolvePair(A[m], B[n]);
+    }
+  }
+}
+function constrain(b) {
+  const vx = b.x - b.px, vy = b.y - b.py;
+  if (b.x - b.r < 0) { b.x = b.r; b.px = b.x + vx * PHYS.BOUNCE; }
+  else if (b.x + b.r > W) { b.x = W - b.r; b.px = b.x + vx * PHYS.BOUNCE; }
+  if (b.y - b.r < 0) { b.y = b.r; b.py = b.y + vy * PHYS.BOUNCE; }
+  else if (b.y + b.r > H) { b.y = H - b.r; b.py = b.y + vy * PHYS.BOUNCE; }
+}
+function integrate(b, dt) {
+  const vx = (b.x - b.px) * PHYS.FRICTION, vy = (b.y - b.py) * PHYS.FRICTION;
+  b.px = b.x; b.py = b.y; b.x += vx + b.ax * dt * dt; b.y += vy + b.ay * dt * dt; b.ax = 0; b.ay = 0;
+}
+function physicsStep() {
+  const sub = PHYS.DT / PHYS.SUBSTEPS;
+  for (let s = 0; s < PHYS.SUBSTEPS; s++) {
+    for (const b of balls) b.ay += PHYS.G;
+    solveCollisions();
+    for (const b of balls) constrain(b);
+    for (const b of balls) integrate(b, sub);
+  }
+}
+function avgSpeed() {
+  if (!balls.length) return 0;
+  let s = 0; for (const b of balls) s += Math.abs(b.x - b.px) + Math.abs(b.y - b.py);
+  return s / balls.length;
+}
 
-      function restart() {
-        computeSizes();
-        grid = new Grid(cell);
-        balls = [];
-        spawned = 0;
-        settleWait = 0;
-        topupSteps = 0;
-        acc = 0;
-        last = 0;
-        maxTotal = Math.min(11000, S.detail * 3);
-        phase = "SPAWN";
-        running = true;
-        el.play.textContent = "Pause";
-        render();
-        requestAnimationFrame(loop);
-      }
-      function spawnBall() {
-        const cx = W / 2 + (Math.random() - 0.5) * 6,
-          cy = H / 2 + (Math.random() - 0.5) * 6;
-        const t = Math.random(),
-          r = base * (0.55 + t * t);
-        const b = new Ball(cx, cy, r);
-        const a = Math.random() * TAU;
-        b.px = cx - Math.cos(a) * PHYS.BLAST * PHYS.DT;
-        b.py = cy - Math.sin(a) * PHYS.BLAST * PHYS.DT;
-        balls.push(b);
-        spawned++;
-      }
-      function recolorMoving() {
-        for (const b of balls)
-          if (!b.fixed) b.setColor(sampleColor(b.x, b.y, b.r));
-      }
-      function step() {
-        if (phase === "SPAWN") {
-          for (let i = 0; i < PHYS.SPAWN_PER_STEP && spawned < S.detail; i++)
-            spawnBall();
-          physicsStep();
-          if (spawned >= S.detail) phase = "SETTLE";
-        } else if (phase === "SETTLE") {
-          physicsStep();
-          settleWait++;
-          if ((avgSpeed() < 0.09 && settleWait > 40) || settleWait > 620) {
-            for (const b of balls) {
-              b.fixed = true;
-              b.setColor(sampleColor(b.x, b.y, b.r));
-            }
-            grid.rebuild();
-            phase = "TOPUP";
-            topupSteps = 0;
-          }
-        } else if (phase === "TOPUP") {
-          for (
-            let i = 0;
-            i < PHYS.DROP_PER_STEP && balls.length < maxTotal;
-            i++
-          )
-            spawnDropBall();
-          physicsStep();
-          for (const b of balls) {
-            if (b.fixed) continue;
-            if (b.y < 0) {
-              b.rest = 0;
-              continue;
-            }
-            const sp = Math.abs(b.x - b.px) + Math.abs(b.y - b.py);
-            if (sp < 0.12) {
-              b.rest++;
-              if (b.rest > 35) {
-                b.fixed = true;
-                b.setColor(sampleColor(b.x, b.y, b.r));
-              }
-            } else b.rest = 0;
-          }
-          topupSteps++;
-          let unfixed = 0;
-          for (const b of balls) if (!b.fixed) unfixed++;
-          if (
-            (balls.length >= maxTotal && unfixed < 20) ||
-            topupSteps > PHYS.TOPUP_MAX
-          ) {
-            for (const b of balls)
-              if (!b.fixed) {
-                b.fixed = true;
-                b.setColor(sampleColor(b.x, b.y, b.r));
-              }
-            phase = "DONE";
-            finish();
-          }
-        }
-      }
-      function finish() {
-        render();
-        setStatus();
-      }
-      function loop(ts) {
-        if (!running) return;
-        if (!last) last = ts;
-        const dt = Math.min(0.05, (ts - last) / 1000);
-        fps = fps * 0.9 + (1 / Math.max(dt, 1e-4)) * 0.1;
-        last = ts;
-        if (phase !== "DONE") {
-          acc += dt;
-          let guard = 0;
-          while (acc >= PHYS.DT && guard++ < 4) {
-            step();
-            acc -= PHYS.DT;
-          }
-          frame++;
-          if (frame % 2 === 0) recolorMoving();
-          render();
-          setStatus();
-        }
-        requestAnimationFrame(loop);
-      }
-      function setStatus() {
-        const names = {
-          IDLE: "idle",
-          SPAWN: "spawning",
-          SETTLE: "settling",
-          TOPUP: "dropping to fill",
-          DONE: "complete",
-        };
-        el.status.textContent = `${names[phase]} · circles: ${balls.length} · ${fps.toFixed(0)} fps`;
-        el.mosInfo.textContent = `${balls.length} circles`;
-      }
+function render() {
+  ctx.fillStyle = `rgb(${src.bg[0]},${src.bg[1]},${src.bg[2]})`;
+  ctx.fillRect(0, 0, W, H);
+  if (S.ghost && src.loaded) { ctx.globalAlpha = 0.18; ctx.drawImage(srcCanvas, 0, 0); ctx.globalAlpha = 1; }
+  for (const b of balls) {
+    ctx.beginPath();
+    ctx.arc(b.x, b.y, b.r, 0, TAU);
+    ctx.fillStyle = b.css;
+    ctx.fill();
+  }
+}
 
-      /* DEFAULT IMAGE - tropical night like your reference */
-      function generateSampleImage() {
-        const img = document.createElement("canvas");
-        img.width = 800;
-        img.height = 800;
-        const c = img.getContext("2d");
-        const Wt = 800,
-          top = 125,
-          bot = 712,
-          SH = bot - top;
+let phase = "IDLE", spawned = 0, settleWait = 0, running = false, acc = 0, last = 0, fps = 60, frame = 0;
 
-        c.fillStyle = "#000";
-        c.fillRect(0, 0, Wt, 800);
+function restart() {
+  computeSizes();
+  grid = new Grid(cell);
+  balls = [];
+  spawned = 0; settleWait = 0; acc = 0; last = 0;
+  phase = "SPAWN"; running = true;
+  el.play.textContent = "Pause";
+  render();
+  requestAnimationFrame(loop);
+}
 
-        const base = c.createLinearGradient(0, top, 0, bot);
-        base.addColorStop(0, "#1038D6");
-        base.addColorStop(0.5, "#0E33C2");
-        base.addColorStop(1, "#0A2AA2");
-        c.fillStyle = base;
-        c.fillRect(0, top, Wt, SH);
+function spawnBall() {
+  const cx = W / 2 + (Math.random() - .5) * 8;
+  const cy = H / 2 + (Math.random() - .5) * 8;
+  const r = base * (0.92 + Math.random() * 0.16);
+  const b = new Ball(cx, cy, r);
+  const a = Math.random() * TAU;
+  b.px = cx - Math.cos(a) * PHYS.BLAST * PHYS.DT;
+  b.py = cy - Math.sin(a) * PHYS.BLAST * PHYS.DT;
+  balls.push(b);
+  spawned++;
+}
 
-        // sun
-        const sunX = 648,
-          sunY = top + 108,
-          sunR = 32;
-        c.fillStyle = "#FF4E18";
-        c.beginPath();
-        c.arc(sunX, sunY, sunR, 0, TAU);
-        c.fill();
+function recolorMoving() {
+  for (const b of balls) b.setColor(sampleColor(b.x, b.y, b.r));
+}
 
-        // palm (behind hill)
-        const palmX = 670,
-          palmY = top + 130;
-        c.lineCap = "round";
-        c.strokeStyle = "#08160A";
-        c.lineWidth = 7;
-        c.beginPath();
-        c.moveTo(palmX + 8, palmY + 195);
-        c.quadraticCurveTo(palmX + 2, palmY + 100, palmX, palmY + 10);
-        c.stroke();
-        const fronds = [
-          { a: -2.95, len: 62, w: 18 },
-          { a: -2.35, len: 72, w: 20 },
-          { a: -1.75, len: 68, w: 19 },
-          { a: -1.15, len: 70, w: 20 },
-          { a: -0.55, len: 66, w: 18 },
-          { a: 0.05, len: 60, w: 16 },
-          { a: 0.6, len: 52, w: 15 },
-          { a: 2.9, len: 54, w: 15 },
-        ];
-        c.fillStyle = "#0A2210";
-        for (const f of fronds) {
-          c.save();
-          c.translate(palmX, palmY);
-          c.rotate(f.a);
-          c.beginPath();
-          c.moveTo(0, 0);
-          c.quadraticCurveTo(f.len * 0.5, -f.w * 0.7, f.len, 2);
-          c.quadraticCurveTo(f.len * 0.5, f.w * 0.5, 0, 0);
-          c.fill();
-          c.restore();
-        }
+function step() {
+  if (phase === "SPAWN") {
+    for (let i = 0; i < PHYS.SPAWN_PER_STEP && spawned < S.detail; i++) spawnBall();
+    physicsStep();
+    if (spawned >= S.detail) phase = "SETTLE";
+  } else if (phase === "SETTLE") {
+    physicsStep();
+    settleWait++;
+    if ((avgSpeed() < 0.08 && settleWait > 50) || settleWait > 650) {
+      for (const b of balls) { b.setColor(sampleColor(b.x, b.y, b.r)); }
+      phase = "DONE";
+      finish();
+    }
+  }
+}
 
-        function traceHill() {
-          c.beginPath();
-          c.moveTo(0, top + SH * 0.6);
-          c.bezierCurveTo(
-            120,
-            top + SH * 0.6,
-            175,
-            top + SH * 0.34,
-            330,
-            top + SH * 0.32,
-          );
-          c.bezierCurveTo(
-            430,
-            top + SH * 0.31,
-            475,
-            top + SH * 0.5,
-            600,
-            top + SH * 0.54,
-          );
-          c.bezierCurveTo(
-            680,
-            top + SH * 0.56,
-            730,
-            top + SH * 0.46,
-            800,
-            top + SH * 0.46,
-          );
-          c.lineTo(800, top + SH * 0.74);
-          c.lineTo(0, top + SH * 0.74);
-          c.closePath();
-        }
-        traceHill();
-        const hillGrad = c.createLinearGradient(0, 0, 800, 0);
-        hillGrad.addColorStop(0, "#4CC273");
-        hillGrad.addColorStop(0.22, "#2EA44F");
-        hillGrad.addColorStop(0.42, "#15743A");
-        hillGrad.addColorStop(0.58, "#082E18");
-        hillGrad.addColorStop(0.78, "#1A6A35");
-        hillGrad.addColorStop(1, "#8FD18F");
-        c.fillStyle = hillGrad;
-        c.fill();
-        const shGrad = c.createLinearGradient(320, 0, 620, 0);
-        shGrad.addColorStop(0, "rgba(0,0,0,0)");
-        shGrad.addColorStop(0.55, "rgba(0,18,6,0.55)");
-        shGrad.addColorStop(1, "rgba(0,0,0,0)");
-        c.fillStyle = shGrad;
-        c.fill();
+function finish() {
+  render();
+  el.status.textContent = `complete · ${balls.length} circles · no gaps`;
+  el.mosInfo.textContent = `${balls.length} circles`;
+}
 
-        // sand lips clipped to hill
-        c.save();
-        traceHill();
-        c.clip();
-        c.strokeStyle = "#E9DFC3";
-        c.lineCap = "round";
-        c.lineWidth = 34;
-        c.beginPath();
-        c.moveTo(-10, top + SH * 0.62);
-        c.bezierCurveTo(
-          80,
-          top + SH * 0.61,
-          150,
-          top + SH * 0.46,
-          225,
-          top + SH * 0.38,
-        );
-        c.stroke();
-        c.strokeStyle = "#F2E8CE";
-        c.lineWidth = 16;
-        c.beginPath();
-        c.moveTo(-10, top + SH * 0.62);
-        c.bezierCurveTo(
-          80,
-          top + SH * 0.61,
-          150,
-          top + SH * 0.46,
-          225,
-          top + SH * 0.38,
-        );
-        c.stroke();
-        c.strokeStyle = "#E7DDBE";
-        c.lineWidth = 30;
-        c.beginPath();
-        c.moveTo(595, top + SH * 0.54);
-        c.bezierCurveTo(
-          680,
-          top + SH * 0.56,
-          730,
-          top + SH * 0.46,
-          810,
-          top + SH * 0.46,
-        );
-        c.stroke();
-        c.strokeStyle = "#F3E9D0";
-        c.lineWidth = 14;
-        c.beginPath();
-        c.moveTo(595, top + SH * 0.54);
-        c.bezierCurveTo(
-          680,
-          top + SH * 0.56,
-          730,
-          top + SH * 0.46,
-          810,
-          top + SH * 0.46,
-        );
-        c.stroke();
-        c.restore();
+function loop(ts) {
+  if (!running) return;
+  if (!last) last = ts;
+  const dt = Math.min(0.05, (ts - last) / 1000);
+  fps = fps * 0.9 + (1 / Math.max(dt, 1e-4)) * 0.1;
+  last = ts;
 
-        // water shadow
-        c.globalAlpha = 0.85;
-        c.fillStyle = "#071B6E";
-        c.beginPath();
-        c.moveTo(0, top + SH * 0.7);
-        c.bezierCurveTo(
-          140,
-          top + SH * 0.64,
-          260,
-          top + SH * 0.76,
-          400,
-          top + SH * 0.71,
-        );
-        c.bezierCurveTo(
-          540,
-          top + SH * 0.66,
-          680,
-          top + SH * 0.78,
-          800,
-          top + SH * 0.71,
-        );
-        c.lineTo(800, top + SH * 0.82);
-        c.bezierCurveTo(
-          600,
-          top + SH * 0.88,
-          400,
-          top + SH * 0.8,
-          200,
-          top + SH * 0.86,
-        );
-        c.bezierCurveTo(
-          120,
-          top + SH * 0.88,
-          60,
-          top + SH * 0.84,
-          0,
-          top + SH * 0.84,
-        );
-        c.closePath();
-        c.fill();
-        c.globalAlpha = 1;
+  if (phase !== "DONE") {
+    acc += dt;
+    let guard = 0;
+    while (acc >= PHYS.DT && guard++ < 4) { step(); acc -= PHYS.DT; }
+    frame++;
+    if (frame % 2 === 0) recolorMoving();
+    render();
+    el.status.textContent = `${phase.toLowerCase()} · circles: ${balls.length}/${S.detail} · ${fps.toFixed(0)} fps`;
+    el.mosInfo.textContent = `${balls.length} circles`;
+  }
+  requestAnimationFrame(loop);
+}
 
-        // sparkle
-        for (let i = 0; i < 90; i++) {
-          const x = 520 + Math.random() * 240,
-            y = top + SH * 0.7 + Math.random() * SH * 0.12,
-            w = 6 + Math.random() * 22;
-          c.globalAlpha = 0.12 + Math.random() * 0.25;
-          c.fillStyle = "#E8DCBE";
-          c.fillRect(x, y, w, 1.5);
-        }
-        c.globalAlpha = 1;
+const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
 
-        // boat + reflection
-        const bx = 375,
-          by = top + SH * 0.74;
-        c.save();
-        c.globalAlpha = 0.45;
-        c.fillStyle = "#8A4A2A";
-        c.beginPath();
-        c.moveTo(bx - 55, by + 16);
-        c.lineTo(bx + 55, by + 10);
-        c.lineTo(bx + 40, by + 58);
-        c.lineTo(bx - 45, by + 62);
-        c.closePath();
-        c.fill();
-        c.restore();
+el.pick.onclick = () => el.file.click();
+el.file.onchange = e => { if (e.target.files[0]) loadImage(e.target.files[0]); };
+el.play.onclick = () => {
+  if (phase === "DONE") return;
+  running = !running;
+  el.play.textContent = running ? "Pause" : "Resume";
+  if (running) { last = 0; requestAnimationFrame(loop); }
+};
+el.reset.onclick = restart;
+el.save.onclick = () => {
+  render();
+  const a = document.createElement("a");
+  a.download = "circle-mosaic.png";
+  a.href = canvas.toDataURL("image/png");
+  a.click();
+};
+el.snap.onchange = e => {
+  S.snap = e.target.checked;
+  for (const b of balls) b.setColor(sampleColor(b.x, b.y, b.r));
+  render();
+};
+el.ghost.onchange = e => { S.ghost = e.target.checked; render(); };
 
-        const hullGrad = c.createLinearGradient(0, by - 10, 0, by + 18);
-        hullGrad.addColorStop(0, "#E88A4A");
-        hullGrad.addColorStop(0.5, "#C65E28");
-        hullGrad.addColorStop(1, "#7A3520");
-        c.fillStyle = hullGrad;
-        c.beginPath();
-        c.moveTo(bx - 72, by);
-        c.lineTo(bx + 62, by - 12);
-        c.lineTo(bx + 52, by + 10);
-        c.lineTo(bx - 60, by + 18);
-        c.closePath();
-        c.fill();
-        c.fillStyle = "#F4DCAC";
-        c.beginPath();
-        c.moveTo(bx - 72, by);
-        c.lineTo(bx + 62, by - 12);
-        c.lineTo(bx + 50, by - 16);
-        c.lineTo(bx - 80, by - 4);
-        c.closePath();
-        c.fill();
-        c.fillStyle = "#8A3E1E";
-        c.beginPath();
-        c.moveTo(bx - 62, by - 2);
-        c.lineTo(bx + 50, by - 13);
-        c.lineTo(bx + 42, by - 15);
-        c.lineTo(bx - 68, by - 5);
-        c.closePath();
-        c.fill();
+document.body.addEventListener("dragover", e => e.preventDefault());
+document.body.addEventListener("drop", e => {
+  e.preventDefault();
+  const f = e.dataTransfer.files[0];
+  if (f && f.type.startsWith("image/")) loadImage(f);
+});
+window.addEventListener("paste", e => {
+  for (const it of e.clipboardData.items)
+    if (it.type.startsWith("image/")) { loadImage(it.getAsFile()); break; }
+});
 
-        c.strokeStyle = "rgba(240,200,140,0.5)";
-        c.lineWidth = 1.5;
-        for (let i = 0; i < 6; i++) {
-          const ry = by + 22 + i * 6 + Math.random() * 2,
-            rw = 70 - i * 6 + Math.random() * 10;
-          c.globalAlpha = 0.5 - i * 0.07;
-          c.beginPath();
-          c.moveTo(bx - rw / 2, ry);
-          c.lineTo(bx + rw / 2, ry - 1);
-          c.stroke();
-        }
-        c.globalAlpha = 1;
+window.addEventListener("resize", () => {
+  resizeCanvases();
+  if (src.loaded && src.lastImg) {
+    drawSourceImage(src.lastImg);
+    restart();
+  }
+});
 
-        // foreground wave
-        c.fillStyle = "#05165A";
-        c.beginPath();
-        c.moveTo(340, bot);
-        c.bezierCurveTo(
-          480,
-          top + SH * 0.92,
-          580,
-          top + SH * 0.84,
-          680,
-          top + SH * 0.9,
-        );
-        c.lineTo(800, top + SH * 0.86);
-        c.lineTo(800, bot);
-        c.lineTo(340, bot);
-        c.closePath();
-        c.fill();
-        c.strokeStyle = "#2FB14E";
-        c.lineWidth = 7;
-        c.beginPath();
-        c.moveTo(560, top + SH * 0.92);
-        c.bezierCurveTo(
-          620,
-          top + SH * 0.86,
-          700,
-          top + SH * 0.88,
-          800,
-          top + SH * 0.84,
-        );
-        c.stroke();
-
-        // grain
-        for (let i = 0; i < 26000; i++) {
-          const x = Math.random() * Wt,
-            y = top + Math.random() * SH;
-          c.fillStyle =
-            Math.random() < 0.5 ? "rgba(0,0,0,0.10)" : "rgba(255,255,255,0.08)";
-          c.fillRect(x, y, 1.3, 1.3);
-        }
-        const vig = c.createLinearGradient(0, top, 0, bot);
-        vig.addColorStop(0, "rgba(0,0,0,0.12)");
-        vig.addColorStop(0.2, "rgba(0,0,0,0)");
-        vig.addColorStop(0.85, "rgba(0,0,0,0)");
-        vig.addColorStop(1, "rgba(0,0,0,0.25)");
-        c.fillStyle = vig;
-        c.fillRect(0, top, Wt, SH);
-        return img;
-      }
-
-      /* UI */
-      const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
-      el.pick.onclick = () => el.file.click();
-      el.file.onchange = (e) => {
-        if (e.target.files[0]) loadImage(e.target.files[0]);
-      };
-      el.play.onclick = () => {
-        if (phase === "DONE") return;
-        running = !running;
-        el.play.textContent = running ? "Pause" : "Resume";
-        if (running) {
-          last = 0;
-          requestAnimationFrame(loop);
-        }
-      };
-      el.reset.onclick = restart;
-      el.save.onclick = () => {
-        render();
-        const a = document.createElement("a");
-        a.download = "circle-mosaic.png";
-        a.href = canvas.toDataURL("image/png");
-        a.click();
-      };
-      el.detail.oninput = (e) => {
-        S.detail = +e.target.value;
-        el.detailV.textContent = S.detail;
-      };
-      el.detail.onchange = restart;
-      el.size.oninput = (e) => {
-        S.sizeScale = e.target.value / 100;
-        el.sizeV.textContent = S.sizeScale.toFixed(2) + "×";
-      };
-      el.size.onchange = restart;
-      el.ghost.onchange = (e) => {
-        S.ghost = e.target.checked;
-        render();
-      };
-      el.snap.onchange = (e) => {
-        S.snap = e.target.checked;
-        for (const b of balls) b.setColor(sampleColor(b.x, b.y, b.r));
-        render();
-      };
-      document.body.addEventListener("dragover", (e) => e.preventDefault());
-      document.body.addEventListener("drop", (e) => {
-        e.preventDefault();
-        const f = e.dataTransfer.files[0];
-        if (f && f.type.startsWith("image/")) loadImage(f);
-      });
-      window.addEventListener("paste", (e) => {
-        for (const item of e.clipboardData.items) {
-          if (item.type.startsWith("image/")) {
-            loadImage(item.getAsFile());
-            break;
-          }
-        }
-      });
-
-      const sampleImg = generateSampleImage();
-      src.lastImg = sampleImg;
-      drawSourceImage(sampleImg);
-      analyseColors();
-      restart();
-    </script>
-  </body>
+/* Load the landscape image you provided as default */
+const defaultImg = new Image();
+defaultImg.onload = () => {
+  src.lastImg = defaultImg;
+  drawSourceImage(defaultImg);
+  analyseColors();
+  restart();
+};
+defaultImg.src = "https://picsum.photos/id/1016/1200/900"; // placeholder until you host the real file
+// Replace the line above with your actual image URL or base64 when available
+</script>
+</body>
 </html>

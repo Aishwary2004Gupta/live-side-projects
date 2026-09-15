@@ -1,804 +1,1292 @@
 <!doctype html>
 <html lang="en">
-<head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-<title>Circle Mosaic — packing study</title>
-<style>
-  :root{
-    --ink:#0b0b0c;
-    --sheet:#101012;
-    --sheet-2:#15151a;
-    --rule:rgba(255,255,255,.075);
-    --rule-2:rgba(255,255,255,.14);
-    --type:#e7e4dd;
-    --type-dim:#8b8a86;
-    --type-faint:#5e5d5b;
-    --accent:#ff5f3c;
-    --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
-    --sans:"Helvetica Neue",Inter,-apple-system,Segoe UI,Roboto,sans-serif;
-  }
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width,initial-scale=1,viewport-fit=cover"
+    />
+    <title>Circle Mosaic — packing study</title>
+    <style>
+      :root {
+        --ink: #0b0b0c;
+        --sheet: #101012;
+        --sheet-2: #15151a;
+        --rule: rgba(255, 255, 255, 0.075);
+        --rule-2: rgba(255, 255, 255, 0.14);
+        --type: #e7e4dd;
+        --type-dim: #8b8a86;
+        --type-faint: #5e5d5b;
+        --accent: #ff5f3c;
+        --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+        --sans:
+          "Helvetica Neue", Inter, -apple-system, Segoe UI, Roboto, sans-serif;
+      }
 
-  *{box-sizing:border-box;margin:0;padding:0}
-  html,body{height:100%;overflow:hidden}
-  body{
-    background:var(--ink);
-    color:var(--type);
-    font:400 13px/1.4 var(--sans);
-    -webkit-font-smoothing:antialiased;
-  }
-  body::after{
-    content:"";position:fixed;inset:0;pointer-events:none;z-index:2;
-    background:radial-gradient(120% 90% at 50% 0%,transparent 45%,rgba(0,0,0,.55) 100%);
-  }
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      html,
+      body {
+        height: 100%;
+        overflow: hidden;
+      }
+      body {
+        background: var(--ink);
+        color: var(--type);
+        font: 400 13px/1.4 var(--sans);
+        -webkit-font-smoothing: antialiased;
+      }
+      body::after {
+        content: "";
+        position: fixed;
+        inset: 0;
+        pointer-events: none;
+        z-index: 2;
+        background: radial-gradient(
+          120% 90% at 50% 0%,
+          transparent 45%,
+          rgba(0, 0, 0, 0.55) 100%
+        );
+      }
 
-  .app{
-    height:100%;
-    display:grid;
-    grid-template-rows:auto 1fr auto;
-    padding:14px;
-    gap:12px;
-  }
+      .app {
+        height: 100%;
+        display: grid;
+        grid-template-rows: auto 1fr auto;
+        padding: 14px;
+        gap: 12px;
+      }
 
-  /* ── masthead ─────────────────────────────── */
-  .masthead{
-    display:flex;align-items:baseline;gap:18px;
-    padding:0 2px 11px;
-    border-bottom:1px solid var(--rule);
-  }
-  .mark{
-    font-size:15px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;
-  }
-  .mark em{font-style:normal;color:var(--accent)}
-  .colophon{
-    font:400 10px/1 var(--mono);letter-spacing:.1em;
-    color:var(--type-faint);text-transform:uppercase;
-  }
-  .masthead .spacer{margin-left:auto}
-  .dropnote{
-    font:400 10px/1 var(--mono);letter-spacing:.08em;color:var(--type-dim);
-  }
-  kbd{
-    font:inherit;border:1px solid var(--rule-2);border-radius:3px;
-    padding:2px 4px;color:var(--type);
-  }
+      /* ── masthead ─────────────────────────────── */
+      .masthead {
+        display: flex;
+        align-items: baseline;
+        gap: 18px;
+        padding: 0 2px 11px;
+        border-bottom: 1px solid var(--rule);
+      }
+      .mark {
+        font-size: 15px;
+        font-weight: 600;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+      }
+      .mark em {
+        font-style: normal;
+        color: var(--accent);
+      }
+      .colophon {
+        font: 400 10px/1 var(--mono);
+        letter-spacing: 0.1em;
+        color: var(--type-faint);
+        text-transform: uppercase;
+      }
+      .masthead .spacer {
+        margin-left: auto;
+      }
+      .dropnote {
+        font: 400 10px/1 var(--mono);
+        letter-spacing: 0.08em;
+        color: var(--type-dim);
+      }
+      kbd {
+        font: inherit;
+        border: 1px solid var(--rule-2);
+        border-radius: 3px;
+        padding: 2px 4px;
+        color: var(--type);
+      }
 
-  /* ── plates ───────────────────────────────── */
-  .plates{display:grid;grid-template-columns:1fr 1fr;gap:12px;min-height:0}
-  .plate{display:grid;grid-template-rows:auto 1fr;min-width:0;min-height:0}
+      /* ── plates ───────────────────────────────── */
+      .plates {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+        min-height: 0;
+      }
+      .plate {
+        display: grid;
+        grid-template-rows: auto 1fr;
+        min-width: 0;
+        min-height: 0;
+      }
 
-  .plate figcaption{
-    display:flex;align-items:center;gap:10px;
-    padding:0 2px 8px;
-  }
-  .idx{
-    font:500 9px/1 var(--mono);letter-spacing:.14em;
-    color:var(--ink);background:var(--type-dim);
-    padding:4px 5px;border-radius:2px;
-  }
-  .plate:nth-child(2) .idx{background:var(--accent);color:#180b07}
-  .ttl{
-    font-size:10px;letter-spacing:.22em;text-transform:uppercase;color:var(--type);
-  }
-  .dim{
-    margin-left:auto;
-    font:400 10px/1 var(--mono);color:var(--type-faint);
-    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
-  }
+      .plate figcaption {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 0 2px 8px;
+      }
+      .idx {
+        font: 500 9px/1 var(--mono);
+        letter-spacing: 0.14em;
+        color: var(--ink);
+        background: var(--type-dim);
+        padding: 4px 5px;
+        border-radius: 2px;
+      }
+      .plate:nth-child(2) .idx {
+        background: var(--accent);
+        color: #180b07;
+      }
+      .ttl {
+        font-size: 10px;
+        letter-spacing: 0.22em;
+        text-transform: uppercase;
+        color: var(--type);
+      }
+      .dim {
+        margin-left: auto;
+        font: 400 10px/1 var(--mono);
+        color: var(--type-faint);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
 
-  .stage{
-    position:relative;min-height:0;
-    display:grid;place-items:center;
-    background:var(--sheet);
-    border:1px solid var(--rule);
-    padding:10px;
-  }
-  .stage::before,.stage::after{
-    content:"";position:absolute;width:7px;height:7px;
-    border:1px solid var(--rule-2);pointer-events:none;
-  }
-  .stage::before{top:-1px;left:-1px;border-right:0;border-bottom:0}
-  .stage::after{bottom:-1px;right:-1px;border-left:0;border-top:0}
-  canvas{display:block;background:#000}
+      .stage {
+        position: relative;
+        min-height: 0;
+        display: grid;
+        place-items: center;
+        background: var(--sheet);
+        border: 1px solid var(--rule);
+        padding: 10px;
+      }
+      .stage::before,
+      .stage::after {
+        content: "";
+        position: absolute;
+        width: 7px;
+        height: 7px;
+        border: 1px solid var(--rule-2);
+        pointer-events: none;
+      }
+      .stage::before {
+        top: -1px;
+        left: -1px;
+        border-right: 0;
+        border-bottom: 0;
+      }
+      .stage::after {
+        bottom: -1px;
+        right: -1px;
+        border-left: 0;
+        border-top: 0;
+      }
+      canvas {
+        display: block;
+        background: #000;
+      }
 
-  /* ── status rail ──────────────────────────── */
-  .rail{
-    display:flex;align-items:center;gap:26px;
-    padding-top:10px;border-top:1px solid var(--rule);
-    font:400 10px/1 var(--mono);letter-spacing:.08em;
-    color:var(--type-faint);text-transform:uppercase;
-  }
-  .rail b{color:var(--type);font-weight:400}
-  .rail .dot{
-    width:5px;height:5px;border-radius:50%;background:var(--accent);
-    display:inline-block;margin-right:7px;vertical-align:1px;
-  }
-  .rail .dot.idle{background:var(--type-faint)}
-  .rail .right{margin-left:auto;display:flex;gap:22px}
+      /* ── status rail ──────────────────────────── */
+      .rail {
+        display: flex;
+        align-items: center;
+        gap: 26px;
+        padding-top: 10px;
+        border-top: 1px solid var(--rule);
+        font: 400 10px/1 var(--mono);
+        letter-spacing: 0.08em;
+        color: var(--type-faint);
+        text-transform: uppercase;
+      }
+      .rail b {
+        color: var(--type);
+        font-weight: 400;
+      }
+      .rail .dot {
+        width: 5px;
+        height: 5px;
+        border-radius: 50%;
+        background: var(--accent);
+        display: inline-block;
+        margin-right: 7px;
+        vertical-align: 1px;
+      }
+      .rail .dot.idle {
+        background: var(--type-faint);
+      }
+      .rail .right {
+        margin-left: auto;
+        display: flex;
+        gap: 22px;
+      }
 
-  /* ══ tweak panel ══════════════════════════ */
-  .tp{
-    position:fixed;z-index:10;width:222px;
-    background:rgba(18,18,21,.92);
-    backdrop-filter:blur(14px) saturate(140%);
-    border:1px solid var(--rule-2);
-    border-radius:6px;
-    box-shadow:0 18px 50px rgba(0,0,0,.6),0 1px 0 rgba(255,255,255,.05) inset;
-    user-select:none;
-    font:400 11px/1.3 var(--sans);
-  }
-  .tp-head{
-    display:flex;align-items:center;gap:8px;
-    height:28px;padding:0 9px;cursor:grab;
-    border-bottom:1px solid var(--rule);
-  }
-  .tp-head:active{cursor:grabbing}
-  .tp-head .grip{
-    width:12px;height:8px;flex:none;
-    background-image:radial-gradient(circle,var(--type-faint) .9px,transparent 1px);
-    background-size:4px 4px;
-  }
-  .tp-head h2{
-    font-size:9.5px;font-weight:500;letter-spacing:.18em;text-transform:uppercase;
-    color:var(--type-dim);
-  }
-  .tp-head .chev{
-    margin-left:auto;color:var(--type-faint);font-size:9px;
-    transition:transform .18s ease;
-  }
-  .tp.closed .chev{transform:rotate(-90deg)}
-  .tp.closed .tp-body{display:none}
-  .tp-body{padding:6px 0 7px;max-height:calc(100vh - 140px);overflow-y:auto}
-  .tp-body::-webkit-scrollbar{width:6px}
-  .tp-body::-webkit-scrollbar-thumb{background:var(--rule-2);border-radius:3px}
+      /* ══ tweak panel ══════════════════════════ */
+      .tp {
+        position: fixed;
+        z-index: 10;
+        width: 222px;
+        background: rgba(18, 18, 21, 0.92);
+        backdrop-filter: blur(14px) saturate(140%);
+        border: 1px solid var(--rule-2);
+        border-radius: 6px;
+        box-shadow:
+          0 18px 50px rgba(0, 0, 0, 0.6),
+          0 1px 0 rgba(255, 255, 255, 0.05) inset;
+        user-select: none;
+        font: 400 11px/1.3 var(--sans);
+      }
+      .tp-head {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        height: 28px;
+        padding: 0 9px;
+        cursor: grab;
+        border-bottom: 1px solid var(--rule);
+      }
+      .tp-head:active {
+        cursor: grabbing;
+      }
+      .tp-head .grip {
+        width: 12px;
+        height: 8px;
+        flex: none;
+        background-image: radial-gradient(
+          circle,
+          var(--type-faint) 0.9px,
+          transparent 1px
+        );
+        background-size: 4px 4px;
+      }
+      .tp-head h2 {
+        font-size: 9.5px;
+        font-weight: 500;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+        color: var(--type-dim);
+      }
+      .tp-head .chev {
+        margin-left: auto;
+        color: var(--type-faint);
+        font-size: 9px;
+        transition: transform 0.18s ease;
+      }
+      .tp.closed .chev {
+        transform: rotate(-90deg);
+      }
+      .tp.closed .tp-body {
+        display: none;
+      }
+      .tp-body {
+        padding: 6px 0 7px;
+        max-height: calc(100vh - 140px);
+        overflow-y: auto;
+      }
+      .tp-body::-webkit-scrollbar {
+        width: 6px;
+      }
+      .tp-body::-webkit-scrollbar-thumb {
+        background: var(--rule-2);
+        border-radius: 3px;
+      }
 
-  .tp-fold{border-bottom:1px solid var(--rule);padding:0 0 6px;margin:0 0 6px}
-  .tp-fold:last-child{border-bottom:0;margin-bottom:0;padding-bottom:0}
-  .tp-fold > h3{
-    font:500 8.5px/1 var(--mono);letter-spacing:.2em;text-transform:uppercase;
-    color:var(--type-faint);padding:7px 9px 8px;
-  }
+      .tp-fold {
+        border-bottom: 1px solid var(--rule);
+        padding: 0 0 6px;
+        margin: 0 0 6px;
+      }
+      .tp-fold:last-child {
+        border-bottom: 0;
+        margin-bottom: 0;
+        padding-bottom: 0;
+      }
+      .tp-fold > h3 {
+        font: 500 8.5px/1 var(--mono);
+        letter-spacing: 0.2em;
+        text-transform: uppercase;
+        color: var(--type-faint);
+        padding: 7px 9px 8px;
+      }
 
-  .tp-row{
-    display:flex;align-items:center;gap:8px;
-    padding:3px 9px;min-height:24px;
-  }
-  .tp-row > label{
-    flex:1;color:var(--type-dim);font-size:11px;
-    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
-  }
+      .tp-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 3px 9px;
+        min-height: 24px;
+      }
+      .tp-row > label {
+        flex: 1;
+        color: var(--type-dim);
+        font-size: 11px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
 
-  .tp-btn{
-    width:100%;height:24px;
-    background:var(--sheet-2);color:var(--type);
-    border:1px solid var(--rule-2);border-radius:3px;
-    font:400 11px var(--sans);cursor:pointer;
-    transition:background .13s,border-color .13s,color .13s;
-  }
-  .tp-btn:hover{background:#1e1e24;border-color:rgba(255,255,255,.26)}
-  .tp-btn:active{transform:translateY(.5px)}
-  .tp-btn.hero{
-    background:var(--accent);border-color:var(--accent);color:#1a0904;font-weight:500;
-  }
-  .tp-btn.hero:hover{background:#ff7454;border-color:#ff7454}
+      .tp-btn {
+        width: 100%;
+        height: 24px;
+        background: var(--sheet-2);
+        color: var(--type);
+        border: 1px solid var(--rule-2);
+        border-radius: 3px;
+        font: 400 11px var(--sans);
+        cursor: pointer;
+        transition:
+          background 0.13s,
+          border-color 0.13s,
+          color 0.13s;
+      }
+      .tp-btn:hover {
+        background: #1e1e24;
+        border-color: rgba(255, 255, 255, 0.26);
+      }
+      .tp-btn:active {
+        transform: translateY(0.5px);
+      }
+      .tp-btn.hero {
+        background: var(--accent);
+        border-color: var(--accent);
+        color: #1a0904;
+        font-weight: 500;
+      }
+      .tp-btn.hero:hover {
+        background: #ff7454;
+        border-color: #ff7454;
+      }
 
-  .tp-sw{
-    flex:none;width:34px;height:18px;border-radius:9px;
-    background:#26262e;border:1px solid var(--rule-2);
-    position:relative;cursor:pointer;transition:background .16s,border-color .16s;
-  }
-  .tp-sw i{
-    position:absolute;top:2px;left:2px;width:12px;height:12px;border-radius:50%;
-    background:var(--type-dim);transition:transform .16s cubic-bezier(.4,1.4,.5,1),background .16s;
-  }
-  .tp-sw.on{background:rgba(255,95,60,.25);border-color:rgba(255,95,60,.6)}
-  .tp-sw.on i{transform:translateX(16px);background:var(--accent)}
+      .tp-sw {
+        flex: none;
+        width: 34px;
+        height: 18px;
+        border-radius: 9px;
+        background: #26262e;
+        border: 1px solid var(--rule-2);
+        position: relative;
+        cursor: pointer;
+        transition:
+          background 0.16s,
+          border-color 0.16s;
+      }
+      .tp-sw i {
+        position: absolute;
+        top: 2px;
+        left: 2px;
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        background: var(--type-dim);
+        transition:
+          transform 0.16s cubic-bezier(0.4, 1.4, 0.5, 1),
+          background 0.16s;
+      }
+      .tp-sw.on {
+        background: rgba(255, 95, 60, 0.25);
+        border-color: rgba(255, 95, 60, 0.6);
+      }
+      .tp-sw.on i {
+        transform: translateX(16px);
+        background: var(--accent);
+      }
 
-  .tp-val{
-    font:400 10.5px/1 var(--mono);color:var(--type);
-    background:#0d0d10;border:1px solid var(--rule);border-radius:3px;
-    padding:4px 6px;min-width:58px;text-align:right;
-  }
+      .tp-val {
+        font: 400 10.5px/1 var(--mono);
+        color: var(--type);
+        background: #0d0d10;
+        border: 1px solid var(--rule);
+        border-radius: 3px;
+        padding: 4px 6px;
+        min-width: 58px;
+        text-align: right;
+      }
 
-  .tp-bar{height:3px;background:#0d0d10;border-radius:2px;margin:1px 9px 5px;overflow:hidden}
-  .tp-bar i{display:block;height:100%;width:0%;background:var(--accent);transition:width .1s linear}
+      .tp-bar {
+        height: 3px;
+        background: #0d0d10;
+        border-radius: 2px;
+        margin: 1px 9px 5px;
+        overflow: hidden;
+      }
+      .tp-bar i {
+        display: block;
+        height: 100%;
+        width: 0%;
+        background: var(--accent);
+        transition: width 0.1s linear;
+      }
 
-  .tp-swatches{display:grid;grid-template-columns:repeat(5,1fr);gap:3px;padding:1px 9px 4px}
-  .tp-swatches i{
-    height:17px;border-radius:2px;box-shadow:inset 0 0 0 1px rgba(255,255,255,.09);
-  }
+      .tp-swatches {
+        display: grid;
+        grid-template-columns: repeat(5, 1fr);
+        gap: 3px;
+        padding: 1px 9px 4px;
+      }
+      .tp-swatches i {
+        height: 17px;
+        border-radius: 2px;
+        box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.09);
+      }
 
-  .tp-note{
-    padding:0 9px 3px;font:400 9.5px/1.45 var(--mono);color:var(--type-faint);
-  }
+      .tp-note {
+        padding: 0 9px 3px;
+        font: 400 9.5px/1.45 var(--mono);
+        color: var(--type-faint);
+      }
 
-  @media (max-width:860px){
-    .plates{grid-template-columns:1fr;grid-template-rows:1fr 1fr}
-    .tp{width:196px}
-    .dropnote{display:none}
-  }
-</style>
-</head>
-<body>
+      @media (max-width: 860px) {
+        .plates {
+          grid-template-columns: 1fr;
+          grid-template-rows: 1fr 1fr;
+        }
+        .tp {
+          width: 196px;
+        }
+        .dropnote {
+          display: none;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="app">
+      <header class="masthead">
+        <div class="mark">Circle&nbsp;<em>Mosaic</em></div>
+        <div class="colophon">packing study · no.04</div>
+        <div class="spacer"></div>
+        <div class="dropnote">
+          drop a file anywhere · <kbd>⌘V</kbd> paste · <kbd>Space</kbd> pause ·
+          <kbd>R</kbd> rebuild
+        </div>
+      </header>
 
-<div class="app">
-  <header class="masthead">
-    <div class="mark">Circle&nbsp;<em>Mosaic</em></div>
-    <div class="colophon">packing study · no.04</div>
-    <div class="spacer"></div>
-    <div class="dropnote">drop a file anywhere · <kbd>⌘V</kbd> paste · <kbd>Space</kbd> pause · <kbd>R</kbd> rebuild</div>
-  </header>
+      <div class="plates">
+        <figure class="plate">
+          <figcaption>
+            <span class="idx">01</span><span class="ttl">Source</span
+            ><span class="dim" id="srcInfo">—</span>
+          </figcaption>
+          <div class="stage" id="stageA"><canvas id="srcCanvas"></canvas></div>
+        </figure>
+        <figure class="plate">
+          <figcaption>
+            <span class="idx">02</span><span class="ttl">Mosaic</span
+            ><span class="dim" id="mosInfo">—</span>
+          </figcaption>
+          <div class="stage" id="stageB"><canvas id="mosCanvas"></canvas></div>
+        </figure>
+      </div>
 
-  <div class="plates">
-    <figure class="plate">
-      <figcaption><span class="idx">01</span><span class="ttl">Source</span><span class="dim" id="srcInfo">—</span></figcaption>
-      <div class="stage" id="stageA"><canvas id="srcCanvas"></canvas></div>
-    </figure>
-    <figure class="plate">
-      <figcaption><span class="idx">02</span><span class="ttl">Mosaic</span><span class="dim" id="mosInfo">—</span></figcaption>
-      <div class="stage" id="stageB"><canvas id="mosCanvas"></canvas></div>
-    </figure>
-  </div>
-
-  <footer class="rail">
-    <span><span class="dot" id="railDot"></span><b id="railPhase">idle</b></span>
-    <span>circles <b id="railCount">0</b></span>
-    <span>radius <b id="railRadius">—</b></span>
-    <div class="right">
-      <span>coverage <b id="railCov">0%</b></span>
-      <span><b id="railFps">60</b> fps</span>
+      <footer class="rail">
+        <span
+          ><span class="dot" id="railDot"></span
+          ><b id="railPhase">idle</b></span
+        >
+        <span>circles <b id="railCount">0</b></span>
+        <span>radius <b id="railRadius">—</b></span>
+        <div class="right">
+          <span>coverage <b id="railCov">0%</b></span>
+          <span><b id="railFps">60</b> fps</span>
+        </div>
+      </footer>
     </div>
-  </footer>
-</div>
 
-<input type="file" id="fileInput" accept="image/*" hidden />
+    <input type="file" id="fileInput" accept="image/*" hidden />
 
-<script>
-/* ═══════════════════════════════════════════════════════
+    <script>
+      /* ═══════════════════════════════════════════════════════
    Tweak panel — small hand-rolled control surface
 ═══════════════════════════════════════════════════════ */
-class TweakPanel{
-  constructor(title,x,y){
-    const root=document.createElement('div');
-    root.className='tp';
-    root.style.left=x+'px';
-    root.style.top=y+'px';
+      class TweakPanel {
+        constructor(title, x, y) {
+          const root = document.createElement("div");
+          root.className = "tp";
+          root.style.left = x + "px";
+          root.style.top = y + "px";
 
-    const head=document.createElement('div');
-    head.className='tp-head';
-    head.innerHTML=`<span class="grip"></span><h2>${title}</h2><span class="chev">▾</span>`;
+          const head = document.createElement("div");
+          head.className = "tp-head";
+          head.innerHTML = `<span class="grip"></span><h2>${title}</h2><span class="chev">▾</span>`;
 
-    const body=document.createElement('div');
-    body.className='tp-body';
+          const body = document.createElement("div");
+          body.className = "tp-body";
 
-    root.append(head,body);
-    document.body.appendChild(root);
-    this.root=root; this.body=body; this.current=body;
+          root.append(head, body);
+          document.body.appendChild(root);
+          this.root = root;
+          this.body = body;
+          this.current = body;
 
-    /* collapse */
-    head.addEventListener('click',e=>{
-      if(this.dragged) return;
-      root.classList.toggle('closed');
-    });
+          /* collapse */
+          head.addEventListener("click", (e) => {
+            if (this.dragged) return;
+            root.classList.toggle("closed");
+          });
 
-    /* drag */
-    let ox=0,oy=0,down=false;
-    head.addEventListener('pointerdown',e=>{
-      down=true; this.dragged=false;
-      ox=e.clientX-root.offsetLeft; oy=e.clientY-root.offsetTop;
-      head.setPointerCapture(e.pointerId);
-    });
-    head.addEventListener('pointermove',e=>{
-      if(!down) return;
-      const nx=e.clientX-ox, ny=e.clientY-oy;
-      if(Math.abs(nx-root.offsetLeft)>2||Math.abs(ny-root.offsetTop)>2) this.dragged=true;
-      root.style.left=Math.max(6,Math.min(innerWidth-root.offsetWidth-6,nx))+'px';
-      root.style.top =Math.max(6,Math.min(innerHeight-40,ny))+'px';
-    });
-    head.addEventListener('pointerup',()=>{down=false;setTimeout(()=>this.dragged=false,0)});
-  }
-  folder(name){
-    const f=document.createElement('div');
-    f.className='tp-fold';
-    f.innerHTML=`<h3>${name}</h3>`;
-    this.body.appendChild(f);
-    this.current=f;
-    return this;
-  }
-  button(label,fn,hero=false){
-    const r=document.createElement('div'); r.className='tp-row';
-    const b=document.createElement('button');
-    b.className='tp-btn'+(hero?' hero':''); b.textContent=label;
-    b.onclick=fn; r.appendChild(b); this.current.appendChild(r);
-    return b;
-  }
-  toggle(label,val,fn){
-    const r=document.createElement('div'); r.className='tp-row';
-    const l=document.createElement('label'); l.textContent=label;
-    const s=document.createElement('div'); s.className='tp-sw'+(val?' on':'');
-    s.innerHTML='<i></i>';
-    s.onclick=()=>{ val=!val; s.classList.toggle('on',val); fn(val); };
-    r.append(l,s); this.current.appendChild(r);
-    return s;
-  }
-  readout(label,init='—'){
-    const r=document.createElement('div'); r.className='tp-row';
-    const l=document.createElement('label'); l.textContent=label;
-    const v=document.createElement('span'); v.className='tp-val'; v.textContent=init;
-    r.append(l,v); this.current.appendChild(r);
-    return t=>v.textContent=t;
-  }
-  bar(){
-    const b=document.createElement('div'); b.className='tp-bar';
-    b.innerHTML='<i></i>'; this.current.appendChild(b);
-    const fill=b.firstChild;
-    return p=>fill.style.width=(p*100).toFixed(1)+'%';
-  }
-  swatches(n=10){
-    const g=document.createElement('div'); g.className='tp-swatches';
-    const cells=[];
-    for(let i=0;i<n;i++){const i2=document.createElement('i');g.appendChild(i2);cells.push(i2)}
-    this.current.appendChild(g);
-    return cols=>cells.forEach((c,i)=>{
-      const col=cols[i];
-      c.style.background=col?`rgb(${col[0]},${col[1]},${col[2]})`:'transparent';
-      c.style.opacity=col?1:.12;
-    });
-  }
-  note(text){
-    const n=document.createElement('div'); n.className='tp-note'; n.textContent=text;
-    this.current.appendChild(n); return n;
-  }
-}
+          /* drag */
+          let ox = 0,
+            oy = 0,
+            down = false;
+          head.addEventListener("pointerdown", (e) => {
+            down = true;
+            this.dragged = false;
+            ox = e.clientX - root.offsetLeft;
+            oy = e.clientY - root.offsetTop;
+            head.setPointerCapture(e.pointerId);
+          });
+          head.addEventListener("pointermove", (e) => {
+            if (!down) return;
+            const nx = e.clientX - ox,
+              ny = e.clientY - oy;
+            if (
+              Math.abs(nx - root.offsetLeft) > 2 ||
+              Math.abs(ny - root.offsetTop) > 2
+            )
+              this.dragged = true;
+            root.style.left =
+              Math.max(6, Math.min(innerWidth - root.offsetWidth - 6, nx)) +
+              "px";
+            root.style.top = Math.max(6, Math.min(innerHeight - 40, ny)) + "px";
+          });
+          head.addEventListener("pointerup", () => {
+            down = false;
+            setTimeout(() => (this.dragged = false), 0);
+          });
+        }
+        folder(name) {
+          const f = document.createElement("div");
+          f.className = "tp-fold";
+          f.innerHTML = `<h3>${name}</h3>`;
+          this.body.appendChild(f);
+          this.current = f;
+          return this;
+        }
+        button(label, fn, hero = false) {
+          const r = document.createElement("div");
+          r.className = "tp-row";
+          const b = document.createElement("button");
+          b.className = "tp-btn" + (hero ? " hero" : "");
+          b.textContent = label;
+          b.onclick = fn;
+          r.appendChild(b);
+          this.current.appendChild(r);
+          return b;
+        }
+        toggle(label, val, fn) {
+          const r = document.createElement("div");
+          r.className = "tp-row";
+          const l = document.createElement("label");
+          l.textContent = label;
+          const s = document.createElement("div");
+          s.className = "tp-sw" + (val ? " on" : "");
+          s.innerHTML = "<i></i>";
+          s.onclick = () => {
+            val = !val;
+            s.classList.toggle("on", val);
+            fn(val);
+          };
+          r.append(l, s);
+          this.current.appendChild(r);
+          return s;
+        }
+        readout(label, init = "—") {
+          const r = document.createElement("div");
+          r.className = "tp-row";
+          const l = document.createElement("label");
+          l.textContent = label;
+          const v = document.createElement("span");
+          v.className = "tp-val";
+          v.textContent = init;
+          r.append(l, v);
+          this.current.appendChild(r);
+          return (t) => (v.textContent = t);
+        }
+        bar() {
+          const b = document.createElement("div");
+          b.className = "tp-bar";
+          b.innerHTML = "<i></i>";
+          this.current.appendChild(b);
+          const fill = b.firstChild;
+          return (p) => (fill.style.width = (p * 100).toFixed(1) + "%");
+        }
+        swatches(n = 10) {
+          const g = document.createElement("div");
+          g.className = "tp-swatches";
+          const cells = [];
+          for (let i = 0; i < n; i++) {
+            const i2 = document.createElement("i");
+            g.appendChild(i2);
+            cells.push(i2);
+          }
+          this.current.appendChild(g);
+          return (cols) =>
+            cells.forEach((c, i) => {
+              const col = cols[i];
+              c.style.background = col
+                ? `rgb(${col[0]},${col[1]},${col[2]})`
+                : "transparent";
+              c.style.opacity = col ? 1 : 0.12;
+            });
+        }
+        note(text) {
+          const n = document.createElement("div");
+          n.className = "tp-note";
+          n.textContent = text;
+          this.current.appendChild(n);
+          return n;
+        }
+      }
 
-/* ═══════════════════════════════════════════════════════
+      /* ═══════════════════════════════════════════════════════
    Constants & state
 ═══════════════════════════════════════════════════════ */
-const TAU=Math.PI*2;
-const DPR_CAP=1.75;
-const CELL_AREA=21;      // css px² per circle → auto-max detail
-const MIN_N=4500, MAX_N=14000;
-const COVER=1.035;       // radius overshoot → guarantees zero gaps
-const WAVE=64, RISE=34;  // assembly timing, frames
+      const TAU = Math.PI * 2;
+      const DPR_CAP = 1.75;
+      const CELL_AREA = 21; // css px² per circle → auto-max detail
+      const MIN_N = 4500,
+        MAX_N = 14000;
+      const COVER = 1.035; // radius overshoot → guarantees zero gaps
+      const WAVE = 64,
+        RISE = 34; // assembly timing, frames
 
-const srcCanvas=document.getElementById('srcCanvas');
-const mosCanvas=document.getElementById('mosCanvas');
-const sctx=srcCanvas.getContext('2d',{willReadFrequently:true});
-const mctx=mosCanvas.getContext('2d');
+      const srcCanvas = document.getElementById("srcCanvas");
+      const mosCanvas = document.getElementById("mosCanvas");
+      const sctx = srcCanvas.getContext("2d", { willReadFrequently: true });
+      const mctx = mosCanvas.getContext("2d");
 
-const ui={
-  stageA:document.getElementById('stageA'),
-  stageB:document.getElementById('stageB'),
-  srcInfo:document.getElementById('srcInfo'),
-  mosInfo:document.getElementById('mosInfo'),
-  phase:document.getElementById('railPhase'),
-  count:document.getElementById('railCount'),
-  radius:document.getElementById('railRadius'),
-  cov:document.getElementById('railCov'),
-  fps:document.getElementById('railFps'),
-  dot:document.getElementById('railDot'),
-  file:document.getElementById('fileInput')
-};
+      const ui = {
+        stageA: document.getElementById("stageA"),
+        stageB: document.getElementById("stageB"),
+        srcInfo: document.getElementById("srcInfo"),
+        mosInfo: document.getElementById("mosInfo"),
+        phase: document.getElementById("railPhase"),
+        count: document.getElementById("railCount"),
+        radius: document.getElementById("railRadius"),
+        cov: document.getElementById("railCov"),
+        fps: document.getElementById("railFps"),
+        dot: document.getElementById("railDot"),
+        file: document.getElementById("fileInput"),
+      };
 
-let W=600,H=450,CSSW=600,CSSH=450;
+      let W = 600,
+        H = 450,
+        CSSW = 600,
+        CSSH = 450;
 
-const src={ img:null, label:'', data:null, palette:[], bg:[9,9,11],
-            fit:{x:0,y:0,w:0,h:0} };
+      const src = {
+        img: null,
+        label: "",
+        data: null,
+        palette: [],
+        bg: [9, 9, 11],
+        fit: { x: 0, y: 0, w: 0, h: 0 },
+      };
 
-const opt={ paletteLock:false, underlay:false };
+      const opt = { paletteLock: false, underlay: false };
 
-let dots=[], tick=0, settled=0, phase='idle', running=true;
-let fps=60, prevTs=0, radiusPx=0;
+      let dots = [],
+        tick = 0,
+        settled = 0,
+        phase = "idle",
+        running = true;
+      let fps = 60,
+        prevTs = 0,
+        radiusPx = 0;
 
-const clamp=(v,a,b)=>v<a?a:v>b?b:v;
-const lum=c=>c[0]*.299+c[1]*.587+c[2]*.114;
-const easeOut=t=>1-Math.pow(1-t,3);
+      const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
+      const lum = (c) => c[0] * 0.299 + c[1] * 0.587 + c[2] * 0.114;
+      const easeOut = (t) => 1 - Math.pow(1 - t, 3);
 
-/* ═══════════════════════════════════════════════════════
+      /* ═══════════════════════════════════════════════════════
    Canvas sizing
 ═══════════════════════════════════════════════════════ */
-function layout(){
-  const a=ui.stageA.getBoundingClientRect();
-  const b=ui.stageB.getBoundingClientRect();
-  const cw=Math.max(140,Math.floor(Math.min(a.width,b.width)-20));
-  const ch=Math.max(140,Math.floor(Math.min(a.height,b.height)-20));
-  const dpr=Math.min(devicePixelRatio||1,DPR_CAP);
+      function layout() {
+        const a = ui.stageA.getBoundingClientRect();
+        const b = ui.stageB.getBoundingClientRect();
+        const cw = Math.max(140, Math.floor(Math.min(a.width, b.width) - 20));
+        const ch = Math.max(140, Math.floor(Math.min(a.height, b.height) - 20));
+        const dpr = Math.min(devicePixelRatio || 1, DPR_CAP);
 
-  CSSW=cw; CSSH=ch;
-  W=Math.floor(cw*dpr); H=Math.floor(ch*dpr);
+        CSSW = cw;
+        CSSH = ch;
+        W = Math.floor(cw * dpr);
+        H = Math.floor(ch * dpr);
 
-  for(const cv of [srcCanvas,mosCanvas]){
-    cv.width=W; cv.height=H;
-    cv.style.width=cw+'px'; cv.style.height=ch+'px';
-  }
-}
+        for (const cv of [srcCanvas, mosCanvas]) {
+          cv.width = W;
+          cv.height = H;
+          cv.style.width = cw + "px";
+          cv.style.height = ch + "px";
+        }
+      }
 
-/* ═══════════════════════════════════════════════════════
+      /* ═══════════════════════════════════════════════════════
    Source plate — drawn once, never altered afterwards
 ═══════════════════════════════════════════════════════ */
-function paintSource(){
-  if(!src.img) return;
-  const img=src.img;
-  sctx.fillStyle='#000'; sctx.fillRect(0,0,W,H);
+      function paintSource() {
+        if (!src.img) return;
+        const img = src.img;
+        sctx.fillStyle = "#000";
+        sctx.fillRect(0, 0, W, H);
 
-  const s=Math.min(W/img.width,H/img.height);   // contain — nothing cropped
-  const dw=img.width*s, dh=img.height*s;
-  const dx=(W-dw)/2, dy=(H-dh)/2;
+        const s = Math.min(W / img.width, H / img.height); // contain — nothing cropped
+        const dw = img.width * s,
+          dh = img.height * s;
+        const dx = (W - dw) / 2,
+          dy = (H - dh) / 2;
 
-  src.fit={x:dx,y:dy,w:dw,h:dh};
-  sctx.imageSmoothingQuality='high';
-  sctx.drawImage(img,dx,dy,dw,dh);
-  src.data=sctx.getImageData(0,0,W,H).data;
+        src.fit = { x: dx, y: dy, w: dw, h: dh };
+        sctx.imageSmoothingQuality = "high";
+        sctx.drawImage(img, dx, dy, dw, dh);
+        src.data = sctx.getImageData(0, 0, W, H).data;
 
-  ui.srcInfo.textContent=`${src.label} · ${img.width}×${img.height}`;
-}
+        ui.srcInfo.textContent = `${src.label} · ${img.width}×${img.height}`;
+      }
 
-function adopt(img,label){
-  src.img=img; src.label=label;
-  paintSource(); analyse(); build();
-}
+      function adopt(img, label) {
+        src.img = img;
+        src.label = label;
+        paintSource();
+        analyse();
+        build();
+      }
 
-function readFile(file){
-  const img=new Image();
-  img.onload=()=>{ adopt(img,file.name.replace(/\.[^.]+$/,'')); URL.revokeObjectURL(img.src); };
-  img.onerror=()=>ui.phase.textContent='unreadable file';
-  img.src=URL.createObjectURL(file);
-}
+      function readFile(file) {
+        const img = new Image();
+        img.onload = () => {
+          adopt(img, file.name.replace(/\.[^.]+$/, ""));
+          URL.revokeObjectURL(img.src);
+        };
+        img.onerror = () => (ui.phase.textContent = "unreadable file");
+        img.src = URL.createObjectURL(file);
+      }
 
-/* ═══════════════════════════════════════════════════════
+      /* ═══════════════════════════════════════════════════════
    Palette — median cut
 ═══════════════════════════════════════════════════════ */
-function analyse(){
-  const d=src.data, px=[];
-  const x0=Math.floor(src.fit.x), y0=Math.floor(src.fit.y);
-  const x1=Math.ceil(src.fit.x+src.fit.w), y1=Math.ceil(src.fit.y+src.fit.h);
-  const step=Math.max(3,Math.round(Math.min(src.fit.w,src.fit.h)/150));
+      function analyse() {
+        const d = src.data,
+          px = [];
+        const x0 = Math.floor(src.fit.x),
+          y0 = Math.floor(src.fit.y);
+        const x1 = Math.ceil(src.fit.x + src.fit.w),
+          y1 = Math.ceil(src.fit.y + src.fit.h);
+        const step = Math.max(
+          3,
+          Math.round(Math.min(src.fit.w, src.fit.h) / 150),
+        );
 
-  for(let y=y0;y<y1;y+=step)
-    for(let x=x0;x<x1;x+=step){
-      const i=(y*W+x)*4;
-      px.push([d[i],d[i+1],d[i+2]]);
-    }
+        for (let y = y0; y < y1; y += step)
+          for (let x = x0; x < x1; x += step) {
+            const i = (y * W + x) * 4;
+            px.push([d[i], d[i + 1], d[i + 2]]);
+          }
 
-  src.palette=medianCut(px,10);
+        src.palette = medianCut(px, 10);
 
-  let dark=src.palette[0],best=1e9;
-  for(const c of src.palette){const l=lum(c); if(l<best){best=l;dark=c}}
-  src.bg=[dark[0]*.2|0,dark[1]*.2|0,dark[2]*.2|0];
-  setSwatches(src.palette);
-}
-function medianCut(px,k){
-  if(!px.length) return [[190,190,190]];
-  let boxes=[px],guard=0;
-  while(boxes.length<k&&guard++<80){
-    boxes.sort((a,b)=>span(b)-span(a));
-    const box=boxes.shift();
-    if(!box||box.length<2){ if(box)boxes.push(box); break; }
-    const ch=widest(box);
-    box.sort((p,q)=>p[ch]-q[ch]);
-    const m=box.length>>1;
-    boxes.push(box.slice(0,m),box.slice(m));
-  }
-  return boxes.map(avg).sort((a,b)=>lum(b)-lum(a));
-}
-function range(box,c){let lo=255,hi=0;for(const p of box){if(p[c]<lo)lo=p[c];if(p[c]>hi)hi=p[c]}return hi-lo}
-function widest(b){const r=range(b,0),g=range(b,1),l=range(b,2);return r>=g&&r>=l?0:(g>=l?1:2)}
-function span(b){return Math.max(range(b,0),range(b,1),range(b,2))*Math.log(b.length+1)}
-function avg(b){let r=0,g=0,l=0;for(const p of b){r+=p[0];g+=p[1];l+=p[2]}const n=b.length||1;return [r/n|0,g/n|0,l/n|0]}
+        let dark = src.palette[0],
+          best = 1e9;
+        for (const c of src.palette) {
+          const l = lum(c);
+          if (l < best) {
+            best = l;
+            dark = c;
+          }
+        }
+        src.bg = [
+          (dark[0] * 0.2) | 0,
+          (dark[1] * 0.2) | 0,
+          (dark[2] * 0.2) | 0,
+        ];
+        setSwatches(src.palette);
+      }
+      function medianCut(px, k) {
+        if (!px.length) return [[190, 190, 190]];
+        let boxes = [px],
+          guard = 0;
+        while (boxes.length < k && guard++ < 80) {
+          boxes.sort((a, b) => span(b) - span(a));
+          const box = boxes.shift();
+          if (!box || box.length < 2) {
+            if (box) boxes.push(box);
+            break;
+          }
+          const ch = widest(box);
+          box.sort((p, q) => p[ch] - q[ch]);
+          const m = box.length >> 1;
+          boxes.push(box.slice(0, m), box.slice(m));
+        }
+        return boxes.map(avg).sort((a, b) => lum(b) - lum(a));
+      }
+      function range(box, c) {
+        let lo = 255,
+          hi = 0;
+        for (const p of box) {
+          if (p[c] < lo) lo = p[c];
+          if (p[c] > hi) hi = p[c];
+        }
+        return hi - lo;
+      }
+      function widest(b) {
+        const r = range(b, 0),
+          g = range(b, 1),
+          l = range(b, 2);
+        return r >= g && r >= l ? 0 : g >= l ? 1 : 2;
+      }
+      function span(b) {
+        return (
+          Math.max(range(b, 0), range(b, 1), range(b, 2)) *
+          Math.log(b.length + 1)
+        );
+      }
+      function avg(b) {
+        let r = 0,
+          g = 0,
+          l = 0;
+        for (const p of b) {
+          r += p[0];
+          g += p[1];
+          l += p[2];
+        }
+        const n = b.length || 1;
+        return [(r / n) | 0, (g / n) | 0, (l / n) | 0];
+      }
 
-/* ═══════════════════════════════════════════════════════
+      /* ═══════════════════════════════════════════════════════
    Colour sampling
 ═══════════════════════════════════════════════════════ */
-const TAPS=[[0,0],[.6,0],[-.6,0],[0,.6],[0,-.6],[.42,.42],[-.42,.42],[.42,-.42],[-.42,-.42]];
-function sample(x,y,r){
-  const d=src.data;
-  const x0=src.fit.x|0, y0=src.fit.y|0;
-  const x1=Math.ceil(src.fit.x+src.fit.w)-1, y1=Math.ceil(src.fit.y+src.fit.h)-1;
-  let R=0,G=0,B=0;
-  for(const [ox,oy] of TAPS){
-    const px=clamp(Math.round(x+ox*r),x0,x1);
-    const py=clamp(Math.round(y+oy*r),y0,y1);
-    const i=(py*W+px)*4;
-    R+=d[i];G+=d[i+1];B+=d[i+2];
-  }
-  let c=[R/9|0,G/9|0,B/9|0];
-  if(opt.paletteLock&&src.palette.length) c=nearest(c);
-  return c;
-}
-function nearest(c){
-  let best=src.palette[0],bd=1e9;
-  for(const p of src.palette){
-    const dr=p[0]-c[0],dg=p[1]-c[1],db=p[2]-c[2];
-    const dd=dr*dr+dg*dg+db*db;
-    if(dd<bd){bd=dd;best=p}
-  }
-  return best;
-}
+      const TAPS = [
+        [0, 0],
+        [0.6, 0],
+        [-0.6, 0],
+        [0, 0.6],
+        [0, -0.6],
+        [0.42, 0.42],
+        [-0.42, 0.42],
+        [0.42, -0.42],
+        [-0.42, -0.42],
+      ];
+      function sample(x, y, r) {
+        const d = src.data;
+        const x0 = src.fit.x | 0,
+          y0 = src.fit.y | 0;
+        const x1 = Math.ceil(src.fit.x + src.fit.w) - 1,
+          y1 = Math.ceil(src.fit.y + src.fit.h) - 1;
+        let R = 0,
+          G = 0,
+          B = 0;
+        for (const [ox, oy] of TAPS) {
+          const px = clamp(Math.round(x + ox * r), x0, x1);
+          const py = clamp(Math.round(y + oy * r), y0, y1);
+          const i = (py * W + px) * 4;
+          R += d[i];
+          G += d[i + 1];
+          B += d[i + 2];
+        }
+        let c = [(R / 9) | 0, (G / 9) | 0, (B / 9) | 0];
+        if (opt.paletteLock && src.palette.length) c = nearest(c);
+        return c;
+      }
+      function nearest(c) {
+        let best = src.palette[0],
+          bd = 1e9;
+        for (const p of src.palette) {
+          const dr = p[0] - c[0],
+            dg = p[1] - c[1],
+            db = p[2] - c[2];
+          const dd = dr * dr + dg * dg + db * db;
+          if (dd < bd) {
+            bd = dd;
+            best = p;
+          }
+        }
+        return best;
+      }
 
-/* ═══════════════════════════════════════════════════════
+      /* ═══════════════════════════════════════════════════════
    Lattice — hexagonal close pack, covers the plate entirely
    Detail is derived from the image itself, never user-set.
 ═══════════════════════════════════════════════════════ */
-function build(){
-  const rect=src.fit;
-  const dpr=W/CSSW;
-  const cssArea=(rect.w/dpr)*(rect.h/dpr);
-  const N=clamp(Math.round(cssArea/CELL_AREA),MIN_N,MAX_N);
+      function build() {
+        const rect = src.fit;
+        const dpr = W / CSSW;
+        const cssArea = (rect.w / dpr) * (rect.h / dpr);
+        const N = clamp(Math.round(cssArea / CELL_AREA), MIN_N, MAX_N);
 
-  const k=Math.sqrt(3)/2;
-  const step=Math.sqrt((rect.w*rect.h)/(N*k));   // centre-to-centre
-  const row=step*k;
-  const r=(step/Math.sqrt(3))*COVER;             // covering radius → no holes
+        const k = Math.sqrt(3) / 2;
+        const step = Math.sqrt((rect.w * rect.h) / (N * k)); // centre-to-centre
+        const row = step * k;
+        const r = (step / Math.sqrt(3)) * COVER; // covering radius → no holes
 
-  radiusPx=r/dpr;
-  dots=[];
-  let ri=0;
+        radiusPx = r / dpr;
+        dots = [];
+        let ri = 0;
 
-  for(let y=rect.y-row;y<=rect.y+rect.h+row;y+=row,ri++){
-    const off=(ri&1)?step*.5:0;
-    for(let x=rect.x-step+off;x<=rect.x+rect.w+step;x+=step){
-      if(x+r<rect.x||x-r>rect.x+rect.w) continue;
-      if(y+r<rect.y||y-r>rect.y+rect.h) continue;
+        for (let y = rect.y - row; y <= rect.y + rect.h + row; y += row, ri++) {
+          const off = ri & 1 ? step * 0.5 : 0;
+          for (
+            let x = rect.x - step + off;
+            x <= rect.x + rect.w + step;
+            x += step
+          ) {
+            if (x + r < rect.x || x - r > rect.x + rect.w) continue;
+            if (y + r < rect.y || y - r > rect.y + rect.h) continue;
 
-      const u=(x-rect.x)/rect.w, v=(y-rect.y)/rect.h;
-      const delay=(u*.58+v*.24+Math.random()*.18)*WAVE;
-      const ang=Math.random()*TAU;
-      const throw_=(90+Math.random()*190)*(W/900);
+            const u = (x - rect.x) / rect.w,
+              v = (y - rect.y) / rect.h;
+            const delay = (u * 0.58 + v * 0.24 + Math.random() * 0.18) * WAVE;
+            const ang = Math.random() * TAU;
+            const throw_ = (90 + Math.random() * 190) * (W / 900);
 
-      dots.push({
-        tx:x, ty:y, r,
-        sx:x+Math.cos(ang)*throw_,
-        sy:y+Math.sin(ang)*throw_-throw_*.35,
-        x, y, p:0, delay,
-        col:sample(x,y,r)
-      });
-    }
-  }
+            dots.push({
+              tx: x,
+              ty: y,
+              r,
+              sx: x + Math.cos(ang) * throw_,
+              sy: y + Math.sin(ang) * throw_ - throw_ * 0.35,
+              x,
+              y,
+              p: 0,
+              delay,
+              col: sample(x, y, r),
+            });
+          }
+        }
 
-  tick=0; settled=0; phase='assembling'; running=true;
-  ui.count.textContent=dots.length.toLocaleString();
-  ui.radius.textContent=radiusPx.toFixed(2)+' px';
-  ui.mosInfo.textContent=`${dots.length.toLocaleString()} circles · ø${(radiusPx*2).toFixed(1)}px`;
-  readCount(dots.length.toLocaleString());
-  readRad(radiusPx.toFixed(2)+' px');
-  draw();
-}
+        tick = 0;
+        settled = 0;
+        phase = "assembling";
+        running = true;
+        ui.count.textContent = dots.length.toLocaleString();
+        ui.radius.textContent = radiusPx.toFixed(2) + " px";
+        ui.mosInfo.textContent = `${dots.length.toLocaleString()} circles · ø${(radiusPx * 2).toFixed(1)}px`;
+        readCount(dots.length.toLocaleString());
+        readRad(radiusPx.toFixed(2) + " px");
+        draw();
+      }
 
-function recolour(){
-  for(const d of dots) d.col=sample(d.tx,d.ty,d.r);
-}
+      function recolour() {
+        for (const d of dots) d.col = sample(d.tx, d.ty, d.r);
+      }
 
-/* ═══════════════════════════════════════════════════════
+      /* ═══════════════════════════════════════════════════════
    Step + draw
 ═══════════════════════════════════════════════════════ */
-function step(){
-  tick++; settled=0;
-  for(const d of dots){
-    if(d.p>=1){ settled++; continue; }
-    const t=(tick-d.delay)/RISE;
-    if(t<=0) continue;
-    d.p=clamp(t,0,1);
-    const e=easeOut(d.p);
-    d.x=d.sx+(d.tx-d.sx)*e;
-    d.y=d.sy+(d.ty-d.sy)*e;
-    if(d.p>=1){ d.x=d.tx; d.y=d.ty; settled++; }
-  }
-  if(settled>=dots.length){ phase='complete'; running=false; }
-}
+      function step() {
+        tick++;
+        settled = 0;
+        for (const d of dots) {
+          if (d.p >= 1) {
+            settled++;
+            continue;
+          }
+          const t = (tick - d.delay) / RISE;
+          if (t <= 0) continue;
+          d.p = clamp(t, 0, 1);
+          const e = easeOut(d.p);
+          d.x = d.sx + (d.tx - d.sx) * e;
+          d.y = d.sy + (d.ty - d.sy) * e;
+          if (d.p >= 1) {
+            d.x = d.tx;
+            d.y = d.ty;
+            settled++;
+          }
+        }
+        if (settled >= dots.length) {
+          phase = "complete";
+          running = false;
+        }
+      }
 
-function draw(){
-  mctx.fillStyle=`rgb(${src.bg[0]},${src.bg[1]},${src.bg[2]})`;
-  mctx.fillRect(0,0,W,H);
+      function draw() {
+        mctx.fillStyle = `rgb(${src.bg[0]},${src.bg[1]},${src.bg[2]})`;
+        mctx.fillRect(0, 0, W, H);
 
-  const f=src.fit;
-  if(opt.underlay&&src.img){
-    mctx.globalAlpha=.18;
-    mctx.drawImage(srcCanvas,0,0);
-    mctx.globalAlpha=1;
-  }
+        const f = src.fit;
+        if (opt.underlay && src.img) {
+          mctx.globalAlpha = 0.18;
+          mctx.drawImage(srcCanvas, 0, 0);
+          mctx.globalAlpha = 1;
+        }
 
-  mctx.save();
-  mctx.beginPath(); mctx.rect(f.x,f.y,f.w,f.h); mctx.clip();
+        mctx.save();
+        mctx.beginPath();
+        mctx.rect(f.x, f.y, f.w, f.h);
+        mctx.clip();
 
-  for(const d of dots){
-    if(d.p<=0) continue;
-    const c=d.col;
-    mctx.fillStyle='rgb('+c[0]+','+c[1]+','+c[2]+')';
-    mctx.beginPath();
-    mctx.arc(d.x,d.y,d.r*(0.35+0.65*d.p),0,TAU);
-    mctx.fill();
-  }
-  mctx.restore();
-}
+        for (const d of dots) {
+          if (d.p <= 0) continue;
+          const c = d.col;
+          mctx.fillStyle = "rgb(" + c[0] + "," + c[1] + "," + c[2] + ")";
+          mctx.beginPath();
+          mctx.arc(d.x, d.y, d.r * (0.35 + 0.65 * d.p), 0, TAU);
+          mctx.fill();
+        }
+        mctx.restore();
+      }
 
-/* ═══════════════════════════════════════════════════════
+      /* ═══════════════════════════════════════════════════════
    Loop
 ═══════════════════════════════════════════════════════ */
-function frame(ts){
-  requestAnimationFrame(frame);
-  if(!prevTs) prevTs=ts;
-  const dt=Math.min(.05,(ts-prevTs)/1000); prevTs=ts;
-  fps=fps*.9+(1/Math.max(dt,1e-4))*.1;
+      function frame(ts) {
+        requestAnimationFrame(frame);
+        if (!prevTs) prevTs = ts;
+        const dt = Math.min(0.05, (ts - prevTs) / 1000);
+        prevTs = ts;
+        fps = fps * 0.9 + (1 / Math.max(dt, 1e-4)) * 0.1;
 
-  if(running&&phase==='assembling'){ step(); draw(); }
+        if (running && phase === "assembling") {
+          step();
+          draw();
+        }
 
-  const cov=dots.length?settled/dots.length:0;
-  ui.phase.textContent = phase==='assembling' ? (running?'assembling':'held') : phase;
-  ui.dot.classList.toggle('idle',phase!=='assembling'||!running);
-  ui.cov.textContent=(cov*100).toFixed(0)+'%';
-  ui.fps.textContent=fps.toFixed(0);
-  readCov((cov*100).toFixed(0)+'%');
-  readFps(fps.toFixed(0));
-  setBar(cov);
-}
+        const cov = dots.length ? settled / dots.length : 0;
+        ui.phase.textContent =
+          phase === "assembling" ? (running ? "assembling" : "held") : phase;
+        ui.dot.classList.toggle("idle", phase !== "assembling" || !running);
+        ui.cov.textContent = (cov * 100).toFixed(0) + "%";
+        ui.fps.textContent = fps.toFixed(0);
+        readCov((cov * 100).toFixed(0) + "%");
+        readFps(fps.toFixed(0));
+        setBar(cov);
+      }
 
-/* ═══════════════════════════════════════════════════════
+      /* ═══════════════════════════════════════════════════════
    Default artwork — risograph poster, prints well in dots
 ═══════════════════════════════════════════════════════ */
-function defaultArtwork(){
-  const cv=document.createElement('canvas');
-  cv.width=1360; cv.height=1020;
-  const g=cv.getContext('2d');
-  const Wd=1360,Hd=1020;
+      function defaultArtwork() {
+        const cv = document.createElement("canvas");
+        cv.width = 1360;
+        cv.height = 1020;
+        const g = cv.getContext("2d");
+        const Wd = 1360,
+          Hd = 1020;
 
-  const paper='#efe6d2', ink='#182a4e', red='#e2503c',
-        ochre='#e0a340', moss='#2f6b4f', blush='#e8a79a';
+        const paper = "#efe6d2",
+          ink = "#182a4e",
+          red = "#e2503c",
+          ochre = "#e0a340",
+          moss = "#2f6b4f",
+          blush = "#e8a79a";
 
-  g.fillStyle=paper; g.fillRect(0,0,Wd,Hd);
+        g.fillStyle = paper;
+        g.fillRect(0, 0, Wd, Hd);
 
-  /* sun */
-  g.fillStyle=red;
-  g.beginPath(); g.arc(Wd*.62,Hd*.34,238,0,TAU); g.fill();
+        /* sun */
+        g.fillStyle = red;
+        g.beginPath();
+        g.arc(Wd * 0.62, Hd * 0.34, 238, 0, TAU);
+        g.fill();
 
-  /* overprint arc */
-  g.globalAlpha=.88; g.fillStyle=ink;
-  g.beginPath();
-  g.moveTo(0,Hd*.52);
-  g.quadraticCurveTo(Wd*.34,Hd*.14,Wd*.86,Hd*.47);
-  g.lineTo(Wd,Hd*.47); g.lineTo(Wd,Hd*.60);
-  g.quadraticCurveTo(Wd*.40,Hd*.24,0,Hd*.66);
-  g.closePath(); g.fill();
-  g.globalAlpha=1;
+        /* overprint arc */
+        g.globalAlpha = 0.88;
+        g.fillStyle = ink;
+        g.beginPath();
+        g.moveTo(0, Hd * 0.52);
+        g.quadraticCurveTo(Wd * 0.34, Hd * 0.14, Wd * 0.86, Hd * 0.47);
+        g.lineTo(Wd, Hd * 0.47);
+        g.lineTo(Wd, Hd * 0.6);
+        g.quadraticCurveTo(Wd * 0.4, Hd * 0.24, 0, Hd * 0.66);
+        g.closePath();
+        g.fill();
+        g.globalAlpha = 1;
 
-  /* ochre field */
-  g.globalAlpha=.92; g.fillStyle=ochre;
-  g.fillRect(Wd*.06,Hd*.60,Wd*.40,Hd*.11);
-  g.globalAlpha=1;
+        /* ochre field */
+        g.globalAlpha = 0.92;
+        g.fillStyle = ochre;
+        g.fillRect(Wd * 0.06, Hd * 0.6, Wd * 0.4, Hd * 0.11);
+        g.globalAlpha = 1;
 
-  /* ridges */
-  const ridge=(base,col,amp,seed)=>{
-    g.fillStyle=col; g.beginPath(); g.moveTo(0,Hd);
-    g.lineTo(0,base);
-    for(let x=0;x<=Wd;x+=34){
-      const n=Math.sin((x+seed)*.0055)*amp+Math.sin((x+seed)*.017)*amp*.34;
-      g.lineTo(x,base-n);
-    }
-    g.lineTo(Wd,Hd); g.closePath(); g.fill();
-  };
-  ridge(Hd*.70,moss,96,0);
-  ridge(Hd*.80,ink,70,520);
-  ridge(Hd*.90,'#0f1b30',46,1180);
+        /* ridges */
+        const ridge = (base, col, amp, seed) => {
+          g.fillStyle = col;
+          g.beginPath();
+          g.moveTo(0, Hd);
+          g.lineTo(0, base);
+          for (let x = 0; x <= Wd; x += 34) {
+            const n =
+              Math.sin((x + seed) * 0.0055) * amp +
+              Math.sin((x + seed) * 0.017) * amp * 0.34;
+            g.lineTo(x, base - n);
+          }
+          g.lineTo(Wd, Hd);
+          g.closePath();
+          g.fill();
+        };
+        ridge(Hd * 0.7, moss, 96, 0);
+        ridge(Hd * 0.8, ink, 70, 520);
+        ridge(Hd * 0.9, "#0f1b30", 46, 1180);
 
-  /* blush reflection */
-  g.globalAlpha=.55; g.fillStyle=blush;
-  for(let i=0;i<26;i++){
-    const y=Hd*.905+i*3.6;
-    const w=430-i*13+Math.random()*44;
-    g.globalAlpha=Math.max(0,.5-i*.017);
-    g.fillRect(Wd*.62-w/2,y,w,2.6);
-  }
-  g.globalAlpha=1;
+        /* blush reflection */
+        g.globalAlpha = 0.55;
+        g.fillStyle = blush;
+        for (let i = 0; i < 26; i++) {
+          const y = Hd * 0.905 + i * 3.6;
+          const w = 430 - i * 13 + Math.random() * 44;
+          g.globalAlpha = Math.max(0, 0.5 - i * 0.017);
+          g.fillRect(Wd * 0.62 - w / 2, y, w, 2.6);
+        }
+        g.globalAlpha = 1;
 
-  /* halftone gradient in the sky */
-  g.fillStyle=ink;
-  for(let y=34;y<Hd*.30;y+=17){
-    for(let x=24;x<Wd*.46;x+=17){
-      const t=1-(y/(Hd*.30));
-      const rr=t*3.4*(0.55+Math.random()*.5);
-      if(rr<.35) continue;
-      g.beginPath(); g.arc(x,y,rr,0,TAU); g.fill();
-    }
-  }
+        /* halftone gradient in the sky */
+        g.fillStyle = ink;
+        for (let y = 34; y < Hd * 0.3; y += 17) {
+          for (let x = 24; x < Wd * 0.46; x += 17) {
+            const t = 1 - y / (Hd * 0.3);
+            const rr = t * 3.4 * (0.55 + Math.random() * 0.5);
+            if (rr < 0.35) continue;
+            g.beginPath();
+            g.arc(x, y, rr, 0, TAU);
+            g.fill();
+          }
+        }
 
-  /* moon punch-out */
-  g.fillStyle=paper;
-  g.beginPath(); g.arc(Wd*.20,Hd*.20,72,0,TAU); g.fill();
-  g.fillStyle=ochre;
-  g.beginPath(); g.arc(Wd*.20,Hd*.20,54,0,TAU); g.fill();
+        /* moon punch-out */
+        g.fillStyle = paper;
+        g.beginPath();
+        g.arc(Wd * 0.2, Hd * 0.2, 72, 0, TAU);
+        g.fill();
+        g.fillStyle = ochre;
+        g.beginPath();
+        g.arc(Wd * 0.2, Hd * 0.2, 54, 0, TAU);
+        g.fill();
 
-  /* rules + type block */
-  g.strokeStyle=ink; g.lineWidth=3;
-  g.beginPath(); g.moveTo(Wd*.06,Hd*.955); g.lineTo(Wd*.94,Hd*.955); g.stroke();
-  g.fillStyle=ink;
-  const bars=[210,150,96,176,64];
-  bars.forEach((w,i)=>g.fillRect(Wd*.06+i*(w+18)-(i?0:0),Hd*.905,w,9));
-  g.fillStyle=red; g.fillRect(Wd*.06,Hd*.055,132,9);
+        /* rules + type block */
+        g.strokeStyle = ink;
+        g.lineWidth = 3;
+        g.beginPath();
+        g.moveTo(Wd * 0.06, Hd * 0.955);
+        g.lineTo(Wd * 0.94, Hd * 0.955);
+        g.stroke();
+        g.fillStyle = ink;
+        const bars = [210, 150, 96, 176, 64];
+        bars.forEach((w, i) =>
+          g.fillRect(Wd * 0.06 + i * (w + 18) - (i ? 0 : 0), Hd * 0.905, w, 9),
+        );
+        g.fillStyle = red;
+        g.fillRect(Wd * 0.06, Hd * 0.055, 132, 9);
 
-  /* grain */
-  for(let i=0;i<5200;i++){
-    g.fillStyle=Math.random()<.5?'rgba(0,0,0,.05)':'rgba(255,255,255,.05)';
-    g.fillRect(Math.random()*Wd,Math.random()*Hd,1.6,1.6);
-  }
-  return cv;
-}
+        /* grain */
+        for (let i = 0; i < 5200; i++) {
+          g.fillStyle =
+            Math.random() < 0.5 ? "rgba(0,0,0,.05)" : "rgba(255,255,255,.05)";
+          g.fillRect(Math.random() * Wd, Math.random() * Hd, 1.6, 1.6);
+        }
+        return cv;
+      }
 
-/* ═══════════════════════════════════════════════════════
+      /* ═══════════════════════════════════════════════════════
    Panel wiring
 ═══════════════════════════════════════════════════════ */
-const panel=new TweakPanel('Controls',innerWidth-246,86);
+      const panel = new TweakPanel("Controls", innerWidth - 246, 86);
 
-panel.folder('Source');
-panel.button('Open image…',()=>ui.file.click(),true);
-panel.button('Default artwork',()=>adopt(defaultArtwork(),'riso-poster'));
+      panel.folder("Source");
+      panel.button("Open image…", () => ui.file.click(), true);
+      panel.button("Default artwork", () =>
+        adopt(defaultArtwork(), "riso-poster"),
+      );
 
-panel.folder('Render');
-panel.toggle('Palette lock',false,v=>{opt.paletteLock=v;recolour();draw()});
-panel.toggle('Source underlay',false,v=>{opt.underlay=v;draw()});
+      panel.folder("Render");
+      panel.toggle("Palette lock", false, (v) => {
+        opt.paletteLock = v;
+        recolour();
+        draw();
+      });
+      panel.toggle("Source underlay", false, (v) => {
+        opt.underlay = v;
+        draw();
+      });
 
-panel.folder('Transport');
-const pauseBtn=panel.button('Pause',()=>{
-  if(phase==='complete'){ build(); pauseBtn.textContent='Pause'; return; }
-  running=!running; pauseBtn.textContent=running?'Pause':'Resume';
-});
-panel.button('Rebuild',()=>{ build(); pauseBtn.textContent='Pause'; });
-panel.button('Export PNG',()=>{
-  draw();
-  const a=document.createElement('a');
-  a.download='circle-mosaic.png';
-  a.href=mosCanvas.toDataURL('image/png');
-  a.click();
-});
+      panel.folder("Transport");
+      const pauseBtn = panel.button("Pause", () => {
+        if (phase === "complete") {
+          build();
+          pauseBtn.textContent = "Pause";
+          return;
+        }
+        running = !running;
+        pauseBtn.textContent = running ? "Pause" : "Resume";
+      });
+      panel.button("Rebuild", () => {
+        build();
+        pauseBtn.textContent = "Pause";
+      });
+      panel.button("Export PNG", () => {
+        draw();
+        const a = document.createElement("a");
+        a.download = "circle-mosaic.png";
+        a.href = mosCanvas.toDataURL("image/png");
+        a.click();
+      });
 
-panel.folder('Readout');
-const readCount=panel.readout('Circles','0');
-const readRad=panel.readout('Radius','—');
-const readCov=panel.readout('Coverage','0%');
-const readFps=panel.readout('Frame rate','60');
-const setBar=panel.bar();
+      panel.folder("Readout");
+      const readCount = panel.readout("Circles", "0");
+      const readRad = panel.readout("Radius", "—");
+      const readCov = panel.readout("Coverage", "0%");
+      const readFps = panel.readout("Frame rate", "60");
+      const setBar = panel.bar();
 
-panel.folder('Extracted palette');
-const setSwatches=panel.swatches(10);
-panel.note('Sampled by median cut, 10 bins.');
+      panel.folder("Extracted palette");
+      const setSwatches = panel.swatches(10);
+      panel.note("Sampled by median cut, 10 bins.");
 
-/* ═══════════════════════════════════════════════════════
+      /* ═══════════════════════════════════════════════════════
    Input
 ═══════════════════════════════════════════════════════ */
-ui.file.onchange=e=>{ if(e.target.files[0]) readFile(e.target.files[0]); };
+      ui.file.onchange = (e) => {
+        if (e.target.files[0]) readFile(e.target.files[0]);
+      };
 
-addEventListener('dragover',e=>e.preventDefault());
-addEventListener('drop',e=>{
-  e.preventDefault();
-  const f=e.dataTransfer.files[0];
-  if(f&&f.type.startsWith('image/')) readFile(f);
-});
-addEventListener('paste',e=>{
-  for(const it of e.clipboardData.items)
-    if(it.type.startsWith('image/')){ readFile(it.getAsFile()); break; }
-});
-addEventListener('keydown',e=>{
-  if(e.target.tagName==='INPUT') return;
-  if(e.code==='Space'){ e.preventDefault(); pauseBtn.click(); }
-  if(e.key==='r'||e.key==='R'){ build(); pauseBtn.textContent='Pause'; }
-  if(e.key==='s'||e.key==='S'){ e.preventDefault(); draw();
-    const a=document.createElement('a');
-    a.download='circle-mosaic.png'; a.href=mosCanvas.toDataURL('image/png'); a.click(); }
-});
+      addEventListener("dragover", (e) => e.preventDefault());
+      addEventListener("drop", (e) => {
+        e.preventDefault();
+        const f = e.dataTransfer.files[0];
+        if (f && f.type.startsWith("image/")) readFile(f);
+      });
+      addEventListener("paste", (e) => {
+        for (const it of e.clipboardData.items)
+          if (it.type.startsWith("image/")) {
+            readFile(it.getAsFile());
+            break;
+          }
+      });
+      addEventListener("keydown", (e) => {
+        if (e.target.tagName === "INPUT") return;
+        if (e.code === "Space") {
+          e.preventDefault();
+          pauseBtn.click();
+        }
+        if (e.key === "r" || e.key === "R") {
+          build();
+          pauseBtn.textContent = "Pause";
+        }
+        if (e.key === "s" || e.key === "S") {
+          e.preventDefault();
+          draw();
+          const a = document.createElement("a");
+          a.download = "circle-mosaic.png";
+          a.href = mosCanvas.toDataURL("image/png");
+          a.click();
+        }
+      });
 
-let rt=null;
-addEventListener('resize',()=>{
-  clearTimeout(rt);
-  rt=setTimeout(()=>{
-    layout();
-    if(src.img){ paintSource(); analyse(); build(); }
-    const p=panel.root;
-    p.style.left=Math.min(parseFloat(p.style.left),innerWidth-p.offsetWidth-6)+'px';
-  },120);
-});
+      let rt = null;
+      addEventListener("resize", () => {
+        clearTimeout(rt);
+        rt = setTimeout(() => {
+          layout();
+          if (src.img) {
+            paintSource();
+            analyse();
+            build();
+          }
+          const p = panel.root;
+          p.style.left =
+            Math.min(parseFloat(p.style.left), innerWidth - p.offsetWidth - 6) +
+            "px";
+        }, 120);
+      });
 
-/* boot */
-layout();
-adopt(defaultArtwork(),'riso-poster');
-requestAnimationFrame(frame);
-</script>
-</body>
+      /* boot */
+      layout();
+      adopt(defaultArtwork(), "riso-poster");
+      requestAnimationFrame(frame);
+    </script>
+  </body>
 </html>

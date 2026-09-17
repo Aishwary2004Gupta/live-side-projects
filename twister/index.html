@@ -16,6 +16,21 @@
     width: 100%;
     height: 100%;
   }
+  .sidebar {
+    width: 320px;
+    flex-shrink: 0;
+    height: 100%;
+    overflow: auto;
+    padding: 10px;
+    box-sizing: border-box;
+    background: rgba(247, 241, 230, 0.97);
+  }
+  .sidebar.left {
+    border-right: 1px solid rgba(80, 50, 30, 0.12);
+  }
+  .sidebar.right {
+    border-left: 1px solid rgba(80, 50, 30, 0.12);
+  }
   .stage {
     flex: 1;
     min-width: 0;
@@ -29,25 +44,7 @@
     border-radius: 6px;
     box-shadow: 0 18px 50px rgba(60, 30, 20, 0.12);
   }
-  .sidebar {
-    width: 340px;
-    height: 100%;
-    display: flex;
-    flex-direction: column;
-    background: rgba(247, 241, 230, 0.97);
-    border-left: 1px solid rgba(80, 50, 30, 0.12);
-    box-sizing: border-box;
-  }
-  .sidebar-half {
-    flex: 1;
-    min-height: 0;
-    overflow: auto;
-    padding: 10px 10px 6px;
-  }
-  .sidebar-half + .sidebar-half {
-    border-top: 1px solid rgba(80, 50, 30, 0.12);
-  }
-  /* Keep Tweakpane inside the two stacked panes */
+  /* Keep Tweakpane inside its sidebar */
   .tp-dfwv {
     position: relative !important;
     top: auto !important;
@@ -59,11 +56,9 @@
 </head>
 <body>
 <div class="app">
+  <aside class="sidebar left" id="pane-left"></aside>
   <div class="stage" id="stage"></div>
-  <aside class="sidebar">
-    <div class="sidebar-half" id="pane-upper"></div>
-    <div class="sidebar-half" id="pane-lower"></div>
-  </aside>
+  <aside class="sidebar right" id="pane-right"></aside>
 </div>
 
 <script src="https://unpkg.com/three@0.128.0/build/three.min.js"></script>
@@ -145,8 +140,8 @@ function generateRandomPalette() {
     params[key] = '#' + new THREE.Color().setHSL(hue, sat, light).getHexString();
   });
   updatePalette();
-  paneUpper.refresh();
-  paneLower.refresh();
+  paneLeft.refresh();
+  paneRight.refresh();
 }
 
 /* ---------------- renderer / camera ---------------- */
@@ -171,7 +166,7 @@ controls.dampingFactor = 0.08;
 controls.rotateSpeed = 0.55;
 controls.zoomSpeed = 0.7;
 
-/* ---------------- brush texture (once) ---------------- */
+/* ---------------- brush texture ---------------- */
 function makeStrokeTexture() {
   const w = 512, h = 64;
   const c = document.createElement('canvas');
@@ -444,15 +439,16 @@ function paintedRender() {
   renderer.setRenderTarget(null); renderer.render(paintScene, orthoCam);
 }
 
-/* ---------------- two stacked control panes ---------------- */
-const paneUpper = new Tweakpane.Pane({ container: document.getElementById('pane-upper'), title: 'Scene & Rings' });
-const paneLower = new Tweakpane.Pane({ container: document.getElementById('pane-lower'), title: 'Paint & Colors' });
+/* ---------------- control panes: LEFT and RIGHT ---------------- */
+const paneLeft  = new Tweakpane.Pane({ container: document.getElementById('pane-left'),  title: 'Scene & Rings' });
+const paneRight = new Tweakpane.Pane({ container: document.getElementById('pane-right'), title: 'Paint & Colors' });
 
-const fScene = paneUpper.addFolder({ title: 'Scene & Camera', expanded: true });
+/* ----- LEFT: scene + ring structure ----- */
+const fScene = paneLeft.addFolder({ title: 'Scene & Camera', expanded: true });
 fScene.addInput(params, 'bgColor', { label: 'Background' }).on('change', v => renderer.setClearColor(v.value, 1));
 fScene.addInput(params, 'cameraDistance', { min: 4, max: 22, step: 0.1, label: 'Camera Distance' });
 
-const fRings = paneUpper.addFolder({ title: 'Ring Shape', expanded: true });
+const fRings = paneLeft.addFolder({ title: 'Ring Shape', expanded: true });
 fRings.addInput(params, 'ringCount', { min: 10, max: 150, step: 1, label: 'Number of Rings' }).on('change', rebuildRings);
 fRings.addInput(params, 'curveDetail', { min: 40, max: 180, step: 4, label: 'Curve Smoothness' }).on('change', rebuildRings);
 fRings.addInput(params, 'ringRadius', { min: 0.6, max: 4.5, step: 0.05, label: 'Ring Size' });
@@ -462,11 +458,14 @@ fRings.addInput(params, 'strokeOpacity', { min: 0.15, max: 1, step: 0.01, label:
 fRings.addInput(params, 'straightenStrokes', { min: 0, max: 1, step: 0.01, label: 'Straighten Strokes' });
 fRings.addInput(params, 'randomTilt', { min: 0, max: 1, step: 0.01, label: 'Random Tilt' });
 fRings.addInput(params, 'globalTilt', { min: -1.2, max: 1.2, step: 0.01, label: 'Whole-Form Tilt' });
-fRings.addInput(params, 'spinSpeed', { min: 0, max: 3, step: 0.05, label: 'Spin Speed' });
-fRings.addInput(params, 'loopDuration', { min: 1, max: 12, step: 0.1, label: 'Loop Length (sec)' });
-fRings.addInput(params, 'autoRotate', { label: 'Auto Rotate' });
 
-const fPaint = paneLower.addFolder({ title: 'Watercolor Look', expanded: true });
+const fMotion = paneLeft.addFolder({ title: 'Motion', expanded: true });
+fMotion.addInput(params, 'spinSpeed', { min: 0, max: 3, step: 0.05, label: 'Spin Speed' });
+fMotion.addInput(params, 'loopDuration', { min: 1, max: 12, step: 0.1, label: 'Loop Length (sec)' });
+fMotion.addInput(params, 'autoRotate', { label: 'Auto Rotate' });
+
+/* ----- RIGHT: paint effect + palette ----- */
+const fPaint = paneRight.addFolder({ title: 'Watercolor Look', expanded: true });
 fPaint.addInput(params, 'colorBrightness', { min: -1, max: 0.2, step: 0.02, label: 'Color Lift' });
 fPaint.addInput(params, 'brushBlobSize', { min: 1, max: 8, step: 1, label: 'Paint Blob Size' });
 fPaint.addInput(params, 'paintSoftness', { min: 0, max: 1, step: 0.01, label: 'Edge Softness' });
@@ -476,7 +475,7 @@ fPaint.addInput(params, 'edgeWobble', { min: 0, max: 14, step: 0.1, label: 'Pain
 fPaint.addInput(params, 'paperGrain', { min: 0, max: 2, step: 0.02, label: 'Paper Grain' });
 fPaint.addInput(params, 'vignetteStrength', { min: 0, max: 1, step: 0.02, label: 'Vignette' });
 
-const fColors = paneLower.addFolder({ title: 'Color Palette', expanded: true });
+const fColors = paneRight.addFolder({ title: 'Color Palette', expanded: true });
 fColors.addButton({ title: 'Randomize Harmonious Palette' }).on('click', generateRandomPalette);
 ['color0','color1','color2','color3','color4','color5','color6'].forEach((key, i) => {
   fColors.addInput(params, key, { label: `Color ${i + 1}` }).on('change', updatePalette);

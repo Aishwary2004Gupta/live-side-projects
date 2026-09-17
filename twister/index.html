@@ -18,17 +18,17 @@
   }
   .sidebar {
     width: 320px;
+    flex-shrink: 0;
     height: 100%;
     overflow: auto;
-    padding: 12px 10px;
+    padding: 10px;
     box-sizing: border-box;
     background: rgba(247, 241, 230, 0.97);
-    flex-shrink: 0;
   }
-  .sidebar-left {
+  .sidebar.left {
     border-right: 1px solid rgba(80, 50, 30, 0.12);
   }
-  .sidebar-right {
+  .sidebar.right {
     border-left: 1px solid rgba(80, 50, 30, 0.12);
   }
   .stage {
@@ -44,6 +44,7 @@
     border-radius: 6px;
     box-shadow: 0 18px 50px rgba(60, 30, 20, 0.12);
   }
+  /* Keep Tweakpane inside its sidebar */
   .tp-dfwv {
     position: relative !important;
     top: auto !important;
@@ -55,9 +56,9 @@
 </head>
 <body>
 <div class="app">
-  <aside class="sidebar sidebar-left" id="pane-left"></aside>
+  <aside class="sidebar left" id="pane-left"></aside>
   <div class="stage" id="stage"></div>
-  <aside class="sidebar sidebar-right" id="pane-right"></aside>
+  <aside class="sidebar right" id="pane-right"></aside>
 </div>
 
 <script src="https://unpkg.com/three@0.128.0/build/three.min.js"></script>
@@ -65,6 +66,7 @@
 <script src="https://cdn.jsdelivr.net/npm/tweakpane@3.1.9/dist/tweakpane.min.js"></script>
 
 <script>
+/* ---------------- parameters ---------------- */
 const params = {
   bgColor: "#F2E9D9",
   cameraDistance: 11.3,
@@ -108,6 +110,7 @@ const Maf = {
 };
 const damp = (a, b, lambda, dt) => a + (b - a) * (1 - Math.exp(-lambda * dt));
 
+/* ---------------- palette ---------------- */
 let paletteTarget = [];
 let paletteLive = [];
 function updatePalette() {
@@ -141,6 +144,7 @@ function generateRandomPalette() {
   paneRight.refresh();
 }
 
+/* ---------------- renderer / camera ---------------- */
 const stage = document.getElementById('stage');
 const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
 renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
@@ -162,6 +166,7 @@ controls.dampingFactor = 0.08;
 controls.rotateSpeed = 0.55;
 controls.zoomSpeed = 0.7;
 
+/* ---------------- brush texture ---------------- */
 function makeStrokeTexture() {
   const w = 512, h = 64;
   const c = document.createElement('canvas');
@@ -194,6 +199,7 @@ function makeStrokeTexture() {
 }
 const strokeTexture = makeStrokeTexture();
 
+/* ---------------- ribbon geometry ---------------- */
 function makeRibbonGeometry(points) {
   const N = points.length;
   const pos = [], prev = [], next = [], side = [], width = [], uv = [], idx = [];
@@ -273,6 +279,7 @@ void main(){
   gl_FragColor = vec4(color, a);
 }`;
 
+/* ---------------- rings ---------------- */
 let circles = [];
 let ringGeometry = makeArcGeometry(params.curveDetail);
 
@@ -330,6 +337,7 @@ function rebuildRings() {
 }
 rebuildRings();
 
+/* ---------------- paint shaders ---------------- */
 const quadVS = `varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }`;
 
 const kuwaharaFS = `
@@ -431,9 +439,11 @@ function paintedRender() {
   renderer.setRenderTarget(null); renderer.render(paintScene, orthoCam);
 }
 
-const paneLeft = new Tweakpane.Pane({ container: document.getElementById('pane-left'), title: 'Scene & Rings' });
+/* ---------------- control panes: LEFT and RIGHT ---------------- */
+const paneLeft  = new Tweakpane.Pane({ container: document.getElementById('pane-left'),  title: 'Scene & Rings' });
 const paneRight = new Tweakpane.Pane({ container: document.getElementById('pane-right'), title: 'Paint & Colors' });
 
+/* ----- LEFT: scene + ring structure ----- */
 const fScene = paneLeft.addFolder({ title: 'Scene & Camera', expanded: true });
 fScene.addInput(params, 'bgColor', { label: 'Background' }).on('change', v => renderer.setClearColor(v.value, 1));
 fScene.addInput(params, 'cameraDistance', { min: 4, max: 22, step: 0.1, label: 'Camera Distance' });
@@ -448,10 +458,13 @@ fRings.addInput(params, 'strokeOpacity', { min: 0.15, max: 1, step: 0.01, label:
 fRings.addInput(params, 'straightenStrokes', { min: 0, max: 1, step: 0.01, label: 'Straighten Strokes' });
 fRings.addInput(params, 'randomTilt', { min: 0, max: 1, step: 0.01, label: 'Random Tilt' });
 fRings.addInput(params, 'globalTilt', { min: -1.2, max: 1.2, step: 0.01, label: 'Whole-Form Tilt' });
-fRings.addInput(params, 'spinSpeed', { min: 0, max: 3, step: 0.05, label: 'Spin Speed' });
-fRings.addInput(params, 'loopDuration', { min: 1, max: 12, step: 0.1, label: 'Loop Length (sec)' });
-fRings.addInput(params, 'autoRotate', { label: 'Auto Rotate' });
 
+const fMotion = paneLeft.addFolder({ title: 'Motion', expanded: true });
+fMotion.addInput(params, 'spinSpeed', { min: 0, max: 3, step: 0.05, label: 'Spin Speed' });
+fMotion.addInput(params, 'loopDuration', { min: 1, max: 12, step: 0.1, label: 'Loop Length (sec)' });
+fMotion.addInput(params, 'autoRotate', { label: 'Auto Rotate' });
+
+/* ----- RIGHT: paint effect + palette ----- */
 const fPaint = paneRight.addFolder({ title: 'Watercolor Look', expanded: true });
 fPaint.addInput(params, 'colorBrightness', { min: -1, max: 0.2, step: 0.02, label: 'Color Lift' });
 fPaint.addInput(params, 'brushBlobSize', { min: 1, max: 8, step: 1, label: 'Paint Blob Size' });
@@ -468,6 +481,7 @@ fColors.addButton({ title: 'Randomize Harmonious Palette' }).on('click', generat
   fColors.addInput(params, key, { label: `Color ${i + 1}` }).on('change', updatePalette);
 });
 
+/* ---------------- resize ---------------- */
 function resize() {
   const w = stage.clientWidth;
   const h = stage.clientHeight;
@@ -485,6 +499,7 @@ window.addEventListener('resize', resize);
 new ResizeObserver(resize).observe(stage);
 resize();
 
+/* ---------------- smoothed values ---------------- */
 const smooth = {
   cameraDistance: params.cameraDistance,
   ringRadius: params.ringRadius,
@@ -504,6 +519,7 @@ const smooth = {
   spinSpeed: params.spinSpeed,
 };
 
+/* ---------------- animate ---------------- */
 const startTime = performance.now();
 let last = startTime;
 function draw(now) {

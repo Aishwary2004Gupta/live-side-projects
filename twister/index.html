@@ -1,248 +1,279 @@
-<!DOCTYPE html>
+<!doctype html>
 <html>
-<head>
-<meta charset="utf-8">
-<title>Painted Rings - Interactive Editor</title>
-<style>
-  html, body {
-    margin: 0;
-    height: 100%;
-    background: #EFE6D6;
-    overflow: hidden;
-    font-family: "Segoe UI", system-ui, sans-serif;
-  }
-  .app {
-    display: flex;
-    width: 100%;
-    height: 100%;
-  }
-  .sidebar {
-    width: 320px;
-    flex-shrink: 0;
-    height: 100%;
-    overflow: auto;
-    padding: 10px;
-    box-sizing: border-box;
-    background: rgba(247, 241, 230, 0.97);
-  }
-  .sidebar.left {
-    border-right: 1px solid rgba(80, 50, 30, 0.12);
-  }
-  .sidebar.right {
-    border-left: 1px solid rgba(80, 50, 30, 0.12);
-  }
-  .stage {
-    flex: 1;
-    min-width: 0;
-    height: 100%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-  canvas {
-    display: block;
-    border-radius: 6px;
-    box-shadow: 0 18px 50px rgba(60, 30, 20, 0.12);
-  }
-  /* Keep Tweakpane inside its sidebar */
-  .tp-dfwv {
-    position: relative !important;
-    top: auto !important;
-    right: auto !important;
-    width: 100% !important;
-    min-width: 0 !important;
-  }
-</style>
-</head>
-<body>
-<div class="app">
-  <aside class="sidebar left" id="pane-left"></aside>
-  <div class="stage" id="stage"></div>
-  <aside class="sidebar right" id="pane-right"></aside>
-</div>
+  <head>
+    <meta charset="utf-8" />
+    <title>Painted Rings - Interactive Editor</title>
+    <style>
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+        background: #efe6d6;
+        overflow: hidden;
+        font-family: "Segoe UI", system-ui, sans-serif;
+      }
+      .app {
+        display: flex;
+        width: 100%;
+        height: 100%;
+      }
+      .sidebar {
+        width: 320px;
+        flex-shrink: 0;
+        height: 100%;
+        overflow: auto;
+        padding: 10px;
+        box-sizing: border-box;
+        background: rgba(247, 241, 230, 0.97);
+      }
+      .sidebar.left {
+        border-right: 1px solid rgba(80, 50, 30, 0.12);
+      }
+      .sidebar.right {
+        border-left: 1px solid rgba(80, 50, 30, 0.12);
+      }
+      .stage {
+        flex: 1;
+        min-width: 0;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      canvas {
+        display: block;
+        border-radius: 6px;
+        box-shadow: 0 18px 50px rgba(60, 30, 20, 0.12);
+      }
+      /* Keep Tweakpane inside its sidebar */
+      .tp-dfwv {
+        position: relative !important;
+        top: auto !important;
+        right: auto !important;
+        width: 100% !important;
+        min-width: 0 !important;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="app">
+      <aside class="sidebar left" id="pane-left"></aside>
+      <div class="stage" id="stage"></div>
+      <aside class="sidebar right" id="pane-right"></aside>
+    </div>
 
-<script src="https://unpkg.com/three@0.128.0/build/three.min.js"></script>
-<script src="https://unpkg.com/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/tweakpane@3.1.9/dist/tweakpane.min.js"></script>
+    <script src="https://unpkg.com/three@0.128.0/build/three.min.js"></script>
+    <script src="https://unpkg.com/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/tweakpane@3.1.9/dist/tweakpane.min.js"></script>
 
-<script>
-/* ---------------- parameters ---------------- */
-const params = {
-  bgColor: "#F2E9D9",
-  cameraDistance: 11.3,
+    <script>
+      /* ---------------- parameters ---------------- */
+      const params = {
+        bgColor: "#F2E9D9",
+        cameraDistance: 11.3,
 
-  ringCount: 72,
-  ringRadius: 2.0,
-  ringSpacing: 0.05,
-  strokeThickness: 0.2,
-  strokeOpacity: 0.95,
-  randomTilt: 0.25,
-  globalTilt: Math.PI / 8,
-  straightenStrokes: 0.0,
-  spinSpeed: 1.0,
-  loopDuration: 4.0,
-  autoRotate: true,
-  curveDetail: 120,
+        ringCount: 72,
+        ringRadius: 2.0,
+        ringSpacing: 0.05,
+        strokeThickness: 0.2,
+        strokeOpacity: 0.95,
+        randomTilt: 0.25,
+        globalTilt: Math.PI / 8,
+        straightenStrokes: 0.0,
+        spinSpeed: 1.0,
+        loopDuration: 4.0,
+        autoRotate: true,
+        curveDetail: 120,
 
-  colorBrightness: -0.5,
-  brushBlobSize: 5,
-  inkOutlineStrength: 0.85,
-  inkMisregistration: 2.0,
-  paperGrain: 1.0,
-  edgeWobble: 5.0,
-  vignetteStrength: 0.25,
-  paintSoftness: 0.65,
+        colorBrightness: -0.5,
+        brushBlobSize: 5,
+        inkOutlineStrength: 0.85,
+        inkMisregistration: 2.0,
+        paperGrain: 1.0,
+        edgeWobble: 5.0,
+        vignetteStrength: 0.25,
+        paintSoftness: 0.65,
 
-  color0: "#FD7555",
-  color1: "#FE4F2E",
-  color2: "#040720",
-  color3: "#EB9786",
-  color4: "#E02211",
-  color5: "#3A0724",
-  color6: "#F9C163",
-};
+        color0: "#FD7555",
+        color1: "#FE4F2E",
+        color2: "#040720",
+        color3: "#EB9786",
+        color4: "#E02211",
+        color5: "#3A0724",
+        color6: "#F9C163",
+      };
 
-const Maf = {
-  TAU: Math.PI * 2,
-  PI: Math.PI,
-  randomInRange: (a, b) => a + Math.random() * (b - a),
-  parabola: (x, k) => Math.pow(4 * x * (1 - x), k),
-};
-const damp = (a, b, lambda, dt) => a + (b - a) * (1 - Math.exp(-lambda * dt));
+      const Maf = {
+        TAU: Math.PI * 2,
+        PI: Math.PI,
+        randomInRange: (a, b) => a + Math.random() * (b - a),
+        parabola: (x, k) => Math.pow(4 * x * (1 - x), k),
+      };
+      const damp = (a, b, lambda, dt) =>
+        a + (b - a) * (1 - Math.exp(-lambda * dt));
 
-/* ---------------- palette ---------------- */
-let paletteTarget = [];
-let paletteLive = [];
-function updatePalette() {
-  paletteTarget = [
-    new THREE.Color(params.color0), new THREE.Color(params.color1),
-    new THREE.Color(params.color2), new THREE.Color(params.color3),
-    new THREE.Color(params.color4), new THREE.Color(params.color5),
-    new THREE.Color(params.color6)
-  ];
-  if (!paletteLive.length) paletteLive = paletteTarget.map(c => c.clone());
-}
-updatePalette();
+      /* ---------------- palette ---------------- */
+      let paletteTarget = [];
+      let paletteLive = [];
+      function updatePalette() {
+        paletteTarget = [
+          new THREE.Color(params.color0),
+          new THREE.Color(params.color1),
+          new THREE.Color(params.color2),
+          new THREE.Color(params.color3),
+          new THREE.Color(params.color4),
+          new THREE.Color(params.color5),
+          new THREE.Color(params.color6),
+        ];
+        if (!paletteLive.length)
+          paletteLive = paletteTarget.map((c) => c.clone());
+      }
+      updatePalette();
 
-function gradientAt(t, colors) {
-  const n = colors.length - 1;
-  const f = Math.min(Math.max(t, 0), 0.99999) * n;
-  const i = Math.floor(f);
-  return colors[i].clone().lerp(colors[i + 1], f - i);
-}
+      function gradientAt(t, colors) {
+        const n = colors.length - 1;
+        const f = Math.min(Math.max(t, 0), 0.99999) * n;
+        const i = Math.floor(f);
+        return colors[i].clone().lerp(colors[i + 1], f - i);
+      }
 
-function generateRandomPalette() {
-  const baseHue = Math.random();
-  ['color0','color1','color2','color3','color4','color5','color6'].forEach((key, i) => {
-    const hue = (baseHue + i * 0.12 + Maf.randomInRange(-0.04, 0.04) + 1) % 1;
-    const sat = 0.42 + Math.random() * 0.5;
-    const light = 0.32 + Math.random() * 0.42;
-    params[key] = '#' + new THREE.Color().setHSL(hue, sat, light).getHexString();
-  });
-  updatePalette();
-  paneLeft.refresh();
-  paneRight.refresh();
-}
+      function generateRandomPalette() {
+        const baseHue = Math.random();
+        [
+          "color0",
+          "color1",
+          "color2",
+          "color3",
+          "color4",
+          "color5",
+          "color6",
+        ].forEach((key, i) => {
+          const hue =
+            (baseHue + i * 0.12 + Maf.randomInRange(-0.04, 0.04) + 1) % 1;
+          const sat = 0.42 + Math.random() * 0.5;
+          const light = 0.32 + Math.random() * 0.42;
+          params[key] =
+            "#" + new THREE.Color().setHSL(hue, sat, light).getHexString();
+        });
+        updatePalette();
+        paneLeft.refresh();
+        paneRight.refresh();
+      }
 
-/* ---------------- renderer / camera ---------------- */
-const stage = document.getElementById('stage');
-const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
-renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
-renderer.setClearColor(params.bgColor, 1);
-stage.appendChild(renderer.domElement);
+      /* ---------------- renderer / camera ---------------- */
+      const stage = document.getElementById("stage");
+      const renderer = new THREE.WebGLRenderer({
+        antialias: true,
+        powerPreference: "high-performance",
+      });
+      renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
+      renderer.setClearColor(params.bgColor, 1);
+      stage.appendChild(renderer.domElement);
 
-const camera = new THREE.PerspectiveCamera(35, 1, 0.1, 100);
-const camDir = new THREE.Vector3(7.8, 3.6, 7.3).normalize();
-camera.position.copy(camDir).multiplyScalar(params.cameraDistance);
+      const camera = new THREE.PerspectiveCamera(35, 1, 0.1, 100);
+      const camDir = new THREE.Vector3(7.8, 3.6, 7.3).normalize();
+      camera.position.copy(camDir).multiplyScalar(params.cameraDistance);
 
-const scene = new THREE.Scene();
-const group = new THREE.Group();
-scene.add(group);
-camera.lookAt(group.position);
+      const scene = new THREE.Scene();
+      const group = new THREE.Group();
+      scene.add(group);
+      camera.lookAt(group.position);
 
-const controls = new THREE.OrbitControls(camera, renderer.domElement);
-controls.enableDamping = true;
-controls.dampingFactor = 0.08;
-controls.rotateSpeed = 0.55;
-controls.zoomSpeed = 0.7;
+      const controls = new THREE.OrbitControls(camera, renderer.domElement);
+      controls.enableDamping = true;
+      controls.dampingFactor = 0.08;
+      controls.rotateSpeed = 0.55;
+      controls.zoomSpeed = 0.7;
 
-/* ---------------- brush texture ---------------- */
-function makeStrokeTexture() {
-  const w = 512, h = 64;
-  const c = document.createElement('canvas');
-  c.width = w; c.height = h;
-  const ctx = c.getContext('2d');
-  const g = ctx.createLinearGradient(0, 0, 0, h);
-  g.addColorStop(0, 'rgba(255,255,255,0)');
-  g.addColorStop(0.18, 'rgba(255,255,255,.78)');
-  g.addColorStop(0.5, 'rgba(255,255,255,.96)');
-  g.addColorStop(0.82, 'rgba(255,255,255,.78)');
-  g.addColorStop(1, 'rgba(255,255,255,0)');
-  ctx.fillStyle = g;
-  ctx.fillRect(0, 0, w, h);
-  ctx.globalCompositeOperation = 'destination-out';
-  for (let i = 0; i < 36; i++) {
-    const y = Math.random() * h;
-    ctx.lineWidth = 0.4 + Math.random() * 2.2;
-    ctx.strokeStyle = `rgba(0,0,0,${0.18 + Math.random() * 0.5})`;
-    ctx.beginPath();
-    const x0 = Math.random() * w * 0.4, x1 = x0 + Math.random() * w * 0.9;
-    ctx.moveTo(x0, y);
-    for (let x = x0; x <= x1; x += 10) ctx.lineTo(x, y + Math.sin(x * 0.04 + i) * 1.2);
-    ctx.stroke();
-  }
-  const tex = new THREE.CanvasTexture(c);
-  tex.wrapS = tex.wrapT = THREE.ClampToEdgeWrapping;
-  tex.minFilter = THREE.LinearFilter;
-  tex.magFilter = THREE.LinearFilter;
-  return tex;
-}
-const strokeTexture = makeStrokeTexture();
+      /* ---------------- brush texture ---------------- */
+      function makeStrokeTexture() {
+        const w = 512,
+          h = 64;
+        const c = document.createElement("canvas");
+        c.width = w;
+        c.height = h;
+        const ctx = c.getContext("2d");
+        const g = ctx.createLinearGradient(0, 0, 0, h);
+        g.addColorStop(0, "rgba(255,255,255,0)");
+        g.addColorStop(0.18, "rgba(255,255,255,.78)");
+        g.addColorStop(0.5, "rgba(255,255,255,.96)");
+        g.addColorStop(0.82, "rgba(255,255,255,.78)");
+        g.addColorStop(1, "rgba(255,255,255,0)");
+        ctx.fillStyle = g;
+        ctx.fillRect(0, 0, w, h);
+        ctx.globalCompositeOperation = "destination-out";
+        for (let i = 0; i < 36; i++) {
+          const y = Math.random() * h;
+          ctx.lineWidth = 0.4 + Math.random() * 2.2;
+          ctx.strokeStyle = `rgba(0,0,0,${0.18 + Math.random() * 0.5})`;
+          ctx.beginPath();
+          const x0 = Math.random() * w * 0.4,
+            x1 = x0 + Math.random() * w * 0.9;
+          ctx.moveTo(x0, y);
+          for (let x = x0; x <= x1; x += 10)
+            ctx.lineTo(x, y + Math.sin(x * 0.04 + i) * 1.2);
+          ctx.stroke();
+        }
+        const tex = new THREE.CanvasTexture(c);
+        tex.wrapS = tex.wrapT = THREE.ClampToEdgeWrapping;
+        tex.minFilter = THREE.LinearFilter;
+        tex.magFilter = THREE.LinearFilter;
+        return tex;
+      }
+      const strokeTexture = makeStrokeTexture();
 
-/* ---------------- ribbon geometry ---------------- */
-function makeRibbonGeometry(points) {
-  const N = points.length;
-  const pos = [], prev = [], next = [], side = [], width = [], uv = [], idx = [];
-  for (let i = 0; i < N; i++) {
-    const p = points[i], pp = points[Math.max(i - 1, 0)], pn = points[Math.min(i + 1, N - 1)];
-    const t = i / (N - 1);
-    const wd = 0.75 + 0.25 * Math.sin(t * Math.PI);
-    for (let s = 0; s < 2; s++) {
-      pos.push(p.x, p.y, p.z);
-      prev.push(pp.x, pp.y, pp.z);
-      next.push(pn.x, pn.y, pn.z);
-      side.push(s === 0 ? 1 : -1);
-      width.push(wd);
-      uv.push(t, s);
-    }
-    if (i < N - 1) {
-      const n = i * 2;
-      idx.push(n, n + 1, n + 2, n + 2, n + 1, n + 3);
-    }
-  }
-  const geo = new THREE.BufferGeometry();
-  geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
-  geo.setAttribute('previous', new THREE.Float32BufferAttribute(prev, 3));
-  geo.setAttribute('next',     new THREE.Float32BufferAttribute(next, 3));
-  geo.setAttribute('side',     new THREE.Float32BufferAttribute(side, 1));
-  geo.setAttribute('width',    new THREE.Float32BufferAttribute(width, 1));
-  geo.setAttribute('uv',       new THREE.Float32BufferAttribute(uv, 2));
-  geo.setIndex(idx);
-  return geo;
-}
+      /* ---------------- ribbon geometry ---------------- */
+      function makeRibbonGeometry(points) {
+        const N = points.length;
+        const pos = [],
+          prev = [],
+          next = [],
+          side = [],
+          width = [],
+          uv = [],
+          idx = [];
+        for (let i = 0; i < N; i++) {
+          const p = points[i],
+            pp = points[Math.max(i - 1, 0)],
+            pn = points[Math.min(i + 1, N - 1)];
+          const t = i / (N - 1);
+          const wd = 0.75 + 0.25 * Math.sin(t * Math.PI);
+          for (let s = 0; s < 2; s++) {
+            pos.push(p.x, p.y, p.z);
+            prev.push(pp.x, pp.y, pp.z);
+            next.push(pn.x, pn.y, pn.z);
+            side.push(s === 0 ? 1 : -1);
+            width.push(wd);
+            uv.push(t, s);
+          }
+          if (i < N - 1) {
+            const n = i * 2;
+            idx.push(n, n + 1, n + 2, n + 2, n + 1, n + 3);
+          }
+        }
+        const geo = new THREE.BufferGeometry();
+        geo.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3));
+        geo.setAttribute("previous", new THREE.Float32BufferAttribute(prev, 3));
+        geo.setAttribute("next", new THREE.Float32BufferAttribute(next, 3));
+        geo.setAttribute("side", new THREE.Float32BufferAttribute(side, 1));
+        geo.setAttribute("width", new THREE.Float32BufferAttribute(width, 1));
+        geo.setAttribute("uv", new THREE.Float32BufferAttribute(uv, 2));
+        geo.setIndex(idx);
+        return geo;
+      }
 
-function makeArcGeometry(detail) {
-  const points = [];
-  const steps = Math.max(24, detail | 0);
-  for (let i = 0; i <= steps; i++) {
-    const j = (i / steps) * Math.PI;
-    points.push(new THREE.Vector3(2 * Math.cos(j), 2 * Math.sin(j), 0));
-  }
-  points.reverse();
-  return makeRibbonGeometry(points);
-}
+      function makeArcGeometry(detail) {
+        const points = [];
+        const steps = Math.max(24, detail | 0);
+        for (let i = 0; i <= steps; i++) {
+          const j = (i / steps) * Math.PI;
+          points.push(new THREE.Vector3(2 * Math.cos(j), 2 * Math.sin(j), 0));
+        }
+        points.reverse();
+        return makeRibbonGeometry(points);
+      }
 
-const lineVS = `
+      const lineVS = `
 attribute vec3 previous; attribute vec3 next; attribute float side; attribute float width;
 uniform float lineWidth; uniform float aspect; uniform float straighten;
 varying vec2 vUv;
@@ -268,7 +299,7 @@ void main(){
   gl_Position = finalPosition;
 }`;
 
-const lineFS = `
+      const lineFS = `
 uniform sampler2D map; uniform vec3 color; uniform float opacity; uniform float straighten;
 varying vec2 vUv;
 void main(){
@@ -279,68 +310,71 @@ void main(){
   gl_FragColor = vec4(color, a);
 }`;
 
-/* ---------------- rings ---------------- */
-let circles = [];
-let ringGeometry = makeArcGeometry(params.curveDetail);
+      /* ---------------- rings ---------------- */
+      let circles = [];
+      let ringGeometry = makeArcGeometry(params.curveDetail);
 
-function clearGroup() {
-  while (group.children.length) {
-    const obj = group.children[0];
-    obj.traverse(child => { if (child.material) child.material.dispose(); });
-    group.remove(obj);
-  }
-}
+      function clearGroup() {
+        while (group.children.length) {
+          const obj = group.children[0];
+          obj.traverse((child) => {
+            if (child.material) child.material.dispose();
+          });
+          group.remove(obj);
+        }
+      }
 
-function rebuildRings() {
-  clearGroup();
-  circles = [];
-  if (ringGeometry) ringGeometry.dispose();
-  ringGeometry = makeArcGeometry(params.curveDetail);
+      function rebuildRings() {
+        clearGroup();
+        circles = [];
+        if (ringGeometry) ringGeometry.dispose();
+        ringGeometry = makeArcGeometry(params.curveDetail);
 
-  const SIDES = params.ringCount;
-  for (let i = 0; i < SIDES; i++) {
-    const material = new THREE.ShaderMaterial({
-      uniforms: {
-        map: { value: strokeTexture },
-        color: { value: new THREE.Color() },
-        opacity: { value: params.strokeOpacity },
-        lineWidth: { value: params.strokeThickness },
-        aspect: { value: 1 },
-        straighten: { value: params.straightenStrokes },
-      },
-      vertexShader: lineVS,
-      fragmentShader: lineFS,
-      transparent: true,
-      depthTest: false,
-      depthWrite: false,
-      side: THREE.DoubleSide,
-    });
-    const mesh = new THREE.Mesh(ringGeometry, material);
-    mesh.frustumCulled = false;
-    mesh.rotation.x = Math.PI / 2;
+        const SIDES = params.ringCount;
+        for (let i = 0; i < SIDES; i++) {
+          const material = new THREE.ShaderMaterial({
+            uniforms: {
+              map: { value: strokeTexture },
+              color: { value: new THREE.Color() },
+              opacity: { value: params.strokeOpacity },
+              lineWidth: { value: params.strokeThickness },
+              aspect: { value: 1 },
+              straighten: { value: params.straightenStrokes },
+            },
+            vertexShader: lineVS,
+            fragmentShader: lineFS,
+            transparent: true,
+            depthTest: false,
+            depthWrite: false,
+            side: THREE.DoubleSide,
+          });
+          const mesh = new THREE.Mesh(ringGeometry, material);
+          mesh.frustumCulled = false;
+          mesh.rotation.x = Math.PI / 2;
 
-    const pivot = new THREE.Group();
-    pivot.add(mesh);
-    group.add(pivot);
+          const pivot = new THREE.Group();
+          pivot.add(mesh);
+          group.add(pivot);
 
-    circles.push({
-      mesh, pivot,
-      a: Maf.randomInRange(0, Maf.TAU),
-      colorScalar: Maf.randomInRange(0, 1),
-      speed: 1 + Math.round(Maf.randomInRange(0, 2)),
-      tiltX: Maf.randomInRange(-1, 1),
-      tiltZ: Maf.randomInRange(-1, 1),
-      scaleJitter: Maf.randomInRange(-0.1, 0.1),
-      index: i,
-    });
-  }
-}
-rebuildRings();
+          circles.push({
+            mesh,
+            pivot,
+            a: Maf.randomInRange(0, Maf.TAU),
+            colorScalar: Maf.randomInRange(0, 1),
+            speed: 1 + Math.round(Maf.randomInRange(0, 2)),
+            tiltX: Maf.randomInRange(-1, 1),
+            tiltZ: Maf.randomInRange(-1, 1),
+            scaleJitter: Maf.randomInRange(-0.1, 0.1),
+            index: i,
+          });
+        }
+      }
+      rebuildRings();
 
-/* ---------------- paint shaders ---------------- */
-const quadVS = `varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }`;
+      /* ---------------- paint shaders ---------------- */
+      const quadVS = `varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }`;
 
-const kuwaharaFS = `
+      const kuwaharaFS = `
 uniform sampler2D tDiffuse; uniform vec2 resolution; uniform int radius; varying vec2 vUv;
 void main(){
   vec2 texel = 1.0 / resolution;
@@ -360,7 +394,7 @@ void main(){
   gl_FragColor = vec4(res, 1.0);
 }`;
 
-const paintFS = `
+      const paintFS = `
 uniform sampler2D tDiffuse; uniform vec2 resolution;
 uniform float minLevel; uniform float seed;
 uniform float inkStrength; uniform float inkOffset; uniform float grainStrength;
@@ -401,199 +435,406 @@ void main(){
   gl_FragColor = vec4(col, 1.0);
 }`;
 
-const rtOpts = { minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter, format: THREE.RGBAFormat };
-const rt1 = new THREE.WebGLRenderTarget(1, 1, rtOpts);
-const rt2 = new THREE.WebGLRenderTarget(1, 1, rtOpts);
-const orthoCam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
-const quadGeo = new THREE.PlaneGeometry(2, 2);
+      const rtOpts = {
+        minFilter: THREE.LinearFilter,
+        magFilter: THREE.LinearFilter,
+        format: THREE.RGBAFormat,
+      };
+      const rt1 = new THREE.WebGLRenderTarget(1, 1, rtOpts);
+      const rt2 = new THREE.WebGLRenderTarget(1, 1, rtOpts);
+      const orthoCam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+      const quadGeo = new THREE.PlaneGeometry(2, 2);
 
-const kuwaharaMat = new THREE.ShaderMaterial({
-  uniforms: {
-    tDiffuse: { value: rt1.texture },
-    resolution: { value: new THREE.Vector2(1, 1) },
-    radius: { value: params.brushBlobSize },
-  },
-  vertexShader: quadVS, fragmentShader: kuwaharaFS, depthTest: false, depthWrite: false,
-});
-const paintMat = new THREE.ShaderMaterial({
-  uniforms: {
-    tDiffuse: { value: rt2.texture },
-    resolution: { value: new THREE.Vector2(1, 1) },
-    minLevel: { value: params.colorBrightness },
-    seed: { value: 17.3 },
-    inkStrength: { value: params.inkOutlineStrength },
-    inkOffset: { value: params.inkMisregistration },
-    grainStrength: { value: params.paperGrain },
-    wobbleAmount: { value: params.edgeWobble },
-    vignetteStrength: { value: params.vignetteStrength },
-    paintSoftness: { value: params.paintSoftness },
-  },
-  vertexShader: quadVS, fragmentShader: paintFS, depthTest: false, depthWrite: false,
-});
-const kuwaharaScene = new THREE.Scene(); kuwaharaScene.add(new THREE.Mesh(quadGeo, kuwaharaMat));
-const paintScene = new THREE.Scene(); paintScene.add(new THREE.Mesh(quadGeo, paintMat));
+      const kuwaharaMat = new THREE.ShaderMaterial({
+        uniforms: {
+          tDiffuse: { value: rt1.texture },
+          resolution: { value: new THREE.Vector2(1, 1) },
+          radius: { value: params.brushBlobSize },
+        },
+        vertexShader: quadVS,
+        fragmentShader: kuwaharaFS,
+        depthTest: false,
+        depthWrite: false,
+      });
+      const paintMat = new THREE.ShaderMaterial({
+        uniforms: {
+          tDiffuse: { value: rt2.texture },
+          resolution: { value: new THREE.Vector2(1, 1) },
+          minLevel: { value: params.colorBrightness },
+          seed: { value: 17.3 },
+          inkStrength: { value: params.inkOutlineStrength },
+          inkOffset: { value: params.inkMisregistration },
+          grainStrength: { value: params.paperGrain },
+          wobbleAmount: { value: params.edgeWobble },
+          vignetteStrength: { value: params.vignetteStrength },
+          paintSoftness: { value: params.paintSoftness },
+        },
+        vertexShader: quadVS,
+        fragmentShader: paintFS,
+        depthTest: false,
+        depthWrite: false,
+      });
+      const kuwaharaScene = new THREE.Scene();
+      kuwaharaScene.add(new THREE.Mesh(quadGeo, kuwaharaMat));
+      const paintScene = new THREE.Scene();
+      paintScene.add(new THREE.Mesh(quadGeo, paintMat));
 
-function paintedRender() {
-  renderer.setRenderTarget(rt1); renderer.render(scene, camera);
-  renderer.setRenderTarget(rt2); renderer.render(kuwaharaScene, orthoCam);
-  renderer.setRenderTarget(null); renderer.render(paintScene, orthoCam);
-}
+      function paintedRender() {
+        renderer.setRenderTarget(rt1);
+        renderer.render(scene, camera);
+        renderer.setRenderTarget(rt2);
+        renderer.render(kuwaharaScene, orthoCam);
+        renderer.setRenderTarget(null);
+        renderer.render(paintScene, orthoCam);
+      }
 
-/* ---------------- control panes: LEFT and RIGHT ---------------- */
-const paneLeft  = new Tweakpane.Pane({ container: document.getElementById('pane-left'),  title: 'Scene & Rings' });
-const paneRight = new Tweakpane.Pane({ container: document.getElementById('pane-right'), title: 'Paint & Colors' });
+      /* ---------------- control panes: LEFT and RIGHT ---------------- */
+      const paneLeft = new Tweakpane.Pane({
+        container: document.getElementById("pane-left"),
+        title: "Scene & Rings",
+      });
+      const paneRight = new Tweakpane.Pane({
+        container: document.getElementById("pane-right"),
+        title: "Paint & Colors",
+      });
 
-/* ----- LEFT: scene + ring structure ----- */
-const fScene = paneLeft.addFolder({ title: 'Scene & Camera', expanded: true });
-fScene.addInput(params, 'bgColor', { label: 'Background' }).on('change', v => renderer.setClearColor(v.value, 1));
-fScene.addInput(params, 'cameraDistance', { min: 4, max: 22, step: 0.1, label: 'Camera Distance' });
+      /* ----- LEFT: scene + ring structure ----- */
+      const fScene = paneLeft.addFolder({
+        title: "Scene & Camera",
+        expanded: true,
+      });
+      fScene
+        .addInput(params, "bgColor", { label: "Background" })
+        .on("change", (v) => renderer.setClearColor(v.value, 1));
+      fScene.addInput(params, "cameraDistance", {
+        min: 4,
+        max: 22,
+        step: 0.1,
+        label: "Camera Distance",
+      });
 
-const fRings = paneLeft.addFolder({ title: 'Ring Shape', expanded: true });
-fRings.addInput(params, 'ringCount', { min: 10, max: 150, step: 1, label: 'Number of Rings' }).on('change', rebuildRings);
-fRings.addInput(params, 'curveDetail', { min: 40, max: 180, step: 4, label: 'Curve Smoothness' }).on('change', rebuildRings);
-fRings.addInput(params, 'ringRadius', { min: 0.6, max: 4.5, step: 0.05, label: 'Ring Size' });
-fRings.addInput(params, 'ringSpacing', { min: 0.01, max: 0.18, step: 0.005, label: 'Vertical Spacing' });
-fRings.addInput(params, 'strokeThickness', { min: 0.02, max: 0.7, step: 0.01, label: 'Stroke Thickness' });
-fRings.addInput(params, 'strokeOpacity', { min: 0.15, max: 1, step: 0.01, label: 'Stroke Opacity' });
-fRings.addInput(params, 'straightenStrokes', { min: 0, max: 1, step: 0.01, label: 'Straighten Strokes' });
-fRings.addInput(params, 'randomTilt', { min: 0, max: 1, step: 0.01, label: 'Random Tilt' });
-fRings.addInput(params, 'globalTilt', { min: -1.2, max: 1.2, step: 0.01, label: 'Whole-Form Tilt' });
+      const fRings = paneLeft.addFolder({
+        title: "Ring Shape",
+        expanded: true,
+      });
+      fRings
+        .addInput(params, "ringCount", {
+          min: 10,
+          max: 150,
+          step: 1,
+          label: "Number of Rings",
+        })
+        .on("change", rebuildRings);
+      fRings
+        .addInput(params, "curveDetail", {
+          min: 40,
+          max: 180,
+          step: 4,
+          label: "Curve Smoothness",
+        })
+        .on("change", rebuildRings);
+      fRings.addInput(params, "ringRadius", {
+        min: 0.6,
+        max: 4.5,
+        step: 0.05,
+        label: "Ring Size",
+      });
+      fRings.addInput(params, "ringSpacing", {
+        min: 0.01,
+        max: 0.18,
+        step: 0.005,
+        label: "Vertical Spacing",
+      });
+      fRings.addInput(params, "strokeThickness", {
+        min: 0.02,
+        max: 0.7,
+        step: 0.01,
+        label: "Stroke Thickness",
+      });
+      fRings.addInput(params, "strokeOpacity", {
+        min: 0.15,
+        max: 1,
+        step: 0.01,
+        label: "Stroke Opacity",
+      });
+      fRings.addInput(params, "straightenStrokes", {
+        min: 0,
+        max: 1,
+        step: 0.01,
+        label: "Straighten Strokes",
+      });
+      fRings.addInput(params, "randomTilt", {
+        min: 0,
+        max: 1,
+        step: 0.01,
+        label: "Random Tilt",
+      });
+      fRings.addInput(params, "globalTilt", {
+        min: -1.2,
+        max: 1.2,
+        step: 0.01,
+        label: "Whole-Form Tilt",
+      });
 
-const fMotion = paneLeft.addFolder({ title: 'Motion', expanded: true });
-fMotion.addInput(params, 'spinSpeed', { min: 0, max: 3, step: 0.05, label: 'Spin Speed' });
-fMotion.addInput(params, 'loopDuration', { min: 1, max: 12, step: 0.1, label: 'Loop Length (sec)' });
-fMotion.addInput(params, 'autoRotate', { label: 'Auto Rotate' });
+      const fMotion = paneLeft.addFolder({ title: "Motion", expanded: true });
+      fMotion.addInput(params, "spinSpeed", {
+        min: 0,
+        max: 3,
+        step: 0.05,
+        label: "Spin Speed",
+      });
+      fMotion.addInput(params, "loopDuration", {
+        min: 1,
+        max: 12,
+        step: 0.1,
+        label: "Loop Length (sec)",
+      });
+      fMotion.addInput(params, "autoRotate", { label: "Auto Rotate" });
 
-/* ----- RIGHT: paint effect + palette ----- */
-const fPaint = paneRight.addFolder({ title: 'Watercolor Look', expanded: true });
-fPaint.addInput(params, 'colorBrightness', { min: -1, max: 0.2, step: 0.02, label: 'Color Lift' });
-fPaint.addInput(params, 'brushBlobSize', { min: 1, max: 8, step: 1, label: 'Paint Blob Size' });
-fPaint.addInput(params, 'paintSoftness', { min: 0, max: 1, step: 0.01, label: 'Edge Softness' });
-fPaint.addInput(params, 'inkOutlineStrength', { min: 0, max: 2, step: 0.02, label: 'Ink Outline' });
-fPaint.addInput(params, 'inkMisregistration', { min: 0, max: 6, step: 0.05, label: 'Ink Offset' });
-fPaint.addInput(params, 'edgeWobble', { min: 0, max: 14, step: 0.1, label: 'Paint Bleed' });
-fPaint.addInput(params, 'paperGrain', { min: 0, max: 2, step: 0.02, label: 'Paper Grain' });
-fPaint.addInput(params, 'vignetteStrength', { min: 0, max: 1, step: 0.02, label: 'Vignette' });
+      /* ----- RIGHT: paint effect + palette ----- */
+      const fPaint = paneRight.addFolder({
+        title: "Watercolor Look",
+        expanded: true,
+      });
+      fPaint.addInput(params, "colorBrightness", {
+        min: -1,
+        max: 0.2,
+        step: 0.02,
+        label: "Color Lift",
+      });
+      fPaint.addInput(params, "brushBlobSize", {
+        min: 1,
+        max: 8,
+        step: 1,
+        label: "Paint Blob Size",
+      });
+      fPaint.addInput(params, "paintSoftness", {
+        min: 0,
+        max: 1,
+        step: 0.01,
+        label: "Edge Softness",
+      });
+      fPaint.addInput(params, "inkOutlineStrength", {
+        min: 0,
+        max: 2,
+        step: 0.02,
+        label: "Ink Outline",
+      });
+      fPaint.addInput(params, "inkMisregistration", {
+        min: 0,
+        max: 6,
+        step: 0.05,
+        label: "Ink Offset",
+      });
+      fPaint.addInput(params, "edgeWobble", {
+        min: 0,
+        max: 14,
+        step: 0.1,
+        label: "Paint Bleed",
+      });
+      fPaint.addInput(params, "paperGrain", {
+        min: 0,
+        max: 2,
+        step: 0.02,
+        label: "Paper Grain",
+      });
+      fPaint.addInput(params, "vignetteStrength", {
+        min: 0,
+        max: 1,
+        step: 0.02,
+        label: "Vignette",
+      });
 
-const fColors = paneRight.addFolder({ title: 'Color Palette', expanded: true });
-fColors.addButton({ title: 'Randomize Harmonious Palette' }).on('click', generateRandomPalette);
-['color0','color1','color2','color3','color4','color5','color6'].forEach((key, i) => {
-  fColors.addInput(params, key, { label: `Color ${i + 1}` }).on('change', updatePalette);
-});
+      const fColors = paneRight.addFolder({
+        title: "Color Palette",
+        expanded: true,
+      });
+      fColors
+        .addButton({ title: "Randomize Harmonious Palette" })
+        .on("click", generateRandomPalette);
+      [
+        "color0",
+        "color1",
+        "color2",
+        "color3",
+        "color4",
+        "color5",
+        "color6",
+      ].forEach((key, i) => {
+        fColors
+          .addInput(params, key, { label: `Color ${i + 1}` })
+          .on("change", updatePalette);
+      });
 
-/* ---------------- resize ---------------- */
-function resize() {
-  const w = stage.clientWidth;
-  const h = stage.clientHeight;
-  const s = Math.max(1, Math.floor(Math.min(w, h) * 0.92));
-  renderer.setSize(s, s);
-  rt1.setSize(s, s);
-  rt2.setSize(s, s);
-  kuwaharaMat.uniforms.resolution.value.set(s, s);
-  paintMat.uniforms.resolution.value.set(s, s);
-  camera.aspect = 1;
-  camera.updateProjectionMatrix();
-  circles.forEach(c => { c.mesh.material.uniforms.aspect.value = 1; });
-}
-window.addEventListener('resize', resize);
-new ResizeObserver(resize).observe(stage);
-resize();
+      /* ---------------- resize ---------------- */
+      function resize() {
+        const w = stage.clientWidth;
+        const h = stage.clientHeight;
+        const s = Math.max(1, Math.floor(Math.min(w, h) * 0.92));
+        renderer.setSize(s, s);
+        rt1.setSize(s, s);
+        rt2.setSize(s, s);
+        kuwaharaMat.uniforms.resolution.value.set(s, s);
+        paintMat.uniforms.resolution.value.set(s, s);
+        camera.aspect = 1;
+        camera.updateProjectionMatrix();
+        circles.forEach((c) => {
+          c.mesh.material.uniforms.aspect.value = 1;
+        });
+      }
+      window.addEventListener("resize", resize);
+      new ResizeObserver(resize).observe(stage);
+      resize();
 
-/* ---------------- smoothed values ---------------- */
-const smooth = {
-  cameraDistance: params.cameraDistance,
-  ringRadius: params.ringRadius,
-  ringSpacing: params.ringSpacing,
-  strokeThickness: params.strokeThickness,
-  strokeOpacity: params.strokeOpacity,
-  randomTilt: params.randomTilt,
-  globalTilt: params.globalTilt,
-  straighten: params.straightenStrokes,
-  colorBrightness: params.colorBrightness,
-  inkOutlineStrength: params.inkOutlineStrength,
-  inkMisregistration: params.inkMisregistration,
-  paperGrain: params.paperGrain,
-  edgeWobble: params.edgeWobble,
-  vignetteStrength: params.vignetteStrength,
-  paintSoftness: params.paintSoftness,
-  spinSpeed: params.spinSpeed,
-};
+      /* ---------------- smoothed values ---------------- */
+      const smooth = {
+        cameraDistance: params.cameraDistance,
+        ringRadius: params.ringRadius,
+        ringSpacing: params.ringSpacing,
+        strokeThickness: params.strokeThickness,
+        strokeOpacity: params.strokeOpacity,
+        randomTilt: params.randomTilt,
+        globalTilt: params.globalTilt,
+        straighten: params.straightenStrokes,
+        colorBrightness: params.colorBrightness,
+        inkOutlineStrength: params.inkOutlineStrength,
+        inkMisregistration: params.inkMisregistration,
+        paperGrain: params.paperGrain,
+        edgeWobble: params.edgeWobble,
+        vignetteStrength: params.vignetteStrength,
+        paintSoftness: params.paintSoftness,
+        spinSpeed: params.spinSpeed,
+      };
 
-/* ---------------- animate ---------------- */
-const startTime = performance.now();
-let last = startTime;
-function draw(now) {
-  requestAnimationFrame(draw);
-  const dt = Math.min(0.05, (now - last) * 0.001);
-  last = now;
-  controls.update();
+      /* ---------------- animate ---------------- */
+      const startTime = performance.now();
+      let last = startTime;
+      function draw(now) {
+        requestAnimationFrame(draw);
+        const dt = Math.min(0.05, (now - last) * 0.001);
+        last = now;
+        controls.update();
 
-  const k = 7.5;
-  smooth.cameraDistance     = damp(smooth.cameraDistance, params.cameraDistance, k, dt);
-  smooth.ringRadius         = damp(smooth.ringRadius, params.ringRadius, k, dt);
-  smooth.ringSpacing        = damp(smooth.ringSpacing, params.ringSpacing, k, dt);
-  smooth.strokeThickness    = damp(smooth.strokeThickness, params.strokeThickness, k, dt);
-  smooth.strokeOpacity      = damp(smooth.strokeOpacity, params.strokeOpacity, k, dt);
-  smooth.randomTilt         = damp(smooth.randomTilt, params.randomTilt, k, dt);
-  smooth.globalTilt         = damp(smooth.globalTilt, params.globalTilt, k, dt);
-  smooth.straighten         = damp(smooth.straighten, params.straightenStrokes, k, dt);
-  smooth.colorBrightness    = damp(smooth.colorBrightness, params.colorBrightness, k, dt);
-  smooth.inkOutlineStrength = damp(smooth.inkOutlineStrength, params.inkOutlineStrength, k, dt);
-  smooth.inkMisregistration = damp(smooth.inkMisregistration, params.inkMisregistration, k, dt);
-  smooth.paperGrain         = damp(smooth.paperGrain, params.paperGrain, k, dt);
-  smooth.edgeWobble         = damp(smooth.edgeWobble, params.edgeWobble, k, dt);
-  smooth.vignetteStrength   = damp(smooth.vignetteStrength, params.vignetteStrength, k, dt);
-  smooth.paintSoftness      = damp(smooth.paintSoftness, params.paintSoftness, k, dt);
-  smooth.spinSpeed          = damp(smooth.spinSpeed, params.spinSpeed, k, dt);
+        const k = 7.5;
+        smooth.cameraDistance = damp(
+          smooth.cameraDistance,
+          params.cameraDistance,
+          k,
+          dt,
+        );
+        smooth.ringRadius = damp(smooth.ringRadius, params.ringRadius, k, dt);
+        smooth.ringSpacing = damp(
+          smooth.ringSpacing,
+          params.ringSpacing,
+          k,
+          dt,
+        );
+        smooth.strokeThickness = damp(
+          smooth.strokeThickness,
+          params.strokeThickness,
+          k,
+          dt,
+        );
+        smooth.strokeOpacity = damp(
+          smooth.strokeOpacity,
+          params.strokeOpacity,
+          k,
+          dt,
+        );
+        smooth.randomTilt = damp(smooth.randomTilt, params.randomTilt, k, dt);
+        smooth.globalTilt = damp(smooth.globalTilt, params.globalTilt, k, dt);
+        smooth.straighten = damp(
+          smooth.straighten,
+          params.straightenStrokes,
+          k,
+          dt,
+        );
+        smooth.colorBrightness = damp(
+          smooth.colorBrightness,
+          params.colorBrightness,
+          k,
+          dt,
+        );
+        smooth.inkOutlineStrength = damp(
+          smooth.inkOutlineStrength,
+          params.inkOutlineStrength,
+          k,
+          dt,
+        );
+        smooth.inkMisregistration = damp(
+          smooth.inkMisregistration,
+          params.inkMisregistration,
+          k,
+          dt,
+        );
+        smooth.paperGrain = damp(smooth.paperGrain, params.paperGrain, k, dt);
+        smooth.edgeWobble = damp(smooth.edgeWobble, params.edgeWobble, k, dt);
+        smooth.vignetteStrength = damp(
+          smooth.vignetteStrength,
+          params.vignetteStrength,
+          k,
+          dt,
+        );
+        smooth.paintSoftness = damp(
+          smooth.paintSoftness,
+          params.paintSoftness,
+          k,
+          dt,
+        );
+        smooth.spinSpeed = damp(smooth.spinSpeed, params.spinSpeed, k, dt);
 
-  paletteLive.forEach((c, i) => {
-    c.r = damp(c.r, paletteTarget[i].r, 6, dt);
-    c.g = damp(c.g, paletteTarget[i].g, 6, dt);
-    c.b = damp(c.b, paletteTarget[i].b, 6, dt);
-  });
+        paletteLive.forEach((c, i) => {
+          c.r = damp(c.r, paletteTarget[i].r, 6, dt);
+          c.g = damp(c.g, paletteTarget[i].g, 6, dt);
+          c.b = damp(c.b, paletteTarget[i].b, 6, dt);
+        });
 
-  const desired = camDir.clone().multiplyScalar(smooth.cameraDistance);
-  camera.position.lerp(desired, 1 - Math.exp(-5 * dt));
+        const desired = camDir.clone().multiplyScalar(smooth.cameraDistance);
+        camera.position.lerp(desired, 1 - Math.exp(-5 * dt));
 
-  const time = (0.001 * (now - startTime)) % Math.max(0.2, params.loopDuration);
-  const t = time / Math.max(0.2, params.loopDuration);
-  const SIDES = Math.max(1, circles.length);
-  const straighten = smooth.straighten;
-  const tiltAmt = smooth.randomTilt * (1 - straighten);
-  const radiusScale = smooth.ringRadius / 2;
+        const time =
+          (0.001 * (now - startTime)) % Math.max(0.2, params.loopDuration);
+        const t = time / Math.max(0.2, params.loopDuration);
+        const SIDES = Math.max(1, circles.length);
+        const straighten = smooth.straighten;
+        const tiltAmt = smooth.randomTilt * (1 - straighten);
+        const radiusScale = smooth.ringRadius / 2;
 
-  circles.forEach((c, i) => {
-    if (params.autoRotate) {
-      c.pivot.rotation.y = c.speed * t * Maf.TAU * smooth.spinSpeed + c.a;
-    }
-    c.pivot.rotation.x = c.tiltX * tiltAmt;
-    c.pivot.rotation.z = c.tiltZ * tiltAmt;
-    c.pivot.position.y = smooth.ringSpacing * (-0.5 * SIDES + i);
-    const s = (Maf.parabola(i / SIDES, 0.5) + c.scaleJitter) * radiusScale;
-    c.mesh.scale.setScalar(s);
+        circles.forEach((c, i) => {
+          if (params.autoRotate) {
+            c.pivot.rotation.y = c.speed * t * Maf.TAU * smooth.spinSpeed + c.a;
+          }
+          c.pivot.rotation.x = c.tiltX * tiltAmt;
+          c.pivot.rotation.z = c.tiltZ * tiltAmt;
+          c.pivot.position.y = smooth.ringSpacing * (-0.5 * SIDES + i);
+          const s =
+            (Maf.parabola(i / SIDES, 0.5) + c.scaleJitter) * radiusScale;
+          c.mesh.scale.setScalar(s);
 
-    const u = c.mesh.material.uniforms;
-    u.lineWidth.value = smooth.strokeThickness;
-    u.opacity.value = smooth.strokeOpacity;
-    u.straighten.value = straighten;
-    u.color.value.copy(gradientAt(c.colorScalar, paletteLive));
-  });
+          const u = c.mesh.material.uniforms;
+          u.lineWidth.value = smooth.strokeThickness;
+          u.opacity.value = smooth.strokeOpacity;
+          u.straighten.value = straighten;
+          u.color.value.copy(gradientAt(c.colorScalar, paletteLive));
+        });
 
-  group.rotation.x = smooth.globalTilt;
+        group.rotation.x = smooth.globalTilt;
 
-  const wobbleScale = 1 - straighten * 0.85;
-  paintMat.uniforms.minLevel.value = smooth.colorBrightness;
-  paintMat.uniforms.inkStrength.value = smooth.inkOutlineStrength * (1 - straighten * 0.35);
-  paintMat.uniforms.inkOffset.value = smooth.inkMisregistration * wobbleScale;
-  paintMat.uniforms.grainStrength.value = smooth.paperGrain;
-  paintMat.uniforms.wobbleAmount.value = smooth.edgeWobble * wobbleScale;
-  paintMat.uniforms.vignetteStrength.value = smooth.vignetteStrength;
-  paintMat.uniforms.paintSoftness.value = smooth.paintSoftness;
-  kuwaharaMat.uniforms.radius.value = params.brushBlobSize | 0;
+        const wobbleScale = 1 - straighten * 0.85;
+        paintMat.uniforms.minLevel.value = smooth.colorBrightness;
+        paintMat.uniforms.inkStrength.value =
+          smooth.inkOutlineStrength * (1 - straighten * 0.35);
+        paintMat.uniforms.inkOffset.value =
+          smooth.inkMisregistration * wobbleScale;
+        paintMat.uniforms.grainStrength.value = smooth.paperGrain;
+        paintMat.uniforms.wobbleAmount.value = smooth.edgeWobble * wobbleScale;
+        paintMat.uniforms.vignetteStrength.value = smooth.vignetteStrength;
+        paintMat.uniforms.paintSoftness.value = smooth.paintSoftness;
+        kuwaharaMat.uniforms.radius.value = params.brushBlobSize | 0;
 
-  paintedRender();
-}
-requestAnimationFrame(draw);
-</script>
-</body>
+        paintedRender();
+      }
+      requestAnimationFrame(draw);
+    </script>
+  </body>
 </html>

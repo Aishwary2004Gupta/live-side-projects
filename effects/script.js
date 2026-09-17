@@ -1267,7 +1267,7 @@ const modelCategories = {
     ]),
     animals: new Set([
         "duck", "donald_duck", "fox", "horse", "cow", "blue_whale", "butterfly",
-        "phoenix_bird", "t_rex", "dragon", "dragon2", "octopus_plush", "sea_turtle",
+        "phoenix_bird", "t_rex", "dragon", "dragon2", "octopus_plush", "sea_turtle", "mouse",
     ]),
     characters: new Set([
         "goku", "goku1", "goku2", "mickey_mouse", "samurai", "cesiumMan",

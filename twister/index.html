@@ -7,42 +7,75 @@
   html, body {
     margin: 0;
     height: 100%;
-    background: #F2E9D9;
+    background: #EFE6D6;
     overflow: hidden;
-    font-family: sans-serif;
+    font-family: "Segoe UI", system-ui, sans-serif;
   }
-  body {
+  .app {
+    display: flex;
+    width: 100%;
+    height: 100%;
+  }
+  .stage {
+    flex: 1;
+    min-width: 0;
+    height: 100%;
     display: flex;
     align-items: center;
     justify-content: center;
   }
   canvas {
     display: block;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.08);
-    border-radius: 4px;
+    border-radius: 6px;
+    box-shadow: 0 18px 50px rgba(60, 30, 20, 0.12);
   }
-  /* Custom placement for Tweakpane */
+  .sidebar {
+    width: 340px;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    background: rgba(247, 241, 230, 0.97);
+    border-left: 1px solid rgba(80, 50, 30, 0.12);
+    box-sizing: border-box;
+  }
+  .sidebar-half {
+    flex: 1;
+    min-height: 0;
+    overflow: auto;
+    padding: 10px 10px 6px;
+  }
+  .sidebar-half + .sidebar-half {
+    border-top: 1px solid rgba(80, 50, 30, 0.12);
+  }
+  /* Keep Tweakpane inside the two stacked panes */
   .tp-dfwv {
-    top: 15px !important;
-    right: 15px !important;
-    width: 320px !important;
+    position: relative !important;
+    top: auto !important;
+    right: auto !important;
+    width: 100% !important;
+    min-width: 0 !important;
   }
 </style>
 </head>
 <body>
-<!-- Dependency Libraries -->
+<div class="app">
+  <div class="stage" id="stage"></div>
+  <aside class="sidebar">
+    <div class="sidebar-half" id="pane-upper"></div>
+    <div class="sidebar-half" id="pane-lower"></div>
+  </aside>
+</div>
+
 <script src="https://unpkg.com/three@0.128.0/build/three.min.js"></script>
 <script src="https://unpkg.com/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/tweakpane@3.1.9/dist/tweakpane.min.js"></script>
 
 <script>
-/* ---------------- Parameters Configuration ---------------- */
+/* ---------------- parameters ---------------- */
 const params = {
-  // Scene
   bgColor: "#F2E9D9",
-  cameraZoom: 7.8,
+  cameraDistance: 11.3,
 
-  // Rings
   ringCount: 72,
   ringRadius: 2.0,
   ringSpacing: 0.05,
@@ -50,10 +83,12 @@ const params = {
   strokeOpacity: 0.95,
   randomTilt: 0.25,
   globalTilt: Math.PI / 8,
+  straightenStrokes: 0.0,
+  spinSpeed: 1.0,
   loopDuration: 4.0,
   autoRotate: true,
+  curveDetail: 120,
 
-  // Paint Effects
   colorBrightness: -0.5,
   brushBlobSize: 5,
   inkOutlineStrength: 0.85,
@@ -61,8 +96,8 @@ const params = {
   paperGrain: 1.0,
   edgeWobble: 5.0,
   vignetteStrength: 0.25,
+  paintSoftness: 0.65,
 
-  // Palette colors
   color0: "#FD7555",
   color1: "#FE4F2E",
   color2: "#040720",
@@ -72,115 +107,123 @@ const params = {
   color6: "#F9C163",
 };
 
-/* ---------------- helpers (Maf & dynamic gradients) ---------------- */
 const Maf = {
-  TAU: Math.PI * 2, PI: Math.PI,
+  TAU: Math.PI * 2,
+  PI: Math.PI,
   randomInRange: (a, b) => a + Math.random() * (b - a),
   parabola: (x, k) => Math.pow(4 * x * (1 - x), k),
 };
+const damp = (a, b, lambda, dt) => a + (b - a) * (1 - Math.exp(-lambda * dt));
 
-let paletteColors = [];
+/* ---------------- palette ---------------- */
+let paletteTarget = [];
+let paletteLive = [];
 function updatePalette() {
-  paletteColors = [
+  paletteTarget = [
     new THREE.Color(params.color0), new THREE.Color(params.color1),
     new THREE.Color(params.color2), new THREE.Color(params.color3),
     new THREE.Color(params.color4), new THREE.Color(params.color5),
     new THREE.Color(params.color6)
   ];
+  if (!paletteLive.length) paletteLive = paletteTarget.map(c => c.clone());
 }
 updatePalette();
 
-function gradientAt(t) {
-  const n = paletteColors.length - 1;
-  const f = Math.min(Math.max(t, 0), .99999) * n;
+function gradientAt(t, colors) {
+  const n = colors.length - 1;
+  const f = Math.min(Math.max(t, 0), 0.99999) * n;
   const i = Math.floor(f);
-  return paletteColors[i].clone().lerp(paletteColors[i + 1], f - i);
+  return colors[i].clone().lerp(colors[i + 1], f - i);
 }
 
-/* Harmonious Random Palette Generator */
 function generateRandomPalette() {
   const baseHue = Math.random();
-  const colorKeys = ['color0', 'color1', 'color2', 'color3', 'color4', 'color5', 'color6'];
-  
-  colorKeys.forEach((key, i) => {
-    // Generate colors around the color wheel with slight random variations
-    const hue = (baseHue + i * 0.12 + Maf.randomInRange(-0.05, 0.05)) % 1;
-    const sat = 0.4 + Math.random() * 0.6;
-    const light = 0.3 + Math.random() * 0.5;
-    const color = new THREE.Color().setHSL(hue, sat, light);
-    params[key] = '#' + color.getHexString();
+  ['color0','color1','color2','color3','color4','color5','color6'].forEach((key, i) => {
+    const hue = (baseHue + i * 0.12 + Maf.randomInRange(-0.04, 0.04) + 1) % 1;
+    const sat = 0.42 + Math.random() * 0.5;
+    const light = 0.32 + Math.random() * 0.42;
+    params[key] = '#' + new THREE.Color().setHSL(hue, sat, light).getHexString();
   });
-  
-  // Refresh UI and rebuild
-  pane.refresh();
   updatePalette();
-  rebuildRings();
+  paneUpper.refresh();
+  paneLower.refresh();
 }
 
-/* ---------------- renderer / camera / scene ---------------- */
-const renderer = new THREE.WebGLRenderer({ antialias: true });
-renderer.setPixelRatio(window.devicePixelRatio || 1);
+/* ---------------- renderer / camera ---------------- */
+const stage = document.getElementById('stage');
+const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
 renderer.setClearColor(params.bgColor, 1);
-document.body.appendChild(renderer.domElement);
-const canvas = renderer.domElement;
+stage.appendChild(renderer.domElement);
 
-const camera = new THREE.PerspectiveCamera(35, 1, .1, 100);
-camera.position.set(params.cameraZoom, params.cameraZoom * 0.46, params.cameraZoom * 0.93);
+const camera = new THREE.PerspectiveCamera(35, 1, 0.1, 100);
+const camDir = new THREE.Vector3(7.8, 3.6, 7.3).normalize();
+camera.position.copy(camDir).multiplyScalar(params.cameraDistance);
+
 const scene = new THREE.Scene();
 const group = new THREE.Group();
+scene.add(group);
 camera.lookAt(group.position);
-const controls = new THREE.OrbitControls(camera, canvas);
-controls.enableDamping = true;
-controls.dampingFactor = 0.05;
 
-/* ---------------- procedural brush-stroke texture ---------------- */
+const controls = new THREE.OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+controls.dampingFactor = 0.08;
+controls.rotateSpeed = 0.55;
+controls.zoomSpeed = 0.7;
+
+/* ---------------- brush texture (once) ---------------- */
 function makeStrokeTexture() {
   const w = 512, h = 64;
-  const c = document.createElement('canvas'); c.width = w; c.height = h;
+  const c = document.createElement('canvas');
+  c.width = w; c.height = h;
   const ctx = c.getContext('2d');
   const g = ctx.createLinearGradient(0, 0, 0, h);
-  g.addColorStop(0,  'rgba(255,255,255,0)');
-  g.addColorStop(.15,'rgba(255,255,255,.75)');
-  g.addColorStop(.5, 'rgba(255,255,255,.95)');
-  g.addColorStop(.85,'rgba(255,255,255,.75)');
-  g.addColorStop(1,  'rgba(255,255,255,0)');
-  ctx.fillStyle = g; ctx.fillRect(0, 0, w, h);
-  
+  g.addColorStop(0, 'rgba(255,255,255,0)');
+  g.addColorStop(0.18, 'rgba(255,255,255,.78)');
+  g.addColorStop(0.5, 'rgba(255,255,255,.96)');
+  g.addColorStop(0.82, 'rgba(255,255,255,.78)');
+  g.addColorStop(1, 'rgba(255,255,255,0)');
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, w, h);
   ctx.globalCompositeOperation = 'destination-out';
-  for (let i = 0; i < 45; i++) {
+  for (let i = 0; i < 36; i++) {
     const y = Math.random() * h;
-    ctx.lineWidth = .5 + Math.random() * 2.5;
-    ctx.strokeStyle = `rgba(0,0,0,${.2 + Math.random() * .6})`;
+    ctx.lineWidth = 0.4 + Math.random() * 2.2;
+    ctx.strokeStyle = `rgba(0,0,0,${0.18 + Math.random() * 0.5})`;
     ctx.beginPath();
-    const x0 = Math.random() * w * .5, x1 = x0 + Math.random() * w * .9;
+    const x0 = Math.random() * w * 0.4, x1 = x0 + Math.random() * w * 0.9;
     ctx.moveTo(x0, y);
-    for (let x = x0; x <= x1; x += 12) ctx.lineTo(x, y + Math.sin(x * .05 + i) * 1.5);
+    for (let x = x0; x <= x1; x += 10) ctx.lineTo(x, y + Math.sin(x * 0.04 + i) * 1.2);
     ctx.stroke();
   }
-  for (let i = 0; i < 80; i++) {
-    const x = Math.random() * w, y = Math.random() < .5 ? Math.random() * 10 : h - Math.random() * 10;
-    ctx.fillStyle = 'rgba(0,0,0,.8)';
-    ctx.beginPath(); ctx.arc(x, y, 1 + Math.random() * 4, 0, Maf.TAU); ctx.fill();
-  }
-  ctx.globalCompositeOperation = 'source-over';
   const tex = new THREE.CanvasTexture(c);
   tex.wrapS = tex.wrapT = THREE.ClampToEdgeWrapping;
+  tex.minFilter = THREE.LinearFilter;
+  tex.magFilter = THREE.LinearFilter;
   return tex;
 }
-let strokeTexture = makeStrokeTexture();
+const strokeTexture = makeStrokeTexture();
 
-/* ---------------- screen-space Ribbon Geometry Builder ---------------- */
-function makeRibbonGeometry(points, widthFn) {
+/* ---------------- ribbon geometry ---------------- */
+function makeRibbonGeometry(points) {
   const N = points.length;
   const pos = [], prev = [], next = [], side = [], width = [], uv = [], idx = [];
   for (let i = 0; i < N; i++) {
     const p = points[i], pp = points[Math.max(i - 1, 0)], pn = points[Math.min(i + 1, N - 1)];
-    const t = i / (N - 1), wd = widthFn(t);
+    const t = i / (N - 1);
+    const wd = 0.75 + 0.25 * Math.sin(t * Math.PI);
     for (let s = 0; s < 2; s++) {
-      pos.push(p.x, p.y, p.z); prev.push(pp.x, pp.y, pp.z); next.push(pn.x, pn.y, pn.z);
-      side.push(s === 0 ? 1 : -1); width.push(wd); uv.push(t, s);
+      pos.push(p.x, p.y, p.z);
+      prev.push(pp.x, pp.y, pp.z);
+      next.push(pn.x, pn.y, pn.z);
+      side.push(s === 0 ? 1 : -1);
+      width.push(wd);
+      uv.push(t, s);
     }
-    if (i < N - 1) { const n = i * 2; idx.push(n, n + 1, n + 2, n + 2, n + 1, n + 3); }
+    if (i < N - 1) {
+      const n = i * 2;
+      idx.push(n, n + 1, n + 2, n + 2, n + 1, n + 3);
+    }
   }
   const geo = new THREE.BufferGeometry();
   geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
@@ -193,17 +236,28 @@ function makeRibbonGeometry(points, widthFn) {
   return geo;
 }
 
+function makeArcGeometry(detail) {
+  const points = [];
+  const steps = Math.max(24, detail | 0);
+  for (let i = 0; i <= steps; i++) {
+    const j = (i / steps) * Math.PI;
+    points.push(new THREE.Vector3(2 * Math.cos(j), 2 * Math.sin(j), 0));
+  }
+  points.reverse();
+  return makeRibbonGeometry(points);
+}
+
 const lineVS = `
 attribute vec3 previous; attribute vec3 next; attribute float side; attribute float width;
-uniform float lineWidth; uniform float aspect;
+uniform float lineWidth; uniform float aspect; uniform float straighten;
 varying vec2 vUv;
 void main(){
   vUv = uv;
   mat4 m = projectionMatrix * modelViewMatrix;
-  vec4 finalPosition = m * vec4(position, 1.);
-  vec4 prevPos = m * vec4(previous, 1.);
-  vec4 nextPos = m * vec4(next, 1.);
-  vec2 aspectVec = vec2(aspect, 1.);
+  vec4 finalPosition = m * vec4(position, 1.0);
+  vec4 prevPos = m * vec4(previous, 1.0);
+  vec4 nextPos = m * vec4(next, 1.0);
+  vec2 aspectVec = vec2(aspect, 1.0);
   vec2 currentP = finalPosition.xy / finalPosition.w * aspectVec;
   vec2 prevP = prevPos.xy / prevPos.w * aspectVec;
   vec2 nextP = nextPos.xy / nextPos.w * aspectVec;
@@ -213,38 +267,40 @@ void main(){
   else dir = normalize(normalize(currentP - prevP) + normalize(nextP - currentP));
   vec2 normal = vec2(-dir.y, dir.x);
   normal.x /= aspect;
-  normal *= .5 * lineWidth * width;
+  float wMix = mix(width, 1.0, straighten);
+  normal *= 0.5 * lineWidth * wMix;
   finalPosition.xy += normal * side * finalPosition.w;
   gl_Position = finalPosition;
 }`;
 
 const lineFS = `
-uniform sampler2D map; uniform vec3 color; uniform float opacity;
+uniform sampler2D map; uniform vec3 color; uniform float opacity; uniform float straighten;
 varying vec2 vUv;
 void main(){
-  float a = texture2D(map, vUv).a * opacity;
-  if (a < .08) discard;
+  float texA = texture2D(map, vUv).a;
+  float smoothA = smoothstep(0.0, 0.22, vUv.y) * smoothstep(1.0, 0.78, vUv.y);
+  float a = mix(texA, smoothA, straighten) * opacity;
+  if (a < 0.06) discard;
   gl_FragColor = vec4(color, a);
 }`;
 
-/* ---------------- build/rebuild the rings ---------------- */
+/* ---------------- rings ---------------- */
 let circles = [];
-function rebuildRings() {
-  while (group.children.length > 0) {
+let ringGeometry = makeArcGeometry(params.curveDetail);
+
+function clearGroup() {
+  while (group.children.length) {
     const obj = group.children[0];
     obj.traverse(child => { if (child.material) child.material.dispose(); });
     group.remove(obj);
   }
-  circles = [];
-  updatePalette();
+}
 
-  // Rebuild points based on new radius
-  const points = [];
-  const segments = 72;
-  for (let j = 0; j <= Math.PI + 1e-6; j += Math.PI / segments)
-    points.push(new THREE.Vector3(params.ringRadius * Math.cos(j), params.ringRadius * Math.sin(j), 0));
-  points.reverse();
-  const ringGeometry = makeRibbonGeometry(points, p => p);
+function rebuildRings() {
+  clearGroup();
+  circles = [];
+  if (ringGeometry) ringGeometry.dispose();
+  ringGeometry = makeArcGeometry(params.curveDetail);
 
   const SIDES = params.ringCount;
   for (let i = 0; i < SIDES; i++) {
@@ -255,98 +311,99 @@ function rebuildRings() {
         opacity: { value: params.strokeOpacity },
         lineWidth: { value: params.strokeThickness },
         aspect: { value: 1 },
+        straighten: { value: params.straightenStrokes },
       },
-      vertexShader: lineVS, fragmentShader: lineFS,
-      transparent: true, depthTest: false, depthWrite: false, side: THREE.DoubleSide,
+      vertexShader: lineVS,
+      fragmentShader: lineFS,
+      transparent: true,
+      depthTest: false,
+      depthWrite: false,
+      side: THREE.DoubleSide,
     });
     const mesh = new THREE.Mesh(ringGeometry, material);
     mesh.frustumCulled = false;
-    
-    const pivot = new THREE.Group();
-    const a = Maf.randomInRange(0, Maf.TAU);
-    const y = params.ringSpacing * (-.5 * SIDES + i);
-    pivot.position.set(0, y, 0);
-    
-    pivot.rotation.x = Maf.randomInRange(-params.randomTilt, params.randomTilt);
-    pivot.rotation.z = Maf.randomInRange(-params.randomTilt, params.randomTilt);
     mesh.rotation.x = Math.PI / 2;
-    mesh.scale.setScalar(Maf.parabola(i / SIDES, .5) + Maf.randomInRange(-.1, .1));
-    
+
+    const pivot = new THREE.Group();
     pivot.add(mesh);
     group.add(pivot);
-    
+
     circles.push({
-      mesh, pivot, a,
+      mesh, pivot,
+      a: Maf.randomInRange(0, Maf.TAU),
       colorScalar: Maf.randomInRange(0, 1),
-      speed: 1 + Math.round(Maf.randomInRange(0, 2))
+      speed: 1 + Math.round(Maf.randomInRange(0, 2)),
+      tiltX: Maf.randomInRange(-1, 1),
+      tiltZ: Maf.randomInRange(-1, 1),
+      scaleJitter: Maf.randomInRange(-0.1, 0.1),
+      index: i,
     });
   }
 }
-scene.add(group);
 rebuildRings();
 
-/* ---------------- "Painted" Watercolor Shaders & FBOs ---------------- */
-const quadVS = `varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position.xy, 0., 1.); }`;
+/* ---------------- paint shaders ---------------- */
+const quadVS = `varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }`;
 
 const kuwaharaFS = `
 uniform sampler2D tDiffuse; uniform vec2 resolution; uniform int radius; varying vec2 vUv;
 void main(){
-  vec2 texel = 1. / resolution;
+  vec2 texel = 1.0 / resolution;
   float n = float((radius + 1) * (radius + 1));
-  vec3 m0=vec3(0.), m1=vec3(0.), m2=vec3(0.), m3=vec3(0.);
-  vec3 s0=vec3(0.), s1=vec3(0.), s2=vec3(0.), s3=vec3(0.);
+  vec3 m0=vec3(0.0), m1=vec3(0.0), m2=vec3(0.0), m3=vec3(0.0);
+  vec3 s0=vec3(0.0), s1=vec3(0.0), s2=vec3(0.0), s3=vec3(0.0);
   vec3 c;
-  for(int j=-8; j<=0; ++j) { if(j < -radius) continue; for(int i=-8; i<=0; ++i) { if(i < -radius) continue; c=texture2D(tDiffuse,vUv+vec2(float(i),float(j))*texel).rgb; m0+=c; s0+=c*c; } }
-  for(int j=-8; j<=0; ++j) { if(j < -radius) continue; for(int i=0; i<=8; ++i) { if(i > radius) continue; c=texture2D(tDiffuse,vUv+vec2(float(i),float(j))*texel).rgb; m1+=c; s1+=c*c; } }
-  for(int j=0; j<=8; ++j) { if(j > radius) continue; for(int i=0; i<=8; ++i) { if(i > radius) continue; c=texture2D(tDiffuse,vUv+vec2(float(i),float(j))*texel).rgb; m2+=c; s2+=c*c; } }
-  for(int j=0; j<=8; ++j) { if(j > radius) continue; for(int i=-8; i<=0; ++i) { if(i < -radius) continue; c=texture2D(tDiffuse,vUv+vec2(float(i),float(j))*texel).rgb; m3+=c; s3+=c*c; } }
-  float minS = 1e5, s; vec3 res = vec3(0.);
+  for(int j=-8;j<=0;++j){ if(j<-radius) continue; for(int i=-8;i<=0;++i){ if(i<-radius) continue; c=texture2D(tDiffuse,vUv+vec2(float(i),float(j))*texel).rgb; m0+=c; s0+=c*c; } }
+  for(int j=-8;j<=0;++j){ if(j<-radius) continue; for(int i=0;i<=8;++i){ if(i>radius) continue; c=texture2D(tDiffuse,vUv+vec2(float(i),float(j))*texel).rgb; m1+=c; s1+=c*c; } }
+  for(int j=0;j<=8;++j){ if(j>radius) continue; for(int i=0;i<=8;++i){ if(i>radius) continue; c=texture2D(tDiffuse,vUv+vec2(float(i),float(j))*texel).rgb; m2+=c; s2+=c*c; } }
+  for(int j=0;j<=8;++j){ if(j>radius) continue; for(int i=-8;i<=0;++i){ if(i<-radius) continue; c=texture2D(tDiffuse,vUv+vec2(float(i),float(j))*texel).rgb; m3+=c; s3+=c*c; } }
+  float minS = 1e5, s; vec3 res = vec3(0.0);
   m0/=n; s0=abs(s0/n-m0*m0); s=s0.r+s0.g+s0.b; if(s<minS){minS=s;res=m0;}
   m1/=n; s1=abs(s1/n-m1*m1); s=s1.r+s1.g+s1.b; if(s<minS){minS=s;res=m1;}
   m2/=n; s2=abs(s2/n-m2*m2); s=s2.r+s2.g+s2.b; if(s<minS){minS=s;res=m2;}
   m3/=n; s3=abs(s3/n-m3*m3); s=s3.r+s3.g+s3.b; if(s<minS){minS=s;res=m3;}
-  gl_FragColor = vec4(res, 1.);
+  gl_FragColor = vec4(res, 1.0);
 }`;
 
 const paintFS = `
-uniform sampler2D tDiffuse; uniform vec2 resolution; uniform float minLevel; uniform float seed;
+uniform sampler2D tDiffuse; uniform vec2 resolution;
+uniform float minLevel; uniform float seed;
 uniform float inkStrength; uniform float inkOffset; uniform float grainStrength;
-uniform float wobbleAmount; uniform float vignetteStrength;
+uniform float wobbleAmount; uniform float vignetteStrength; uniform float paintSoftness;
 varying vec2 vUv;
-
 float hash(vec2 p){ p=fract(p*vec2(123.34,456.21)); p+=dot(p,p+45.32); return fract(p.x*p.y); }
-float noise(vec2 p){ vec2 i=floor(p), f=fract(p); f=f*f*(3.-2.*f);
-  return mix(mix(hash(i),hash(i+vec2(1.,0.)),f.x), mix(hash(i+vec2(0.,1.)),hash(i+vec2(1.,1.)),f.x), f.y); }
-float lum(vec3 c){ return dot(c, vec3(.299,.587,.114)); }
-
+float noise(vec2 p){ vec2 i=floor(p), f=fract(p); f=f*f*(3.0-2.0*f);
+  return mix(mix(hash(i),hash(i+vec2(1.0,0.0)),f.x), mix(hash(i+vec2(0.0,1.0)),hash(i+vec2(1.0,1.0)),f.x), f.y); }
+float lum(vec3 c){ return dot(c, vec3(0.299,0.587,0.114)); }
 void main(){
-  vec2 texel = 1. / resolution;
+  vec2 texel = 1.0 / resolution;
   vec2 p = vUv * resolution;
-
-  vec2 wob = vec2(noise(p*.025+seed), noise(p*.025+vec2(41.7,17.3)+seed)) - .5;
+  vec2 wob = vec2(noise(p*0.025+seed), noise(p*0.025+vec2(41.7,17.3)+seed)) - 0.5;
   vec2 uv = vUv + wob * texel * wobbleAmount;
   vec3 col = texture2D(tDiffuse, uv).rgb;
-
   vec2 euv = uv + vec2(inkOffset, -inkOffset * 0.75) * texel;
-  float tl=lum(texture2D(tDiffuse,euv+vec2(-1., 1.)*texel).rgb), t=lum(texture2D(tDiffuse,euv+vec2(0., 1.)*texel).rgb), tr=lum(texture2D(tDiffuse,euv+vec2(1., 1.)*texel).rgb);
-  float l =lum(texture2D(tDiffuse,euv+vec2(-1., 0.)*texel).rgb), r =lum(texture2D(tDiffuse,euv+vec2(1., 0.)*texel).rgb);
-  float bl=lum(texture2D(tDiffuse,euv+vec2(-1.,-1.)*texel).rgb), b=lum(texture2D(tDiffuse,euv+vec2(0.,-1.)*texel).rgb), br=lum(texture2D(tDiffuse,euv+vec2(1.,-1.)*texel).rgb);
-  float gx = -tl-2.*l-bl+tr+2.*r+br;
-  float gy = -bl-2.*b-br+tl+2.*t+tr;
-  float e = smoothstep(.08, .4, length(vec2(gx, gy)));
+  float tl=lum(texture2D(tDiffuse,euv+vec2(-1.0, 1.0)*texel).rgb);
+  float t =lum(texture2D(tDiffuse,euv+vec2( 0.0, 1.0)*texel).rgb);
+  float tr=lum(texture2D(tDiffuse,euv+vec2( 1.0, 1.0)*texel).rgb);
+  float l =lum(texture2D(tDiffuse,euv+vec2(-1.0, 0.0)*texel).rgb);
+  float r =lum(texture2D(tDiffuse,euv+vec2( 1.0, 0.0)*texel).rgb);
+  float bl=lum(texture2D(tDiffuse,euv+vec2(-1.0,-1.0)*texel).rgb);
+  float b =lum(texture2D(tDiffuse,euv+vec2( 0.0,-1.0)*texel).rgb);
+  float br=lum(texture2D(tDiffuse,euv+vec2( 1.0,-1.0)*texel).rgb);
+  float gx = -tl-2.0*l-bl+tr+2.0*r+br;
+  float gy = -bl-2.0*b-br+tl+2.0*t+tr;
+  float e = smoothstep(0.06 + 0.08 * paintSoftness, 0.38 + 0.2 * paintSoftness, length(vec2(gx, gy)));
   vec3 ecol = texture2D(tDiffuse, euv).rgb;
-  vec3 edgeColor = ecol * ecol * .8;
-
-  col = (col - minLevel) / (1. - minLevel);
-  edgeColor = (edgeColor - minLevel*.4) / (1. - minLevel*.4);
+  vec3 edgeColor = ecol * ecol * 0.8;
+  col = (col - minLevel) / (1.0 - minLevel);
+  edgeColor = (edgeColor - minLevel * 0.4) / (1.0 - minLevel * 0.4);
   col = mix(col, edgeColor, e * inkStrength);
-
-  float grain = noise(p*.9)*.6 + noise(p*.35)*.4;
-  float fibers = noise(vec2(p.x*.08, p.y*1.3));
-  col *= mix(1.0, .88 + .1*grain + .04*fibers, grainStrength);
-
-  vec2 q = vUv - .5; col *= 1. - dot(q, q) * vignetteStrength;
-  gl_FragColor = vec4(col, 1.);
+  float grain = noise(p*0.9)*0.6 + noise(p*0.35)*0.4;
+  float fibers = noise(vec2(p.x*0.08, p.y*1.3));
+  col *= mix(1.0, 0.88 + 0.1*grain + 0.04*fibers, grainStrength);
+  vec2 q = vUv - 0.5;
+  col *= 1.0 - dot(q, q) * vignetteStrength;
+  gl_FragColor = vec4(col, 1.0);
 }`;
 
 const rtOpts = { minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter, format: THREE.RGBAFormat };
@@ -356,119 +413,188 @@ const orthoCam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
 const quadGeo = new THREE.PlaneGeometry(2, 2);
 
 const kuwaharaMat = new THREE.ShaderMaterial({
-  uniforms: { 
-    tDiffuse: { value: rt1.texture }, 
+  uniforms: {
+    tDiffuse: { value: rt1.texture },
     resolution: { value: new THREE.Vector2(1, 1) },
-    radius: { value: params.brushBlobSize }
+    radius: { value: params.brushBlobSize },
   },
   vertexShader: quadVS, fragmentShader: kuwaharaFS, depthTest: false, depthWrite: false,
 });
-
 const paintMat = new THREE.ShaderMaterial({
-  uniforms: { 
-    tDiffuse: { value: rt2.texture }, 
-    resolution: { value: new THREE.Vector2(1, 1) }, 
-    minLevel: { value: params.colorBrightness }, 
-    seed: { value: Math.random() * 100 },
+  uniforms: {
+    tDiffuse: { value: rt2.texture },
+    resolution: { value: new THREE.Vector2(1, 1) },
+    minLevel: { value: params.colorBrightness },
+    seed: { value: 17.3 },
     inkStrength: { value: params.inkOutlineStrength },
     inkOffset: { value: params.inkMisregistration },
     grainStrength: { value: params.paperGrain },
     wobbleAmount: { value: params.edgeWobble },
-    vignetteStrength: { value: params.vignetteStrength }
+    vignetteStrength: { value: params.vignetteStrength },
+    paintSoftness: { value: params.paintSoftness },
   },
   vertexShader: quadVS, fragmentShader: paintFS, depthTest: false, depthWrite: false,
 });
-
 const kuwaharaScene = new THREE.Scene(); kuwaharaScene.add(new THREE.Mesh(quadGeo, kuwaharaMat));
-const paintScene = new THREE.Scene();    paintScene.add(new THREE.Mesh(quadGeo, paintMat));
+const paintScene = new THREE.Scene(); paintScene.add(new THREE.Mesh(quadGeo, paintMat));
 
-function paintedRender(scene, camera) {
+function paintedRender() {
   renderer.setRenderTarget(rt1); renderer.render(scene, camera);
   renderer.setRenderTarget(rt2); renderer.render(kuwaharaScene, orthoCam);
   renderer.setRenderTarget(null); renderer.render(paintScene, orthoCam);
 }
 
-/* ---------------- Tweakpane Interface Setup ---------------- */
-const pane = new Tweakpane.Pane({ title: 'Painted Rings Editor' });
+/* ---------------- two stacked control panes ---------------- */
+const paneUpper = new Tweakpane.Pane({ container: document.getElementById('pane-upper'), title: 'Scene & Rings' });
+const paneLower = new Tweakpane.Pane({ container: document.getElementById('pane-lower'), title: 'Paint & Colors' });
 
-// --- Scene Controls ---
-const fScene = pane.addFolder({ title: 'Scene & Camera' });
-fScene.addInput(params, 'bgColor', { label: 'Background Color' }).on('change', v => renderer.setClearColor(v.value, 1));
-fScene.addInput(params, 'cameraZoom', { min: 2, max: 20, step: 0.1, label: 'Camera Distance' }).on('change', v => {
-  const dist = v.value;
-  camera.position.set(dist, dist * 0.46, dist * 0.93);
-});
+const fScene = paneUpper.addFolder({ title: 'Scene & Camera', expanded: true });
+fScene.addInput(params, 'bgColor', { label: 'Background' }).on('change', v => renderer.setClearColor(v.value, 1));
+fScene.addInput(params, 'cameraDistance', { min: 4, max: 22, step: 0.1, label: 'Camera Distance' });
 
-// --- Ring Controls ---
-const fRings = pane.addFolder({ title: 'Ring Assembly' });
+const fRings = paneUpper.addFolder({ title: 'Ring Shape', expanded: true });
 fRings.addInput(params, 'ringCount', { min: 10, max: 150, step: 1, label: 'Number of Rings' }).on('change', rebuildRings);
-fRings.addInput(params, 'ringRadius', { min: 0.5, max: 5.0, step: 0.1, label: 'Ring Radius' }).on('change', rebuildRings);
-fRings.addInput(params, 'ringSpacing', { min: 0.01, max: 0.2, step: 0.01, label: 'Vertical Spacing' }).on('change', rebuildRings);
-fRings.addInput(params, 'strokeThickness', { min: 0.01, max: 0.8, step: 0.01, label: 'Stroke Thickness' });
-fRings.addInput(params, 'strokeOpacity', { min: 0.0, max: 1.0, step: 0.01, label: 'Stroke Opacity' });
-fRings.addInput(params, 'randomTilt', { min: 0.0, max: 1.0, step: 0.01, label: 'Random Tilt Amount' }).on('change', rebuildRings);
-fRings.addInput(params, 'globalTilt', { min: -Math.PI/2, max: Math.PI/2, step: 0.01, label: 'Global Tilt Angle' });
-fRings.addInput(params, 'loopDuration', { min: 0.5, max: 10.0, step: 0.1, label: 'Animation Speed (s)' });
-fRings.addInput(params, 'autoRotate', { label: 'Auto Rotate Rings' });
+fRings.addInput(params, 'curveDetail', { min: 40, max: 180, step: 4, label: 'Curve Smoothness' }).on('change', rebuildRings);
+fRings.addInput(params, 'ringRadius', { min: 0.6, max: 4.5, step: 0.05, label: 'Ring Size' });
+fRings.addInput(params, 'ringSpacing', { min: 0.01, max: 0.18, step: 0.005, label: 'Vertical Spacing' });
+fRings.addInput(params, 'strokeThickness', { min: 0.02, max: 0.7, step: 0.01, label: 'Stroke Thickness' });
+fRings.addInput(params, 'strokeOpacity', { min: 0.15, max: 1, step: 0.01, label: 'Stroke Opacity' });
+fRings.addInput(params, 'straightenStrokes', { min: 0, max: 1, step: 0.01, label: 'Straighten Strokes' });
+fRings.addInput(params, 'randomTilt', { min: 0, max: 1, step: 0.01, label: 'Random Tilt' });
+fRings.addInput(params, 'globalTilt', { min: -1.2, max: 1.2, step: 0.01, label: 'Whole-Form Tilt' });
+fRings.addInput(params, 'spinSpeed', { min: 0, max: 3, step: 0.05, label: 'Spin Speed' });
+fRings.addInput(params, 'loopDuration', { min: 1, max: 12, step: 0.1, label: 'Loop Length (sec)' });
+fRings.addInput(params, 'autoRotate', { label: 'Auto Rotate' });
 
-// --- Paint Effect Controls ---
-const fPaint = pane.addFolder({ title: 'Watercolor Paint Effect' });
-fPaint.addInput(params, 'colorBrightness', { min: -1.0, max: 0.2, step: 0.05, label: 'Color Brightness/Lift' }).on('change', v => paintMat.uniforms.minLevel.value = v.value);
-fPaint.addInput(params, 'brushBlobSize', { min: 1, max: 8, step: 1, label: 'Brush Blob Size' }).on('change', v => kuwaharaMat.uniforms.radius.value = v.value);
-fPaint.addInput(params, 'inkOutlineStrength', { min: 0.0, max: 2.0, step: 0.05, label: 'Ink Outline Strength' }).on('change', v => paintMat.uniforms.inkStrength.value = v.value);
-fPaint.addInput(params, 'inkMisregistration', { min: 0.0, max: 6.0, step: 0.1, label: 'Ink Misregistration' }).on('change', v => paintMat.uniforms.inkOffset.value = v.value);
-fPaint.addInput(params, 'edgeWobble', { min: 0.0, max: 15.0, step: 0.5, label: 'Edge Wobble' }).on('change', v => paintMat.uniforms.wobbleAmount.value = v.value);
-fPaint.addInput(params, 'paperGrain', { min: 0.0, max: 2.0, step: 0.05, label: 'Paper Grain Strength' }).on('change', v => paintMat.uniforms.grainStrength.value = v.value);
-fPaint.addInput(params, 'vignetteStrength', { min: 0.0, max: 1.0, step: 0.05, label: 'Vignette Strength' }).on('change', v => paintMat.uniforms.vignetteStrength.value = v.value);
+const fPaint = paneLower.addFolder({ title: 'Watercolor Look', expanded: true });
+fPaint.addInput(params, 'colorBrightness', { min: -1, max: 0.2, step: 0.02, label: 'Color Lift' });
+fPaint.addInput(params, 'brushBlobSize', { min: 1, max: 8, step: 1, label: 'Paint Blob Size' });
+fPaint.addInput(params, 'paintSoftness', { min: 0, max: 1, step: 0.01, label: 'Edge Softness' });
+fPaint.addInput(params, 'inkOutlineStrength', { min: 0, max: 2, step: 0.02, label: 'Ink Outline' });
+fPaint.addInput(params, 'inkMisregistration', { min: 0, max: 6, step: 0.05, label: 'Ink Offset' });
+fPaint.addInput(params, 'edgeWobble', { min: 0, max: 14, step: 0.1, label: 'Paint Bleed' });
+fPaint.addInput(params, 'paperGrain', { min: 0, max: 2, step: 0.02, label: 'Paper Grain' });
+fPaint.addInput(params, 'vignetteStrength', { min: 0, max: 1, step: 0.02, label: 'Vignette' });
 
-// --- Palette Controls ---
-const fColors = pane.addFolder({ title: 'Color Palette' });
-fColors.addButton({ title: '🎲 Randomize Harmonious Palette' }).on('click', generateRandomPalette);
-fColors.addButton({ title: '🖌️ Regenerate Brush Texture' }).on('click', () => {
-  strokeTexture = makeStrokeTexture();
-  circles.forEach(c => c.mesh.material.uniforms.map.value = strokeTexture);
+const fColors = paneLower.addFolder({ title: 'Color Palette', expanded: true });
+fColors.addButton({ title: 'Randomize Harmonious Palette' }).on('click', generateRandomPalette);
+['color0','color1','color2','color3','color4','color5','color6'].forEach((key, i) => {
+  fColors.addInput(params, key, { label: `Color ${i + 1}` }).on('change', updatePalette);
 });
 
-const colorInputs = ['color0', 'color1', 'color2', 'color3', 'color4', 'color5', 'color6'];
-colorInputs.forEach((key, i) => {
-  fColors.addInput(params, key, { label: `Color ${i+1}` }).on('change', rebuildRings);
-});
-
-/* ---------------- resize logic ---------------- */
+/* ---------------- resize ---------------- */
 function resize() {
-  const s = Math.min(window.innerWidth, window.innerHeight);
+  const w = stage.clientWidth;
+  const h = stage.clientHeight;
+  const s = Math.max(1, Math.floor(Math.min(w, h) * 0.92));
   renderer.setSize(s, s);
-  rt1.setSize(s, s); rt2.setSize(s, s);
+  rt1.setSize(s, s);
+  rt2.setSize(s, s);
   kuwaharaMat.uniforms.resolution.value.set(s, s);
   paintMat.uniforms.resolution.value.set(s, s);
-  camera.aspect = 1; camera.updateProjectionMatrix();
+  camera.aspect = 1;
+  camera.updateProjectionMatrix();
+  circles.forEach(c => { c.mesh.material.uniforms.aspect.value = 1; });
 }
 window.addEventListener('resize', resize);
+new ResizeObserver(resize).observe(stage);
 resize();
 
-/* ---------------- animation cycle ---------------- */
+/* ---------------- smoothed values ---------------- */
+const smooth = {
+  cameraDistance: params.cameraDistance,
+  ringRadius: params.ringRadius,
+  ringSpacing: params.ringSpacing,
+  strokeThickness: params.strokeThickness,
+  strokeOpacity: params.strokeOpacity,
+  randomTilt: params.randomTilt,
+  globalTilt: params.globalTilt,
+  straighten: params.straightenStrokes,
+  colorBrightness: params.colorBrightness,
+  inkOutlineStrength: params.inkOutlineStrength,
+  inkMisregistration: params.inkMisregistration,
+  paperGrain: params.paperGrain,
+  edgeWobble: params.edgeWobble,
+  vignetteStrength: params.vignetteStrength,
+  paintSoftness: params.paintSoftness,
+  spinSpeed: params.spinSpeed,
+};
+
+/* ---------------- animate ---------------- */
 const startTime = performance.now();
-function draw() {
+let last = startTime;
+function draw(now) {
   requestAnimationFrame(draw);
+  const dt = Math.min(0.05, (now - last) * 0.001);
+  last = now;
   controls.update();
 
-  const time = (.001 * (performance.now() - startTime)) % params.loopDuration;
-  const t = time / params.loopDuration;
+  const k = 7.5;
+  smooth.cameraDistance     = damp(smooth.cameraDistance, params.cameraDistance, k, dt);
+  smooth.ringRadius         = damp(smooth.ringRadius, params.ringRadius, k, dt);
+  smooth.ringSpacing        = damp(smooth.ringSpacing, params.ringSpacing, k, dt);
+  smooth.strokeThickness    = damp(smooth.strokeThickness, params.strokeThickness, k, dt);
+  smooth.strokeOpacity      = damp(smooth.strokeOpacity, params.strokeOpacity, k, dt);
+  smooth.randomTilt         = damp(smooth.randomTilt, params.randomTilt, k, dt);
+  smooth.globalTilt         = damp(smooth.globalTilt, params.globalTilt, k, dt);
+  smooth.straighten         = damp(smooth.straighten, params.straightenStrokes, k, dt);
+  smooth.colorBrightness    = damp(smooth.colorBrightness, params.colorBrightness, k, dt);
+  smooth.inkOutlineStrength = damp(smooth.inkOutlineStrength, params.inkOutlineStrength, k, dt);
+  smooth.inkMisregistration = damp(smooth.inkMisregistration, params.inkMisregistration, k, dt);
+  smooth.paperGrain         = damp(smooth.paperGrain, params.paperGrain, k, dt);
+  smooth.edgeWobble         = damp(smooth.edgeWobble, params.edgeWobble, k, dt);
+  smooth.vignetteStrength   = damp(smooth.vignetteStrength, params.vignetteStrength, k, dt);
+  smooth.paintSoftness      = damp(smooth.paintSoftness, params.paintSoftness, k, dt);
+  smooth.spinSpeed          = damp(smooth.spinSpeed, params.spinSpeed, k, dt);
 
-  circles.forEach(c => {
-    if (params.autoRotate) {
-      c.pivot.rotation.y = c.speed * t * Maf.TAU + c.a;
-    }
-    c.mesh.material.uniforms.lineWidth.value = params.strokeThickness;
-    c.mesh.material.uniforms.opacity.value = params.strokeOpacity;
-    c.mesh.material.uniforms.color.value.copy(gradientAt(c.colorScalar));
+  paletteLive.forEach((c, i) => {
+    c.r = damp(c.r, paletteTarget[i].r, 6, dt);
+    c.g = damp(c.g, paletteTarget[i].g, 6, dt);
+    c.b = damp(c.b, paletteTarget[i].b, 6, dt);
   });
 
-  group.rotation.x = params.globalTilt;
+  const desired = camDir.clone().multiplyScalar(smooth.cameraDistance);
+  camera.position.lerp(desired, 1 - Math.exp(-5 * dt));
 
-  paintedRender(scene, camera);
+  const time = (0.001 * (now - startTime)) % Math.max(0.2, params.loopDuration);
+  const t = time / Math.max(0.2, params.loopDuration);
+  const SIDES = Math.max(1, circles.length);
+  const straighten = smooth.straighten;
+  const tiltAmt = smooth.randomTilt * (1 - straighten);
+  const radiusScale = smooth.ringRadius / 2;
+
+  circles.forEach((c, i) => {
+    if (params.autoRotate) {
+      c.pivot.rotation.y = c.speed * t * Maf.TAU * smooth.spinSpeed + c.a;
+    }
+    c.pivot.rotation.x = c.tiltX * tiltAmt;
+    c.pivot.rotation.z = c.tiltZ * tiltAmt;
+    c.pivot.position.y = smooth.ringSpacing * (-0.5 * SIDES + i);
+    const s = (Maf.parabola(i / SIDES, 0.5) + c.scaleJitter) * radiusScale;
+    c.mesh.scale.setScalar(s);
+
+    const u = c.mesh.material.uniforms;
+    u.lineWidth.value = smooth.strokeThickness;
+    u.opacity.value = smooth.strokeOpacity;
+    u.straighten.value = straighten;
+    u.color.value.copy(gradientAt(c.colorScalar, paletteLive));
+  });
+
+  group.rotation.x = smooth.globalTilt;
+
+  const wobbleScale = 1 - straighten * 0.85;
+  paintMat.uniforms.minLevel.value = smooth.colorBrightness;
+  paintMat.uniforms.inkStrength.value = smooth.inkOutlineStrength * (1 - straighten * 0.35);
+  paintMat.uniforms.inkOffset.value = smooth.inkMisregistration * wobbleScale;
+  paintMat.uniforms.grainStrength.value = smooth.paperGrain;
+  paintMat.uniforms.wobbleAmount.value = smooth.edgeWobble * wobbleScale;
+  paintMat.uniforms.vignetteStrength.value = smooth.vignetteStrength;
+  paintMat.uniforms.paintSoftness.value = smooth.paintSoftness;
+  kuwaharaMat.uniforms.radius.value = params.brushBlobSize | 0;
+
+  paintedRender();
 }
-draw();
+requestAnimationFrame(draw);
 </script>
 </body>
 </html>

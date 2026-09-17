@@ -981,8 +981,8 @@ const MODELS = {
         position: { x: 0, y: 0, z: 0 },
     },
     try: {
-        url: "https://raw.githubusercontent.com/Aishwary2004Gupta/models/cloud/sea_turtle1.glb",
-        scale: 0.05,
+        url: "https://raw.githubusercontent.com/Aishwary2004Gupta/models/cloud/f1_helmet_austrian_gp_2018.glb",
+        scale: 5,
         rotation: { x: 0, y: 1, z: 0 },
         position: { x: 0, y: 0, z: 0 },
     },

@@ -21,15 +21,27 @@
     box-shadow: 0 10px 30px rgba(0,0,0,0.08);
     border-radius: 4px;
   }
-  /* Custom placement for Tweakpane */
-  .tp-dfwv {
-    top: 15px !important;
-    right: 15px !important;
-    width: 320px !important;
+  /* Two separate floating panels, docked in the empty corners */
+  #panel-top {
+    position: fixed;
+    top: 15px;
+    right: 15px;
+    width: 300px;
+    z-index: 10;
+  }
+  #panel-bottom {
+    position: fixed;
+    bottom: 15px;
+    right: 15px;
+    width: 300px;
+    z-index: 10;
   }
 </style>
 </head>
 <body>
+<div id="panel-top"></div>
+<div id="panel-bottom"></div>
+
 <!-- Dependency Libraries -->
 <script src="https://unpkg.com/three@0.128.0/build/three.min.js"></script>
 <script src="https://unpkg.com/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
@@ -41,6 +53,7 @@ const params = {
   // Scene
   bgColor: "#F2E9D9",
   cameraZoom: 7.8,
+  exposure: 1.0,
 
   // Rings
   ringCount: 72,
@@ -48,6 +61,7 @@ const params = {
   ringSpacing: 0.05,
   strokeThickness: 0.2,
   strokeOpacity: 0.95,
+  strokeStraightness: 0.75, // 1 = perfect smooth circle, 0 = loose wavy brush arc
   randomTilt: 0.25,
   globalTilt: Math.PI / 8,
   loopDuration: 4.0,
@@ -101,26 +115,27 @@ function gradientAt(t) {
 function generateRandomPalette() {
   const baseHue = Math.random();
   const colorKeys = ['color0', 'color1', 'color2', 'color3', 'color4', 'color5', 'color6'];
-  
+
   colorKeys.forEach((key, i) => {
-    // Generate colors around the color wheel with slight random variations
     const hue = (baseHue + i * 0.12 + Maf.randomInRange(-0.05, 0.05)) % 1;
     const sat = 0.4 + Math.random() * 0.6;
     const light = 0.3 + Math.random() * 0.5;
     const color = new THREE.Color().setHSL(hue, sat, light);
     params[key] = '#' + color.getHexString();
   });
-  
-  // Refresh UI and rebuild
-  pane.refresh();
+
+  paneBottom.refresh();
   updatePalette();
   rebuildRings();
 }
 
 /* ---------------- renderer / camera / scene ---------------- */
 const renderer = new THREE.WebGLRenderer({ antialias: true });
-renderer.setPixelRatio(window.devicePixelRatio || 1);
+renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
 renderer.setClearColor(params.bgColor, 1);
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = params.exposure;
+if (THREE.sRGBEncoding) renderer.outputEncoding = THREE.sRGBEncoding;
 document.body.appendChild(renderer.domElement);
 const canvas = renderer.domElement;
 
@@ -131,7 +146,7 @@ const group = new THREE.Group();
 camera.lookAt(group.position);
 const controls = new THREE.OrbitControls(camera, canvas);
 controls.enableDamping = true;
-controls.dampingFactor = 0.05;
+controls.dampingFactor = 0.06;
 
 /* ---------------- procedural brush-stroke texture ---------------- */
 function makeStrokeTexture() {
@@ -145,7 +160,7 @@ function makeStrokeTexture() {
   g.addColorStop(.85,'rgba(255,255,255,.75)');
   g.addColorStop(1,  'rgba(255,255,255,0)');
   ctx.fillStyle = g; ctx.fillRect(0, 0, w, h);
-  
+
   ctx.globalCompositeOperation = 'destination-out';
   for (let i = 0; i < 45; i++) {
     const y = Math.random() * h;
@@ -165,9 +180,13 @@ function makeStrokeTexture() {
   ctx.globalCompositeOperation = 'source-over';
   const tex = new THREE.CanvasTexture(c);
   tex.wrapS = tex.wrapT = THREE.ClampToEdgeWrapping;
+  tex.generateMipmaps = true;
+  tex.minFilter = THREE.LinearMipmapLinearFilter;
+  tex.magFilter = THREE.LinearFilter;
+  tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
   return tex;
 }
-let strokeTexture = makeStrokeTexture();
+const strokeTexture = makeStrokeTexture();
 
 /* ---------------- screen-space Ribbon Geometry Builder ---------------- */
 function makeRibbonGeometry(points, widthFn) {
@@ -191,6 +210,26 @@ function makeRibbonGeometry(points, widthFn) {
   geo.setAttribute('uv',       new THREE.Float32BufferAttribute(uv, 2));
   geo.setIndex(idx);
   return geo;
+}
+
+// Builds a half-circle with an optional hand-drawn wobble.
+// straightness: 1 = perfect circle, 0 = very loose/wavy brush arc
+function buildRingPoints(radius, straightness) {
+  const segments = 144; // higher resolution = smoother curve
+  const waveAmp = radius * 0.14 * (1 - straightness);
+  const freq1 = Maf.randomInRange(2, 5);
+  const freq2 = Maf.randomInRange(1, 3);
+  const phase1 = Maf.randomInRange(0, Maf.TAU);
+  const phase2 = Maf.randomInRange(0, Maf.TAU);
+  const points = [];
+  for (let idx = 0; idx <= segments; idx++) {
+    const j = (idx / segments) * Math.PI;
+    const wobble = waveAmp * (Math.sin(j * freq1 + phase1) * 0.6 + Math.sin(j * freq2 + phase2) * 0.4);
+    const r = radius + wobble;
+    points.push(new THREE.Vector3(r * Math.cos(j), r * Math.sin(j), 0));
+  }
+  points.reverse();
+  return points;
 }
 
 const lineVS = `
@@ -218,36 +257,37 @@ void main(){
   gl_Position = finalPosition;
 }`;
 
+// Smoothed (anti-aliased) alpha edge instead of a hard discard cutoff
 const lineFS = `
 uniform sampler2D map; uniform vec3 color; uniform float opacity;
 varying vec2 vUv;
 void main(){
-  float a = texture2D(map, vUv).a * opacity;
-  if (a < .08) discard;
+  float aTex = texture2D(map, vUv).a;
+  float a = smoothstep(0.04, 0.28, aTex) * opacity;
+  if (a < 0.01) discard;
   gl_FragColor = vec4(color, a);
 }`;
 
 /* ---------------- build/rebuild the rings ---------------- */
 let circles = [];
+let trackedGeometries = [];
 function rebuildRings() {
   while (group.children.length > 0) {
     const obj = group.children[0];
     obj.traverse(child => { if (child.material) child.material.dispose(); });
     group.remove(obj);
   }
+  trackedGeometries.forEach(g => g.dispose());
+  trackedGeometries = [];
   circles = [];
   updatePalette();
 
-  // Rebuild points based on new radius
-  const points = [];
-  const segments = 72;
-  for (let j = 0; j <= Math.PI + 1e-6; j += Math.PI / segments)
-    points.push(new THREE.Vector3(params.ringRadius * Math.cos(j), params.ringRadius * Math.sin(j), 0));
-  points.reverse();
-  const ringGeometry = makeRibbonGeometry(points, p => p);
-
   const SIDES = params.ringCount;
   for (let i = 0; i < SIDES; i++) {
+    const points = buildRingPoints(params.ringRadius, params.strokeStraightness);
+    const ringGeometry = makeRibbonGeometry(points, p => p);
+    trackedGeometries.push(ringGeometry);
+
     const material = new THREE.ShaderMaterial({
       uniforms: {
         map: { value: strokeTexture },
@@ -261,20 +301,20 @@ function rebuildRings() {
     });
     const mesh = new THREE.Mesh(ringGeometry, material);
     mesh.frustumCulled = false;
-    
+
     const pivot = new THREE.Group();
     const a = Maf.randomInRange(0, Maf.TAU);
     const y = params.ringSpacing * (-.5 * SIDES + i);
     pivot.position.set(0, y, 0);
-    
+
     pivot.rotation.x = Maf.randomInRange(-params.randomTilt, params.randomTilt);
     pivot.rotation.z = Maf.randomInRange(-params.randomTilt, params.randomTilt);
     mesh.rotation.x = Math.PI / 2;
     mesh.scale.setScalar(Maf.parabola(i / SIDES, .5) + Maf.randomInRange(-.1, .1));
-    
+
     pivot.add(mesh);
     group.add(pivot);
-    
+
     circles.push({
       mesh, pivot, a,
       colorScalar: Maf.randomInRange(0, 1),
@@ -356,8 +396,8 @@ const orthoCam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
 const quadGeo = new THREE.PlaneGeometry(2, 2);
 
 const kuwaharaMat = new THREE.ShaderMaterial({
-  uniforms: { 
-    tDiffuse: { value: rt1.texture }, 
+  uniforms: {
+    tDiffuse: { value: rt1.texture },
     resolution: { value: new THREE.Vector2(1, 1) },
     radius: { value: params.brushBlobSize }
   },
@@ -365,10 +405,10 @@ const kuwaharaMat = new THREE.ShaderMaterial({
 });
 
 const paintMat = new THREE.ShaderMaterial({
-  uniforms: { 
-    tDiffuse: { value: rt2.texture }, 
-    resolution: { value: new THREE.Vector2(1, 1) }, 
-    minLevel: { value: params.colorBrightness }, 
+  uniforms: {
+    tDiffuse: { value: rt2.texture },
+    resolution: { value: new THREE.Vector2(1, 1) },
+    minLevel: { value: params.colorBrightness },
     seed: { value: Math.random() * 100 },
     inkStrength: { value: params.inkOutlineStrength },
     inkOffset: { value: params.inkMisregistration },
@@ -388,22 +428,24 @@ function paintedRender(scene, camera) {
   renderer.setRenderTarget(null); renderer.render(paintScene, orthoCam);
 }
 
-/* ---------------- Tweakpane Interface Setup ---------------- */
-const pane = new Tweakpane.Pane({ title: 'Painted Rings Editor' });
+/* ---------------- Tweakpane Interface Setup (split into two panels) ---------------- */
+const paneTop = new Tweakpane.Pane({ title: 'Scene & Rings', container: document.getElementById('panel-top') });
+const paneBottom = new Tweakpane.Pane({ title: 'Paint & Colors', container: document.getElementById('panel-bottom') });
 
-// --- Scene Controls ---
-const fScene = pane.addFolder({ title: 'Scene & Camera' });
+// --- TOP PANEL: Scene, Camera, Ring Assembly ---
+const fScene = paneTop.addFolder({ title: 'Scene & Camera' });
 fScene.addInput(params, 'bgColor', { label: 'Background Color' }).on('change', v => renderer.setClearColor(v.value, 1));
 fScene.addInput(params, 'cameraZoom', { min: 2, max: 20, step: 0.1, label: 'Camera Distance' }).on('change', v => {
   const dist = v.value;
   camera.position.set(dist, dist * 0.46, dist * 0.93);
 });
+fScene.addInput(params, 'exposure', { min: 0.2, max: 2.5, step: 0.05, label: 'Exposure (Smoothness)' }).on('change', v => renderer.toneMappingExposure = v.value);
 
-// --- Ring Controls ---
-const fRings = pane.addFolder({ title: 'Ring Assembly' });
+const fRings = paneTop.addFolder({ title: 'Ring Assembly' });
 fRings.addInput(params, 'ringCount', { min: 10, max: 150, step: 1, label: 'Number of Rings' }).on('change', rebuildRings);
 fRings.addInput(params, 'ringRadius', { min: 0.5, max: 5.0, step: 0.1, label: 'Ring Radius' }).on('change', rebuildRings);
 fRings.addInput(params, 'ringSpacing', { min: 0.01, max: 0.2, step: 0.01, label: 'Vertical Spacing' }).on('change', rebuildRings);
+fRings.addInput(params, 'strokeStraightness', { min: 0.0, max: 1.0, step: 0.01, label: 'Stroke Straightness' }).on('change', rebuildRings);
 fRings.addInput(params, 'strokeThickness', { min: 0.01, max: 0.8, step: 0.01, label: 'Stroke Thickness' });
 fRings.addInput(params, 'strokeOpacity', { min: 0.0, max: 1.0, step: 0.01, label: 'Stroke Opacity' });
 fRings.addInput(params, 'randomTilt', { min: 0.0, max: 1.0, step: 0.01, label: 'Random Tilt Amount' }).on('change', rebuildRings);
@@ -411,8 +453,8 @@ fRings.addInput(params, 'globalTilt', { min: -Math.PI/2, max: Math.PI/2, step: 0
 fRings.addInput(params, 'loopDuration', { min: 0.5, max: 10.0, step: 0.1, label: 'Animation Speed (s)' });
 fRings.addInput(params, 'autoRotate', { label: 'Auto Rotate Rings' });
 
-// --- Paint Effect Controls ---
-const fPaint = pane.addFolder({ title: 'Watercolor Paint Effect' });
+// --- BOTTOM PANEL: Paint Effect, Palette ---
+const fPaint = paneBottom.addFolder({ title: 'Watercolor Paint Effect' });
 fPaint.addInput(params, 'colorBrightness', { min: -1.0, max: 0.2, step: 0.05, label: 'Color Brightness/Lift' }).on('change', v => paintMat.uniforms.minLevel.value = v.value);
 fPaint.addInput(params, 'brushBlobSize', { min: 1, max: 8, step: 1, label: 'Brush Blob Size' }).on('change', v => kuwaharaMat.uniforms.radius.value = v.value);
 fPaint.addInput(params, 'inkOutlineStrength', { min: 0.0, max: 2.0, step: 0.05, label: 'Ink Outline Strength' }).on('change', v => paintMat.uniforms.inkStrength.value = v.value);
@@ -421,13 +463,8 @@ fPaint.addInput(params, 'edgeWobble', { min: 0.0, max: 15.0, step: 0.5, label: '
 fPaint.addInput(params, 'paperGrain', { min: 0.0, max: 2.0, step: 0.05, label: 'Paper Grain Strength' }).on('change', v => paintMat.uniforms.grainStrength.value = v.value);
 fPaint.addInput(params, 'vignetteStrength', { min: 0.0, max: 1.0, step: 0.05, label: 'Vignette Strength' }).on('change', v => paintMat.uniforms.vignetteStrength.value = v.value);
 
-// --- Palette Controls ---
-const fColors = pane.addFolder({ title: 'Color Palette' });
+const fColors = paneBottom.addFolder({ title: 'Color Palette' });
 fColors.addButton({ title: '🎲 Randomize Harmonious Palette' }).on('click', generateRandomPalette);
-fColors.addButton({ title: '🖌️ Regenerate Brush Texture' }).on('click', () => {
-  strokeTexture = makeStrokeTexture();
-  circles.forEach(c => c.mesh.material.uniforms.map.value = strokeTexture);
-});
 
 const colorInputs = ['color0', 'color1', 'color2', 'color3', 'color4', 'color5', 'color6'];
 colorInputs.forEach((key, i) => {

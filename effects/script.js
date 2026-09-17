@@ -1076,6 +1076,7 @@ const leftToggleBtn = document.getElementById("leftToggleBtn");
 const floatingToggleLeft = document.getElementById("floatingToggleLeft");
 const listItems = document.querySelectorAll("#effectList li");
 const modelListItems = document.querySelectorAll("#modelList li");
+const categoryButtons = document.querySelectorAll("#modelCategories button");
 const pixelUI = document.getElementById("pixelUI");
 const pixelInput = document.getElementById("pixelSize");
 const axisCanvas = document.getElementById("axisCanvas");
@@ -1257,6 +1258,60 @@ modelListItems.forEach((item) => {
         modelListItems.forEach((li) => li.classList.remove("active"));
         item.classList.add("active");
         loadModel(item.getAttribute("data-value"));
+    });
+});
+
+const modelCategories = {
+    pokemon: new Set([
+        "magikarp", "bulbasaur", "lucario", "porygon", "mew", "lapras",
+    ]),
+    animals: new Set([
+        "duck", "donald_duck", "fox", "horse", "cow", "blue_whale", "butterfly",
+        "phoenix_bird", "t_rex", "dragon", "dragon2", "octopus_plush", "sea_turtle",
+    ]),
+    characters: new Set([
+        "goku", "goku1", "goku2", "mickey_mouse", "samurai", "cesiumMan",
+        "astronaut", "ghostfreak", "diamondhead", "xlr8", "cannonbolt", "shenron",
+    ]),
+    vehicles: new Set([
+        "car", "truck", "ice_truck", "milkTruck", "train", "lambo", "hoverBike",
+        "harleyBike", "cyberpunkBike", "rayfieldCaliburn", "tank", "spaceship", "ufo",
+        "rocket", "toy_rocket",
+    ]),
+    tech: new Set([
+        "canon_800d", "old_controller", "playstation_5_controller", "airpods", "visionPro",
+        "tv", "piano", "guitar", "guitar2", "binoculars", "goggles",
+    ]),
+    food: new Set([
+        "avocado", "apple", "croissant", "ice_cream_cone", "pepsi_can", "coke_can",
+        "prime_cans",
+    ]),
+    nature: new Set([
+        "tree", "tree_house", "flower_bouquet", "earth", "moon", "carpet",
+    ]),
+    art: new Set([
+        "girl_with_a_pearl_earring", "the_mona_lisa", "the_starry_night",
+    ]),
+};
+
+function getModelCategory(value) {
+    for (const [category, values] of Object.entries(modelCategories)) {
+        if (values.has(value)) return category;
+    }
+    return "objects";
+}
+
+function filterModels(category) {
+    modelListItems.forEach((item) => {
+        item.hidden = category !== "all" && getModelCategory(item.dataset.value) !== category;
+    });
+}
+
+categoryButtons.forEach((button) => {
+    button.addEventListener("click", () => {
+        categoryButtons.forEach((item) => item.classList.remove("active"));
+        button.classList.add("active");
+        filterModels(button.dataset.category);
     });
 });
 

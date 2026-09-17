@@ -1267,7 +1267,7 @@ const modelCategories = {
     ]),
     animals: new Set([
         "duck", "donald_duck", "fox", "horse", "cow", "blue_whale", "butterfly",
-        "phoenix_bird", "t_rex", "dragon", "dragon2", "octopus_plush", "sea_turtle", "mouse",
+        "phoenix_bird", "t_rex", "dragon", "dragon2", "octopus_plush", "sea_turtle",
     ]),
     characters: new Set([
         "goku", "goku1", "goku2", "mickey_mouse", "samurai", "cesiumMan",
@@ -1280,7 +1280,7 @@ const modelCategories = {
     ]),
     tech: new Set([
         "canon_800d", "old_controller", "playstation_5_controller", "airpods", "visionPro",
-        "tv", "piano", "guitar", "guitar2", "binoculars", "goggles",
+        "tv", "piano", "guitar", "guitar2", "binoculars", "goggles", "mouse",
     ]),
     food: new Set([
         "avocado", "apple", "croissant", "ice_cream_cone", "pepsi_can", "coke_can",

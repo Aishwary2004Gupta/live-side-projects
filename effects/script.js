@@ -1064,7 +1064,8 @@ loadModel("try");
 /* ================= POST ================= */
 const composer = new EffectComposer(renderer);
 composer.addPass(new RenderPass(scene, camera));
-let pass = new EffectPass(camera, normal);
+const passCache = new Map([['normal', new EffectPass(camera, normal)]]);
+let pass = passCache.get('normal');
 composer.addPass(pass);
 
 /* ================= UI ================= */
@@ -1226,7 +1227,10 @@ function switchEffect(val) {
     }
 
     renderer.domElement.style.display = "block";
-    pass = new EffectPass(camera, map[val]);
+    if (!passCache.has(val)) {
+        passCache.set(val, new EffectPass(camera, map[val]));
+    }
+    pass = passCache.get(val);
     composer.addPass(pass);
 
     pixelUI.style.display = [

@@ -59,7 +59,6 @@ function createPixelData() {
         canvas.width = imageWidth;
         canvas.height = imageHeight;
 
-        // FIXED: Use drawImage instead of fillPattern
         context.drawImage(image, 0, 0, imageWidth, imageHeight);
 
         imageData = context.getImageData(0, 0, imageWidth, imageHeight).data;

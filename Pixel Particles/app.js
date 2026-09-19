@@ -40,6 +40,11 @@ function createAnimationPanel() {
         updatePlayToggle();
     });
 
+    motionProgress.addEventListener('pointerdown', function () {
+        isPlaying = false;
+        updatePlayToggle();
+    });
+
     motionProgress.addEventListener('input', function () {
         animationTime = progressToTime(Number(motionProgress.value));
         updateMotionReadout();

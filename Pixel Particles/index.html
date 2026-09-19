@@ -39,3 +39,1258 @@
     <script src="app.js"></script>
   </body>
 </html> -->
+
+
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Pixel Particles</title>
+
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      overflow: hidden;
+      background: #0b0b0f;
+      color: #fff;
+      font-family: system-ui, sans-serif;
+    }
+
+    .app {
+      width: 100%;
+      height: 100%;
+      display: flex;
+    }
+
+    #container {
+      position: relative;
+      flex: 1;
+      min-width: 0;
+      height: 100%;
+    }
+
+    #container canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+
+    .sidebar {
+      width: 340px;
+      height: 100%;
+      flex-shrink: 0;
+      overflow-y: auto;
+      padding: 12px;
+      background: #15151d;
+      border-left: 1px solid #292936;
+    }
+
+    .sidebar-title {
+      margin: 0 0 12px;
+      color: #fff;
+      font-size: 16px;
+      font-weight: 600;
+    }
+
+    .preview {
+      display: block;
+      width: 100%;
+      height: 150px;
+      object-fit: contain;
+      margin-bottom: 12px;
+      background: #08080b;
+      border: 1px solid #30303d;
+      border-radius: 5px;
+    }
+
+    .drop-hint {
+      position: absolute;
+      left: 16px;
+      bottom: 16px;
+      color: rgba(255, 255, 255, 0.45);
+      font-size: 12px;
+      pointer-events: none;
+    }
+
+    .drop-overlay {
+      position: absolute;
+      inset: 0;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      color: #fff;
+      font-size: 22px;
+      background: rgba(60, 100, 255, 0.25);
+      border: 2px dashed #8ca8ff;
+      pointer-events: none;
+    }
+
+    #container.dragging .drop-overlay {
+      display: flex;
+    }
+
+    .tp-dfwv {
+      position: relative !important;
+      top: auto !important;
+      right: auto !important;
+      width: 100% !important;
+      min-width: 0 !important;
+    }
+
+    @media (max-width: 800px) {
+      .sidebar {
+        width: 290px;
+      }
+    }
+
+    @media (max-width: 620px) {
+      .app {
+        flex-direction: column;
+      }
+
+      #container {
+        height: 58%;
+        flex: none;
+      }
+
+      .sidebar {
+        width: 100%;
+        height: 42%;
+        border-left: 0;
+        border-top: 1px solid #292936;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="app">
+    <main id="container">
+      <div class="drop-overlay">Drop image to load</div>
+      <div class="drop-hint">
+        Drag an image here · drag to orbit · scroll to zoom
+      </div>
+    </main>
+
+    <aside class="sidebar">
+      <h1 class="sidebar-title">Pixel Particles</h1>
+      <img id="preview" class="preview" alt="Image preview" />
+      <div id="controls"></div>
+    </aside>
+  </div>
+
+  <input id="fileInput" type="file" accept="image/*" hidden />
+
+  <script id="vertexShader" type="x-shader/x-vertex">
+    precision mediump float;
+
+    uniform float depthAmount;
+    uniform float time;
+    uniform float pointSize;
+    uniform float sizeAttenuation;
+
+    uniform float rippleAmount;
+    uniform float rippleDensity;
+    uniform float rippleSpeed;
+
+    uniform float swirlAmount;
+    uniform float jitterAmount;
+
+    attribute float depth;
+    attribute vec3 vertexColor;
+
+    varying vec3 vColor;
+
+    void main() {
+      vColor = vertexColor;
+
+      vec3 pos = position;
+
+      // Image brightness controls particle depth.
+      pos.z += depth * depthAmount;
+
+      // Radial wave.
+      float distanceFromCenter = length(pos.xy);
+      pos.z += rippleAmount *
+        sin(distanceFromCenter * rippleDensity - time * rippleSpeed);
+
+      // Rotating distortion around the centre.
+      float angle = swirlAmount * depth * sin(time * 0.5);
+      float c = cos(angle);
+      float s = sin(angle);
+
+      pos.xy = mat2(c, -s, s, c) * pos.xy;
+
+      // Small breathing movement.
+      pos.x += jitterAmount * sin(time * 1.7 + pos.y * 0.05);
+      pos.y += jitterAmount * cos(time * 1.3 + pos.x * 0.05);
+
+      vec4 mvPosition = modelViewMatrix * vec4(pos, 1.0);
+
+      if (sizeAttenuation > 0.5) {
+        gl_PointSize = pointSize * (400.0 / max(1.0, -mvPosition.z));
+      } else {
+        gl_PointSize = pointSize;
+      }
+
+      gl_Position = projectionMatrix * mvPosition;
+    }
+  </script>
+
+  <script id="fragmentShader" type="x-shader/x-fragment">
+    precision mediump float;
+
+    uniform float opacity;
+    uniform float roundPoints;
+
+    varying vec3 vColor;
+
+    void main() {
+      if (
+        roundPoints > 0.5 &&
+        length(gl_PointCoord - vec2(0.5)) > 0.5
+      ) {
+        discard;
+      }
+
+      gl_FragColor = vec4(vColor, opacity);
+    }
+  </script>
+
+  <script src="https://unpkg.com/three@0.128.0/build/three.min.js"></script>
+  <script src="https://unpkg.com/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/tweakpane@3.1.9/dist/tweakpane.min.js"></script>
+
+  <script>
+    /*
+     * ------------------------------------------------------------
+     * Parameters
+     * ------------------------------------------------------------
+     */
+
+    const params = {
+      // Image
+      imageResolution: 300,
+      darkPixelCutoff: 0,
+      skipTransparentPixels: true,
+      invertDepth: false,
+      colorMode: "image",
+      tintColor: "#ffffff",
+
+      // Particles
+      depthAmount: 120,
+      pointSize: 2,
+      sizeAttenuation: true,
+      roundPoints: false,
+      opacity: 1,
+
+      // Movement
+      playAnimation: true,
+      animationSpeed: 1,
+      depthPulse: true,
+      pulseSpeed: 1,
+      pulseMinimum: -1,
+      rippleAmount: 0,
+      rippleDensity: 0.08,
+      rippleSpeed: 3,
+      swirlAmount: 0,
+      jitterAmount: 0,
+
+      // Rotation and spinning
+      enableSpinning: false,
+      spinSpeed: 0.15,
+      spinAxis: "y",
+
+      rotationX: 0,
+      rotationY: 0,
+      rotationZ: 0,
+
+      rotationWobble: 0,
+
+      // Appearance
+      backgroundColor: "#0b0b0f",
+    };
+
+    /*
+     * ------------------------------------------------------------
+     * Renderer, scene and camera
+     * ------------------------------------------------------------
+     */
+
+    const container = document.getElementById("container");
+    const preview = document.getElementById("preview");
+    const fileInput = document.getElementById("fileInput");
+
+    const renderer = new THREE.WebGLRenderer({
+      antialias: true,
+      alpha: false,
+      powerPreference: "high-performance",
+    });
+
+    renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
+    renderer.setClearColor(params.backgroundColor, 1);
+    container.appendChild(renderer.domElement);
+
+    const scene = new THREE.Scene();
+
+    const camera = new THREE.PerspectiveCamera(
+      45,
+      1,
+      1,
+      10000
+    );
+
+    camera.position.set(0, 0, 600);
+
+    const controls = new THREE.OrbitControls(
+      camera,
+      renderer.domElement
+    );
+
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.08;
+    controls.rotateSpeed = 0.7;
+    controls.zoomSpeed = 1.1;
+    controls.panSpeed = 0.7;
+
+    /*
+     * ------------------------------------------------------------
+     * Shader material
+     * ------------------------------------------------------------
+     */
+
+    const uniforms = {
+      depthAmount: {
+        value: params.depthAmount,
+      },
+
+      time: {
+        value: 0,
+      },
+
+      pointSize: {
+        value: params.pointSize,
+      },
+
+      sizeAttenuation: {
+        value: params.sizeAttenuation ? 1 : 0,
+      },
+
+      rippleAmount: {
+        value: params.rippleAmount,
+      },
+
+      rippleDensity: {
+        value: params.rippleDensity,
+      },
+
+      rippleSpeed: {
+        value: params.rippleSpeed,
+      },
+
+      swirlAmount: {
+        value: params.swirlAmount,
+      },
+
+      jitterAmount: {
+        value: params.jitterAmount,
+      },
+
+      opacity: {
+        value: params.opacity,
+      },
+
+      roundPoints: {
+        value: params.roundPoints ? 1 : 0,
+      },
+    };
+
+    const material = new THREE.ShaderMaterial({
+      uniforms,
+      vertexShader: document.getElementById("vertexShader").textContent,
+      fragmentShader: document.getElementById("fragmentShader").textContent,
+      transparent: true,
+      depthWrite: false,
+      vertexColors: false,
+    });
+
+    let particleObject = null;
+    let currentImage = null;
+    let spinRotation = 0;
+
+    /*
+     * ------------------------------------------------------------
+     * Image processing
+     * ------------------------------------------------------------
+     */
+
+    function loadImageFromURL(url, crossOrigin = true) {
+      const image = new Image();
+
+      if (crossOrigin) {
+        image.crossOrigin = "anonymous";
+      }
+
+      image.onload = () => {
+        buildParticlesFromImage(image);
+      };
+
+      image.onerror = () => {
+        alert("Unable to load this image.");
+      };
+
+      image.src = url;
+    }
+
+    function loadImageFile(file) {
+      if (!file || !file.type.startsWith("image/")) {
+        return;
+      }
+
+      const reader = new FileReader();
+
+      reader.onload = event => {
+        loadImageFromURL(event.target.result, false);
+      };
+
+      reader.readAsDataURL(file);
+    }
+
+    function buildParticlesFromImage(image) {
+      currentImage = image;
+
+      preview.src = image.src;
+
+      const largestSide = Math.max(image.width, image.height);
+      const scale = Math.min(
+        1,
+        params.imageResolution / largestSide
+      );
+
+      const width = Math.max(1, Math.round(image.width * scale));
+      const height = Math.max(1, Math.round(image.height * scale));
+
+      const canvas = document.createElement("canvas");
+      canvas.width = width;
+      canvas.height = height;
+
+      const context = canvas.getContext("2d", {
+        willReadFrequently: true,
+      });
+
+      context.clearRect(0, 0, width, height);
+      context.drawImage(image, 0, 0, width, height);
+
+      const imageData = context.getImageData(
+        0,
+        0,
+        width,
+        height
+      );
+
+      const pixels = imageData.data;
+
+      const positions = [];
+      const colors = [];
+      const depths = [];
+
+      const pointSpacing =
+        400 / Math.max(width, height);
+
+      const tint = new THREE.Color(params.tintColor);
+      const tempColor = new THREE.Color();
+
+      let pointCount = 0;
+
+      for (let y = 0; y < height; y++) {
+        for (let x = 0; x < width; x++) {
+          const pixelIndex = (y * width + x) * 4;
+
+          const red = pixels[pixelIndex] / 255;
+          const green = pixels[pixelIndex + 1] / 255;
+          const blue = pixels[pixelIndex + 2] / 255;
+          const alpha = pixels[pixelIndex + 3] / 255;
+
+          if (
+            params.skipTransparentPixels &&
+            alpha < 0.1
+          ) {
+            continue;
+          }
+
+          const brightness =
+            red * 0.299 +
+            green * 0.587 +
+            blue * 0.114;
+
+          if (brightness < params.darkPixelCutoff) {
+            continue;
+          }
+
+          const px = (x - width / 2) * pointSpacing;
+          const py = (height / 2 - y) * pointSpacing;
+
+          positions.push(px, py, 0);
+
+          let depth = brightness - 0.5;
+
+          if (params.invertDepth) {
+            depth *= -1;
+          }
+
+          depths.push(depth);
+
+          switch (params.colorMode) {
+            case "image":
+              colors.push(red, green, blue);
+              break;
+
+            case "tint":
+              colors.push(
+                tint.r * brightness,
+                tint.g * brightness,
+                tint.b * brightness
+              );
+              break;
+
+            case "grayscale":
+              colors.push(
+                brightness,
+                brightness,
+                brightness
+              );
+              break;
+
+            case "heat":
+              tempColor.setHSL(
+                (1 - brightness) * 0.7,
+                1,
+                0.5
+              );
+
+              colors.push(
+                tempColor.r,
+                tempColor.g,
+                tempColor.b
+              );
+              break;
+
+            case "rainbow":
+              tempColor.setHSL(
+                x / width,
+                0.9,
+                0.55
+              );
+
+              colors.push(
+                tempColor.r,
+                tempColor.g,
+                tempColor.b
+              );
+              break;
+          }
+
+          pointCount++;
+        }
+      }
+
+      const geometry = new THREE.BufferGeometry();
+
+      geometry.setAttribute(
+        "position",
+        new THREE.Float32BufferAttribute(positions, 3)
+      );
+
+      geometry.setAttribute(
+        "vertexColor",
+        new THREE.Float32BufferAttribute(colors, 3)
+      );
+
+      geometry.setAttribute(
+        "depth",
+        new THREE.Float32BufferAttribute(depths, 1)
+      );
+
+      if (particleObject) {
+        scene.remove(particleObject);
+
+        if (particleObject.geometry) {
+          particleObject.geometry.dispose();
+        }
+      }
+
+      particleObject = new THREE.Points(
+        geometry,
+        material
+      );
+
+      particleObject.frustumCulled = false;
+      particleObject.rotation.set(0, 0, 0);
+
+      scene.add(particleObject);
+
+      stats.pointCount = pointCount;
+      pane.refresh();
+    }
+
+    /*
+     * ------------------------------------------------------------
+     * Default image
+     * ------------------------------------------------------------
+     */
+
+    function createDefaultImage() {
+      const canvas = document.createElement("canvas");
+      canvas.width = 600;
+      canvas.height = 420;
+
+      const context = canvas.getContext("2d");
+
+      const gradient = context.createRadialGradient(
+        300,
+        210,
+        20,
+        300,
+        210,
+        320
+      );
+
+      gradient.addColorStop(0, "#ffdd66");
+      gradient.addColorStop(0.45, "#ff4f7a");
+      gradient.addColorStop(1, "#151a5e");
+
+      context.fillStyle = gradient;
+      context.fillRect(0, 0, canvas.width, canvas.height);
+
+      context.globalCompositeOperation = "lighter";
+
+      for (let i = 0; i < 40; i++) {
+        context.beginPath();
+
+        context.arc(
+          Math.random() * canvas.width,
+          Math.random() * canvas.height,
+          10 + Math.random() * 65,
+          0,
+          Math.PI * 2
+        );
+
+        context.fillStyle =
+          `hsla(${Math.random() * 360}, 80%, 60%, .35)`;
+
+        context.fill();
+      }
+
+      context.globalCompositeOperation = "source-over";
+
+      context.fillStyle = "#ffffff";
+      context.font = "bold 100px sans-serif";
+      context.textAlign = "center";
+      context.textBaseline = "middle";
+      context.fillText("PIXEL", 300, 210);
+
+      const image = new Image();
+
+      image.onload = () => {
+        buildParticlesFromImage(image);
+      };
+
+      image.src = canvas.toDataURL("image/png");
+    }
+
+    /*
+     * ------------------------------------------------------------
+     * Upload, drag and drop, paste
+     * ------------------------------------------------------------
+     */
+
+    fileInput.addEventListener("change", event => {
+      loadImageFile(event.target.files[0]);
+      fileInput.value = "";
+    });
+
+    window.addEventListener("dragenter", event => {
+      event.preventDefault();
+      container.classList.add("dragging");
+    });
+
+    window.addEventListener("dragover", event => {
+      event.preventDefault();
+      container.classList.add("dragging");
+    });
+
+    window.addEventListener("dragleave", event => {
+      event.preventDefault();
+      container.classList.remove("dragging");
+    });
+
+    window.addEventListener("drop", event => {
+      event.preventDefault();
+      container.classList.remove("dragging");
+
+      const file = event.dataTransfer.files[0];
+      loadImageFile(file);
+    });
+
+    window.addEventListener("paste", event => {
+      const items = [
+        ...event.clipboardData.items,
+      ];
+
+      const imageItem = items.find(item =>
+        item.type.startsWith("image/")
+      );
+
+      if (imageItem) {
+        loadImageFile(imageItem.getAsFile());
+      }
+    });
+
+    /*
+     * ------------------------------------------------------------
+     * Tweakpane controls
+     * ------------------------------------------------------------
+     */
+
+    const stats = {
+      pointCount: 0,
+    };
+
+    const pane = new Tweakpane.Pane({
+      container: document.getElementById("controls"),
+      title: "Particle Controls",
+    });
+
+    const imageFolder = pane.addFolder({
+      title: "Image",
+      expanded: true,
+    });
+
+    imageFolder.addButton({
+      title: "Upload Image",
+    }).on("click", () => {
+      fileInput.click();
+    });
+
+    imageFolder.addButton({
+      title: "Use Default Image",
+    }).on("click", () => {
+      createDefaultImage();
+    });
+
+    imageFolder.addButton({
+      title: "Load Random Image",
+    }).on("click", () => {
+      loadImageFromURL(
+        "https://picsum.photos/700/500?random=" + Date.now()
+      );
+    });
+
+    imageFolder.addMonitor(
+      stats,
+      "pointCount",
+      {
+        label: "Particle Count",
+        format: value => value.toLocaleString(),
+      }
+    );
+
+    imageFolder.addInput(
+      params,
+      "imageResolution",
+      {
+        min: 50,
+        max: 800,
+        step: 10,
+        label: "Image Resolution",
+      }
+    ).on("change", rebuildImage);
+
+    imageFolder.addInput(
+      params,
+      "darkPixelCutoff",
+      {
+        min: 0,
+        max: 1,
+        step: 0.01,
+        label: "Dark Pixel Cutoff",
+      }
+    ).on("change", rebuildImage);
+
+    imageFolder.addInput(
+      params,
+      "skipTransparentPixels",
+      {
+        label: "Skip Transparent Pixels",
+      }
+    ).on("change", rebuildImage);
+
+    imageFolder.addInput(
+      params,
+      "invertDepth",
+      {
+        label: "Invert Depth",
+      }
+    ).on("change", rebuildImage);
+
+    imageFolder.addInput(
+      params,
+      "colorMode",
+      {
+        label: "Particle Colors",
+        options: {
+          "Use Image Colors": "image",
+          "Tint by Brightness": "tint",
+          "Grayscale": "grayscale",
+          "Heat Map": "heat",
+          "Rainbow": "rainbow",
+        },
+      }
+    ).on("change", rebuildImage);
+
+    imageFolder.addInput(
+      params,
+      "tintColor",
+      {
+        label: "Tint Color",
+      }
+    ).on("change", rebuildImage);
+
+    const particleFolder = pane.addFolder({
+      title: "Particles",
+      expanded: true,
+    });
+
+    particleFolder.addInput(
+      params,
+      "depthAmount",
+      {
+        min: 0,
+        max: 500,
+        step: 1,
+        label: "Depth Amount",
+      }
+    );
+
+    particleFolder.addInput(
+      params,
+      "pointSize",
+      {
+        min: 0.5,
+        max: 12,
+        step: 0.1,
+        label: "Point Size",
+      }
+    );
+
+    particleFolder.addInput(
+      params,
+      "sizeAttenuation",
+      {
+        label: "Size by Distance",
+      }
+    );
+
+    particleFolder.addInput(
+      params,
+      "roundPoints",
+      {
+        label: "Round Particles",
+      }
+    );
+
+    particleFolder.addInput(
+      params,
+      "opacity",
+      {
+        min: 0.05,
+        max: 1,
+        step: 0.01,
+        label: "Opacity",
+      }
+    );
+
+    const movementFolder = pane.addFolder({
+      title: "Movement",
+      expanded: true,
+    });
+
+    movementFolder.addInput(
+      params,
+      "playAnimation",
+      {
+        label: "Play Animation",
+      }
+    );
+
+    movementFolder.addInput(
+      params,
+      "animationSpeed",
+      {
+        min: 0,
+        max: 4,
+        step: 0.05,
+        label: "Animation Speed",
+      }
+    );
+
+    movementFolder.addInput(
+      params,
+      "depthPulse",
+      {
+        label: "Depth Pulse",
+      }
+    );
+
+    movementFolder.addInput(
+      params,
+      "pulseSpeed",
+      {
+        min: 0,
+        max: 8,
+        step: 0.05,
+        label: "Pulse Speed",
+      }
+    );
+
+    movementFolder.addInput(
+      params,
+      "pulseMinimum",
+      {
+        min: -1,
+        max: 1,
+        step: 0.05,
+        label: "Pulse Minimum",
+      }
+    );
+
+    movementFolder.addInput(
+      params,
+      "rippleAmount",
+      {
+        min: 0,
+        max: 150,
+        step: 1,
+        label: "Ripple Amount",
+      }
+    );
+
+    movementFolder.addInput(
+      params,
+      "rippleDensity",
+      {
+        min: 0.01,
+        max: 0.5,
+        step: 0.005,
+        label: "Ripple Density",
+      }
+    );
+
+    movementFolder.addInput(
+      params,
+      "rippleSpeed",
+      {
+        min: 0,
+        max: 12,
+        step: 0.1,
+        label: "Ripple Speed",
+      }
+    );
+
+    movementFolder.addInput(
+      params,
+      "swirlAmount",
+      {
+        min: 0,
+        max: 4,
+        step: 0.05,
+        label: "Swirl Amount",
+      }
+    );
+
+    movementFolder.addInput(
+      params,
+      "jitterAmount",
+      {
+        min: 0,
+        max: 20,
+        step: 0.5,
+        label: "Breathing / Jitter",
+      }
+    );
+
+    const rotationFolder = pane.addFolder({
+      title: "Rotation & Spinning",
+      expanded: true,
+    });
+
+    rotationFolder.addInput(
+      params,
+      "enableSpinning",
+      {
+        label: "Enable Spinning",
+      }
+    );
+
+    rotationFolder.addInput(
+      params,
+      "spinSpeed",
+      {
+        min: -3,
+        max: 3,
+        step: 0.01,
+        label: "Spin Speed",
+      }
+    );
+
+    rotationFolder.addInput(
+      params,
+      "spinAxis",
+      {
+        label: "Spin Axis",
+        options: {
+          "Vertical / Y": "y",
+          "Horizontal / X": "x",
+          "Depth / Z": "z",
+        },
+      }
+    );
+
+    rotationFolder.addInput(
+      params,
+      "rotationX",
+      {
+        min: -Math.PI,
+        max: Math.PI,
+        step: 0.01,
+        label: "X Rotation",
+      }
+    );
+
+    rotationFolder.addInput(
+      params,
+      "rotationY",
+      {
+        min: -Math.PI,
+        max: Math.PI,
+        step: 0.01,
+        label: "Y Rotation",
+      }
+    );
+
+    rotationFolder.addInput(
+      params,
+      "rotationZ",
+      {
+        min: -Math.PI,
+        max: Math.PI,
+        step: 0.01,
+        label: "Z Rotation",
+      }
+    );
+
+    rotationFolder.addInput(
+      params,
+      "rotationWobble",
+      {
+        min: 0,
+        max: 1,
+        step: 0.01,
+        label: "Rotation Wobble",
+      }
+    );
+
+    rotationFolder.addButton({
+      title: "Reset Rotation",
+    }).on("click", () => {
+      params.rotationX = 0;
+      params.rotationY = 0;
+      params.rotationZ = 0;
+      spinRotation = 0;
+
+      if (particleObject) {
+        particleObject.rotation.set(0, 0, 0);
+      }
+
+      pane.refresh();
+    });
+
+    const appearanceFolder = pane.addFolder({
+      title: "Appearance",
+      expanded: true,
+    });
+
+    appearanceFolder.addInput(
+      params,
+      "backgroundColor",
+      {
+        label: "Background Color",
+      }
+    ).on("change", event => {
+      renderer.setClearColor(event.value, 1);
+    });
+
+    /*
+     * ------------------------------------------------------------
+     * Helpers
+     * ------------------------------------------------------------
+     */
+
+    function rebuildImage() {
+      if (currentImage) {
+        buildParticlesFromImage(currentImage);
+      }
+    }
+
+    function resize() {
+      const width = Math.max(1, container.clientWidth);
+      const height = Math.max(1, container.clientHeight);
+
+      renderer.setSize(width, height, false);
+
+      camera.aspect = width / height;
+      camera.updateProjectionMatrix();
+
+      if (controls.handleResize) {
+        controls.handleResize();
+      }
+    }
+
+    new ResizeObserver(resize).observe(container);
+    window.addEventListener("resize", resize);
+
+    /*
+     * ------------------------------------------------------------
+     * Animation
+     * ------------------------------------------------------------
+     */
+
+    let elapsedTime = 0;
+    let lastTime = performance.now();
+
+    function animate(now) {
+      requestAnimationFrame(animate);
+
+      const deltaTime = Math.min(
+        0.05,
+        (now - lastTime) / 1000
+      );
+
+      lastTime = now;
+
+      if (params.playAnimation) {
+        elapsedTime +=
+          deltaTime * params.animationSpeed;
+      }
+
+      let currentDepthAmount = params.depthAmount;
+
+      if (params.depthPulse) {
+        const pulseValue =
+          (Math.sin(
+            elapsedTime * params.pulseSpeed
+          ) + 1) / 2;
+
+        currentDepthAmount =
+          params.depthAmount *
+          (
+            params.pulseMinimum +
+            (1 - params.pulseMinimum) * pulseValue
+          );
+      }
+
+      uniforms.depthAmount.value =
+        currentDepthAmount;
+
+      uniforms.time.value = elapsedTime;
+
+      uniforms.pointSize.value =
+        params.pointSize * renderer.getPixelRatio();
+
+      uniforms.sizeAttenuation.value =
+        params.sizeAttenuation ? 1 : 0;
+
+      uniforms.rippleAmount.value =
+        params.rippleAmount;
+
+      uniforms.rippleDensity.value =
+        params.rippleDensity;
+
+      uniforms.rippleSpeed.value =
+        params.rippleSpeed;
+
+      uniforms.swirlAmount.value =
+        params.swirlAmount;
+
+      uniforms.jitterAmount.value =
+        params.jitterAmount;
+
+      uniforms.opacity.value =
+        params.opacity;
+
+      uniforms.roundPoints.value =
+        params.roundPoints ? 1 : 0;
+
+      if (particleObject) {
+        /*
+         * Manual rotation is always applied first.
+         * Spinning is added on top only when enabled.
+         */
+        const rotation = {
+          x: params.rotationX,
+          y: params.rotationY,
+          z: params.rotationZ,
+        };
+
+        if (
+          params.playAnimation &&
+          params.enableSpinning
+        ) {
+          spinRotation +=
+            params.spinSpeed * deltaTime;
+
+          rotation[params.spinAxis] += spinRotation;
+        }
+
+        if (
+          params.playAnimation &&
+          params.rotationWobble > 0
+        ) {
+          const wobble =
+            Math.sin(elapsedTime * 0.8) *
+            params.rotationWobble *
+            0.25;
+
+          rotation.x += wobble;
+          rotation.y += wobble * 0.7;
+        }
+
+        particleObject.rotation.set(
+          rotation.x,
+          rotation.y,
+          rotation.z
+        );
+      }
+
+      controls.update();
+      renderer.render(scene, camera);
+    }
+
+    /*
+     * Start with a generated image.
+     * Spinning is disabled by default.
+     */
+    createDefaultImage();
+    resize();
+    requestAnimationFrame(animate);
+  </script>
+</body>
+</html>

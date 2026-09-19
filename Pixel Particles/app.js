@@ -20,6 +20,7 @@ var playToggleLabel;
 
 function init() {
     createScene();
+    createControls();
     createPixelData();
     createAnimationPanel();
 
@@ -180,6 +181,7 @@ function update() {
         updateMotionReadout();
     }
     updateAmplitude();
+    controls.update();
 }
 
 function updateAmplitude() {

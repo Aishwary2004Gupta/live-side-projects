@@ -64,7 +64,7 @@ function createPixelData() {
 
         imageData = context.getImageData(0, 0, imageWidth, imageHeight).data;
 
-        createParticles(); // FIXED: Typo was "createPaticles"
+        createParticles(); 
         tick();
     };
 

@@ -11,7 +11,7 @@ var imageData = null;
 
 var animationTime = 0;
 var animationDelta = 0.03;
-var isPlaying = false;
+var isPlaying = true;
 var motionProgress;
 var motionValue;
 var playToggle;
@@ -33,6 +33,7 @@ function createAnimationPanel() {
     playToggle = document.getElementById('playToggle');
     playToggleIcon = document.getElementById('playToggleIcon');
     playToggleLabel = document.getElementById('playToggleLabel');
+    updatePlayToggle();
 
     playToggle.addEventListener('click', function () {
         isPlaying = !isPlaying;

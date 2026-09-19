@@ -1,537 +1,352 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Pixel Particles - Interactive</title>
+<title>Pixel Particles</title>
 <style>
-  html, body {
-    margin: 0;
-    padding: 0;
-    height: 100%;
-    overflow: hidden;
-    background: #0b0b0f;
-    font-family: "Segoe UI", system-ui, sans-serif;
-    color: #e8e8ee;
-  }
-  #container {
-    position: fixed;
-    inset: 0;
-    z-index: 0;
-  }
-  #pane {
-    position: fixed;
-    top: 16px;
-    right: 16px;
-    width: 290px;
-    max-height: calc(100vh - 32px);
-    overflow: auto;
-    z-index: 10;
-  }
-  .upload-zone {
-    border: 1.5px dashed rgba(255,255,255,0.25);
-    border-radius: 8px;
-    padding: 14px;
-    text-align: center;
-    cursor: pointer;
-    transition: 0.2s;
-    font-size: 12px;
-    color: #aaa;
-    background: rgba(255,255,255,0.02);
-  }
-  .upload-zone:hover {
-    border-color: #6cf;
-    color: #6cf;
-    background: rgba(102, 204, 255, 0.05);
-  }
-  .upload-zone.has-image {
-    border-style: solid;
-    border-color: rgba(102, 204, 255, 0.6);
-    color: #6cf;
-  }
-  .upload-zone .filename {
-    display: block;
-    margin-top: 6px;
-    font-weight: 600;
-    word-break: break-all;
-  }
+  html, body { margin: 0; height: 100%; background: #0b0b0f; overflow: hidden; font-family: system-ui, sans-serif; }
+  .app { display: flex; width: 100%; height: 100%; }
+  #container { flex: 1; min-width: 0; height: 100%; position: relative; }
+  #container canvas { display: block; }
+  .sidebar { width: 320px; flex-shrink: 0; height: 100%; overflow: auto; padding: 10px; box-sizing: border-box; background: #15151c; border-left: 1px solid #2a2a35; }
+  .tp-dfwv { position: relative !important; width: 100% !important; }
+  #drop-hint { position: absolute; left: 12px; bottom: 12px; color: #777; font-size: 12px; pointer-events: none; }
+  #dropzone.drag::after { content: "Drop image to load"; position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(60,120,255,.25); color: #fff; font-size: 22px; border: 2px dashed #6a9cff; }
   #fileInput { display: none; }
-  .tp-dfwv { width: 100% !important; }
+  #preview { width: 100%; border-radius: 4px; margin-bottom: 8px; display: block; background: #000; }
 </style>
 </head>
 <body>
+<div class="app">
+  <div id="container"><div id="dropzone" style="position:absolute;inset:0;pointer-events:none"></div><div id="drop-hint">Drag & drop an image anywhere · drag to orbit · scroll to zoom</div></div>
+  <aside class="sidebar">
+    <img id="preview" alt="">
+    <div id="pane"></div>
+  </aside>
+</div>
+<input type="file" id="fileInput" accept="image/*">
 
-<div id="container"></div>
-<div id="pane"></div>
-<input type="file" id="fileInput" accept="image/*" />
-
-<!-- Shaders -->
-<script id="vertexShader" type="x-shader/x-vertex">
-  precision mediump float;
+<script type="x-shader/x-vertex" id="vertexShader">
   uniform float amplitude;
+  uniform float time;
   uniform float pointSize;
+  uniform float attenuate;
+  uniform float rippleAmp;
+  uniform float rippleFreq;
+  uniform float rippleSpeed;
+  uniform float swirl;
+  uniform float jitter;
+  attribute float depth;
   attribute vec3 vertexColor;
-  varying vec4 varColor;
+  varying vec3 vColor;
+
   void main() {
-    varColor = vec4(vertexColor, 1.0);
-    vec4 pos = vec4(position, 1.0);
-    pos.z *= amplitude;
-    vec4 mvPosition = modelViewMatrix * pos;
-    gl_PointSize = pointSize;
-    gl_Position = projectionMatrix * mvPosition;
+    vColor = vertexColor;
+    vec3 pos = position;
+    pos.z = depth * amplitude;
+
+    // radial ripple
+    float d = length(pos.xy);
+    pos.z += rippleAmp * sin(d * rippleFreq - time * rippleSpeed);
+
+    // swirl: rotate points around center by depth
+    float ang = swirl * depth * sin(time * 0.5);
+    float c = cos(ang), s = sin(ang);
+    pos.xy = mat2(c, -s, s, c) * pos.xy;
+
+    // jitter / breathing
+    pos.x += jitter * sin(time * 1.7 + pos.y * 0.05);
+    pos.y += jitter * cos(time * 1.3 + pos.x * 0.05);
+
+    vec4 mv = modelViewMatrix * vec4(pos, 1.0);
+    gl_PointSize = pointSize * mix(1.0, 400.0 / -mv.z, attenuate);
+    gl_Position = projectionMatrix * mv;
   }
 </script>
 
-<script id="fragmentShader" type="x-shader/x-fragment">
-  precision mediump float;
-  uniform sampler2D spriteTex;
-  uniform float useSprite;
-  uniform vec3 tintColor;
-  varying vec4 varColor;
+<script type="x-shader/x-fragment" id="fragmentShader">
+  uniform float opacity;
+  uniform float roundPoints;
+  varying vec3 vColor;
   void main() {
-    vec4 c = varColor;
-    if (useSprite > 0.5) {
-      vec4 t = texture2D(spriteTex, gl_PointCoord);
-      if (t.a < 0.05) discard;
-      c = vec4(t.rgb, t.a);
-    } else {
-      vec2 uv = gl_PointCoord - 0.5;
-      float d = length(uv);
-      if (d > 0.5) discard;
-      float a = smoothstep(0.5, 0.45, d);
-      c = vec4(c.rgb, c.a * a);
-    }
-    gl_FragColor = c;
+    if (roundPoints > 0.5 && length(gl_PointCoord - 0.5) > 0.5) discard;
+    gl_FragColor = vec4(vColor, opacity);
   }
 </script>
 
-<script id="bgVS" type="x-shader/x-vertex">
-  varying vec2 vUv;
-  void main() {
-    vUv = uv;
-    gl_Position = vec4(position.xy, 0.0, 1.0);
-  }
-</script>
-
-<script id="bgFS" type="x-shader/x-fragment">
-  precision mediump float;
-  uniform sampler2D bgTex;
-  uniform float useBg;
-  uniform vec3 bgColor;
-  uniform float bgOpacity;
-  varying vec2 vUv;
-  void main() {
-    if (useBg > 0.5) {
-      vec4 t = texture2D(bgTex, vUv);
-      gl_FragColor = vec4(t.rgb, bgOpacity);
-    } else {
-      gl_FragColor = vec4(bgColor, 1.0);
-    }
-  }
-</script>
-
-<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
+<script src="https://unpkg.com/three@0.128.0/build/three.min.js"></script>
+<script src="https://unpkg.com/three@0.128.0/examples/js/controls/TrackballControls.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/tweakpane@3.1.9/dist/tweakpane.min.js"></script>
 
 <script>
-/* ============================================================
-   PARAMETERS
-   ============================================================ */
+/* ---------------- parameters ---------------- */
 const params = {
-  // Particle shape
-  particleCount: 6000,
-  pointSize: 4.0,
-  amplitude: 1.0,
-  baseColor: "#ff6a3d",
+  // image
+  resolution: 300,      // max points across
+  threshold: 0.0,       // skip pixels darker than this
+  skipTransparent: true,
+  invertDepth: false,
+  colorMode: 'image',
+  tint: '#ffffff',
+  background: '#0b0b0f',
 
-  // Image / texture
-  useSprite: false,
-  useBackgroundImage: false,
-  backgroundColor: "#0b0b0f",
-  backgroundOpacity: 1.0,
-  imageFilename: "",
+  // shape
+  amplitude: 120,
+  pointSize: 1.5,
+  attenuate: true,
+  roundPoints: false,
+  opacity: 1.0,
 
-  // Motion
-  autoOrbit: true,
-  orbitSpeed: 0.4,
-  amplitudePulse: false,
-  pulseAmount: 0.35,
-  pulseSpeed: 1.2,
-  floatWave: true,
-  waveAmplitude: 0.6,
-  waveSpeed: 0.8,
-  autoRotateScene: false,
-  sceneRotSpeed: 0.2,
-
-  // Camera / orbit controls
-  enableDamping: true,
-  dampingFactor: 0.08,
-  rotateSpeed: 0.8,
-  zoomSpeed: 0.8,
-  minDistance: 2,
-  maxDistance: 60,
-  cameraReset: () => resetCamera(),
+  // movement
+  play: true,
+  pulse: true,
+  pulseSpeed: 1.0,
+  pulseMin: -1.0,       // pulse goes from min..1 of amplitude
+  rippleAmp: 0,
+  rippleFreq: 0.08,
+  rippleSpeed: 3,
+  swirl: 0,
+  jitter: 0,
+  autoRotate: 0.15,
+  autoRotateAxis: 'y',
+  wobble: 0,            // slow tilt back and forth
+  timeScale: 1.0,
 };
 
-/* ============================================================
-   HELPERS
-   ============================================================ */
-const Maf = {
-  TAU: Math.PI * 2,
-  randomInRange: (a, b) => a + Math.random() * (b - a),
-};
-const damp = (a, b, lambda, dt) => a + (b - a) * (1 - Math.exp(-lambda * dt));
-const lerp = (a, b, t) => a + (b - a) * t;
-
-/* ============================================================
-   RENDERER / SCENE / CAMERA
-   ============================================================ */
+/* ---------------- renderer ---------------- */
 const container = document.getElementById('container');
-const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
-renderer.setSize(window.innerWidth, window.innerHeight);
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(2, devicePixelRatio));
+renderer.setClearColor(params.background, 1);
 container.appendChild(renderer.domElement);
 
 const scene = new THREE.Scene();
-const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 200);
-const camHome = new THREE.Vector3(0, 0, 18);
-camera.position.copy(camHome);
-camera.lookAt(0, 0, 0);
+const camera = new THREE.PerspectiveCamera(45, 1, 1, 10000);
+camera.position.set(0, 0, 600);
 
-const controls = new THREE.OrbitControls(camera, renderer.domElement);
-controls.enableDamping = params.enableDamping;
-controls.dampingFactor = params.dampingFactor;
-controls.rotateSpeed = params.rotateSpeed;
-controls.zoomSpeed = params.zoomSpeed;
-controls.minDistance = params.minDistance;
-controls.maxDistance = params.maxDistance;
+const controls = new THREE.TrackballControls(camera, renderer.domElement);
+controls.rotateSpeed = 2.0;
+controls.zoomSpeed = 1.2;
+controls.dynamicDampingFactor = 0.15;
 
-function resetCamera() {
-  camera.position.copy(camHome);
-  controls.target.set(0, 0, 0);
-  controls.update();
-}
-
-/* ============================================================
-   BACKDROP (background image or solid color)
-   ============================================================ */
-const bgScene = new THREE.Scene();
-const bgCam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
-const bgGeo = new THREE.PlaneGeometry(2, 2);
-const bgMat = new THREE.ShaderMaterial({
-  vertexShader: document.getElementById('bgVS').textContent,
-  fragmentShader: document.getElementById('bgFS').textContent,
-  uniforms: {
-    bgTex: { value: new THREE.Texture() },
-    useBg: { value: 0.0 },
-    bgColor: { value: new THREE.Color(params.backgroundColor) },
-    bgOpacity: { value: 1.0 },
-  },
-  depthTest: false, depthWrite: false, transparent: true,
+/* ---------------- material ---------------- */
+const uniforms = {
+  amplitude:   { value: params.amplitude },
+  time:        { value: 0 },
+  pointSize:   { value: params.pointSize },
+  attenuate:   { value: 1 },
+  rippleAmp:   { value: 0 },
+  rippleFreq:  { value: params.rippleFreq },
+  rippleSpeed: { value: params.rippleSpeed },
+  swirl:       { value: 0 },
+  jitter:      { value: 0 },
+  opacity:     { value: 1 },
+  roundPoints: { value: 0 },
+};
+const material = new THREE.ShaderMaterial({
+  uniforms,
+  vertexShader: document.getElementById('vertexShader').textContent,
+  fragmentShader: document.getElementById('fragmentShader').textContent,
+  transparent: true, depthWrite: false,
 });
-const bgQuad = new THREE.Mesh(bgGeo, bgMat);
-bgScene.add(bgQuad);
 
-/* ============================================================
-   PARTICLES
-   ============================================================ */
-let pointsObj = null;
-let pointsGeo = null;
-const particles = {
-  basePositions: [],
-  randomPhases: [],
-};
+let points = null;
+let currentImage = null;
 
-const spriteTexture = new THREE.Texture();
+/* ---------------- build points from image ---------------- */
+function buildFromImage(img) {
+  currentImage = img;
+  document.getElementById('preview').src = img.src;
 
-const particleUniforms = {
-  amplitude: { value: params.amplitude },
-  pointSize: { value: params.pointSize },
-  spriteTex: { value: spriteTexture },
-  useSprite: { value: 0.0 },
-  tintColor: { value: new THREE.Color(params.baseColor) },
-};
+  const maxDim = Math.max(img.width, img.height);
+  const scale = Math.min(1, params.resolution / maxDim);
+  const w = Math.max(1, Math.round(img.width * scale));
+  const h = Math.max(1, Math.round(img.height * scale));
 
-function buildParticles(count) {
-  if (pointsObj) {
-    scene.remove(pointsObj);
-    if (pointsGeo) pointsGeo.dispose();
-    pointsObj = null;
-    pointsGeo = null;
+  const cv = document.createElement('canvas'); cv.width = w; cv.height = h;
+  const ctx = cv.getContext('2d');
+  ctx.drawImage(img, 0, 0, w, h);
+  const data = ctx.getImageData(0, 0, w, h).data;
+
+  const pos = [], col = [], dep = [];
+  const tint = new THREE.Color(params.tint);
+  const tmp = new THREE.Color();
+  // world size: fit longest side to ~400 units
+  const unit = 400 / Math.max(w, h);
+
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const i = (y * w + x) * 4;
+      const r = data[i] / 255, g = data[i + 1] / 255, b = data[i + 2] / 255, a = data[i + 3] / 255;
+      if (params.skipTransparent && a < 0.1) continue;
+      const lum = 0.299 * r + 0.587 * g + 0.114 * b;
+      if (lum < params.threshold) continue;
+
+      pos.push((x - w / 2) * unit, (h / 2 - y) * unit, 0);
+      let d = lum - 0.5;
+      if (params.invertDepth) d = -d;
+      dep.push(d);
+
+      switch (params.colorMode) {
+        case 'image':      col.push(r, g, b); break;
+        case 'tint':       col.push(tint.r * lum, tint.g * lum, tint.b * lum); break;
+        case 'grayscale':  col.push(lum, lum, lum); break;
+        case 'heat':       tmp.setHSL((1 - lum) * 0.7, 1, 0.5); col.push(tmp.r, tmp.g, tmp.b); break;
+        case 'rainbow':    tmp.setHSL(x / w, 0.9, 0.55); col.push(tmp.r, tmp.g, tmp.b); break;
+      }
+    }
   }
-  particles.basePositions = [];
-  particles.randomPhases = [];
 
   const geo = new THREE.BufferGeometry();
-  const positions = new Float32Array(count * 3);
-  const colors = new Float32Array(count * 3);
+  geo.setAttribute('position',    new THREE.Float32BufferAttribute(pos, 3));
+  geo.setAttribute('vertexColor', new THREE.Float32BufferAttribute(col, 3));
+  geo.setAttribute('depth',       new THREE.Float32BufferAttribute(dep, 1));
 
-  const base = new THREE.Color(params.baseColor);
-
-  for (let i = 0; i < count; i++) {
-    // Place on a wide-ish 3D cloud
-    const r = Math.pow(Math.random(), 0.5) * 10;
-    const theta = Math.random() * Maf.TAU;
-    const phi = Math.acos(2 * Math.random() - 1);
-    const x = r * Math.sin(phi) * Math.cos(theta);
-    const y = r * Math.sin(phi) * Math.sin(theta);
-    const z = r * Math.cos(phi);
-
-    positions[i * 3 + 0] = x;
-    positions[i * 3 + 1] = y;
-    positions[i * 3 + 2] = z;
-
-    colors[i * 3 + 0] = base.r;
-    colors[i * 3 + 1] = base.g;
-    colors[i * 3 + 2] = base.b;
-
-    particles.basePositions.push(x, y, z);
-    particles.randomPhases.push(Math.random() * Maf.TAU, Math.random(), Math.random());
-  }
-
-  geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-  geo.setAttribute('vertexColor', new THREE.BufferAttribute(colors, 3));
-
-  const mat = new THREE.ShaderMaterial({
-    uniforms: particleUniforms,
-    vertexShader: document.getElementById('vertexShader').textContent,
-    fragmentShader: document.getElementById('fragmentShader').textContent,
-    transparent: true,
-    depthWrite: false,
-    vertexColors: true,
-  });
-
-  pointsGeo = geo;
-  pointsObj = new THREE.Points(geo, mat);
-  scene.add(pointsObj);
+  if (points) { scene.remove(points); points.geometry.dispose(); }
+  points = new THREE.Points(geo, material);
+  points.frustumCulled = false;
+  scene.add(points);
+  statsInfo.points = pos.length / 3;
+  pane.refresh();
 }
 
-buildParticles(params.particleCount);
-
-/* ============================================================
-   IMAGE UPLOAD (used for sprite + background)
-   ============================================================ */
-const fileInput = document.getElementById('fileInput');
-const uploadZone = document.createElement('div');
-uploadZone.className = 'upload-zone';
-uploadZone.innerHTML = '<div>Click or drop an image</div><span class="filename">No image selected</span>';
-document.getElementById('pane').appendChild(uploadZone);
-
-uploadZone.addEventListener('click', () => fileInput.click());
-uploadZone.addEventListener('dragover', e => { e.preventDefault(); uploadZone.style.borderColor = '#6cf'; });
-uploadZone.addEventListener('dragleave', () => { uploadZone.style.borderColor = ''; });
-uploadZone.addEventListener('drop', e => {
-  e.preventDefault();
-  if (e.dataTransfer.files && e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]);
-});
-
-fileInput.addEventListener('change', e => {
-  if (e.target.files && e.target.files[0]) handleFile(e.target.files[0]);
-});
-
-function handleFile(file) {
-  if (!file.type.startsWith('image/')) return;
-  params.imageFilename = file.name;
-  uploadZone.classList.add('has-image');
-  uploadZone.querySelector('.filename').textContent = file.name;
-  pane.refresh();
-
-  const url = URL.createObjectURL(file);
+/* ---------------- image loading ---------------- */
+function loadImageFromURL(url, crossOrigin = true) {
   const img = new Image();
-  img.onload = () => {
-    URL.revokeObjectURL(url);
-    applyTexture(img);
-  };
-  img.onerror = () => {
-    URL.revokeObjectURL(url);
-    console.warn('Failed to load image.');
-  };
+  if (crossOrigin) img.crossOrigin = 'anonymous';
+  img.onload = () => buildFromImage(img);
+  img.onerror = () => alert('Could not load image.');
   img.src = url;
 }
+function loadFile(file) {
+  if (!file || !file.type.startsWith('image/')) return;
+  const reader = new FileReader();
+  reader.onload = e => loadImageFromURL(e.target.result, false);
+  reader.readAsDataURL(file);
+}
+const fileInput = document.getElementById('fileInput');
+fileInput.addEventListener('change', e => loadFile(e.target.files[0]));
 
-let currentImage = null;
-function applyTexture(img) {
-  currentImage = img;
-  const tex = new THREE.Texture(img);
-  tex.needsUpdate = true;
-  tex.minFilter = THREE.LinearFilter;
-  tex.magFilter = THREE.LinearFilter;
-  tex.wrapS = THREE.ClampToEdgeWrapping;
-  tex.wrapT = THREE.ClampToEdgeWrapping;
+// drag & drop
+const dropzone = document.getElementById('dropzone');
+['dragenter', 'dragover'].forEach(ev => window.addEventListener(ev, e => { e.preventDefault(); dropzone.classList.add('drag'); }));
+['dragleave', 'drop'].forEach(ev => window.addEventListener(ev, e => { e.preventDefault(); dropzone.classList.remove('drag'); }));
+window.addEventListener('drop', e => loadFile(e.dataTransfer.files[0]));
+// paste
+window.addEventListener('paste', e => {
+  const item = [...e.clipboardData.items].find(i => i.type.startsWith('image/'));
+  if (item) loadFile(item.getAsFile());
+});
 
-  spriteTexture.image = img;
-  spriteTexture.needsUpdate = true;
-
-  bgMat.uniforms.bgTex.value = tex;
-  bgMat.uniforms.useBg.value = 1.0;
+// procedural default image so the page never starts empty
+function makeDefaultImage() {
+  const c = document.createElement('canvas'); c.width = 512; c.height = 512;
+  const g = c.getContext('2d');
+  const grad = g.createRadialGradient(256, 256, 20, 256, 256, 300);
+  grad.addColorStop(0, '#ffdd66'); grad.addColorStop(0.5, '#ff4f7a'); grad.addColorStop(1, '#1b1f5c');
+  g.fillStyle = grad; g.fillRect(0, 0, 512, 512);
+  g.globalCompositeOperation = 'lighter';
+  for (let i = 0; i < 40; i++) {
+    g.beginPath(); g.arc(Math.random() * 512, Math.random() * 512, 10 + Math.random() * 60, 0, Math.PI * 2);
+    g.fillStyle = `hsla(${Math.random() * 360},80%,60%,.35)`; g.fill();
+  }
+  g.globalCompositeOperation = 'source-over';
+  g.font = 'bold 120px sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.fillStyle = '#fff'; g.fillText('PIXEL', 256, 256);
+  const img = new Image(); img.onload = () => buildFromImage(img); img.src = c.toDataURL();
 }
 
-function clearImage() {
-  currentImage = null;
-  params.imageFilename = "";
-  uploadZone.classList.remove('has-image');
-  uploadZone.querySelector('.filename').textContent = 'No image selected';
-  spriteTexture.image = null;
-  spriteTexture.needsUpdate = true;
-  bgMat.uniforms.useBg.value = 0.0;
-  pane.refresh();
-}
-
-/* ============================================================
-   PANE / CONTROLS
-   ============================================================ */
+/* ---------------- control panel ---------------- */
+const statsInfo = { points: 0 };
 const pane = new Tweakpane.Pane({ container: document.getElementById('pane'), title: 'Pixel Particles' });
+const rebuild = () => currentImage && buildFromImage(currentImage);
 
-/* --- Upload folder --- */
-const fImage = pane.addFolder({ title: 'Image', expanded: true });
-fImage.addButton({ title: 'Clear Image' }).on('click', clearImage);
-fImage.addInput(params, 'useSprite', { label: 'Use Image as Particle' }).on('change', v => {
-  particleUniforms.useSprite.value = v ? 1.0 : 0.0;
-});
-fImage.addInput(params, 'useBackgroundImage', { label: 'Use Image as Background' }).on('change', v => {
-  if (currentImage) {
-    bgMat.uniforms.useBg.value = v ? 1.0 : 0.0;
-  } else {
-    bgMat.uniforms.useBg.value = 0.0;
-    alert('Please upload an image first.');
-    params.useBackgroundImage = false;
-    pane.refresh();
-  }
-});
-fImage.addInput(params, 'backgroundColor', { label: 'BG Color (no image)' }).on('change', v => {
-  bgMat.uniforms.bgColor.value.set(v.value);
-});
-fImage.addInput(params, 'backgroundOpacity', { min: 0, max: 1, step: 0.01, label: 'BG Opacity' }).on('change', v => {
-  bgMat.uniforms.bgOpacity.value = v.value;
+const fImg = pane.addFolder({ title: 'Image', expanded: true });
+fImg.addButton({ title: '📁 Upload Image' }).on('click', () => fileInput.click());
+fImg.addButton({ title: '🌄 Load Random Photo' }).on('click', () =>
+  loadImageFromURL('https://picsum.photos/600/400?random=' + Date.now()));
+fImg.addButton({ title: '✨ Default Pattern' }).on('click', makeDefaultImage);
+fImg.addMonitor(statsInfo, 'points', { label: 'Point Count', format: v => v.toLocaleString() });
+fImg.addInput(params, 'resolution', { min: 50, max: 800, step: 10, label: 'Resolution (px)' }).on('change', rebuild);
+fImg.addInput(params, 'threshold', { min: 0, max: 1, step: 0.01, label: 'Dark Cutoff' }).on('change', rebuild);
+fImg.addInput(params, 'skipTransparent', { label: 'Skip Transparent' }).on('change', rebuild);
+fImg.addInput(params, 'invertDepth', { label: 'Invert Depth' }).on('change', rebuild);
+fImg.addInput(params, 'colorMode', { label: 'Color Mode', options: { 'Image colors': 'image', 'Tint by brightness': 'tint', 'Grayscale': 'grayscale', 'Heat map': 'heat', 'Rainbow': 'rainbow' } }).on('change', rebuild);
+fImg.addInput(params, 'tint', { label: 'Tint Color' }).on('change', rebuild);
+fImg.addInput(params, 'background', { label: 'Background' }).on('change', v => renderer.setClearColor(v.value, 1));
+
+const fShape = pane.addFolder({ title: 'Particles', expanded: true });
+fShape.addInput(params, 'amplitude', { min: 0, max: 500, step: 1, label: 'Depth Amount' });
+fShape.addInput(params, 'pointSize', { min: 0.5, max: 10, step: 0.1, label: 'Point Size' });
+fShape.addInput(params, 'attenuate', { label: 'Size by Distance' });
+fShape.addInput(params, 'roundPoints', { label: 'Round Points' });
+fShape.addInput(params, 'opacity', { min: 0.05, max: 1, step: 0.01, label: 'Opacity' });
+
+const fMove = pane.addFolder({ title: 'Movement', expanded: true });
+fMove.addInput(params, 'play', { label: '▶ Play Animation' });
+fMove.addInput(params, 'timeScale', { min: 0, max: 4, step: 0.05, label: 'Overall Speed' });
+fMove.addInput(params, 'pulse', { label: 'Depth Pulse' });
+fMove.addInput(params, 'pulseSpeed', { min: 0, max: 5, step: 0.05, label: 'Pulse Speed' });
+fMove.addInput(params, 'pulseMin', { min: -1, max: 1, step: 0.05, label: 'Pulse Low Point' });
+fMove.addInput(params, 'rippleAmp', { min: 0, max: 100, step: 1, label: 'Ripple Height' });
+fMove.addInput(params, 'rippleFreq', { min: 0.01, max: 0.5, step: 0.005, label: 'Ripple Density' });
+fMove.addInput(params, 'rippleSpeed', { min: 0, max: 10, step: 0.1, label: 'Ripple Speed' });
+fMove.addInput(params, 'swirl', { min: 0, max: 3, step: 0.05, label: 'Swirl' });
+fMove.addInput(params, 'jitter', { min: 0, max: 20, step: 0.5, label: 'Jitter / Breathing' });
+fMove.addInput(params, 'autoRotate', { min: -2, max: 2, step: 0.01, label: 'Auto Rotate Speed' });
+fMove.addInput(params, 'autoRotateAxis', { label: 'Rotate Axis', options: { 'Y (turntable)': 'y', 'X (tumble)': 'x', 'Z (spin)': 'z' } });
+fMove.addInput(params, 'wobble', { min: 0, max: 1, step: 0.01, label: 'Wobble Tilt' });
+fMove.addButton({ title: '↺ Reset Camera & Rotation' }).on('click', () => {
+  controls.reset(); camera.position.set(0, 0, 600); if (points) points.rotation.set(0, 0, 0);
 });
 
-/* --- Particles --- */
-const fParts = pane.addFolder({ title: 'Particles', expanded: true });
-fParts.addInput(params, 'particleCount', { min: 100, max: 50000, step: 100, label: 'Count' }).on('change', v => buildParticles(v.value));
-fParts.addInput(params, 'pointSize', { min: 0.5, max: 30, step: 0.1, label: 'Point Size' }).on('change', v => particleUniforms.pointSize.value = v.value);
-fParts.addInput(params, 'amplitude', { min: 0, max: 3, step: 0.01, label: 'Z Depth Amplitude' }).on('change', v => particleUniforms.amplitude.value = v.value);
-fParts.addInput(params, 'baseColor', { label: 'Color' }).on('change', v => {
-  particleUniforms.tintColor.value.set(v.value);
-  if (!pointsGeo) return;
-  const c = new THREE.Color(v.value);
-  const colAttr = pointsGeo.getAttribute('vertexColor');
-  for (let i = 0; i < colAttr.count; i++) {
-    colAttr.setXYZ(i, c.r, c.g, c.b);
-  }
-  colAttr.needsUpdate = true;
-});
-
-/* --- Motion --- */
-const fMotion = pane.addFolder({ title: 'Motion', expanded: true });
-fMotion.addInput(params, 'autoOrbit', { label: 'Auto Orbit Camera' });
-fMotion.addInput(params, 'orbitSpeed', { min: -2, max: 2, step: 0.05, label: 'Orbit Speed' });
-fMotion.addInput(params, 'amplitudePulse', { label: 'Pulse Depth' }).on('change', v => particleUniforms.amplitude.value = v ? 1.0 : params.amplitude);
-fMotion.addInput(params, 'pulseAmount', { min: 0, max: 1.5, step: 0.01, label: 'Pulse Amount' });
-fMotion.addInput(params, 'pulseSpeed', { min: 0, max: 4, step: 0.05, label: 'Pulse Speed' });
-fMotion.addInput(params, 'floatWave', { label: 'Float Wave' });
-fMotion.addInput(params, 'waveAmplitude', { min: 0, max: 3, step: 0.01, label: 'Wave Amount' });
-fMotion.addInput(params, 'waveSpeed', { min: 0, max: 4, step: 0.05, label: 'Wave Speed' });
-fMotion.addInput(params, 'autoRotateScene', { label: 'Auto Rotate Scene' });
-fMotion.addInput(params, 'sceneRotSpeed', { min: -3, max: 3, step: 0.05, label: 'Scene Rot Speed' });
-
-/* --- Camera / orbit --- */
-const fCam = pane.addFolder({ title: 'Camera Controls', expanded: true });
-fCam.addInput(params, 'enableDamping').on('change', v => controls.enableDamping = v.value);
-fCam.addInput(params, 'dampingFactor', { min: 0.01, max: 0.3, step: 0.005 }).on('change', v => controls.dampingFactor = v.value);
-fCam.addInput(params, 'rotateSpeed', { min: 0.1, max: 2, step: 0.05 }).on('change', v => controls.rotateSpeed = v.value);
-fCam.addInput(params, 'zoomSpeed', { min: 0.1, max: 2, step: 0.05 }).on('change', v => controls.zoomSpeed = v.value);
-fCam.addInput(params, 'minDistance', { min: 1, max: 30, step: 0.5 }).on('change', v => controls.minDistance = v.value);
-fCam.addInput(params, 'maxDistance', { min: 10, max: 200, step: 1 }).on('change', v => controls.maxDistance = v.value);
-fCam.addButton({ title: 'Reset Camera' }).on('click', () => resetCamera());
-
-/* ============================================================
-   RESIZE
-   ============================================================ */
+/* ---------------- resize ---------------- */
 function resize() {
-  const w = window.innerWidth;
-  const h = window.innerHeight;
+  const w = container.clientWidth, h = container.clientHeight;
   renderer.setSize(w, h);
-  camera.aspect = w / h;
-  camera.updateProjectionMatrix();
+  camera.aspect = w / h; camera.updateProjectionMatrix();
+  controls.handleResize();
 }
-window.addEventListener('resize', resize);
+new ResizeObserver(resize).observe(container);
 resize();
 
-/* ============================================================
-   ANIMATE
-   ============================================================ */
-const clock = new THREE.Clock();
-let orbitAngle = 0;
-let sceneAngle = 0;
-
-function animate() {
+/* ---------------- animate ---------------- */
+let t = 0, last = performance.now();
+function animate(now) {
   requestAnimationFrame(animate);
-  const dt = Math.min(0.05, clock.getDelta());
-  const t = clock.getElapsedTime();
+  const dt = Math.min(0.05, (now - last) / 1000); last = now;
+  if (params.play) t += dt * params.timeScale;
 
-  /* Orbit camera */
-  if (params.autoOrbit) {
-    orbitAngle += params.orbitSpeed * dt;
-    const r = camera.position.length();
-    const y = camera.position.y;
-    camera.position.x = r * Math.cos(orbitAngle);
-    camera.position.z = r * Math.sin(orbitAngle);
-    camera.position.y = y + (0 - y) * (1 - Math.exp(-2 * dt));
-    camera.lookAt(0, 0, 0);
+  // depth pulse: amplitude oscillates between pulseMin*amp and amp
+  let amp = params.amplitude;
+  if (params.pulse) {
+    const s = (Math.sin(t * params.pulseSpeed) + 1) / 2;          // 0..1
+    amp = params.amplitude * (params.pulseMin + (1 - params.pulseMin) * s);
+  }
+  uniforms.amplitude.value = amp;
+  uniforms.time.value = t;
+  uniforms.pointSize.value = params.pointSize * renderer.getPixelRatio();
+  uniforms.attenuate.value = params.attenuate ? 1 : 0;
+  uniforms.roundPoints.value = params.roundPoints ? 1 : 0;
+  uniforms.opacity.value = params.opacity;
+  uniforms.rippleAmp.value = params.rippleAmp;
+  uniforms.rippleFreq.value = params.rippleFreq;
+  uniforms.rippleSpeed.value = params.rippleSpeed;
+  uniforms.swirl.value = params.swirl;
+  uniforms.jitter.value = params.jitter;
+
+  if (points && params.play) {
+    points.rotation[params.autoRotateAxis] += params.autoRotate * dt;
+    const wob = Math.sin(t * 0.6) * params.wobble * 0.5;
+    if (params.autoRotateAxis !== 'x') points.rotation.x = wob;
   }
 
-  /* Scene rotation */
-  if (pointsObj && params.autoRotateScene) {
-    sceneAngle += params.sceneRotSpeed * dt;
-    pointsObj.rotation.y = sceneAngle;
-  }
-
-  /* Particle animations */
-  if (pointsGeo) {
-    const posAttr = pointsGeo.getAttribute('position');
-    const N = posAttr.count;
-    const base = particles.basePositions;
-    const phases = particles.randomPhases;
-    const waveAmp = params.floatWave ? params.waveAmplitude : 0;
-    const waveSpd = params.waveSpeed;
-    const pulseOn = params.amplitudePulse;
-    const pulseAmt = params.pulseAmount;
-    const pulseSpd = params.pulseSpeed;
-    const ampBase = params.amplitude;
-
-    for (let i = 0; i < N; i++) {
-      const bx = base[i * 3];
-      const by = base[i * 3 + 1];
-      const bz = base[i * 3 + 2];
-
-      const ph1 = phases[i * 3];
-      const ph2 = phases[i * 3 + 1];
-      const ph3 = phases[i * 3 + 2];
-
-      const wave = waveAmp > 0 ? Math.sin(t * waveSpd + ph1) * waveAmp * 0.5 : 0;
-      const pulse = pulseOn ? (1 + Math.sin(t * pulseSpd + ph2) * pulseAmt) : 1;
-
-      posAttr.setXYZ(
-        i,
-        bx + Math.cos(t * 0.3 + ph1) * wave,
-        by + Math.sin(t * 0.4 + ph2) * wave,
-        bz * ampBase * pulse + Math.sin(t * 0.2 + ph3) * 0.2
-      );
-    }
-    posAttr.needsUpdate = true;
-  }
-
-  /* OrbitControls damping/zoom */
-  controls.enableDamping = params.enableDamping;
   controls.update();
-
-  /* Draw */
-  renderer.autoClear = false;
-  renderer.clear();
-  renderer.render(bgScene, bgCam);
   renderer.render(scene, camera);
 }
-animate();
+makeDefaultImage();
+requestAnimationFrame(animate);
 </script>
 </body>
 </html>

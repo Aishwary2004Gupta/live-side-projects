@@ -76,7 +76,7 @@ function createControls() {
     controls.zoomSpeed = 1.2;
     controls.panSpeed = 0.8;
     controls.noZoom = false;
-    controls.noPan = true;
+    controls.noPan = false;
     controls.staticMoving = true;
     controls.dynamicDampingFactor = 0.3;
 }

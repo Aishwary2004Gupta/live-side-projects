@@ -1,352 +1,42 @@
 <!doctype html>
 <html lang="en">
-<head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Pixel Particles</title>
-<style>
-  html, body { margin: 0; height: 100%; background: #0b0b0f; overflow: hidden; font-family: system-ui, sans-serif; }
-  .app { display: flex; width: 100%; height: 100%; }
-  #container { flex: 1; min-width: 0; height: 100%; position: relative; }
-  #container canvas { display: block; }
-  .sidebar { width: 320px; flex-shrink: 0; height: 100%; overflow: auto; padding: 10px; box-sizing: border-box; background: #15151c; border-left: 1px solid #2a2a35; }
-  .tp-dfwv { position: relative !important; width: 100% !important; }
-  #drop-hint { position: absolute; left: 12px; bottom: 12px; color: #777; font-size: 12px; pointer-events: none; }
-  #dropzone.drag::after { content: "Drop image to load"; position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(60,120,255,.25); color: #fff; font-size: 22px; border: 2px dashed #6a9cff; }
-  #fileInput { display: none; }
-  #preview { width: 100%; border-radius: 4px; margin-bottom: 8px; display: block; background: #000; }
-</style>
-</head>
-<body>
-<div class="app">
-  <div id="container"><div id="dropzone" style="position:absolute;inset:0;pointer-events:none"></div><div id="drop-hint">Drag & drop an image anywhere · drag to orbit · scroll to zoom</div></div>
-  <aside class="sidebar">
-    <img id="preview" alt="">
-    <div id="pane"></div>
-  </aside>
-</div>
-<input type="file" id="fileInput" accept="image/*">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Pixel Particles</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <div id="container"></div>
 
-<script type="x-shader/x-vertex" id="vertexShader">
-  uniform float amplitude;
-  uniform float time;
-  uniform float pointSize;
-  uniform float attenuate;
-  uniform float rippleAmp;
-  uniform float rippleFreq;
-  uniform float rippleSpeed;
-  uniform float swirl;
-  uniform float jitter;
-  attribute float depth;
-  attribute vec3 vertexColor;
-  varying vec3 vColor;
+    <script type="x-shader/x-vertex" id="vertexShader">
+      precision mediump float;
+      uniform float amplitude;
+      attribute vec3 vertexColor;
+      varying vec4 varColor;
 
-  void main() {
-    vColor = vertexColor;
-    vec3 pos = position;
-    pos.z = depth * amplitude;
-
-    // radial ripple
-    float d = length(pos.xy);
-    pos.z += rippleAmp * sin(d * rippleFreq - time * rippleSpeed);
-
-    // swirl: rotate points around center by depth
-    float ang = swirl * depth * sin(time * 0.5);
-    float c = cos(ang), s = sin(ang);
-    pos.xy = mat2(c, -s, s, c) * pos.xy;
-
-    // jitter / breathing
-    pos.x += jitter * sin(time * 1.7 + pos.y * 0.05);
-    pos.y += jitter * cos(time * 1.3 + pos.x * 0.05);
-
-    vec4 mv = modelViewMatrix * vec4(pos, 1.0);
-    gl_PointSize = pointSize * mix(1.0, 400.0 / -mv.z, attenuate);
-    gl_Position = projectionMatrix * mv;
-  }
-</script>
-
-<script type="x-shader/x-fragment" id="fragmentShader">
-  uniform float opacity;
-  uniform float roundPoints;
-  varying vec3 vColor;
-  void main() {
-    if (roundPoints > 0.5 && length(gl_PointCoord - 0.5) > 0.5) discard;
-    gl_FragColor = vec4(vColor, opacity);
-  }
-</script>
-
-<script src="https://unpkg.com/three@0.128.0/build/three.min.js"></script>
-<script src="https://unpkg.com/three@0.128.0/examples/js/controls/TrackballControls.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/tweakpane@3.1.9/dist/tweakpane.min.js"></script>
-
-<script>
-/* ---------------- parameters ---------------- */
-const params = {
-  // image
-  resolution: 300,      // max points across
-  threshold: 0.0,       // skip pixels darker than this
-  skipTransparent: true,
-  invertDepth: false,
-  colorMode: 'image',
-  tint: '#ffffff',
-  background: '#0b0b0f',
-
-  // shape
-  amplitude: 120,
-  pointSize: 1.5,
-  attenuate: true,
-  roundPoints: false,
-  opacity: 1.0,
-
-  // movement
-  play: true,
-  pulse: true,
-  pulseSpeed: 1.0,
-  pulseMin: -1.0,       // pulse goes from min..1 of amplitude
-  rippleAmp: 0,
-  rippleFreq: 0.08,
-  rippleSpeed: 3,
-  swirl: 0,
-  jitter: 0,
-  autoRotate: 0.15,
-  autoRotateAxis: 'y',
-  wobble: 0,            // slow tilt back and forth
-  timeScale: 1.0,
-};
-
-/* ---------------- renderer ---------------- */
-const container = document.getElementById('container');
-const renderer = new THREE.WebGLRenderer({ antialias: true });
-renderer.setPixelRatio(Math.min(2, devicePixelRatio));
-renderer.setClearColor(params.background, 1);
-container.appendChild(renderer.domElement);
-
-const scene = new THREE.Scene();
-const camera = new THREE.PerspectiveCamera(45, 1, 1, 10000);
-camera.position.set(0, 0, 600);
-
-const controls = new THREE.TrackballControls(camera, renderer.domElement);
-controls.rotateSpeed = 2.0;
-controls.zoomSpeed = 1.2;
-controls.dynamicDampingFactor = 0.15;
-
-/* ---------------- material ---------------- */
-const uniforms = {
-  amplitude:   { value: params.amplitude },
-  time:        { value: 0 },
-  pointSize:   { value: params.pointSize },
-  attenuate:   { value: 1 },
-  rippleAmp:   { value: 0 },
-  rippleFreq:  { value: params.rippleFreq },
-  rippleSpeed: { value: params.rippleSpeed },
-  swirl:       { value: 0 },
-  jitter:      { value: 0 },
-  opacity:     { value: 1 },
-  roundPoints: { value: 0 },
-};
-const material = new THREE.ShaderMaterial({
-  uniforms,
-  vertexShader: document.getElementById('vertexShader').textContent,
-  fragmentShader: document.getElementById('fragmentShader').textContent,
-  transparent: true, depthWrite: false,
-});
-
-let points = null;
-let currentImage = null;
-
-/* ---------------- build points from image ---------------- */
-function buildFromImage(img) {
-  currentImage = img;
-  document.getElementById('preview').src = img.src;
-
-  const maxDim = Math.max(img.width, img.height);
-  const scale = Math.min(1, params.resolution / maxDim);
-  const w = Math.max(1, Math.round(img.width * scale));
-  const h = Math.max(1, Math.round(img.height * scale));
-
-  const cv = document.createElement('canvas'); cv.width = w; cv.height = h;
-  const ctx = cv.getContext('2d');
-  ctx.drawImage(img, 0, 0, w, h);
-  const data = ctx.getImageData(0, 0, w, h).data;
-
-  const pos = [], col = [], dep = [];
-  const tint = new THREE.Color(params.tint);
-  const tmp = new THREE.Color();
-  // world size: fit longest side to ~400 units
-  const unit = 400 / Math.max(w, h);
-
-  for (let y = 0; y < h; y++) {
-    for (let x = 0; x < w; x++) {
-      const i = (y * w + x) * 4;
-      const r = data[i] / 255, g = data[i + 1] / 255, b = data[i + 2] / 255, a = data[i + 3] / 255;
-      if (params.skipTransparent && a < 0.1) continue;
-      const lum = 0.299 * r + 0.587 * g + 0.114 * b;
-      if (lum < params.threshold) continue;
-
-      pos.push((x - w / 2) * unit, (h / 2 - y) * unit, 0);
-      let d = lum - 0.5;
-      if (params.invertDepth) d = -d;
-      dep.push(d);
-
-      switch (params.colorMode) {
-        case 'image':      col.push(r, g, b); break;
-        case 'tint':       col.push(tint.r * lum, tint.g * lum, tint.b * lum); break;
-        case 'grayscale':  col.push(lum, lum, lum); break;
-        case 'heat':       tmp.setHSL((1 - lum) * 0.7, 1, 0.5); col.push(tmp.r, tmp.g, tmp.b); break;
-        case 'rainbow':    tmp.setHSL(x / w, 0.9, 0.55); col.push(tmp.r, tmp.g, tmp.b); break;
+      void main() {
+        varColor = vec4(vertexColor, 1.0);
+        vec4 pos = vec4(position, 1.0);
+        pos.z *= amplitude;
+        vec4 mvPosition = modelViewMatrix * pos;
+        gl_PointSize = 1.0;
+        gl_Position = projectionMatrix * mvPosition;
       }
-    }
-  }
+    </script>
 
-  const geo = new THREE.BufferGeometry();
-  geo.setAttribute('position',    new THREE.Float32BufferAttribute(pos, 3));
-  geo.setAttribute('vertexColor', new THREE.Float32BufferAttribute(col, 3));
-  geo.setAttribute('depth',       new THREE.Float32BufferAttribute(dep, 1));
+    <script type="x-shader/x-fragment" id="fragmentShader">
+      precision mediump float;
+      varying vec4 varColor;
 
-  if (points) { scene.remove(points); points.geometry.dispose(); }
-  points = new THREE.Points(geo, material);
-  points.frustumCulled = false;
-  scene.add(points);
-  statsInfo.points = pos.length / 3;
-  pane.refresh();
-}
+      void main() {
+        gl_FragColor = varColor;
+      }
+    </script>
 
-/* ---------------- image loading ---------------- */
-function loadImageFromURL(url, crossOrigin = true) {
-  const img = new Image();
-  if (crossOrigin) img.crossOrigin = 'anonymous';
-  img.onload = () => buildFromImage(img);
-  img.onerror = () => alert('Could not load image.');
-  img.src = url;
-}
-function loadFile(file) {
-  if (!file || !file.type.startsWith('image/')) return;
-  const reader = new FileReader();
-  reader.onload = e => loadImageFromURL(e.target.result, false);
-  reader.readAsDataURL(file);
-}
-const fileInput = document.getElementById('fileInput');
-fileInput.addEventListener('change', e => loadFile(e.target.files[0]));
-
-// drag & drop
-const dropzone = document.getElementById('dropzone');
-['dragenter', 'dragover'].forEach(ev => window.addEventListener(ev, e => { e.preventDefault(); dropzone.classList.add('drag'); }));
-['dragleave', 'drop'].forEach(ev => window.addEventListener(ev, e => { e.preventDefault(); dropzone.classList.remove('drag'); }));
-window.addEventListener('drop', e => loadFile(e.dataTransfer.files[0]));
-// paste
-window.addEventListener('paste', e => {
-  const item = [...e.clipboardData.items].find(i => i.type.startsWith('image/'));
-  if (item) loadFile(item.getAsFile());
-});
-
-// procedural default image so the page never starts empty
-function makeDefaultImage() {
-  const c = document.createElement('canvas'); c.width = 512; c.height = 512;
-  const g = c.getContext('2d');
-  const grad = g.createRadialGradient(256, 256, 20, 256, 256, 300);
-  grad.addColorStop(0, '#ffdd66'); grad.addColorStop(0.5, '#ff4f7a'); grad.addColorStop(1, '#1b1f5c');
-  g.fillStyle = grad; g.fillRect(0, 0, 512, 512);
-  g.globalCompositeOperation = 'lighter';
-  for (let i = 0; i < 40; i++) {
-    g.beginPath(); g.arc(Math.random() * 512, Math.random() * 512, 10 + Math.random() * 60, 0, Math.PI * 2);
-    g.fillStyle = `hsla(${Math.random() * 360},80%,60%,.35)`; g.fill();
-  }
-  g.globalCompositeOperation = 'source-over';
-  g.font = 'bold 120px sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
-  g.fillStyle = '#fff'; g.fillText('PIXEL', 256, 256);
-  const img = new Image(); img.onload = () => buildFromImage(img); img.src = c.toDataURL();
-}
-
-/* ---------------- control panel ---------------- */
-const statsInfo = { points: 0 };
-const pane = new Tweakpane.Pane({ container: document.getElementById('pane'), title: 'Pixel Particles' });
-const rebuild = () => currentImage && buildFromImage(currentImage);
-
-const fImg = pane.addFolder({ title: 'Image', expanded: true });
-fImg.addButton({ title: '📁 Upload Image' }).on('click', () => fileInput.click());
-fImg.addButton({ title: '🌄 Load Random Photo' }).on('click', () =>
-  loadImageFromURL('https://picsum.photos/600/400?random=' + Date.now()));
-fImg.addButton({ title: '✨ Default Pattern' }).on('click', makeDefaultImage);
-fImg.addMonitor(statsInfo, 'points', { label: 'Point Count', format: v => v.toLocaleString() });
-fImg.addInput(params, 'resolution', { min: 50, max: 800, step: 10, label: 'Resolution (px)' }).on('change', rebuild);
-fImg.addInput(params, 'threshold', { min: 0, max: 1, step: 0.01, label: 'Dark Cutoff' }).on('change', rebuild);
-fImg.addInput(params, 'skipTransparent', { label: 'Skip Transparent' }).on('change', rebuild);
-fImg.addInput(params, 'invertDepth', { label: 'Invert Depth' }).on('change', rebuild);
-fImg.addInput(params, 'colorMode', { label: 'Color Mode', options: { 'Image colors': 'image', 'Tint by brightness': 'tint', 'Grayscale': 'grayscale', 'Heat map': 'heat', 'Rainbow': 'rainbow' } }).on('change', rebuild);
-fImg.addInput(params, 'tint', { label: 'Tint Color' }).on('change', rebuild);
-fImg.addInput(params, 'background', { label: 'Background' }).on('change', v => renderer.setClearColor(v.value, 1));
-
-const fShape = pane.addFolder({ title: 'Particles', expanded: true });
-fShape.addInput(params, 'amplitude', { min: 0, max: 500, step: 1, label: 'Depth Amount' });
-fShape.addInput(params, 'pointSize', { min: 0.5, max: 10, step: 0.1, label: 'Point Size' });
-fShape.addInput(params, 'attenuate', { label: 'Size by Distance' });
-fShape.addInput(params, 'roundPoints', { label: 'Round Points' });
-fShape.addInput(params, 'opacity', { min: 0.05, max: 1, step: 0.01, label: 'Opacity' });
-
-const fMove = pane.addFolder({ title: 'Movement', expanded: true });
-fMove.addInput(params, 'play', { label: '▶ Play Animation' });
-fMove.addInput(params, 'timeScale', { min: 0, max: 4, step: 0.05, label: 'Overall Speed' });
-fMove.addInput(params, 'pulse', { label: 'Depth Pulse' });
-fMove.addInput(params, 'pulseSpeed', { min: 0, max: 5, step: 0.05, label: 'Pulse Speed' });
-fMove.addInput(params, 'pulseMin', { min: -1, max: 1, step: 0.05, label: 'Pulse Low Point' });
-fMove.addInput(params, 'rippleAmp', { min: 0, max: 100, step: 1, label: 'Ripple Height' });
-fMove.addInput(params, 'rippleFreq', { min: 0.01, max: 0.5, step: 0.005, label: 'Ripple Density' });
-fMove.addInput(params, 'rippleSpeed', { min: 0, max: 10, step: 0.1, label: 'Ripple Speed' });
-fMove.addInput(params, 'swirl', { min: 0, max: 3, step: 0.05, label: 'Swirl' });
-fMove.addInput(params, 'jitter', { min: 0, max: 20, step: 0.5, label: 'Jitter / Breathing' });
-fMove.addInput(params, 'autoRotate', { min: -2, max: 2, step: 0.01, label: 'Auto Rotate Speed' });
-fMove.addInput(params, 'autoRotateAxis', { label: 'Rotate Axis', options: { 'Y (turntable)': 'y', 'X (tumble)': 'x', 'Z (spin)': 'z' } });
-fMove.addInput(params, 'wobble', { min: 0, max: 1, step: 0.01, label: 'Wobble Tilt' });
-fMove.addButton({ title: '↺ Reset Camera & Rotation' }).on('click', () => {
-  controls.reset(); camera.position.set(0, 0, 600); if (points) points.rotation.set(0, 0, 0);
-});
-
-/* ---------------- resize ---------------- */
-function resize() {
-  const w = container.clientWidth, h = container.clientHeight;
-  renderer.setSize(w, h);
-  camera.aspect = w / h; camera.updateProjectionMatrix();
-  controls.handleResize();
-}
-new ResizeObserver(resize).observe(container);
-resize();
-
-/* ---------------- animate ---------------- */
-let t = 0, last = performance.now();
-function animate(now) {
-  requestAnimationFrame(animate);
-  const dt = Math.min(0.05, (now - last) / 1000); last = now;
-  if (params.play) t += dt * params.timeScale;
-
-  // depth pulse: amplitude oscillates between pulseMin*amp and amp
-  let amp = params.amplitude;
-  if (params.pulse) {
-    const s = (Math.sin(t * params.pulseSpeed) + 1) / 2;          // 0..1
-    amp = params.amplitude * (params.pulseMin + (1 - params.pulseMin) * s);
-  }
-  uniforms.amplitude.value = amp;
-  uniforms.time.value = t;
-  uniforms.pointSize.value = params.pointSize * renderer.getPixelRatio();
-  uniforms.attenuate.value = params.attenuate ? 1 : 0;
-  uniforms.roundPoints.value = params.roundPoints ? 1 : 0;
-  uniforms.opacity.value = params.opacity;
-  uniforms.rippleAmp.value = params.rippleAmp;
-  uniforms.rippleFreq.value = params.rippleFreq;
-  uniforms.rippleSpeed.value = params.rippleSpeed;
-  uniforms.swirl.value = params.swirl;
-  uniforms.jitter.value = params.jitter;
-
-  if (points && params.play) {
-    points.rotation[params.autoRotateAxis] += params.autoRotate * dt;
-    const wob = Math.sin(t * 0.6) * params.wobble * 0.5;
-    if (params.autoRotateAxis !== 'x') points.rotation.x = wob;
-  }
-
-  controls.update();
-  renderer.render(scene, camera);
-}
-makeDefaultImage();
-requestAnimationFrame(animate);
-</script>
-</body>
+    <!-- Three.js r62 and TrackballControls must load BEFORE your app.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r62/three.min.js"></script>
+    <script src="https://s3-us-west-2.amazonaws.com/s.cdpn.io/175711/trackball_ctrl_r62.js"></script>
+    <script src="app.js"></script>
+  </body>
 </html>

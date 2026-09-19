@@ -11,45 +11,13 @@ var imageData = null;
 
 var animationTime = 0;
 var animationDelta = 0.03;
-var isPlaying = true;
-var motionProgress;
-var motionValue;
-var playToggle;
-var playToggleIcon;
-var playToggleLabel;
 
 function init() {
     createScene();
     createControls();
     createPixelData();
-    createAnimationPanel();
 
     window.addEventListener('resize', onWindowResize, false);
-}
-
-function createAnimationPanel() {
-    motionProgress = document.getElementById('motionProgress');
-    motionValue = document.getElementById('motionValue');
-    playToggle = document.getElementById('playToggle');
-    playToggleIcon = document.getElementById('playToggleIcon');
-    playToggleLabel = document.getElementById('playToggleLabel');
-    updatePlayToggle();
-
-    playToggle.addEventListener('click', function () {
-        isPlaying = !isPlaying;
-        updatePlayToggle();
-    });
-
-    motionProgress.addEventListener('pointerdown', function () {
-        isPlaying = false;
-        updatePlayToggle();
-    });
-
-    motionProgress.addEventListener('input', function () {
-        animationTime = progressToTime(Number(motionProgress.value));
-        updateMotionReadout();
-        updateAmplitude();
-    });
 }
 
 function createScene() {
@@ -76,7 +44,7 @@ function createControls() {
     controls.zoomSpeed = 1.2;
     controls.panSpeed = 0.8;
     controls.noZoom = false;
-    controls.noPan = false;
+    controls.noPan = true;
     controls.staticMoving = true;
     controls.dynamicDampingFactor = 0.3;
 }
@@ -175,33 +143,9 @@ function tick() {
 }
 
 function update() {
-    if (isPlaying) {
-        animationTime += animationDelta;
-        animationTime %= Math.PI * 2;
-        updateMotionReadout();
-    }
-    updateAmplitude();
-    controls.update();
-}
-
-function updateAmplitude() {
     shaderUniforms.amplitude.value = Math.sin(animationTime);
-}
-
-function progressToTime(progress) {
-    return (progress / 100) * Math.PI * 2;
-}
-
-function updateMotionReadout() {
-    var progress = (animationTime / (Math.PI * 2)) * 100;
-    motionProgress.value = progress;
-    motionValue.textContent = Math.round(progress) + '%';
-}
-
-function updatePlayToggle() {
-    playToggle.setAttribute('aria-pressed', isPlaying ? 'true' : 'false');
-    playToggleIcon.innerHTML = isPlaying ? '&#10074;&#10074;' : '&#9654;';
-    playToggleLabel.textContent = isPlaying ? 'Pause' : 'Play';
+    animationTime += animationDelta;
+    controls.update();
 }
 
 function render() {

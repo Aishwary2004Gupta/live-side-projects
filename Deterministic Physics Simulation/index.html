@@ -48,7 +48,7 @@
         margin-right: auto;
       }
 
-      .main {
+      .app-shell {
         display: flex;
         gap: 8px;
         flex: 1;
@@ -64,6 +64,9 @@
         border-radius: 10px;
         overflow: hidden;
         min-width: 0;
+      }
+      .canvas-box.source-hidden {
+        display: none;
       }
       .canvas-box .label {
         padding: 5px 10px;
@@ -89,16 +92,40 @@
         object-fit: contain;
       }
 
-      .controls {
+      .tweak-panel {
+        width: min(260px, 32vw);
+        min-width: 220px;
         display: flex;
-        flex-wrap: wrap;
-        gap: 8px 14px;
-        align-items: center;
-        padding: 8px 12px;
+        flex-direction: column;
+        gap: 10px;
+        padding: 12px;
         background: #101016;
         border: 1px solid #23232e;
         border-radius: 10px;
         flex-shrink: 0;
+      }
+      .tweak-panel.hidden {
+        width: 0;
+        min-width: 0;
+        padding: 0;
+        border-width: 0;
+        overflow: hidden;
+      }
+      .tweak-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        padding-bottom: 4px;
+        border-bottom: 1px solid #23232e;
+        color: #cfcfe4;
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.6px;
+      }
+      .tweak-grid {
+        display: grid;
+        gap: 10px;
       }
 
       button {
@@ -177,7 +204,7 @@
       }
 
       @media (max-width: 700px) {
-        .main {
+        .app-shell {
           flex-direction: column;
         }
         .header h1 {
@@ -194,10 +221,11 @@
       <button id="playBtn">Pause</button>
       <button id="resetBtn">Restart</button>
       <button id="saveBtn">Save PNG</button>
+      <button id="tweakToggle">Tweak</button>
     </div>
 
-    <div class="main">
-      <div class="canvas-box">
+    <div class="app-shell">
+      <div class="canvas-box source-hidden" id="sourcePanel">
         <div class="label"><b>Original</b><span id="srcInfo">—</span></div>
         <canvas id="srcCanvas"></canvas>
       </div>
@@ -205,33 +233,36 @@
         <div class="label"><b>Circle Mosaic</b><span id="mosInfo">—</span></div>
         <canvas id="c"></canvas>
       </div>
-    </div>
 
-    <div class="controls">
-      <div class="ctrl">
-        Detail
-        <input
-          type="range"
-          id="detail"
-          min="400"
-          max="3200"
-          step="100"
-          value="1500"
-        />
-        <span class="val" id="detailV">1500</span>
-      </div>
-      <div class="ctrl">
-        Size
-        <input type="range" id="size" min="60" max="150" step="5" value="100" />
-        <span class="val" id="sizeV">1.0×</span>
-      </div>
-      <div class="ctrl">
-        <input type="checkbox" id="gapfill" checked /> Gap fill
-      </div>
-      <div class="ctrl"><input type="checkbox" id="snap" /> Palette</div>
-      <div class="ctrl"><input type="checkbox" id="ghost" /> Ghost</div>
-      <div id="palette"></div>
-      <div id="status">Loading sample…</div>
+      <aside class="tweak-panel" id="tweakPanel">
+        <div class="tweak-header">
+          <span>Tweak</span>
+        </div>
+        <div class="tweak-grid">
+          <div class="ctrl">
+            Detail
+            <input
+              type="range"
+              id="detail"
+              min="400"
+              max="3200"
+              step="100"
+              value="1500"
+            />
+            <span class="val" id="detailV">1500</span>
+          </div>
+          <div class="ctrl">
+            Size
+            <input type="range" id="size" min="60" max="150" step="5" value="100" />
+            <span class="val" id="sizeV">1.0×</span>
+          </div>
+          <div class="ctrl"><input type="checkbox" id="sourceToggle" /> Source</div>
+          <div class="ctrl"><input type="checkbox" id="snap" /> Palette</div>
+          <div class="ctrl"><input type="checkbox" id="ghost" /> Ghost</div>
+          <div id="palette"></div>
+          <div id="status">Loading sample…</div>
+        </div>
+      </aside>
     </div>
 
     <script>
@@ -256,7 +287,6 @@
       const S = {
         detail: 1500,
         sizeScale: 1.0,
-        gapfill: true,
         snap: false,
         ghost: false,
       };
@@ -275,11 +305,14 @@
         play: document.getElementById("playBtn"),
         reset: document.getElementById("resetBtn"),
         save: document.getElementById("saveBtn"),
+        tweakToggle: document.getElementById("tweakToggle"),
+        tweakPanel: document.getElementById("tweakPanel"),
         detail: document.getElementById("detail"),
         detailV: document.getElementById("detailV"),
         size: document.getElementById("size"),
         sizeV: document.getElementById("sizeV"),
-        gapfill: document.getElementById("gapfill"),
+        sourceToggle: document.getElementById("sourceToggle"),
+        sourcePanel: document.getElementById("sourcePanel"),
         snap: document.getElementById("snap"),
         ghost: document.getElementById("ghost"),
         palette: document.getElementById("palette"),
@@ -791,9 +824,21 @@
       let acc = 0,
         last = 0,
         fps = 60,
-        frame = 0;
+        frame = 0,
+        rafId = 0;
+
+      function scheduleLoop() {
+        if (rafId) cancelAnimationFrame(rafId);
+        rafId = requestAnimationFrame(loop);
+      }
+
+      function stopLoop() {
+        if (rafId) cancelAnimationFrame(rafId);
+        rafId = 0;
+      }
 
       function restart() {
+        stopLoop();
         computeSizes();
         grid = new Grid(cell);
         balls = [];
@@ -808,7 +853,7 @@
         running = true;
         el.play.textContent = "Pause";
         render();
-        requestAnimationFrame(loop);
+        scheduleLoop();
       }
 
       function spawnBall() {
@@ -844,16 +889,6 @@
               b.setColor(sampleColor(b.x, b.y, b.r));
             }
             grid.rebuild();
-            phase = S.gapfill ? "FILL" : "DONE";
-            if (phase === "DONE") finish();
-          }
-        } else if (phase === "FILL") {
-          fillStep(1400);
-          if (
-            balls.length >= maxTotal ||
-            fillAttempts > 160000 ||
-            fillMisses > 9000
-          ) {
             phase = "DONE";
             finish();
           }
@@ -861,6 +896,8 @@
       }
 
       function finish() {
+        running = false;
+        stopLoop();
         render(true);
         setStatus();
       }
@@ -881,11 +918,14 @@
           }
 
           frame++;
-          if (phase !== "FILL" && frame % 2 === 0) recolorMoving();
+          if (frame % 2 === 0) recolorMoving();
           render();
           setStatus();
         }
-        requestAnimationFrame(loop);
+
+        if (running && phase !== "DONE") {
+          rafId = requestAnimationFrame(loop);
+        }
       }
 
       function setStatus() {
@@ -1003,7 +1043,9 @@
         el.play.textContent = running ? "Pause" : "Resume";
         if (running) {
           last = 0;
-          requestAnimationFrame(loop);
+          scheduleLoop();
+        } else {
+          stopLoop();
         }
       };
       el.reset.onclick = restart;
@@ -1027,9 +1069,6 @@
       };
       el.size.onchange = restart;
 
-      el.gapfill.onchange = (e) => {
-        S.gapfill = e.target.checked;
-      };
       el.ghost.onchange = (e) => {
         S.ghost = e.target.checked;
         render(phase === "DONE");
@@ -1038,6 +1077,10 @@
         S.snap = e.target.checked;
         for (const b of balls) b.setColor(sampleColor(b.x, b.y, b.r));
         render(phase === "DONE");
+      };
+
+      el.tweakToggle.onclick = () => {
+        el.tweakPanel.classList.toggle("hidden");
       };
 
       /* drag + drop / paste */

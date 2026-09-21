@@ -882,9 +882,14 @@
       }
 
       function loop(ts) {
-        if (!running) return;
+        if (!running) {
+          rafId = 0;
+          return;
+        }
+
         if (!last) last = ts;
-        const dt = Math.min(0.05, (ts - last) / 1000);
+        const rawDt = (ts - last) / 1000;
+        const dt = Math.min(0.033, Math.max(0.008, rawDt || PHYS.DT));
         fps = fps * 0.9 + (1 / Math.max(dt, 1e-4)) * 0.1;
         last = ts;
 
@@ -904,6 +909,8 @@
 
         if (running && phase !== "DONE") {
           rafId = requestAnimationFrame(loop);
+        } else {
+          rafId = 0;
         }
       }
 

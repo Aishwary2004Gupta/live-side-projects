@@ -733,67 +733,6 @@
       }
 
       /* ============================================================
-   GAP FILLING
-============================================================ */
-      let fillAttempts = 0,
-        fillMisses = 0,
-        maxTotal = 9000;
-
-      function freeRadiusAt(x, y, limit) {
-        let best = Math.min(x, y, W - x, H - y);
-        if (best <= 0) return 0;
-        if (best > limit) best = limit;
-        const range = Math.ceil((limit + maxR) / grid.cs) + 1;
-        const cx = (x / grid.cs) | 0,
-          cy = (y / grid.cs) | 0;
-        for (let gy = cy - range; gy <= cy + range; gy++) {
-          for (let gx = cx - range; gx <= cx + range; gx++) {
-            const k = grid.key(gx, gy);
-            if (k < 0) continue;
-            for (const i of grid.b[k]) {
-              const b = balls[i];
-              const d = Math.hypot(x - b.x, y - b.y) - b.r;
-              if (d < best) {
-                best = d;
-                if (best <= 0) return 0;
-              }
-            }
-          }
-        }
-        return best;
-      }
-
-      function fillStep(budget) {
-        const fMax = base * 0.95,
-          fMin = Math.max(0.9, base * 0.15);
-        const pts = src.detailPts,
-          np = pts.length / 2;
-        let added = 0;
-
-        for (let t = 0; t < budget && balls.length < maxTotal; t++) {
-          fillAttempts++;
-          let x, y;
-          if (np && Math.random() < 0.65) {
-            const i = (Math.random() * np) | 0;
-            x = pts[i * 2] + (Math.random() - 0.5) * 4;
-            y = pts[i * 2 + 1] + (Math.random() - 0.5) * 4;
-          } else {
-            x = Math.random() * W;
-            y = Math.random() * H;
-          }
-          const r = freeRadiusAt(x, y, fMax);
-          if (r >= fMin) {
-            const b = new Ball(x, y, r * 0.97, true);
-            balls.push(b);
-            grid.add(balls.length - 1, clamp(x, 0, W - 1), clamp(y, 0, H - 1));
-            added++;
-            fillMisses = 0;
-          } else fillMisses++;
-        }
-        return added;
-      }
-
-      /* ============================================================
    RENDER
 ============================================================ */
       function render(highQuality = false) {
@@ -844,11 +783,8 @@
         balls = [];
         spawned = 0;
         settleWait = 0;
-        fillAttempts = 0;
-        fillMisses = 0;
         acc = 0;
         last = 0;
-        maxTotal = Math.min(11000, S.detail * 4);
         phase = "SPAWN";
         running = true;
         el.play.textContent = "Pause";
@@ -933,7 +869,6 @@
           IDLE: "idle",
           SPAWN: "spawning",
           SETTLE: "settling",
-          FILL: "filling gaps",
           DONE: "complete",
         };
         el.status.textContent = `${names[phase]} · circles: ${balls.length} · ${fps.toFixed(0)} fps`;
@@ -1069,6 +1004,9 @@
       };
       el.size.onchange = restart;
 
+      el.sourceToggle.onchange = (e) => {
+        el.sourcePanel.classList.toggle("source-hidden", !e.target.checked);
+      };
       el.ghost.onchange = (e) => {
         S.ghost = e.target.checked;
         render(phase === "DONE");

@@ -48,7 +48,7 @@
         margin-right: auto;
       }
 
-      .app-shell {
+      .main {
         display: flex;
         gap: 8px;
         flex: 1;
@@ -64,9 +64,6 @@
         border-radius: 10px;
         overflow: hidden;
         min-width: 0;
-      }
-      .canvas-box.source-hidden {
-        display: none;
       }
       .canvas-box .label {
         padding: 5px 10px;
@@ -92,69 +89,16 @@
         object-fit: contain;
       }
 
-      .tweak-panel {
-        width: min(260px, 32vw);
-        min-width: 220px;
+      .controls {
         display: flex;
-        flex-direction: column;
-        gap: 12px;
-        padding: 12px;
-        background: linear-gradient(180deg, #11111a 0%, #0d0d14 100%);
-        border: 1px solid #2a2a38;
-        border-radius: 14px;
-        flex-shrink: 0;
-        box-shadow:
-          inset 0 1px 0 rgba(255, 255, 255, 0.05),
-          0 10px 30px rgba(0, 0, 0, 0.2);
-      }
-      .tweak-panel.hidden {
-        width: 0;
-        min-width: 0;
-        padding: 0;
-        border-width: 0;
-        overflow: hidden;
-      }
-      .tweak-header {
-        display: flex;
+        flex-wrap: wrap;
+        gap: 8px 14px;
         align-items: center;
-        justify-content: space-between;
-        gap: 10px;
-        padding-bottom: 6px;
-        border-bottom: 1px solid #23232e;
-        color: #dfe5ff;
-        font-size: 10px;
-        text-transform: uppercase;
-        letter-spacing: 1.2px;
-      }
-      .dial-section {
-        display: grid;
-        gap: 10px;
-        padding: 10px;
+        padding: 8px 12px;
+        background: #101016;
+        border: 1px solid #23232e;
         border-radius: 10px;
-        background: rgba(255, 255, 255, 0.02);
-        border: 1px solid rgba(255, 255, 255, 0.04);
-      }
-      .dial-row {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        font-size: 11px;
-        color: #bfc4db;
-      }
-      .dial-row input[type="range"] {
-        flex: 1;
-      }
-      .dial-row .label {
-        width: 40px;
-        color: #dfe5ff;
-      }
-      .dial-row .val {
-        width: 38px;
-        text-align: right;
-      }
-      .tweak-grid {
-        display: grid;
-        gap: 10px;
+        flex-shrink: 0;
       }
 
       button {
@@ -181,7 +125,7 @@
       .ctrl {
         display: flex;
         align-items: center;
-        gap: 6px;
+        gap: 5px;
         font-size: 11px;
         color: #a9a9bd;
       }
@@ -233,7 +177,7 @@
       }
 
       @media (max-width: 700px) {
-        .app-shell {
+        .main {
           flex-direction: column;
         }
         .header h1 {
@@ -250,11 +194,10 @@
       <button id="playBtn">Pause</button>
       <button id="resetBtn">Restart</button>
       <button id="saveBtn">Save PNG</button>
-      <button id="tweakToggle">Tweak</button>
     </div>
 
-    <div class="app-shell">
-      <div class="canvas-box source-hidden" id="sourcePanel">
+    <div class="main">
+      <div class="canvas-box">
         <div class="label"><b>Original</b><span id="srcInfo">—</span></div>
         <canvas id="srcCanvas"></canvas>
       </div>
@@ -262,42 +205,33 @@
         <div class="label"><b>Circle Mosaic</b><span id="mosInfo">—</span></div>
         <canvas id="c"></canvas>
       </div>
+    </div>
 
-      <aside class="tweak-panel" id="tweakPanel">
-        <div class="tweak-header">
-          <span>Dial Kit</span>
-        </div>
-        <div class="dial-section">
-          <div class="dial-row">
-            <span class="label">Detail</span>
-            <input
-              type="range"
-              id="detail"
-              min="400"
-              max="3200"
-              step="100"
-              value="1500"
-            />
-            <span class="val" id="detailV">1500</span>
-          </div>
-          <div class="dial-row">
-            <span class="label">Size</span>
-            <input type="range" id="size" min="60" max="150" step="5" value="100" />
-            <span class="val" id="sizeV">1.0×</span>
-          </div>
-        </div>
-
-        <div class="dial-section">
-          <div class="ctrl"><input type="checkbox" id="sourceToggle" /> Source</div>
-          <div class="ctrl"><input type="checkbox" id="snap" /> Palette</div>
-          <div class="ctrl"><input type="checkbox" id="ghost" /> Ghost</div>
-        </div>
-
-        <div class="dial-section">
-          <div id="palette"></div>
-          <div id="status">Loading sample…</div>
-        </div>
-      </aside>
+    <div class="controls">
+      <div class="ctrl">
+        Detail
+        <input
+          type="range"
+          id="detail"
+          min="400"
+          max="3200"
+          step="100"
+          value="1500"
+        />
+        <span class="val" id="detailV">1500</span>
+      </div>
+      <div class="ctrl">
+        Size
+        <input type="range" id="size" min="60" max="150" step="5" value="100" />
+        <span class="val" id="sizeV">1.0×</span>
+      </div>
+      <div class="ctrl">
+        <input type="checkbox" id="gapfill" checked /> Gap fill
+      </div>
+      <div class="ctrl"><input type="checkbox" id="snap" /> Palette</div>
+      <div class="ctrl"><input type="checkbox" id="ghost" /> Ghost</div>
+      <div id="palette"></div>
+      <div id="status">Loading sample…</div>
     </div>
 
     <script>
@@ -322,6 +256,7 @@
       const S = {
         detail: 1500,
         sizeScale: 1.0,
+        gapfill: true,
         snap: false,
         ghost: false,
       };
@@ -340,14 +275,11 @@
         play: document.getElementById("playBtn"),
         reset: document.getElementById("resetBtn"),
         save: document.getElementById("saveBtn"),
-        tweakToggle: document.getElementById("tweakToggle"),
-        tweakPanel: document.getElementById("tweakPanel"),
         detail: document.getElementById("detail"),
         detailV: document.getElementById("detailV"),
         size: document.getElementById("size"),
         sizeV: document.getElementById("sizeV"),
-        sourceToggle: document.getElementById("sourceToggle"),
-        sourcePanel: document.getElementById("sourcePanel"),
+        gapfill: document.getElementById("gapfill"),
         snap: document.getElementById("snap"),
         ghost: document.getElementById("ghost"),
         palette: document.getElementById("palette"),
@@ -634,12 +566,6 @@
         cell = Math.max(10, maxR * 2);
       }
 
-      function computeTargetBallCount() {
-        const area = W * H;
-        const circleArea = Math.PI * Math.max(1, base * base) * 0.82;
-        return Math.max(S.detail, Math.ceil(area / circleArea));
-      }
-
       /* ============================================================
    SPATIAL HASH GRID
 ============================================================ */
@@ -774,6 +700,67 @@
       }
 
       /* ============================================================
+   GAP FILLING
+============================================================ */
+      let fillAttempts = 0,
+        fillMisses = 0,
+        maxTotal = 9000;
+
+      function freeRadiusAt(x, y, limit) {
+        let best = Math.min(x, y, W - x, H - y);
+        if (best <= 0) return 0;
+        if (best > limit) best = limit;
+        const range = Math.ceil((limit + maxR) / grid.cs) + 1;
+        const cx = (x / grid.cs) | 0,
+          cy = (y / grid.cs) | 0;
+        for (let gy = cy - range; gy <= cy + range; gy++) {
+          for (let gx = cx - range; gx <= cx + range; gx++) {
+            const k = grid.key(gx, gy);
+            if (k < 0) continue;
+            for (const i of grid.b[k]) {
+              const b = balls[i];
+              const d = Math.hypot(x - b.x, y - b.y) - b.r;
+              if (d < best) {
+                best = d;
+                if (best <= 0) return 0;
+              }
+            }
+          }
+        }
+        return best;
+      }
+
+      function fillStep(budget) {
+        const fMax = base * 0.95,
+          fMin = Math.max(0.9, base * 0.15);
+        const pts = src.detailPts,
+          np = pts.length / 2;
+        let added = 0;
+
+        for (let t = 0; t < budget && balls.length < maxTotal; t++) {
+          fillAttempts++;
+          let x, y;
+          if (np && Math.random() < 0.65) {
+            const i = (Math.random() * np) | 0;
+            x = pts[i * 2] + (Math.random() - 0.5) * 4;
+            y = pts[i * 2 + 1] + (Math.random() - 0.5) * 4;
+          } else {
+            x = Math.random() * W;
+            y = Math.random() * H;
+          }
+          const r = freeRadiusAt(x, y, fMax);
+          if (r >= fMin) {
+            const b = new Ball(x, y, r * 0.97, true);
+            balls.push(b);
+            grid.add(balls.length - 1, clamp(x, 0, W - 1), clamp(y, 0, H - 1));
+            added++;
+            fillMisses = 0;
+          } else fillMisses++;
+        }
+        return added;
+      }
+
+      /* ============================================================
    RENDER
 ============================================================ */
       function render(highQuality = false) {
@@ -787,25 +774,10 @@
         }
 
         for (const b of balls) {
-          ctx.save();
           ctx.beginPath();
           ctx.arc(b.x, b.y, b.r, 0, TAU);
           ctx.fillStyle = b.css;
-          ctx.shadowColor = "rgba(0,0,0,0.35)";
-          ctx.shadowBlur = 2;
           ctx.fill();
-
-          ctx.shadowBlur = 0;
-          ctx.lineWidth = 1.2;
-          ctx.strokeStyle = "rgba(0,0,0,0.45)";
-          ctx.stroke();
-
-          const shine = Math.max(2, b.r * 0.22);
-          ctx.beginPath();
-          ctx.arc(b.x - b.r * 0.28, b.y - b.r * 0.3, shine, 0, TAU);
-          ctx.fillStyle = "rgba(255,255,255,0.24)";
-          ctx.fill();
-          ctx.restore();
         }
       }
 
@@ -819,47 +791,35 @@
       let acc = 0,
         last = 0,
         fps = 60,
-        frame = 0,
-        rafId = 0,
-        targetBallCount = 0;
-
-      function scheduleLoop() {
-        stopLoop();
-        if (!running) return;
-        rafId = requestAnimationFrame(loop);
-      }
-
-      function stopLoop() {
-        if (rafId) cancelAnimationFrame(rafId);
-        rafId = 0;
-      }
+        frame = 0;
 
       function restart() {
-        stopLoop();
         computeSizes();
-        targetBallCount = computeTargetBallCount();
         grid = new Grid(cell);
         balls = [];
         spawned = 0;
         settleWait = 0;
+        fillAttempts = 0;
+        fillMisses = 0;
         acc = 0;
         last = 0;
+        maxTotal = Math.min(11000, S.detail * 4);
         phase = "SPAWN";
         running = true;
         el.play.textContent = "Pause";
         render();
-        scheduleLoop();
+        requestAnimationFrame(loop);
       }
 
       function spawnBall() {
-        const pad = 12;
-        const x = pad + Math.random() * (W - pad * 2);
-        const y = -Math.random() * H * 0.4 - 30;
+        const cx = W / 2 + (Math.random() - 0.5) * 6;
+        const cy = H / 2 + (Math.random() - 0.5) * 6;
         const t = Math.random();
         const r = base * (0.55 + t * t);
-        const b = new Ball(x, y, r);
-        b.px = x + (Math.random() - 0.5) * 10;
-        b.py = y + 24 + Math.random() * 18;
+        const b = new Ball(cx, cy, r);
+        const a = Math.random() * TAU;
+        b.px = cx - Math.cos(a) * PHYS.BLAST * PHYS.DT;
+        b.py = cy - Math.sin(a) * PHYS.BLAST * PHYS.DT;
         balls.push(b);
         spawned++;
       }
@@ -869,55 +829,46 @@
           if (!b.fixed) b.setColor(sampleColor(b.x, b.y, b.r));
       }
 
-      function finalizeAssembly() {
-        for (const b of balls) {
-          b.fixed = true;
-          b.setColor(sampleColor(b.x, b.y, b.r));
-        }
-        grid.rebuild();
-        phase = "DONE";
-        finish();
-      }
-
       function step() {
-        if (!running) return;
-
         if (phase === "SPAWN") {
-          while (spawned < targetBallCount && balls.length < targetBallCount) {
+          for (let i = 0; i < PHYS.SPAWN_PER_STEP && spawned < S.detail; i++)
             spawnBall();
-          }
-
-          if (balls.length >= targetBallCount) {
-            finalizeAssembly();
-            return;
-          }
-
           physicsStep();
+          if (spawned >= S.detail) phase = "SETTLE";
         } else if (phase === "SETTLE") {
           physicsStep();
           settleWait++;
           if ((avgSpeed() < 0.09 && settleWait > 40) || settleWait > 620) {
-            finalizeAssembly();
+            for (const b of balls) {
+              b.fixed = true;
+              b.setColor(sampleColor(b.x, b.y, b.r));
+            }
+            grid.rebuild();
+            phase = S.gapfill ? "FILL" : "DONE";
+            if (phase === "DONE") finish();
+          }
+        } else if (phase === "FILL") {
+          fillStep(1400);
+          if (
+            balls.length >= maxTotal ||
+            fillAttempts > 160000 ||
+            fillMisses > 9000
+          ) {
+            phase = "DONE";
+            finish();
           }
         }
       }
 
       function finish() {
-        running = false;
-        stopLoop();
         render(true);
         setStatus();
       }
 
       function loop(ts) {
-        if (!running) {
-          rafId = 0;
-          return;
-        }
-
+        if (!running) return;
         if (!last) last = ts;
-        const rawDt = (ts - last) / 1000;
-        const dt = Math.min(0.033, Math.max(0.008, rawDt || PHYS.DT));
+        const dt = Math.min(0.05, (ts - last) / 1000);
         fps = fps * 0.9 + (1 / Math.max(dt, 1e-4)) * 0.1;
         last = ts;
 
@@ -930,16 +881,11 @@
           }
 
           frame++;
-          if (frame % 2 === 0) recolorMoving();
+          if (phase !== "FILL" && frame % 2 === 0) recolorMoving();
           render();
           setStatus();
         }
-
-        if (running && phase !== "DONE") {
-          rafId = requestAnimationFrame(loop);
-        } else {
-          rafId = 0;
-        }
+        requestAnimationFrame(loop);
       }
 
       function setStatus() {
@@ -947,9 +893,10 @@
           IDLE: "idle",
           SPAWN: "spawning",
           SETTLE: "settling",
+          FILL: "filling gaps",
           DONE: "complete",
         };
-        el.status.textContent = `${names[phase]} · circles: ${balls.length}/${targetBallCount} · ${fps.toFixed(0)} fps`;
+        el.status.textContent = `${names[phase]} · circles: ${balls.length} · ${fps.toFixed(0)} fps`;
         el.mosInfo.textContent = `${balls.length} circles`;
       }
 
@@ -1056,11 +1003,7 @@
         el.play.textContent = running ? "Pause" : "Resume";
         if (running) {
           last = 0;
-          scheduleLoop();
-        } else {
-          stopLoop();
-          render();
-          setStatus();
+          requestAnimationFrame(loop);
         }
       };
       el.reset.onclick = restart;
@@ -1084,10 +1027,8 @@
       };
       el.size.onchange = restart;
 
-      el.sourceToggle.checked = false;
-      el.sourcePanel.classList.add("source-hidden");
-      el.sourceToggle.onchange = (e) => {
-        el.sourcePanel.classList.toggle("source-hidden", !e.target.checked);
+      el.gapfill.onchange = (e) => {
+        S.gapfill = e.target.checked;
       };
       el.ghost.onchange = (e) => {
         S.ghost = e.target.checked;
@@ -1097,10 +1038,6 @@
         S.snap = e.target.checked;
         for (const b of balls) b.setColor(sampleColor(b.x, b.y, b.r));
         render(phase === "DONE");
-      };
-
-      el.tweakToggle.onclick = () => {
-        el.tweakPanel.classList.toggle("hidden");
       };
 
       /* drag + drop / paste */

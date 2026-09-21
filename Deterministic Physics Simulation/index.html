@@ -854,6 +854,16 @@
           if (!b.fixed) b.setColor(sampleColor(b.x, b.y, b.r));
       }
 
+      function finalizeAssembly() {
+        for (const b of balls) {
+          b.fixed = true;
+          b.setColor(sampleColor(b.x, b.y, b.r));
+        }
+        grid.rebuild();
+        phase = "DONE";
+        finish();
+      }
+
       function step() {
         if (!running) return;
 
@@ -861,18 +871,15 @@
           for (let i = 0; i < PHYS.SPAWN_PER_STEP && spawned < targetBallCount; i++)
             spawnBall();
           physicsStep();
-          if (spawned >= targetBallCount) phase = "SETTLE";
+          if (spawned >= targetBallCount) {
+            finalizeAssembly();
+            return;
+          }
         } else if (phase === "SETTLE") {
           physicsStep();
           settleWait++;
           if ((avgSpeed() < 0.09 && settleWait > 40) || settleWait > 620) {
-            for (const b of balls) {
-              b.fixed = true;
-              b.setColor(sampleColor(b.x, b.y, b.r));
-            }
-            grid.rebuild();
-            phase = "DONE";
-            finish();
+            finalizeAssembly();
           }
         }
       }

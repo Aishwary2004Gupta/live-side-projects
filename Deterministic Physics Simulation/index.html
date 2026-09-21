@@ -634,6 +634,12 @@
         cell = Math.max(10, maxR * 2);
       }
 
+      function computeTargetBallCount() {
+        const area = W * H;
+        const circleArea = Math.PI * Math.max(1, base * base) * 0.82;
+        return Math.max(S.detail, Math.ceil(area / circleArea));
+      }
+
       /* ============================================================
    SPATIAL HASH GRID
 ============================================================ */
@@ -799,7 +805,8 @@
         last = 0,
         fps = 60,
         frame = 0,
-        rafId = 0;
+        rafId = 0,
+        targetBallCount = 0;
 
       function scheduleLoop() {
         if (rafId) cancelAnimationFrame(rafId);
@@ -814,6 +821,7 @@
       function restart() {
         stopLoop();
         computeSizes();
+        targetBallCount = computeTargetBallCount();
         grid = new Grid(cell);
         balls = [];
         spawned = 0;
@@ -847,10 +855,10 @@
 
       function step() {
         if (phase === "SPAWN") {
-          for (let i = 0; i < PHYS.SPAWN_PER_STEP && spawned < S.detail; i++)
+          for (let i = 0; i < PHYS.SPAWN_PER_STEP && spawned < targetBallCount; i++)
             spawnBall();
           physicsStep();
-          if (spawned >= S.detail) phase = "SETTLE";
+          if (spawned >= targetBallCount) phase = "SETTLE";
         } else if (phase === "SETTLE") {
           physicsStep();
           settleWait++;
@@ -906,7 +914,7 @@
           SETTLE: "settling",
           DONE: "complete",
         };
-        el.status.textContent = `${names[phase]} · circles: ${balls.length} · ${fps.toFixed(0)} fps`;
+        el.status.textContent = `${names[phase]} · circles: ${balls.length}/${targetBallCount} · ${fps.toFixed(0)} fps`;
         el.mosInfo.textContent = `${balls.length} circles`;
       }
 

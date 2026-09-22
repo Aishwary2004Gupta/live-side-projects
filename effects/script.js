@@ -42,6 +42,7 @@ import {
     clayShader,
     liquidChromeShader,
     chromeRippleShader,
+    meshShader,
 } from "./shaders.js";
 
 const handsFocusPoint = new THREE.Vector3(0, 0, 0);

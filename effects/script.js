@@ -341,9 +341,9 @@ const chromeRipple = makeEffect("ChromeRipple", chromeRippleShader, {
     resolution: new THREE.Vector2(innerWidth, innerHeight),
 });
 const mesh = makeEffect("MeshFX", meshShader, {
-        pixelSize: 5.0,
-        resolution: new THREE.Vector2(innerWidth, innerHeight),
-      });
+    pixelSize: 5.0,
+    resolution: new THREE.Vector2(innerWidth, innerHeight),
+});
 
 const map = {
     normal,
@@ -941,7 +941,7 @@ const MODELS = {
     mouse: {
         url: "https://raw.githubusercontent.com/Aishwary2004Gupta/models/cloud/ice_claw_mouse.glb",
         scale: 0.002,
-        rotation: { x: -0.4, y: Math.PI-5.5, z: 0 },
+        rotation: { x: -0.4, y: Math.PI - 5.5, z: 0 },
         position: { x: 0.2, y: 0.3, z: 0 },
     },
     flower_bouquet: {
@@ -1131,8 +1131,8 @@ function recalcTargetWidth() {
     targetLayoutWidth = Math.max(
         1,
         window.innerWidth -
-            targetLeftOffset -
-            (isPanelOpen ? sidebarWidth : 0),
+        targetLeftOffset -
+        (isPanelOpen ? sidebarWidth : 0),
     );
 }
 

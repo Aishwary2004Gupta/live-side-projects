@@ -1731,7 +1731,7 @@ export const chromeRippleShader = `
 
 //     // Enhanced metallic lighting
 //     float fresnel = pow(1.0 - max(dot(n, vec3(0.0, 0.0, 1.0)), 0.0), 3.5);
-    
+
 //     vec3 lightDir = normalize(vec3(-0.4, 0.7, 1.0));
 //     vec3 halfDir = normalize(lightDir + vec3(0.0, 0.0, 1.0));
 //     float specular = pow(max(dot(n, halfDir), 0.0), 64.0) * 1.5;

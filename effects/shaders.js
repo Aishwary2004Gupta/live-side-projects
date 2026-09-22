@@ -1772,7 +1772,7 @@ export const chromeRippleShader = `
 //   }
 // `;
 
-const meshShader = `
+export const meshShader = `
         precision highp float;
         uniform float pixelSize;
         uniform vec2 resolution;

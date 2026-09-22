@@ -1772,3 +1772,35 @@ export const chromeRippleShader = `
 //   }
 // `;
 
+const meshShader = `
+        precision highp float;
+        uniform float pixelSize;
+        uniform vec2 resolution;
+
+        float random(vec2 st) {
+          return fract(sin(dot(st, vec2(12.9898, 78.233))) * 43758.5453);
+        }
+
+        void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor) {
+          vec2 pixel = uv * resolution;
+          float dotSize = max(2.0, pixelSize * 0.55);
+          vec2 meshPixel = vec2(pixel.x + pixel.y * 0.18, pixel.y);
+          vec2 sampleUv = (floor(meshPixel / dotSize) + 0.5) * dotSize / resolution;
+          vec4 source = texture2D(inputBuffer, sampleUv);
+          float lum = dot(source.rgb, vec3(0.2126, 0.7152, 0.0722));
+
+          // Keep the reference's limited teal/peach print palette.
+          vec3 shadow = vec3(0.015, 0.22, 0.22);
+          vec3 highlight = vec3(1.0, 0.68, 0.54);
+          vec2 cellUv = mod(meshPixel, dotSize) - dotSize * 0.5;
+          float radius = mix(0.18, dotSize * 0.49, smoothstep(0.03, 0.92, lum));
+          float ink = 1.0 - smoothstep(radius - 0.35, radius + 0.35, length(cellUv));
+
+          // Keep a small amount of imperfect ink in the empty field.
+          float speck = step(0.985, random(floor(pixel)));
+          ink = max(ink * smoothstep(0.02, 0.72, lum), speck);
+
+          outputColor = vec4(mix(shadow, highlight, ink), 1.0);
+        }
+      `;
+

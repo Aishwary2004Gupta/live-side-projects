@@ -312,7 +312,7 @@
 
       <div id="pixelUI">
         <label>Intensity / Size</label>
-        <input type="range" min="6" max="32" value="10" id="pixelSize" />
+        <input type="range" min="3" max="32" value="6" id="pixelSize" />
       </div>
     </div>
 
@@ -790,30 +790,47 @@
         uniform float pixelSize;
         uniform vec2 resolution;
 
-        void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor) {
-          vec2 cell = pixelSize / resolution;
-          vec2 gridUv = uv / cell;
-          vec2 cellUv = fract(gridUv);
-          vec2 center = cellUv - 0.5;
+        float random(vec2 st) {
+          return fract(sin(dot(st, vec2(12.9898, 78.233))) * 43758.5453);
+        }
 
-          vec4 source = texture2D(inputBuffer, uv);
+        float bayer4(vec2 p) {
+          vec2 cell = mod(floor(p), 4.0);
+          float x = cell.x;
+          float y = cell.y;
+          float value = 0.0;
+
+          if (y < 1.0) {
+            value = x < 1.0 ? 0.0 : x < 2.0 ? 8.0 : x < 3.0 ? 2.0 : 10.0;
+          } else if (y < 2.0) {
+            value = x < 1.0 ? 12.0 : x < 2.0 ? 4.0 : x < 3.0 ? 14.0 : 6.0;
+          } else if (y < 3.0) {
+            value = x < 1.0 ? 3.0 : x < 2.0 ? 11.0 : x < 3.0 ? 1.0 : 9.0;
+          } else {
+            value = x < 1.0 ? 15.0 : x < 2.0 ? 7.0 : x < 3.0 ? 13.0 : 5.0;
+          }
+
+          return (value + 0.5) / 16.0;
+        }
+
+        void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor) {
+          vec2 pixel = uv * resolution;
+          vec2 sampleUv = (floor(pixel / pixelSize) + 0.5) * pixelSize / resolution;
+          vec4 source = texture2D(inputBuffer, sampleUv);
           float lum = dot(source.rgb, vec3(0.2126, 0.7152, 0.0722));
 
-          float vLine = smoothstep(0.15, 0.02, abs(center.x));
-          float hLine = smoothstep(0.15, 0.02, abs(center.y));
-          float meshLine = max(vLine, hLine);
+          // Keep the reference's limited teal/peach print palette.
+          vec3 shadow = vec3(0.015, 0.22, 0.22);
+          vec3 highlight = vec3(1.0, 0.68, 0.54);
+          float grain = (random(floor(pixel)) - 0.5) * 0.10;
+          float threshold = bayer4(pixel) + grain;
+          float ink = step(threshold, smoothstep(0.02, 0.48, lum));
 
-          float diagonal = 0.35 + 0.65 * sin(gridUv.x * 2.3 + gridUv.y * 2.7);
-          float weave = mix(0.18, 0.95, smoothstep(0.2, 0.9, diagonal));
+          // A fine dark print texture remains visible inside bright forms.
+          float fineNoise = random(floor(pixel * 0.55) + 17.0);
+          ink *= 0.88 + 0.12 * step(0.22, fineNoise);
 
-          vec3 tone = source.rgb * (0.45 + lum * 0.85);
-          vec3 meshTone = mix(tone, vec3(0.06, 0.09, 0.12), meshLine * 0.7);
-          meshTone += vec3(0.07, 0.08, 0.1) * (1.0 - lum) * (0.4 + weave * 0.6);
-
-          float cellGlow = 1.0 - smoothstep(0.18, 0.6, distance(cellUv, vec2(0.5)));
-          meshTone *= 0.78 + cellGlow * 0.42;
-
-          outputColor = vec4(mix(meshTone, vec3(0.0), meshLine * 0.25), 1.0);
+          outputColor = vec4(mix(shadow, highlight, ink), 1.0);
         }
       `;
 
@@ -1128,7 +1145,7 @@
       });
 
       const mesh = makeEffect("MeshFX", meshShader, {
-        pixelSize: 10.0,
+        pixelSize: 6.0,
         resolution: new THREE.Vector2(innerWidth, innerHeight),
       });
 

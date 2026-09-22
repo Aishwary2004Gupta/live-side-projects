@@ -343,9 +343,10 @@ const mesh = makeEffect("MeshFX", meshShader, {
         pixelSize: 5.0,
         resolution: new THREE.Vector2(innerWidth, innerHeight),
       });
-      
+
 const map = {
     normal,
+    mesh,
     dots,
     lines,
     complex,
@@ -1244,6 +1245,7 @@ function switchEffect(val) {
         "lines",
         "minecraft",
         "tetris",
+        "mesh",
     ].includes(val)
         ? "block"
         : "none";

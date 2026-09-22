@@ -20,59 +20,16 @@
         font-family: system-ui, sans-serif;
       }
 
-      .app {
-        display: flex;
-        width: 100%;
-        height: 100%;
-      }
-
+      /* The whole screen is the particle showcase. */
       #container {
-        position: relative;
-        flex: 1;
-        min-width: 0;
-        min-height: 0;
-        height: 100%;
+        position: fixed;
+        inset: 0;
         overflow: hidden;
       }
 
       #container canvas {
         display: block;
         touch-action: none;
-      }
-
-      .sidebar {
-        flex: 0 0 330px;
-        width: 330px;
-        height: 100%;
-        padding: 14px;
-        overflow-y: auto;
-        background: #15151c;
-        border-left: 1px solid #2a2a35;
-        scrollbar-width: thin;
-        scrollbar-color: #454553 #15151c;
-      }
-
-      #preview {
-        display: block;
-        width: 100%;
-        max-height: 180px;
-        margin-bottom: 10px;
-        object-fit: contain;
-        border: 1px solid #30303b;
-        border-radius: 8px;
-        background: #09090d;
-      }
-
-      #preview:not([src]) {
-        display: none;
-      }
-
-      #status {
-        margin: 0 0 12px;
-        color: #a6a6b6;
-        font-size: 12px;
-        line-height: 1.5;
-        overflow-wrap: anywhere;
       }
 
       #drop-hint {
@@ -113,75 +70,74 @@
         display: none;
       }
 
-      /* Keep Tweakpane inside the sidebar. */
+      /* Floating control panel over the showcase. */
+      #pane-container {
+        position: fixed;
+        top: 12px;
+        right: 12px;
+        width: 320px;
+        max-height: calc(100vh - 24px);
+        overflow-y: auto;
+        z-index: 10;
+        scrollbar-width: thin;
+        scrollbar-color: #454553 #15151c;
+      }
+
       .tp-dfwv {
-        position: relative !important;
-        top: auto !important;
-        right: auto !important;
         width: 100% !important;
       }
 
+      /* Preview image + status now live inside the panel. */
+      #preview {
+        display: block;
+        width: 100%;
+        max-height: 170px;
+        margin: 2px 0 8px;
+        object-fit: contain;
+        border: 1px solid #30303b;
+        border-radius: 6px;
+        background: #09090d;
+      }
+
+      #preview:not([src]) {
+        display: none;
+      }
+
+      #status {
+        margin: 0 0 8px;
+        color: #a6a6b6;
+        font-size: 11px;
+        line-height: 1.5;
+        overflow-wrap: anywhere;
+      }
+
       .panel-note {
-        margin: 12px 2px 0;
+        margin: 10px 4px 4px;
         color: #90909f;
         font-size: 11px;
         line-height: 1.6;
       }
 
-      @media (max-width: 760px) {
-        .app {
-          flex-direction: column;
-        }
-
-        #container {
-          flex: 0 0 56%;
-          width: 100%;
-          height: 56%;
-        }
-
-        .sidebar {
-          flex: 1;
-          width: 100%;
-          height: auto;
-          min-height: 0;
-          border-top: 1px solid #2a2a35;
-          border-left: 0;
-        }
-
-        #preview {
-          max-height: 130px;
+      @media (max-width: 640px) {
+        #pane-container {
+          width: calc(100% - 24px);
         }
       }
     </style>
   </head>
 
   <body>
-    <div class="app">
-      <main id="container">
-        <div id="dropzone">Drop an image to load it</div>
+    <main id="container">
+      <div id="dropzone">Drop an image to load it</div>
 
-        <div id="drop-hint">
-          Drop or paste an image · Drag to orbit · Scroll to zoom · Right-drag
-          to pan
-        </div>
-      </main>
+      <div id="drop-hint">
+        Drop or paste an image · Drag to orbit · Scroll to zoom · Right-drag to
+        pan
+      </div>
+    </main>
 
-      <aside class="sidebar">
-        <img id="preview" alt="Current image preview" />
-
-        <p id="status" role="status" aria-live="polite">
-          Loading the default image…
-        </p>
-
-        <div id="pane"></div>
-
-        <p class="panel-note">
-          Automatic spinning starts disabled.<br />
-          Negative spin speeds reverse the direction.<br />
-          Play Animation and Overall Speed also affect spinning.
-        </p>
-      </aside>
-    </div>
+    <!-- The Tweakpane panel is mounted here. -->
+    <div id="pane-container"></div>
 
     <input
       type="file"
@@ -279,8 +235,8 @@
 
     <script>
       /* -------------------------------------------------------
-       Settings
-    ------------------------------------------------------- */
+         Settings
+      ------------------------------------------------------- */
 
       const params = {
         // Image
@@ -334,18 +290,20 @@
       const TAU = Math.PI * 2;
 
       const container = document.getElementById("container");
-      const preview = document.getElementById("preview");
-      const statusElement = document.getElementById("status");
       const fileInput = document.getElementById("fileInput");
       const dropzone = document.getElementById("dropzone");
 
+      // These are created and inserted into the control panel below.
+      let preview = null;
+      let statusElement = null;
+
       function setStatus(message) {
-        statusElement.textContent = message;
+        if (statusElement) statusElement.textContent = message;
       }
 
       /* -------------------------------------------------------
-       Renderer, scene, and camera
-    ------------------------------------------------------- */
+         Renderer, scene, and camera
+      ------------------------------------------------------- */
 
       const renderer = new THREE.WebGLRenderer({
         antialias: true,
@@ -375,43 +333,21 @@
       controls.maxDistance = 4000;
 
       /* -------------------------------------------------------
-       Particle material
-    ------------------------------------------------------- */
+         Particle material
+      ------------------------------------------------------- */
 
       const uniforms = {
-        amplitude: {
-          value: params.amplitude,
-        },
-        time: {
-          value: 0,
-        },
-        pointSize: {
-          value: params.pointSize,
-        },
-        attenuate: {
-          value: params.attenuate ? 1 : 0,
-        },
-        rippleAmp: {
-          value: params.rippleAmp,
-        },
-        rippleFreq: {
-          value: params.rippleFreq,
-        },
-        rippleSpeed: {
-          value: params.rippleSpeed,
-        },
-        swirl: {
-          value: params.swirl,
-        },
-        jitter: {
-          value: params.jitter,
-        },
-        opacity: {
-          value: params.opacity,
-        },
-        roundPoints: {
-          value: params.roundPoints ? 1 : 0,
-        },
+        amplitude: { value: params.amplitude },
+        time: { value: 0 },
+        pointSize: { value: params.pointSize },
+        attenuate: { value: params.attenuate ? 1 : 0 },
+        rippleAmp: { value: params.rippleAmp },
+        rippleFreq: { value: params.rippleFreq },
+        rippleSpeed: { value: params.rippleSpeed },
+        swirl: { value: params.swirl },
+        jitter: { value: params.jitter },
+        opacity: { value: params.opacity },
+        roundPoints: { value: params.roundPoints ? 1 : 0 },
       };
 
       const material = new THREE.ShaderMaterial({
@@ -428,12 +364,40 @@
       let imageRequestId = 0;
 
       // Keep spinning separate from the manual angles and wobble.
-      // Rebuilding particles will not reset their orientation.
       const spinRotation = new THREE.Vector3(0, 0, 0);
 
       /* -------------------------------------------------------
-       Convert an image into particles
-    ------------------------------------------------------- */
+         Show the exact image used, inside the panel
+      ------------------------------------------------------- */
+
+      function updatePreview(img, imageWidth, imageHeight) {
+        // Snapshot the actual loaded image so the preview always matches
+        // the particles (even when a service serves random pictures).
+        try {
+          const previewWidth = 280;
+          const previewHeight = Math.max(
+            1,
+            Math.round((previewWidth * imageHeight) / imageWidth),
+          );
+
+          const previewCanvas = document.createElement("canvas");
+          previewCanvas.width = previewWidth;
+          previewCanvas.height = previewHeight;
+
+          previewCanvas
+            .getContext("2d")
+            .drawImage(img, 0, 0, previewWidth, previewHeight);
+
+          preview.src = previewCanvas.toDataURL("image/png");
+        } catch (error) {
+          // Tainted canvas fallback (should not happen with CORS images).
+          preview.src = img.src;
+        }
+      }
+
+      /* -------------------------------------------------------
+         Convert an image into particles
+      ------------------------------------------------------- */
 
       function buildFromImage(img) {
         const imageWidth = img.naturalWidth || img.width;
@@ -447,11 +411,9 @@
         const scale = Math.min(1, params.resolution / maxDimension);
 
         const width = Math.max(1, Math.round(imageWidth * scale));
-
         const height = Math.max(1, Math.round(imageHeight * scale));
 
         const samplingCanvas = document.createElement("canvas");
-
         samplingCanvas.width = width;
         samplingCanvas.height = height;
 
@@ -475,7 +437,6 @@
         const tint = new THREE.Color(params.tint);
         const temporaryColor = new THREE.Color();
 
-        // Fit the longest image side to approximately 400 world units.
         const unit = 400 / Math.max(width, height);
 
         let count = 0;
@@ -502,17 +463,11 @@
             const offset = count * 3;
 
             positions[offset] = (x - (width - 1) / 2) * unit;
-
             positions[offset + 1] = ((height - 1) / 2 - y) * unit;
-
             positions[offset + 2] = 0;
 
             let depth = brightness - 0.5;
-
-            if (params.invertDepth) {
-              depth = -depth;
-            }
-
+            if (params.invertDepth) depth = -depth;
             depths[count] = depth;
 
             switch (params.colorMode) {
@@ -530,7 +485,6 @@
 
               case "heat":
                 temporaryColor.setHSL((1 - brightness) * 0.7, 1, 0.5);
-
                 colors[offset] = temporaryColor.r;
                 colors[offset + 1] = temporaryColor.g;
                 colors[offset + 2] = temporaryColor.b;
@@ -538,7 +492,6 @@
 
               case "rainbow":
                 temporaryColor.setHSL(x / width, 0.9, 0.55);
-
                 colors[offset] = temporaryColor.r;
                 colors[offset + 1] = temporaryColor.g;
                 colors[offset + 2] = temporaryColor.b;
@@ -578,14 +531,14 @@
         }
 
         points = new THREE.Points(geometry, material);
-
-        // The vertex shader moves particles beyond the flat geometry.
         points.frustumCulled = false;
-
         scene.add(points);
 
         currentImage = img;
-        preview.src = img.src;
+
+        // Preview shows the very same image that became particles.
+        updatePreview(img, imageWidth, imageHeight);
+
         statsInfo.points = count;
 
         setStatus(
@@ -608,16 +561,14 @@
         }
       }
 
-      // Avoid rebuilding large particle arrays on every slider event.
       function scheduleRebuild() {
         clearTimeout(rebuildTimer);
-
         rebuildTimer = setTimeout(rebuildCurrentImage, 120);
       }
 
       /* -------------------------------------------------------
-       Load images
-    ------------------------------------------------------- */
+         Load images
+      ------------------------------------------------------- */
 
       function loadImageFromURL(url, crossOrigin = true) {
         const requestId = ++imageRequestId;
@@ -640,7 +591,6 @@
             buildFromImage(img);
           } catch (error) {
             console.error(error);
-
             setStatus(
               "This image could not be read. Try uploading a local PNG, JPG, or WebP image.",
             );
@@ -649,7 +599,6 @@
 
         img.onerror = () => {
           if (requestId !== imageRequestId) return;
-
           setStatus(
             "Could not load that image. Try another file or check your connection.",
           );
@@ -667,35 +616,32 @@
         }
 
         const reader = new FileReader();
-
         setStatus("Reading image…");
 
-        reader.onload = () => {
-          loadImageFromURL(reader.result, false);
-        };
-
-        reader.onerror = () => {
-          setStatus("The selected file could not be read.");
-        };
+        reader.onload = () => loadImageFromURL(reader.result, false);
+        reader.onerror = () => setStatus("The selected file could not be read.");
 
         reader.readAsDataURL(file);
       }
 
-      function loadDefaultImage() {
-        const canvas = document.createElement("canvas");
+      function loadRandomPhoto() {
+        // Deterministic seed URL: the same URL always returns the same
+        // picture, so the preview snapshot and particles cannot diverge.
+        const seed = Date.now();
+        loadImageFromURL(`https://picsum.photos/seed/${seed}/900/700`);
+      }
 
+      // Procedural fallback pattern.
+      function loadDefaultPattern() {
+        const canvas = document.createElement("canvas");
         canvas.width = 512;
         canvas.height = 512;
 
         const context = canvas.getContext("2d");
 
         const gradient = context.createRadialGradient(
-          256,
-          256,
-          20,
-          256,
-          256,
-          320,
+          256, 256, 20,
+          256, 256, 320,
         );
 
         gradient.addColorStop(0, "#ffdd66");
@@ -709,7 +655,6 @@
 
         for (let i = 0; i < 40; i++) {
           context.beginPath();
-
           context.arc(
             Math.random() * 512,
             Math.random() * 512,
@@ -717,9 +662,7 @@
             0,
             TAU,
           );
-
           context.fillStyle = `hsla(${Math.random() * 360}, 80%, 60%, 0.35)`;
-
           context.fill();
         }
 
@@ -733,45 +676,80 @@
         loadImageFromURL(canvas.toDataURL("image/png"), false);
       }
 
+      const DEFAULT_IMAGE_URL =
+        "https://plus.unsplash.com/premium_photo-1724372238882-7b0170a37ada?w=1000&auto=format&fit=crop&q=80";
+
+      // Try the online default; if CORS blocks the pixels, fall back once.
+      function loadDefaultImage() {
+        const requestId = ++imageRequestId;
+        const img = new Image();
+
+        img.crossOrigin = "anonymous";
+        img.decoding = "async";
+
+        setStatus("Loading the default image…");
+
+        img.onload = () => {
+          if (requestId !== imageRequestId) return;
+          clearTimeout(rebuildTimer);
+
+          try {
+            buildFromImage(img);
+          } catch (error) {
+            console.warn("Default image blocked by CORS; using pattern.");
+            loadDefaultPattern();
+          }
+        };
+
+        img.onerror = () => {
+          if (requestId !== imageRequestId) return;
+          console.warn("Default image failed to load; using pattern.");
+          loadDefaultPattern();
+        };
+
+        img.src = DEFAULT_IMAGE_URL;
+      }
+
       /* -------------------------------------------------------
-       Control panel
-    ------------------------------------------------------- */
+         Control panel (now holds the preview + status too)
+      ------------------------------------------------------- */
 
       const pane = new Tweakpane.Pane({
-        container: document.getElementById("pane"),
+        container: document.getElementById("pane-container"),
         title: "Pixel Particles",
       });
 
       // IMAGE
+      const imageFolder = pane.addFolder({ title: "Image", expanded: true });
 
-      const imageFolder = pane.addFolder({
-        title: "Image",
-        expanded: true,
-      });
+      // Insert the preview image and status text at the top of the folder.
+      preview = document.createElement("img");
+      preview.id = "preview";
+      preview.alt = "Current image preview";
 
-      imageFolder
-        .addButton({
-          title: "Upload Image",
-        })
-        .on("click", () => {
-          fileInput.click();
-        });
+      statusElement = document.createElement("p");
+      statusElement.id = "status";
+      statusElement.setAttribute("role", "status");
+      statusElement.setAttribute("aria-live", "polite");
+      statusElement.textContent = "Loading the default image…";
 
-      imageFolder
-        .addButton({
-          title: "Load Random Photo",
-        })
-        .on("click", () => {
-          loadImageFromURL(
-            "https://picsum.photos/600/400?random=" + Date.now(),
-          );
-        });
+      const imageContent =
+        imageFolder.element.querySelector(".tp-fldv_c") || imageFolder.element;
+
+      imageContent.insertBefore(statusElement, imageContent.firstChild);
+      imageContent.insertBefore(preview, imageContent.firstChild);
 
       imageFolder
-        .addButton({
-          title: "Load Default Pattern",
-        })
-        .on("click", loadDefaultImage);
+        .addButton({ title: "Upload Image" })
+        .on("click", () => fileInput.click());
+
+      imageFolder
+        .addButton({ title: "Load Random Photo" })
+        .on("click", loadRandomPhoto);
+
+      imageFolder
+        .addButton({ title: "Load Default Pattern" })
+        .on("click", loadDefaultPattern);
 
       imageFolder.addMonitor(statsInfo, "points", {
         label: "Particle Count",
@@ -798,15 +776,11 @@
         .on("change", scheduleRebuild);
 
       imageFolder
-        .addInput(params, "skipTransparent", {
-          label: "Skip Transparent",
-        })
+        .addInput(params, "skipTransparent", { label: "Skip Transparent" })
         .on("change", scheduleRebuild);
 
       imageFolder
-        .addInput(params, "invertDepth", {
-          label: "Invert Depth",
-        })
+        .addInput(params, "invertDepth", { label: "Invert Depth" })
         .on("change", scheduleRebuild);
 
       imageFolder
@@ -823,73 +797,41 @@
         .on("change", scheduleRebuild);
 
       imageFolder
-        .addInput(params, "tint", {
-          label: "Tint Color",
-        })
+        .addInput(params, "tint", { label: "Tint Color" })
         .on("change", scheduleRebuild);
 
       imageFolder
-        .addInput(params, "background", {
-          label: "Background",
-        })
-        .on("change", (event) => {
-          renderer.setClearColor(event.value, 1);
-        });
+        .addInput(params, "background", { label: "Background" })
+        .on("change", (event) => renderer.setClearColor(event.value, 1));
 
       // PARTICLE APPEARANCE
-
       const particleFolder = pane.addFolder({
         title: "Particles",
         expanded: true,
       });
 
       particleFolder.addInput(params, "amplitude", {
-        min: 0,
-        max: 500,
-        step: 1,
-        label: "Depth Amount",
+        min: 0, max: 500, step: 1, label: "Depth Amount",
       });
-
       particleFolder.addInput(params, "pointSize", {
-        min: 0.5,
-        max: 10,
-        step: 0.1,
-        label: "Particle Size",
+        min: 0.5, max: 10, step: 0.1, label: "Particle Size",
       });
-
-      particleFolder.addInput(params, "attenuate", {
-        label: "Size by Distance",
-      });
-
-      particleFolder.addInput(params, "roundPoints", {
-        label: "Round Particles",
-      });
-
+      particleFolder.addInput(params, "attenuate", { label: "Size by Distance" });
+      particleFolder.addInput(params, "roundPoints", { label: "Round Particles" });
       particleFolder.addInput(params, "opacity", {
-        min: 0.05,
-        max: 1,
-        step: 0.01,
-        label: "Opacity",
+        min: 0.05, max: 1, step: 0.01, label: "Opacity",
       });
 
       // ROTATION AND SPINNING
-
       const rotationFolder = pane.addFolder({
         title: "Rotation & Spinning",
         expanded: true,
       });
 
-      rotationFolder.addInput(params, "spinEnabled", {
-        label: "Enable Spinning",
-      });
-
+      rotationFolder.addInput(params, "spinEnabled", { label: "Enable Spinning" });
       rotationFolder.addInput(params, "spinSpeed", {
-        min: -2,
-        max: 2,
-        step: 0.01,
-        label: "Spin Speed",
+        min: -2, max: 2, step: 0.01, label: "Spin Speed",
       });
-
       rotationFolder.addInput(params, "spinAxis", {
         label: "Spin Axis",
         options: {
@@ -898,46 +840,28 @@
           "Z — Flat Spin": "z",
         },
       });
-
       rotationFolder.addInput(params, "rotationX", {
-        min: -180,
-        max: 180,
-        step: 1,
-        label: "X Angle (°)",
+        min: -180, max: 180, step: 1, label: "X Angle (°)",
       });
-
       rotationFolder.addInput(params, "rotationY", {
-        min: -180,
-        max: 180,
-        step: 1,
-        label: "Y Angle (°)",
+        min: -180, max: 180, step: 1, label: "Y Angle (°)",
       });
-
       rotationFolder.addInput(params, "rotationZ", {
-        min: -180,
-        max: 180,
-        step: 1,
-        label: "Z Angle (°)",
+        min: -180, max: 180, step: 1, label: "Z Angle (°)",
       });
 
       rotationFolder
-        .addButton({
-          title: "Reset Camera & Rotation",
-        })
+        .addButton({ title: "Reset Camera & Rotation" })
         .on("click", () => {
           params.spinEnabled = false;
-
           params.rotationX = 0;
           params.rotationY = 0;
           params.rotationZ = 0;
-
           params.wobble = 0;
 
           spinRotation.set(0, 0, 0);
 
-          if (points) {
-            points.rotation.set(0, 0, 0);
-          }
+          if (points) points.rotation.set(0, 0, 0);
 
           controls.reset();
           camera.position.set(0, 0, 600);
@@ -948,93 +872,54 @@
         });
 
       // MOVEMENT
-
       const movementFolder = pane.addFolder({
         title: "Movement",
         expanded: true,
       });
 
-      movementFolder.addInput(params, "play", {
-        label: "Play Animation",
-      });
-
+      movementFolder.addInput(params, "play", { label: "Play Animation" });
       movementFolder.addInput(params, "timeScale", {
-        min: 0,
-        max: 4,
-        step: 0.05,
-        label: "Overall Speed",
+        min: 0, max: 4, step: 0.05, label: "Overall Speed",
       });
-
-      movementFolder.addInput(params, "pulse", {
-        label: "Depth Pulse",
-      });
-
+      movementFolder.addInput(params, "pulse", { label: "Depth Pulse" });
       movementFolder.addInput(params, "pulseSpeed", {
-        min: 0,
-        max: 5,
-        step: 0.05,
-        label: "Pulse Speed",
+        min: 0, max: 5, step: 0.05, label: "Pulse Speed",
       });
-
       movementFolder.addInput(params, "pulseMin", {
-        min: -1,
-        max: 1,
-        step: 0.05,
-        label: "Pulse Low Point",
+        min: -1, max: 1, step: 0.05, label: "Pulse Low Point",
       });
-
       movementFolder.addInput(params, "rippleAmp", {
-        min: 0,
-        max: 100,
-        step: 1,
-        label: "Ripple Height",
+        min: 0, max: 100, step: 1, label: "Ripple Height",
       });
-
       movementFolder.addInput(params, "rippleFreq", {
-        min: 0.01,
-        max: 0.5,
-        step: 0.005,
-        label: "Ripple Density",
+        min: 0.01, max: 0.5, step: 0.005, label: "Ripple Density",
       });
-
       movementFolder.addInput(params, "rippleSpeed", {
-        min: 0,
-        max: 10,
-        step: 0.1,
-        label: "Ripple Speed",
+        min: 0, max: 10, step: 0.1, label: "Ripple Speed",
       });
-
       movementFolder.addInput(params, "swirl", {
-        min: 0,
-        max: 3,
-        step: 0.05,
-        label: "Swirl Amount",
+        min: 0, max: 3, step: 0.05, label: "Swirl Amount",
       });
-
       movementFolder.addInput(params, "jitter", {
-        min: 0,
-        max: 20,
-        step: 0.5,
-        label: "Sideways Drift",
+        min: 0, max: 20, step: 0.5, label: "Sideways Drift",
+      });
+      movementFolder.addInput(params, "wobble", {
+        min: 0, max: 1, step: 0.01, label: "Wobble Tilt",
       });
 
-      movementFolder.addInput(params, "wobble", {
-        min: 0,
-        max: 1,
-        step: 0.01,
-        label: "Wobble Tilt",
-      });
+      // Small note at the bottom of the panel.
+      const note = document.createElement("p");
+      note.className = "panel-note";
+      note.innerHTML =
+        "Spinning starts disabled.<br />Negative spin speed reverses direction.<br />Play Animation &amp; Overall Speed also affect spinning.";
+      pane.element.appendChild(note);
 
       /* -------------------------------------------------------
-       File picker, drag-and-drop, and clipboard
-    ------------------------------------------------------- */
+         File picker, drag-and-drop, and clipboard
+      ------------------------------------------------------- */
 
       fileInput.addEventListener("change", (event) => {
-        const file = event.target.files[0];
-
-        loadFile(file);
-
-        // Allow selecting the same file again.
+        loadFile(event.target.files[0]);
         fileInput.value = "";
       });
 
@@ -1046,48 +931,36 @@
 
       window.addEventListener("dragenter", (event) => {
         if (!draggingFiles(event)) return;
-
         event.preventDefault();
         dragDepth++;
-
         dropzone.classList.add("drag");
       });
 
       window.addEventListener("dragover", (event) => {
         if (!draggingFiles(event)) return;
-
         event.preventDefault();
         event.dataTransfer.dropEffect = "copy";
-
         dropzone.classList.add("drag");
       });
 
       window.addEventListener("dragleave", () => {
         dragDepth = Math.max(0, dragDepth - 1);
-
-        if (dragDepth === 0) {
-          dropzone.classList.remove("drag");
-        }
+        if (dragDepth === 0) dropzone.classList.remove("drag");
       });
 
       window.addEventListener("drop", (event) => {
         event.preventDefault();
-
         dragDepth = 0;
         dropzone.classList.remove("drag");
 
         const files = Array.from(event.dataTransfer?.files || []);
-
         const imageFile = files.find((file) => file.type.startsWith("image/"));
-
         loadFile(imageFile || files[0]);
       });
 
       window.addEventListener("paste", (event) => {
         const items = Array.from(event.clipboardData?.items || []);
-
         const imageItem = items.find((item) => item.type.startsWith("image/"));
-
         if (imageItem) {
           event.preventDefault();
           loadFile(imageItem.getAsFile());
@@ -1095,31 +968,26 @@
       });
 
       /* -------------------------------------------------------
-       Responsive canvas
-    ------------------------------------------------------- */
+         Responsive canvas
+      ------------------------------------------------------- */
 
       function resize() {
         const width = Math.max(1, container.clientWidth);
         const height = Math.max(1, container.clientHeight);
 
         renderer.setSize(width, height);
-
         camera.aspect = width / height;
         camera.updateProjectionMatrix();
-
         controls.handleResize();
       }
 
-      const resizeObserver = new ResizeObserver(resize);
-      resizeObserver.observe(container);
-
+      new ResizeObserver(resize).observe(container);
       window.addEventListener("resize", resize);
-
       resize();
 
       /* -------------------------------------------------------
-       Animation
-    ------------------------------------------------------- */
+         Animation
+      ------------------------------------------------------- */
 
       let animationTime = 0;
       let lastTime = performance.now();
@@ -1128,20 +996,16 @@
         requestAnimationFrame(animate);
 
         const dt = Math.min(0.05, Math.max(0, (now - lastTime) / 1000));
-
         lastTime = now;
 
         const animationDelta = params.play ? dt * params.timeScale : 0;
-
         animationTime += animationDelta;
 
-        // Pulse depth between the low point and full amplitude.
         let amplitude = params.amplitude;
 
         if (params.pulse) {
           const pulseValue =
             (Math.sin(animationTime * params.pulseSpeed) + 1) / 2;
-
           amplitude =
             params.amplitude *
             (params.pulseMin + (1 - params.pulseMin) * pulseValue);
@@ -1149,13 +1013,10 @@
 
         uniforms.amplitude.value = amplitude;
         uniforms.time.value = animationTime;
-
         uniforms.pointSize.value = params.pointSize * renderer.getPixelRatio();
-
         uniforms.attenuate.value = params.attenuate ? 1 : 0;
         uniforms.roundPoints.value = params.roundPoints ? 1 : 0;
         uniforms.opacity.value = params.opacity;
-
         uniforms.rippleAmp.value = params.rippleAmp;
         uniforms.rippleFreq.value = params.rippleFreq;
         uniforms.rippleSpeed.value = params.rippleSpeed;
@@ -1163,72 +1024,26 @@
         uniforms.jitter.value = params.jitter;
 
         if (points) {
-          // Advance rotation only when spinning and playback are enabled.
           if (params.spinEnabled && animationDelta > 0) {
             const axis = params.spinAxis;
-
             spinRotation[axis] += params.spinSpeed * animationDelta;
-
             spinRotation[axis] %= TAU;
           }
 
-          // The animation clock stops when paused, freezing wobble too.
           const wobbleTilt =
             Math.sin(animationTime * 0.6) * params.wobble * 0.5;
 
-          // Manual angles remain editable even when animation is paused.
           points.rotation.set(
             THREE.MathUtils.degToRad(params.rotationX) +
               spinRotation.x +
               wobbleTilt,
-
             THREE.MathUtils.degToRad(params.rotationY) + spinRotation.y,
-
             THREE.MathUtils.degToRad(params.rotationZ) + spinRotation.z,
           );
         }
 
-        // Camera navigation remains available while animation is paused.
         controls.update();
-
         renderer.render(scene, camera);
-      }
-
-      const DEFAULT_IMAGE_URL =
-        "https://plus.unsplash.com/premium_photo-1724372238882-7b0170a37ada?w=1000&auto=format&fit=crop&q=80";
-
-      function loadDefaultImage() {
-        const requestId = ++imageRequestId;
-        const img = new Image();
-
-        img.crossOrigin = "anonymous";
-        img.decoding = "async";
-
-        setStatus("Loading the default image…");
-
-        img.onload = () => {
-          if (requestId !== imageRequestId) return;
-
-          clearTimeout(rebuildTimer);
-
-          try {
-            buildFromImage(img);
-          } catch (error) {
-            console.error(error);
-            loadDefaultImage(); // CORS blocked the pixels; use the fallback.
-          }
-        };
-
-        img.onerror = () => {
-          if (requestId !== imageRequestId) return;
-
-          console.warn(
-            "Default image could not be loaded; using the built-in pattern.",
-          );
-          loadDefaultImage();
-        };
-
-        img.src = DEFAULT_IMAGE_URL;
       }
 
       loadDefaultImage();

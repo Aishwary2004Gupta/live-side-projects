@@ -260,6 +260,7 @@
         <li data-value="woven">Woven</li>
         <li data-value="lego">Lego</li>
         <li data-value="dots">Dots</li>
+        <li data-value="mesh">Mesh FX</li>
         <li data-value="dither">Dithering</li>
         <li data-value="matrix">Matrix Rain</li>
         <li data-value="blockify">Blockify</li>
@@ -784,6 +785,38 @@
         }
       `;
 
+      const meshShader = `
+        precision highp float;
+        uniform float pixelSize;
+        uniform vec2 resolution;
+
+        void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor) {
+          vec2 cell = pixelSize / resolution;
+          vec2 gridUv = uv / cell;
+          vec2 cellUv = fract(gridUv);
+          vec2 center = cellUv - 0.5;
+
+          vec4 source = texture2D(inputBuffer, uv);
+          float lum = dot(source.rgb, vec3(0.2126, 0.7152, 0.0722));
+
+          float vLine = smoothstep(0.15, 0.02, abs(center.x));
+          float hLine = smoothstep(0.15, 0.02, abs(center.y));
+          float meshLine = max(vLine, hLine);
+
+          float diagonal = 0.35 + 0.65 * sin(gridUv.x * 2.3 + gridUv.y * 2.7);
+          float weave = mix(0.18, 0.95, smoothstep(0.2, 0.9, diagonal));
+
+          vec3 tone = source.rgb * (0.45 + lum * 0.85);
+          vec3 meshTone = mix(tone, vec3(0.06, 0.09, 0.12), meshLine * 0.7);
+          meshTone += vec3(0.07, 0.08, 0.1) * (1.0 - lum) * (0.4 + weave * 0.6);
+
+          float cellGlow = 1.0 - smoothstep(0.18, 0.6, distance(cellUv, vec2(0.5)));
+          meshTone *= 0.78 + cellGlow * 0.42;
+
+          outputColor = vec4(mix(meshTone, vec3(0.0), meshLine * 0.25), 1.0);
+        }
+      `;
+
       const vhsShader = `
         precision highp float;
         uniform float time;
@@ -1094,6 +1127,11 @@
         resolution: new THREE.Vector2(innerWidth, innerHeight),
       });
 
+      const mesh = makeEffect("MeshFX", meshShader, {
+        pixelSize: 10.0,
+        resolution: new THREE.Vector2(innerWidth, innerHeight),
+      });
+
       const vhs = makeEffect("VHS", vhsShader, {
         time: 0.0,
         resolution: new THREE.Vector2(innerWidth, innerHeight),
@@ -1105,6 +1143,7 @@
         complex,
         woven,
         lego,
+        mesh,
         dither,
         halftone,
         contour,
@@ -1540,6 +1579,7 @@
           "complex",
           "woven",
           "lego",
+          "mesh",
         ].includes(val)
           ? "block"
           : "none";
@@ -1560,12 +1600,18 @@
 
       pixelInput.oninput = (e) => {
         const value = +e.target.value;
-        ["dots", "halftone", "blockify", "complex", "woven", "lego"].forEach(
-          (key) => {
-            if (map[key]?.uniforms?.get("pixelSize"))
-              map[key].uniforms.get("pixelSize").value = value;
-          },
-        );
+        [
+          "dots",
+          "halftone",
+          "blockify",
+          "complex",
+          "woven",
+          "lego",
+          "mesh",
+        ].forEach((key) => {
+          if (map[key]?.uniforms?.get("pixelSize"))
+            map[key].uniforms.get("pixelSize").value = value;
+        });
       };
 
       function updateLayout(width) {

@@ -1238,296 +1238,49 @@ export const clayShader = `
 `;
 
 export const liquidChromeShader = `
-  precision highp float;
-  uniform float time;
-  uniform vec2 resolution;
+  uniform float scale;
+uniform float warpAmt;
+uniform float relief;
+uniform int   octaves;
+uniform float lightAng;
+uniform float shine;
+uniform float specAmt;
+uniform float irid;
+uniform float disp;
+uniform float body;
+uniform float speed;
+
+float height(vec2 p) {
+  vec2 q = warp(p * scale + vec2(u_time * speed * 0.15, 0.0), warpAmt, 0.9);
+  return fbm(q, octaves, 2.05, 0.52);
+}
+
+vec3 wall(vec2 uv) {
+  vec2 p = centered(uv) * 0.7;
+
+  // Fixed epsilon: a resolution-dependent one would change the relief
+  // between the preview and the export.
+  const float e = 0.0015;
+  float h = height(p);
+  vec2 grad = vec2(
+    height(p + vec2(e, 0.0)) - height(p - vec2(e, 0.0)),
+    height(p + vec2(0.0, e)) - height(p - vec2(0.0, e))
+  ) / (2.0 * e);
+
+  vec3 nrm = normalize(vec3(-grad * relief * 0.25, 1.0));
+  vec3 view = vec3(0.0, 0.0, 1.0);
+  vec3 lgt = normalize(vec3(cos(lightAng), sin(lightAng), 0.55));
+
+  float spec = pow(max(dot(normalize(lgt + view), nrm), 0.0), shine);
+  float fres = pow(1.0 - max(dot(nrm, view), 0.0), 2.5);
+  float edge = smoothstep(0.6, 3.5, length(grad));
+
+  vec3 base = pal(h) * body;
+  vec3 sheen = iridescence(fres * disp + h * 0.6) * (fres + edge) * irid;
+
+  return base + sheen + spec * specAmt * pal(0.85);
+}
 
-  float lumaOf(vec3 c) {
-    return dot(c, vec3(0.2126, 0.7152, 0.0722));
-  }
-
-  vec2 safeUV(vec2 uv) {
-    return clamp(uv, vec2(0.001), vec2(0.999));
-  }
-
-  float random(vec2 st) {
-    return fract(sin(dot(st.xy, vec2(12.9898, 78.233))) * 43758.5453123);
-  }
-
-  float noise(vec2 st) {
-    vec2 i = floor(st);
-    vec2 f = fract(st);
-
-    float a = random(i);
-    float b = random(i + vec2(1.0, 0.0));
-    float c = random(i + vec2(0.0, 1.0));
-    float d = random(i + vec2(1.0, 1.0));
-
-    vec2 u = f * f * (3.0 - 2.0 * f);
-
-    return mix(a, b, u.x) +
-           (c - a) * u.y * (1.0 - u.x) +
-           (d - b) * u.x * u.y;
-  }
-
-  // --- Background detection ----------------------------------------------
-  vec3 detectBackground() {
-    vec3 c0 = texture2D(inputBuffer, vec2(0.01, 0.01)).rgb;
-    vec3 c1 = texture2D(inputBuffer, vec2(0.99, 0.01)).rgb;
-    vec3 c2 = texture2D(inputBuffer, vec2(0.01, 0.99)).rgb;
-    vec3 c3 = texture2D(inputBuffer, vec2(0.99, 0.99)).rgb;
-    return (c0 + c1 + c2 + c3) * 0.25;
-  }
-
-  float bgDifference(vec3 col, vec3 bg) {
-    return clamp(length(col - bg) * 1.6, 0.0, 1.0);
-  }
-
-  vec2 gradientAt(vec2 uv) {
-    vec2 px = 1.0 / resolution;
-
-    float left  = lumaOf(texture2D(inputBuffer, safeUV(uv - vec2(px.x, 0.0))).rgb);
-    float right = lumaOf(texture2D(inputBuffer, safeUV(uv + vec2(px.x, 0.0))).rgb);
-    float down  = lumaOf(texture2D(inputBuffer, safeUV(uv - vec2(0.0, px.y))).rgb);
-    float up    = lumaOf(texture2D(inputBuffer, safeUV(uv + vec2(0.0, px.y))).rgb);
-
-    return vec2(right - left, up - down);
-  }
-
-  float edgeAt(vec2 uv) {
-    vec2 px = 1.0 / resolution;
-
-    float c  = lumaOf(texture2D(inputBuffer, uv).rgb);
-    float l  = lumaOf(texture2D(inputBuffer, safeUV(uv - vec2(px.x, 0.0))).rgb);
-    float r  = lumaOf(texture2D(inputBuffer, safeUV(uv + vec2(px.x, 0.0))).rgb);
-    float u  = lumaOf(texture2D(inputBuffer, safeUV(uv + vec2(0.0, px.y))).rgb);
-    float d  = lumaOf(texture2D(inputBuffer, safeUV(uv - vec2(0.0, px.y))).rgb);
-
-    float e = abs(c - l) + abs(c - r) + abs(c - u) + abs(c - d);
-    return smoothstep(0.035, 0.22, e);
-  }
-
-  // Object mask at an arbitrary uv, theme-independent.
-  float maskAt(vec2 uv, vec3 bg) {
-    vec3 col = texture2D(inputBuffer, safeUV(uv)).rgb;
-    float diff = bgDifference(col, bg);
-    float e = edgeAt(safeUV(uv));
-    return smoothstep(0.06, 0.18, diff + e * 0.35);
-  }
-
-  // --- Outline ------------------------------------------------------------
-  // Dilate the object mask by sampling a ring of neighbours. Where the
-  // dilated mask is > 0 but the local mask is ~0, we're just OUTSIDE the
-  // model => that's the outline band.
-  float dilatedMask(vec2 uv, vec3 bg, float radiusPx) {
-    vec2 px = (1.0 / resolution) * radiusPx;
-    float m = 0.0;
-    m = max(m, maskAt(uv + vec2( px.x,  0.0), bg));
-    m = max(m, maskAt(uv + vec2(-px.x,  0.0), bg));
-    m = max(m, maskAt(uv + vec2( 0.0,  px.y), bg));
-    m = max(m, maskAt(uv + vec2( 0.0, -px.y), bg));
-    m = max(m, maskAt(uv + vec2( px.x,  px.y) * 0.7071, bg));
-    m = max(m, maskAt(uv + vec2(-px.x,  px.y) * 0.7071, bg));
-    m = max(m, maskAt(uv + vec2( px.x, -px.y) * 0.7071, bg));
-    m = max(m, maskAt(uv + vec2(-px.x, -px.y) * 0.7071, bg));
-    return m;
-  }
-
-  void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor) {
-    vec3 bg = detectBackground();
-    float bgLuma = lumaOf(bg);
-
-    vec3 original = texture2D(inputBuffer, uv).rgb;
-
-    float edge = edgeAt(uv);
-
-    float diff = bgDifference(original, bg);
-    float objectMask = smoothstep(0.06, 0.18, diff + edge * 0.35);
-
-    // --- Outline computation ---
-    // Thickness of the outline in pixels.
-    float outlineWidth = 2.5;
-    // Dilate the silhouette outward, then subtract the interior so we keep
-    // only the thin band sitting just outside the model.
-    float outerMask = dilatedMask(uv, bg, outlineWidth);
-    float outlineBand = clamp(outerMask - objectMask, 0.0, 1.0);
-
-    // Outline color: dark in light mode, light in dark mode -> always visible.
-    vec3 outlineColor = (bgLuma > 0.5) ? vec3(0.04, 0.04, 0.05) : vec3(0.95, 0.96, 1.0);
-    // Stronger outline in light mode where it's most needed.
-    float outlineStrength = mix(0.6, 1.0, smoothstep(0.4, 0.7, bgLuma));
-
-    // Background (with possible outline) — model effect not applied here.
-    if (objectMask < 0.01) {
-      vec3 bgOut = mix(bg, outlineColor, outlineBand * outlineStrength);
-      outputColor = vec4(bgOut, 1.0);
-      return;
-    }
-
-    float originalLuma = lumaOf(original);
-
-    vec2 grad = gradientAt(uv);
-    vec3 fakeNormal = normalize(vec3(-grad * 9.0, 1.0));
-
-    vec2 centeredUV = uv - 0.5;
-    centeredUV.x *= resolution.x / resolution.y;
-    float radial = length(centeredUV);
-
-    float broadWave = sin(
-      uv.x * 44.0 +
-      sin(uv.y * 14.0 + time * 0.18) * 5.0 +
-      fakeNormal.y * 6.0
-    );
-
-    float tightWave = sin(
-      uv.x * 125.0 +
-      uv.y * 10.0 +
-      fakeNormal.x * 10.0 +
-      noise(uv * 18.0) * 5.0
-    );
-
-    float fineWave = sin(
-      uv.x * 310.0 +
-      uv.y * 26.0 +
-      noise(uv * 48.0) * 8.0
-    );
-
-    float horizontalMelt = sin(
-      uv.y * 36.0 +
-      broadWave * 4.0 +
-      radial * 10.0
-    );
-
-    float displacementAmount =
-      0.004 +
-      objectMask * 0.020 +
-      edge * 0.045;
-
-    vec2 displacement = vec2(
-      broadWave * displacementAmount * 0.75 +
-      tightWave * displacementAmount * 0.35 +
-      fakeNormal.x * 0.020,
-      horizontalMelt * displacementAmount * 0.45 +
-      fineWave * 0.002 +
-      fakeNormal.y * 0.010
-    );
-
-    vec2 refractUV = safeUV(uv + displacement);
-
-    vec3 refracted = texture2D(inputBuffer, refractUV).rgb;
-    float refractedLuma = lumaOf(refracted);
-
-    vec2 grad2 = gradientAt(refractUV);
-    vec3 n = normalize(vec3(-grad2 * 11.0, 1.0));
-
-    float edge2 = edgeAt(refractUV);
-
-    vec2 chromeUV = refractUV;
-
-    float verticalBand1 = sin(
-      (chromeUV.x + n.x * 0.22 + broadWave * 0.018) * 72.0
-    );
-
-    float verticalBand2 = sin(
-      (chromeUV.x + n.y * 0.16 + tightWave * 0.015) * 155.0
-    );
-
-    float verticalBand3 = sin(
-      (chromeUV.x + fineWave * 0.006) * 260.0
-    );
-
-    float flowingBand = sin(
-      (chromeUV.y + n.x * 0.18 + horizontalMelt * 0.025) * 22.0
-    );
-
-    float softReflection =
-      0.5 +
-      0.25 * verticalBand1 +
-      0.15 * flowingBand +
-      0.10 * sin(radial * 28.0 + n.x * 4.0);
-
-    float brightStreaks =
-      pow(abs(verticalBand1), 10.0) * 0.85 +
-      pow(abs(verticalBand2), 16.0) * 0.55 +
-      pow(abs(verticalBand3), 24.0) * 0.25;
-
-    float darkStreaks =
-      pow(1.0 - abs(verticalBand1), 5.0) * 0.55 +
-      pow(1.0 - abs(verticalBand2), 8.0) * 0.35;
-
-    vec3 smearA = texture2D(
-      inputBuffer,
-      safeUV(refractUV + vec2(broadWave * 0.030, horizontalMelt * 0.012))
-    ).rgb;
-
-    vec3 smearB = texture2D(
-      inputBuffer,
-      safeUV(refractUV + vec2(-tightWave * 0.020, -horizontalMelt * 0.014))
-    ).rgb;
-
-    float smearLuma = lumaOf((smearA + smearB) * 0.5);
-
-    float formLight = pow(max(refractedLuma, smearLuma), 0.55);
-
-    float chromeValue =
-      softReflection * 0.55 +
-      formLight * 0.42 +
-      brightStreaks * 0.85 -
-      darkStreaks * 0.55;
-
-    vec3 lightDir = normalize(vec3(-0.45, 0.65, 1.0));
-    float specular = pow(max(dot(n, lightDir), 0.0), 26.0);
-
-    float rim = smoothstep(0.08, 0.32, edge2 + edge * 0.6);
-
-    chromeValue += specular * 1.15;
-    chromeValue += rim * 0.55;
-
-    float moltenHighlight = smoothstep(0.62, 1.0, chromeValue);
-    float deepShadow = smoothstep(0.0, 0.22, chromeValue);
-
-    chromeValue = mix(chromeValue * 0.25, chromeValue, deepShadow);
-
-    chromeValue = clamp(chromeValue, 0.0, 1.0);
-
-    chromeValue = smoothstep(0.08, 0.95, chromeValue);
-
-    float microNoise =
-      noise(uv * resolution * 0.12) * 0.045 +
-      noise(uv * resolution * 0.035 + 5.0) * 0.035;
-
-    chromeValue += (microNoise - 0.04) * objectMask;
-
-    chromeValue = clamp(chromeValue, 0.0, 1.0);
-
-    vec3 silverDark = vec3(0.015, 0.016, 0.018);
-    vec3 silverMid = vec3(0.55, 0.58, 0.60);
-    vec3 silverBright = vec3(0.95, 0.97, 1.0);
-
-    vec3 chromeColor = mix(silverDark, silverMid, chromeValue);
-    chromeColor = mix(chromeColor, silverBright, smoothstep(0.55, 1.0, chromeValue));
-
-    chromeColor = mix(chromeColor, vec3(1.0), moltenHighlight * 0.35);
-
-    chromeColor *= vec3(0.96, 0.98, 1.02);
-
-    chromeColor = clamp(chromeColor * 1.18 - 0.035, 0.0, 1.0);
-
-    // Confine effect strictly to the model silhouette.
-    float refractedObjectMask = maskAt(refractUV, bg);
-    float finalMask = objectMask * refractedObjectMask;
-
-    // Blend chrome over the background.
-    vec3 finalColor = mix(bg, chromeColor, finalMask);
-
-    // --- Apply outline on top, along the model's edge ---
-    // Inner edge contribution (just inside the silhouette) keeps a crisp rim.
-    float innerEdge = objectMask * (1.0 - smoothstep(0.0, 0.6, objectMask)) + outlineBand;
-    float outline = clamp(max(outlineBand, innerEdge), 0.0, 1.0);
-    finalColor = mix(finalColor, outlineColor, outline * outlineStrength);
-
-    outputColor = vec4(finalColor, 1.0);
-  }
 `;
 
 

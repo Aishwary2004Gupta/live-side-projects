@@ -1194,7 +1194,44 @@
         renderer.render(scene, camera);
       }
 
-      makeDefaultImage();
+            const DEFAULT_IMAGE_URL =
+        "https://plus.unsplash.com/premium_photo-1724372238882-7b0170a37ada?w=1000&auto=format&fit=crop&q=80";
+
+      function loadDefaultImage() {
+        const requestId = ++imageRequestId;
+        const img = new Image();
+
+        img.crossOrigin = "anonymous";
+        img.decoding = "async";
+
+        setStatus("Loading the default image…");
+
+        img.onload = () => {
+          if (requestId !== imageRequestId) return;
+
+          clearTimeout(rebuildTimer);
+
+          try {
+            buildFromImage(img);
+          } catch (error) {
+            console.error(error);
+            makeDefaultImage(); // CORS blocked the pixels; use the fallback.
+          }
+        };
+
+        img.onerror = () => {
+          if (requestId !== imageRequestId) return;
+
+          console.warn(
+            "Default image could not be loaded; using the built-in pattern.",
+          );
+          makeDefaultImage();
+        };
+
+        img.src = DEFAULT_IMAGE_URL;
+      }
+
+            loadDefaultImage();
       requestAnimationFrame(animate);
     </script>
   </body>

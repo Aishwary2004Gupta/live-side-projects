@@ -16,8 +16,10 @@
         overflow: hidden;
       }
       body {
-        background: #35354f;
+        background: #102d35;
         perspective: 800px;
+        color: #f8ead2;
+        font-family: Georgia, "Times New Roman", serif;
       }
       .bg,
       .bg-glow {
@@ -25,14 +27,49 @@
         inset: 0;
       }
       .bg {
-        background: #35354f;
+        background:
+          radial-gradient(circle at 20% 20%, rgb(239 174 104 / 18%), transparent 24%),
+          radial-gradient(circle at 78% 72%, rgb(89 185 171 / 18%), transparent 30%),
+          linear-gradient(135deg, #102d35 0%, #173f43 48%, #242d45 100%);
       }
       .bg-glow {
         inset: 50% auto auto 50%;
         width: min(600px, 100vw);
         height: min(600px, 100vw);
         transform: translate(-50%, -50%);
-        background: radial-gradient(circle, #3c6c7c, #35354f 60%);
+        background: radial-gradient(circle, rgb(238 166 103 / 28%), transparent 64%);
+        filter: blur(12px);
+      }
+      .controls {
+        position: fixed;
+        top: 28px;
+        left: 50%;
+        z-index: 2;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        transform: translateX(-50%);
+        font-size: 14px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+      .controls label {
+        opacity: 0.72;
+      }
+      .controls select {
+        padding: 9px 30px 9px 12px;
+        border: 1px solid rgb(248 234 210 / 40%);
+        border-radius: 999px;
+        color: #f8ead2;
+        background: rgb(16 45 53 / 70%);
+        font: inherit;
+        letter-spacing: inherit;
+        text-transform: inherit;
+        cursor: pointer;
+      }
+      .controls select:focus-visible {
+        outline: 2px solid #efb46f;
+        outline-offset: 3px;
       }
       .container {
         position: fixed;
@@ -42,6 +79,17 @@
         height: 200px;
         transform: translate(-50%, -50%);
         transform-style: preserve-3d;
+      }
+
+      .animal-name {
+        position: fixed;
+        bottom: 30px;
+        left: 50%;
+        transform: translateX(-50%);
+        color: rgb(248 234 210 / 58%);
+        font-size: 12px;
+        letter-spacing: 0.2em;
+        text-transform: uppercase;
       }
 
       .wing {
@@ -198,11 +246,65 @@
           transform: rotateX(360deg);
         }
       }
+
+      .container.moth .line {
+        filter: saturate(0.72) brightness(1.08);
+      }
+      .container.moth .wing {
+        transform: scaleY(1.08);
+      }
+      .container.moth .wing.right {
+        transform: scale(-1, 1.08);
+      }
+      .container.dragonfly {
+        width: 360px;
+      }
+      .container.dragonfly .wing {
+        width: 180px;
+        height: 200px;
+      }
+      .container.dragonfly .wing.right {
+        left: 180px;
+      }
+      .container.dragonfly .line {
+        height: 7px;
+        filter: hue-rotate(85deg) saturate(0.72) brightness(1.12);
+      }
+      .container.dragonfly .wing .line:nth-child(n + 11) {
+        opacity: 0.48;
+      }
+      .container.dragonfly .wing.left,
+      .container.dragonfly .wing.right {
+        transform: scaleX(0.9);
+      }
+      .container.dragonfly .wing.right {
+        transform: scaleX(-0.9);
+      }
+      @media (max-width: 520px) {
+        .controls {
+          top: 20px;
+          font-size: 11px;
+        }
+        .container {
+          transform: translate(-50%, -50%) scale(0.82);
+        }
+        .container.dragonfly {
+          transform: translate(-50%, -50%) scale(0.68);
+        }
+      }
     </style>
   </head>
   <body>
     <div class="bg" aria-hidden="true"></div>
     <div class="bg-glow" aria-hidden="true"></div>
+    <div class="controls">
+      <label for="animal">Choose a visitor</label>
+      <select id="animal" aria-label="Choose an animated animal">
+        <option value="butterfly">Butterfly</option>
+        <option value="moth">Moth</option>
+        <option value="dragonfly">Dragonfly</option>
+      </select>
+    </div>
     <main class="container" aria-label="Animated butterfly">
       <div class="wing left">
         <span class="line"></span><span class="line"></span>
@@ -229,5 +331,18 @@
         <span class="line"></span><span class="line"></span>
       </div>
     </main>
+    <div class="animal-name" aria-live="polite">Butterfly in flight</div>
+    <script>
+      const animalSelect = document.querySelector("#animal");
+      const animal = document.querySelector(".container");
+      const animalName = document.querySelector(".animal-name");
+
+      animalSelect.addEventListener("change", (event) => {
+        const selectedAnimal = event.target.value;
+        animal.className = `container ${selectedAnimal}`;
+        animal.setAttribute("aria-label", `Animated ${selectedAnimal}`);
+        animalName.textContent = `${selectedAnimal} in flight`;
+      });
+    </script>
   </body>
 </html>

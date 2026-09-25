@@ -490,27 +490,29 @@ void main() {
 in vec2 a; void main(){ gl_Position = vec4(a,0.0,1.0); }`;
 
       // ------------------------------------------------------------- logo SDF
-      const LOGO_UINTS = [
-        917504, 0, 0, 3237994620, 2280717855, 17416, 3791646974, 3354984223,
-        50712, 1938700743, 3877430172, 116536, 1938700743, 3877430172, 116536,
-        1938700743, 3810321308, 116536, 1938700743, 3776766876, 116536,
-        1938700743, 3759989660, 116536, 4220402119, 4028399583, 130943,
-        4220402119, 4162600927, 130879, 1938700743, 3759932316, 114744,
-        1938700743, 3776774108, 116280, 1938700743, 3810328540, 116536,
-        1938700743, 3877430172, 116536, 1938700743, 3877430172, 116536,
-        1905144062, 3825001356, 65048, 1888362620, 3791446916, 31752, 0, 25472,
-        0, 0, 9088, 0,
-      ];
-      const LW = 81,
-        LH = 19,
-        PAD = 8;
-      const bit = (x, y) =>
-        x < 0 || x >= LW || y < 0 || y >= LH
-          ? 0
-          : (LOGO_UINTS[y * 3 + (x >> 5)] >>> (x & 31)) & 1;
-      function buildSDF() {
-        const W = LW + PAD * 2,
-          H = LH + PAD * 2;
+      const PAD = 8;
+      function buildLogo(text) {
+        const cleanText = text.trim().slice(0, 18) || "OMARCHY";
+        const LW = Math.max(40, Math.min(180, cleanText.length * 11 + 8));
+        const LH = 24;
+        const canvas = document.createElement("canvas");
+        canvas.width = LW;
+        canvas.height = LH;
+        const ctx = canvas.getContext("2d");
+        ctx.fillStyle = "white";
+        ctx.font = "bold 17px monospace";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(cleanText.toUpperCase(), LW / 2, LH / 2 + 1);
+        const pixels = ctx.getImageData(0, 0, LW, LH).data;
+        const bit = (x, y) =>
+          x < 0 || x >= LW || y < 0 || y >= LH
+            ? 0
+            : pixels[(y * LW + x) * 4 + 3] > 80
+              ? 1
+              : 0;
+        const W = LW + PAD * 2;
+        const H = LH + PAD * 2;
         const data = new Uint8Array(W * H * 4);
         for (let y = 0; y < H; y++)
           for (let x = 0; x < W; x++) {
@@ -536,22 +538,17 @@ in vec2 a; void main(){ gl_Position = vec4(a,0.0,1.0); }`;
             data[i + 2] = b;
             data[i + 3] = 255;
           }
-        return { data, W, H };
-      }
-      function buildBits() {
-        const W = LW + PAD * 2,
-          H = LH + PAD * 2;
-        const data = new Uint8Array(W * H * 4);
+        const bits = new Uint8Array(W * H * 4);
         for (let y = 0; y < H; y++)
           for (let x = 0; x < W; x++) {
             const b = bit(x - PAD, y - PAD) ? 255 : 0,
               i = (y * W + x) * 4;
-            data[i] = b;
-            data[i + 1] = b;
-            data[i + 2] = b;
-            data[i + 3] = 255;
+            bits[i] = b;
+            bits[i + 1] = b;
+            bits[i + 2] = b;
+            bits[i + 3] = 255;
           }
-        return { data, W, H };
+        return { data, bits, W, H, logoW: LW, logoH: LH };
       }
 
       // ---------------------------------------------------------------- webgl

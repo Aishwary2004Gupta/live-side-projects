@@ -85,6 +85,26 @@
         text-align: right;
         color: #e8e8d8;
       }
+      .text-control {
+        display: grid;
+        grid-template-columns: 118px 1fr;
+        gap: 6px;
+        align-items: center;
+        margin: 6px 0 10px;
+      }
+      .text-control label {
+        color: #999;
+      }
+      .text-control input {
+        width: 100%;
+        min-width: 0;
+        padding: 5px 6px;
+        border: 1px solid #3a3a40;
+        border-radius: 3px;
+        color: #e8e8d8;
+        background: #1b1b1f;
+        font: inherit;
+      }
       .btns {
         display: flex;
         gap: 6px;
@@ -136,6 +156,11 @@
       <h1>Omarchy Shader Lab</h1>
       <div class="hint">
         h toggles panel · space pauses · scrub with Progress
+      </div>
+      <div class="grp">Text</div>
+      <div class="text-control">
+        <label for="logoText">wordmark</label>
+        <input id="logoText" type="text" value="OMARCHY" maxlength="18" />
       </div>
       <div id="controls"></div>
       <div class="btns">
@@ -230,9 +255,7 @@ uniform sampler2D uSDF;      // precomputed signed distance, in logo pixels
 uniform sampler2D uBits;     // the logo bitmap itself, NEAREST-sampled (0 or 1)
 uniform vec2  uSDFSize;      // padded field size
 uniform float uSDFPad;
-
-const int LOGO_W = 81;
-const int LOGO_H = 19;
+uniform vec2  uLogoSize;
 
 const vec3 C_BG    = vec3(0.043, 0.043, 0.059);
 const vec3 C_CREAM = vec3(0.960, 0.955, 0.900);
@@ -294,16 +317,16 @@ void main() {
   vec2 sc = vec2(gl_FragCoord.x, res.y - gl_FragCoord.y);
 
   float detail = max(1.0, floor(u_detail + 0.5));
-  float cellPx = max(res.x * u_logo_frac / (float(LOGO_W) * detail), 2.0);
+  float cellPx = max(res.x * u_logo_frac / (uLogoSize.x * detail), 2.0);
   vec2 gridSize = res / cellPx;
-  vec2 logoStart = floor((gridSize - vec2(float(LOGO_W), float(LOGO_H)) * detail) * 0.5);
+  vec2 logoStart = floor((gridSize - uLogoSize * detail) * 0.5);
 
   // --- glass ripple riding the reveal front -------------------------
   // The front is a circle of radius frontRaw*maxD (in cells) around the growth
   // origin. A gaussian-enveloped wave at that radius displaces the sample
   // point radially, so the pattern itself bends like it is being read through
   // moving glass, rather than an overlay being drawn on top of it.
-  vec2 logoDim = vec2(float(LOGO_W), float(LOGO_H)) * detail;
+  vec2 logoDim = uLogoSize * detail;
   vec2 originCell = vec2(u_origin_x, u_origin_y) * logoDim;
   float maxD = cornerDist(originCell, logoDim, u_grow_aspect) + u_scatter_reach;
   vec2 originPx = (logoStart + originCell) * cellPx;

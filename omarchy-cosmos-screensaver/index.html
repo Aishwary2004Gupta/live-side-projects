@@ -585,40 +585,18 @@ in vec2 a; void main(){ gl_Position = vec4(a,0.0,1.0); }`;
       const loc = gl.getAttribLocation(prog, "a");
       gl.enableVertexAttribArray(loc);
       gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
-      const sdf = buildSDF();
+      const tex = gl.createTexture();
+      const texBits = gl.createTexture();
+      let logo = buildLogo("OMARCHY");
       const tex = gl.createTexture();
       gl.bindTexture(gl.TEXTURE_2D, tex);
-      gl.texImage2D(
-        gl.TEXTURE_2D,
-        0,
-        gl.RGBA,
-        sdf.W,
-        sdf.H,
-        0,
-        gl.RGBA,
-        gl.UNSIGNED_BYTE,
-        sdf.data,
-      );
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
 
-      const bits = buildBits();
-      const texBits = gl.createTexture();
       gl.activeTexture(gl.TEXTURE1);
       gl.bindTexture(gl.TEXTURE_2D, texBits);
-      gl.texImage2D(
-        gl.TEXTURE_2D,
-        0,
-        gl.RGBA,
-        bits.W,
-        bits.H,
-        0,
-        gl.RGBA,
-        gl.UNSIGNED_BYTE,
-        bits.data,
-      );
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
@@ -635,12 +613,46 @@ in vec2 a; void main(){ gl_Position = vec4(a,0.0,1.0); }`;
         "uBits",
         "uSDFSize",
         "uSDFPad",
+        "uLogoSize",
       ].forEach((n) => (U[n] = gl.getUniformLocation(prog, n)));
       gl.uniform1i(U.uSDF, 0);
       gl.uniform1i(U.uBits, 1);
-      gl.uniform2f(U.uSDFSize, sdf.W, sdf.H);
       gl.uniform1f(U.uSDFPad, PAD);
       P.forEach((p) => (U[p[0]] = gl.getUniformLocation(prog, "u_" + p[0])));
+
+      function uploadLogo(nextLogo) {
+        logo = nextLogo;
+        gl.activeTexture(gl.TEXTURE0);
+        gl.bindTexture(gl.TEXTURE_2D, tex);
+        gl.texImage2D(
+          gl.TEXTURE_2D,
+          0,
+          gl.RGBA,
+          logo.W,
+          logo.H,
+          0,
+          gl.RGBA,
+          gl.UNSIGNED_BYTE,
+          logo.data,
+        );
+        gl.activeTexture(gl.TEXTURE1);
+        gl.bindTexture(gl.TEXTURE_2D, texBits);
+        gl.texImage2D(
+          gl.TEXTURE_2D,
+          0,
+          gl.RGBA,
+          logo.W,
+          logo.H,
+          0,
+          gl.RGBA,
+          gl.UNSIGNED_BYTE,
+          logo.bits,
+        );
+        gl.uniform2f(U.uSDFSize, logo.W, logo.H);
+        gl.uniform2f(U.uLogoSize, logo.logoW, logo.logoH);
+        gl.activeTexture(gl.TEXTURE0);
+      }
+      uploadLogo(logo);
 
       function resize() {
         const dpr = Math.min(devicePixelRatio || 1, 1.5);

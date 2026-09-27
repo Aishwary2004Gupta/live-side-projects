@@ -3,77 +3,65 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Kinetic Clock - A Million Times 120</title>
+    <title>Kinetic Wall Clock - A Million Times 120</title>
     <style>
         :root {
-            /* Match the dark matte background of the installation */
-            --bg-color: #0f0f0f;
-            --rod-inactive: #2a2a2a;
-            --rod-active: #e6e6e6;
-            --rod-width: 4px;
-            --rod-height: 28px;
-            --gap: 14px;
+            --bg-color: #0a0a0a;
+            --rod-color: #e0e0e0;
+            --rod-width: 3px;
+            --rod-length: 24px;
+            --grid-gap: 12px;
         }
 
         body {
-            background-color: #000;
+            background-color: #1a1a1a;
             margin: 0;
             display: flex;
             justify-content: center;
             align-items: center;
             height: 100vh;
-            font-family: 'Courier New', Courier, monospace;
             overflow: hidden;
+            font-family: sans-serif;
         }
 
-        /* The physical frame of the clock */
-        #frame {
+        /* The "Frame" of the installation */
+        #installation-frame {
             background-color: var(--bg-color);
-            padding: 40px 60px;
-            border: 1px solid #333;
-            box-shadow: 
-                0 0 50px rgba(0,0,0,0.8),
-                inset 0 0 100px rgba(0,0,0,0.9);
+            padding: 40px;
+            border: 12px solid #333;
+            box-shadow: 0 50px 100px rgba(0,0,0,0.8), inset 0 0 50px rgba(0,0,0,1);
             border-radius: 4px;
             position: relative;
         }
 
-        #grid {
+        #clock-grid {
             display: grid;
-            /* Columns and Rows set dynamically in JS */
-            gap: var(--gap);
+            /* Grid dimensions defined in JS, but gap here */
+            gap: var(--grid-gap);
             position: relative;
         }
 
-        /* The individual rods */
         .rod {
             width: var(--rod-width);
-            height: var(--rod-height);
-            background-color: var(--rod-inactive);
+            height: var(--rod-length);
+            background-color: var(--rod-color);
             border-radius: 2px;
-            transform: rotate(45deg); /* Default idle position */
-            transition: transform 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94), background-color 0.5s;
-            transform-origin: center;
+            transition: transform 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+            transform-origin: center center;
+            box-shadow: 0 0 2px rgba(0,0,0,0.5);
         }
 
-        /* Active state (part of the time) */
+        /* Ambient glow effect */
         .rod.active {
-            background-color: var(--rod-active);
-            box-shadow: 0 0 10px rgba(255, 255, 255, 0.4);
+            background-color: #fff;
+            box-shadow: 0 0 8px rgba(255,255,255,0.3);
         }
-
-        /* Special styling for the seconds indicator (Green rod in top right) */
-        .rod.second-hand {
-            background-color: #4caf50;
-            box-shadow: 0 0 10px rgba(76, 175, 80, 0.6);
-        }
-
     </style>
 </head>
 <body>
 
-    <div id="frame">
-        <div id="grid"></div>
+    <div id="installation-frame">
+        <div id="clock-grid"></div>
     </div>
 
     <script>
@@ -81,210 +69,172 @@
          * CONFIGURATION
          */
         const ROWS = 12;
-        const COLS = 28;
-        const GRID_GAP = 14; // Must match CSS variable --gap
-        
-        // Digit sizing
-        const DIGIT_W = 5;
-        const DIGIT_H = 7;
-        const DIGIT_SPACING = 2;
-        
-        // Starting position for the first digit (Hour 1)
-        const START_X = 2;
+        const COLS = 32;
+        const DIGIT_WIDTH = 5;
+        const DIGIT_HEIGHT = 7;
+        const DIGIT_GAP = 2;
+        const START_X = 4;
         const START_Y = 2;
 
-        const gridElement = document.getElementById('grid');
+        const gridElement = document.getElementById('clock-grid');
         const rods = [];
 
-        // 7-Segment Mapping: [Top, Mid, Bot, TopL, BotL, TopR, BotR]
+        /**
+         * DIGIT DEFINITIONS
+         * Each number is a list of segments.
+         * Each segment: [startX, startY, endX, endY]
+         * Angles are calculated based on these segments.
+         */
         const digitMap = {
+            0: [[0,0, 4,0], [4,0, 4,6], [4,6, 0,6], [0,6, 0,0]],
+            1: [[4,0, 4,6]],
+            2: [[0,0, 4,0], [4,0, 4,3], [4,3, 0,3], [0,3, 0,3], [0,3, 0,3], [0,3, 4,3], [4,3, 4,3], [0,3, 0,6], [0,6, 4,6]], // Correction handled in draw
+            // Simpler representation: Top, Mid, Bottom, Left-Top, Left-Bottom, Right-Top, Right-Bottom
+            // Let's use a segment-based approach for cleaner logic
+        };
+
+        // 7-Segment Display logic: [top, mid, bottom, top-left, bottom-left, top-right, bottom-right]
+        const segments = {
             0: [1, 0, 1, 1, 1, 1, 1],
             1: [0, 0, 0, 0, 0, 1, 1],
             2: [1, 1, 1, 1, 0, 0, 1],
             3: [1, 1, 1, 0, 0, 1, 1],
             4: [0, 1, 0, 1, 0, 1, 1],
-            5: [1, 1, 1, 1, 0, 0, 1], // Note: The '5' in the image has a specific shape
+            5: [1, 1, 1, 1, 0, 0, 0], // Wait, 5 is Top, Top-Left, Mid, Bottom-Right, Bottom
+            '5_fixed': [1, 1, 1, 1, 0, 0, 1], // Re-mapping below
+        };
+
+        // Redefined segment mapping for accuracy
+        const digitSegments = {
+            0: [1, 0, 1, 1, 1, 1, 1],
+            1: [0, 0, 0, 0, 0, 1, 1],
+            2: [1, 1, 1, 1, 0, 0, 1],
+            3: [1, 1, 1, 0, 0, 1, 1],
+            4: [0, 1, 0, 1, 0, 1, 1],
+            5: [1, 1, 1, 1, 0, 0, 0], // corrected in logic
             6: [1, 1, 1, 1, 1, 0, 1],
             7: [1, 0, 0, 0, 0, 1, 1],
             8: [1, 1, 1, 1, 1, 1, 1],
-            9: [1, 1, 1, 1, 0, 1, 1]
+            9: [1, 1, 1, 1, 0, 1, 1],
         };
+        // Custom override for 5 because it's tricky
+        digitSegments[5] = [1, 1, 1, 1, 0, 0, 1]; 
 
         /**
-         * INITIALIZATION
+         * INITIALIZE GRID
          */
         function init() {
-            // Set grid CSS
-            gridElement.style.gridTemplateColumns = `repeat(${COLS}, auto)`;
-            gridElement.style.gridTemplateRows = `repeat(${ROWS}, auto)`;
+            gridElement.style.gridTemplateColumns = `repeat(${COLS}, var(--grid-gap)`;
+            gridElement.style.gridTemplateRows = `repeat(${ROWS}, var(--grid-gap)`;
 
-            // Create rods
             for (let y = 0; y < ROWS; y++) {
                 for (let x = 0; x < COLS; x++) {
                     const rod = document.createElement('div');
                     rod.className = 'rod';
-                    rod.dataset.x = x;
-                    rod.dataset.y = y;
                     gridElement.appendChild(rod);
-                    rods.push(rod);
+                    rods.push({ x, y, element: rod });
                 }
             }
-
-            // Start the clock
-            updateClock();
-            setInterval(updateClock, 1000);
             
-            // Start ambient animation
-            requestAnimationFrame(animateAmbient);
+            update();
+            setInterval(update, 1000);
+            animateBackground();
         }
 
-        /**
-         * CORE LOGIC
-         */
-        function getRod(x, y) {
+        function getRodAt(x, y) {
             if (x < 0 || x >= COLS || y < 0 || y >= ROWS) return null;
             return rods[y * COLS + x];
         }
 
-        // Draws a single segment of a number
-        // orientation: 'h' (horizontal) or 'v' (vertical)
-        // length: how many rods long
-        // isActive: boolean
-        function drawSegment(startX, startY, length, orientation, isActive) {
+        /**
+         * CORE LOGIC: Set angles for segments
+         */
+        function setSegment(x, y, length, orientation, isActive) {
             for (let i = 0; i < length; i++) {
-                let x = startX;
-                let y = startY;
+                let rx = x, ry = y;
                 let angle = 0;
 
                 if (orientation === 'h') {
-                    x = startX + i;
-                    angle = 90; // Horizontal is 90deg
+                    rx = x + i;
+                    angle = 90; // Horizontal
                 } else {
-                    y = startY + i;
-                    angle = 0; // Vertical is 0deg
+                    ry = y + i;
+                    angle = 0; // Vertical
                 }
 
-                const rod = getRod(x, y);
+                const rod = getRodAt(rx, ry);
                 if (rod) {
-                    // We don't remove the class here immediately, we handle reset in updateClock
-                    // But we set the transform now
-                    rod.style.transform = `rotate(${angle}deg)`;
-                    if (isActive) {
-                        rod.classList.add('active');
-                    }
+                    rod.element.style.transform = `rotate(${angle}deg)`;
+                    if (isActive) rod.element.classList.add('active');
+                    else rod.element.classList.remove('active');
                 }
             }
         }
 
-        function drawNumber(num, offsetX, offsetY) {
-            const segments = digitMap[num];
-            
-            // Top
-            drawSegment(offsetX, offsetY, DIGIT_W, 'h', segments[0]);
-            // Middle
-            drawSegment(offsetX, offsetY + 3, DIGIT_W, 'h', segments[1]);
-            // Bottom
-            drawSegment(offsetX, offsetY + 6, DIGIT_W, 'h', segments[2]);
-            
-            // Top Left
-            drawSegment(offsetX, offsetY, 3, 'v', segments[3]);
-            // Bottom Left
-            drawSegment(offsetX, offsetY + 3, 3, 'v', segments[4]);
-            
-            // Top Right
-            drawSegment(offsetX + 4, offsetY, 3, 'v', segments[5]);
-            // Bottom Right
-            drawSegment(offsetX + 4, offsetY + 3, 3, 'v', segments[6]);
+        function drawDigit(val, offsetX, offsetY) {
+            const segs = digitSegments[val];
+            // top
+            setSegment(offsetX, offsetY, DIGIT_WIDTH, 'h', segs[0]);
+            // mid
+            setSegment(offsetX, offsetY + 3, DIGIT_WIDTH, 'h', segs[1]);
+            // bottom
+            setSegment(offsetX, offsetY + 6, DIGIT_WIDTH, 'h', segs[2]);
+            // top-left
+            setSegment(offsetX, offsetY, 3, 'v', segs[3]);
+            // bottom-left
+            setSegment(offsetX, offsetY + 3, 3, 'v', segs[4]);
+            // top-right
+            setSegment(offsetX + 3, offsetY, 3, 'v', segs[5]);
+            // bottom-right
+            setSegment(offsetX + 3, offsetY + 3, 3, 'v', segs[6]);
         }
 
-        function updateClock() {
+        function update() {
             const now = new Date();
+            const h = now.getHours().toString().padStart(2, '0');
+            const m = now.getMinutes().toString().padStart(2, '0');
+            const timeStr = `${h}:${m}`;
+
+            // Reset all rods to non-active
+            rods.forEach(r => r.element.classList.remove('active'));
+
+            // Draw the 4 digits
+            drawDigit(h[0], START_X, START_Y);
+            drawDigit(h[1], START_X + DIGIT_WIDTH + DIGIT_GAP, START_Y);
             
-            // Format time
-            const h1 = Math.floor(now.getHours() / 10);
-            const h2 = now.getHours() % 10;
-            const m1 = Math.floor(now.getMinutes() / 10);
-            const m2 = now.getMinutes() % 10;
-            const s = now.getSeconds();
-
-            // 1. Reset all rods to "Idle" state
-            rods.forEach(rod => {
-                rod.classList.remove('active');
-                rod.classList.remove('second-hand');
-                // The default rotation (45deg) is handled by CSS, so we just remove the inline style
-                // to let CSS take over for the idle animation.
-                rod.style.transform = ''; 
-            });
-
-            // 2. Draw the Time
-            let currentX = START_X;
+            // Colon
+            setSegment(START_X + (DIGIT_WIDTH + DIGIT_GAP) * 2 - 1, START_Y + 2, 1, 'v', true);
+            setSegment(START_X + (DIGIT_WIDTH + DIGIT_GAP) * 2 - 1, START_Y + 4, 1, 'v', true);
             
-            drawNumber(h1, currentX, START_Y);
-            currentX += DIGIT_W + DIGIT_SPACING;
-            
-            drawNumber(h2, currentX, START_Y);
-            currentX += DIGIT_W + DIGIT_SPACING;
-
-            // Draw Colon (Two vertical dots)
-            const colonX = currentX + 1;
-            drawSegment(colonX, START_Y + 2, 1, 'v', true);
-            drawSegment(colonX, START_Y + 4, 1, 'v', true);
-            currentX += DIGIT_SPACING + 1;
-
-            drawNumber(m1, currentX, START_Y);
-            currentX += DIGIT_W + DIGIT_SPACING;
-
-            drawNumber(m2, currentX, START_Y);
-
-            // 3. Draw Seconds Indicator (Green rod in top right)
-            // Calculating position to be near the top right corner
-            const secX = COLS - 3;
-            const secY = 0;
-            
-            // Map seconds (0-59) to a rotation for the green rod to act as a clock hand
-            // 0s = 45deg, 30s = 135deg, etc.
-            const secAngle = 45 + (s / 60) * 180; 
-            
-            const secRod = getRod(secX, secY);
-            if(secRod) {
-                secRod.style.transform = `rotate(${secAngle}deg)`;
-                secRod.classList.add('second-hand');
-            }
+            drawDigit(m[0], START_X + (DIGIT_WIDTH + DIGIT_GAP) * 2 + 1, START_Y);
+            drawDigit(m[1], START_X + (DIGIT_WIDTH + DIGIT_GAP) * 3 + 1, START_Y);
         }
 
         /**
          * AMBIENT ANIMATION
-         * Creates the "shimmer" effect on inactive rods
+         * Rotates the background rods slightly to create the "kinetic" feel
          */
-        function animateAmbient() {
+        function animateBackground() {
             const time = Date.now() * 0.001;
             
             rods.forEach((rod, index) => {
-                // Only animate if it's NOT active (part of the time)
-                if (!rod.classList.contains('active') && !rod.classList.contains('second-hand')) {
-                    // Create a wave effect based on x/y position
-                    const wave = Math.sin(time + (rod.dataset.x * 0.2) - (rod.dataset.y * 0.2));
-                    // Rotate between -45 and 45 degrees roughly
-                    const angle = wave * 45; 
-                    
-                    // Only apply transform if we aren't currently drawing (to prevent conflict)
-                    // But since we reset inline styles every second, we can safely apply here
-                    // using a very low opacity or specific class if we wanted, but let's keep it simple.
-                    // We use a slight delay in CSS transition, so this JS update might fight it.
-                    // To fix this, we only update if the inline style is empty or different.
-                    
-                    if(rod.style.transform === '' || rod.style.transform.includes('rotate(45deg)')) {
-                         rod.style.transform = `rotate(${angle}deg)`;
-                    }
+                // Only animate rods that aren't part of the current time display
+                // For simplicity, we apply a subtle rotation to everyone; 
+                // the "update()" function will override the active ones every second, 
+                // but the active ones have higher priority in the human eye.
+                
+                if (!rod.element.classList.contains('active')) {
+                    const noise = Math.sin(time + (rod.x * 0.3) + (rod.y * 0.5));
+                    const angle = noise * 45; // Rotate between -45 and 45 degrees
+                    rod.element.style.transform = `rotate(${angle}deg)`;
+                    rod.element.style.opacity = 0.3 + (noise * 0.2);
                 }
             });
             
-            requestAnimationFrame(animateAmbient);
+            requestAnimationFrame(animateBackground);
         }
 
-        // Run
         init();
-
     </script>
 </body>
 </html>

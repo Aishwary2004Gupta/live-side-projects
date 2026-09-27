@@ -1,866 +1,165 @@
 <!doctype html>
-<meta charset="utf-8" />
-<title>fly-style: the life of a fruit fly</title>
+<meta charset="utf-8">
+<title>four looks</title>
 <style>
-  body {
-    margin: 0;
-    background: #111;
-    color: #ccc;
-    font:
-      13px/1.4 ui-monospace,
-      Menlo,
-      monospace;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 10px;
-    padding: 12px;
-  }
-  canvas#c {
-    width: min(92vw, 720px);
-    height: auto;
-    background: #000;
-    box-shadow: 0 0 0 1px #333;
-  }
-  .bar {
-    display: flex;
-    gap: 8px;
-    flex-wrap: wrap;
-    align-items: center;
-    justify-content: center;
-  }
-  button {
-    background: #222;
-    color: #ddd;
-    border: 1px solid #444;
-    padding: 4px 10px;
-    cursor: pointer;
-    font: inherit;
-  }
-  input[type="range"] {
-    width: 320px;
-  }
+  body{margin:0;background:#111;color:#ccc;font:13px/1.4 ui-monospace,Menlo,monospace;display:flex;flex-direction:column;align-items:center;gap:10px;padding:12px}
+  canvas#c{width:min(92vw,720px);height:auto;background:#000;box-shadow:0 0 0 1px #333}
+  .bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;justify-content:center}
+  button{background:#222;color:#ddd;border:1px solid #444;padding:4px 10px;cursor:pointer;font:inherit}
+  input[type=range]{width:320px}
 </style>
 <canvas id="c" width="1080" height="1080"></canvas>
-<script src="core.js"></script>
+<script src="../assets/core.js"></script>
 <script>
-  // ============================================================
-  // fly-style: a Canvas 2D "hand-drawn animation" kit.
-  // Everything is drawn procedurally; no images, no libraries.
-  // Cadence: drawn at 12 fps ("on twos"), packed to 24 fps video.
-  // Textures are seeded, so nothing boils unless you ask for it.
-  // ============================================================
-  // Built on core.js. Designed for 1:1 with literal centres; render it square.
-  // Built on core.js. Colours below are literal because this film predates the palette system;
-  // the palette only sets the finish and the player defaults.
-  usePalette("paperInk");
-  const off = layer(),
-    octx = off.getContext("2d"),
-    off2 = layer(),
-    o2ctx = off2.getContext("2d");
-  const BOIL = false; // true = re-seed outlines every 3 drawn frames (deliberate boil)
+'use strict';
+// ============================================================
+// FOUR LOOKS. One subject, a paper boat, drawn through the four palettes and
+// finishes of the reference films, with the devices each film is known for:
+//   riso      seed dot, crayon ripples, iris, a 4-cards-per-second montage of
+//             printed plates, the badge gallery
+//   screen    flat shapes under a dot screen, day and night, the boat constant
+//   pencil    torn sections, a wall of squiggle text, pressed plants, a thread,
+//             a dark section with dotted arcs and dot fireworks
+//   ink       the fruit-fly look: hatched ground, construction lines, scribble
+//   sign-off  hand lettering in two inks with two dots
+// Beat sheet
+// t      dur   scene       look     what happens
+// 0.0    2.0   intro       riso     dot, ripples every 4 drawn frames, iris opens on card 1
+// 2.0    2.0   montage     riso     8 cards, 0.25 s each, dot stays
+// 4.0    1.5   gallery     riso     cards as badges on rings, then everything shrinks to the dot
+// 5.5    2.5   sea         screen   boat on a lake by day, cut to night at 1.5
+// 8.0    2.5   page        pencil   text wall, sticky note, pink section rises, plants, dark section
+// 10.5   1.5   ink         ink      boat on a hatched peach with guides and scribble
+// 12.0   1.5   signoff     riso     letters appear, two dots
+// ============================================================
 
-  // ---------- the fly (local coords, heading up = -y) ----------
-  const FLY = {
-    head: ellPath(0, -40, 20, 18),
-    eyeL: ellPath(-19, -44, 13, 15, -0.3),
-    eyeR: ellPath(19, -44, 13, 15, 0.3),
-    thorax: ellPath(0, 0, 26, 30),
-    abd: ellPath(0, 54, 27, 46),
-  };
-  function wingGeom(side, ang) {
-    const px = side * 10,
-      py = -8,
-      dx = side * Math.sin(ang),
-      dy = Math.cos(ang),
-      cx = px + dx * 58,
-      cy = py + dy * 58;
-    return {
-      cx,
-      cy,
-      rot: Math.atan2(dy, dx),
-      path: ellPath(cx, cy, 60, 20, Math.atan2(dy, dx)),
-    };
-  }
-  function compoundEye(c, mode, path, side, seed) {
-    c.save();
-    c.clip(path);
-    const box = [side * 19 - 14, -60, 28, 32];
-    if (mode === "ink") {
-      c.fillStyle = "#b81c27";
-      c.fill(path);
-      hexCells(box, 3.4, (x, y) => {
-        const d = Math.hypot(x - side * 13, y + 50);
-        const l = clamp(1 - d / 26, 0, 1);
-        c.fillStyle = `rgb(${Math.round(lerp(140, 255, l))},${Math.round(lerp(16, 95, l))},${Math.round(lerp(28, 95, l))})`;
-        c.fill(hexPath(x, y, 3.4));
-        c.strokeStyle = "rgba(60,5,12,.55)";
-        c.lineWidth = 0.6;
-        c.stroke(hexPath(x, y, 3.4));
-      });
-      c.fillStyle = "rgba(255,255,255,.85)";
-      c.beginPath();
-      c.arc(side * 14, -51, 2.6, 0, TAU);
-      c.fill();
-    } else {
-      c.strokeStyle = "#cfd6ff";
-      c.lineWidth = 0.7;
-      c.globalAlpha = 0.75;
-      hexCells(box, 3.4, (x, y) => c.stroke(hexPath(x, y, 3.4)));
-      c.globalAlpha = 1;
-      c.fillStyle = "#fff";
-      c.beginPath();
-      c.arc(side * 14, -51, 2.4, 0, TAU);
-      c.fill();
-    }
-    c.restore();
-  }
-  // pose: {wing: angle from body axis, flap: 0..1 blur, legs: 0..1 tuck, walk: phase}
-  function drawFly(c, mode, pose, seed) {
-    const r = rng(seed);
-    const ink = mode === "ink";
-    const line = ink ? "#1e1630" : "#e8ecff";
-    const lw = ink ? 2.2 : 2.4;
-    c.save();
-    c.lineJoin = "round";
-    c.lineCap = "round";
-    // legs
-    for (let i = 0; i < 3; i++)
-      for (const s of [-1, 1]) {
-        const y0 = -14 + i * 14,
-          tuck = pose.legs;
-        const ph = Math.sin(pose.walk * TAU + i * 2.1 + s) * 6 * (1 - tuck);
-        const pts = [
-          [s * 22, y0],
-          [s * (40 - tuck * 10), y0 - 12 + ph + i * 4],
-          [s * (60 - tuck * 22), y0 + 2 + ph + i * 8],
-          [s * (70 - tuck * 30), y0 + 26 + ph + i * 10],
-        ];
-        c.strokeStyle = line;
-        c.lineWidth = ink ? 2 : 1.8;
-        c.globalAlpha = ink ? 0.95 : 0.9;
-        wob(c, pts, 1.5, seed + 11 + i * 3 + s);
-      }
-    // wings (drawn first so body overlaps); flap = draw 3 ghost copies
-    const ghosts = pose.flap > 0 ? [-1, 0, 1] : [0];
-    for (const s of [-1, 1])
-      for (const g of ghosts) {
-        const wg = wingGeom(s, pose.wing + g * 0.22 * pose.flap);
-        if (ink) {
-          c.fillStyle = `rgba(225,232,255,${0.34 / ghosts.length + 0.06})`;
-          c.fill(wg.path);
-          c.strokeStyle = "rgba(40,30,60,.55)";
-          c.lineWidth = 1.2;
-          wob(
-            c,
-            ellPts(wg.cx, wg.cy, 60, 20, wg.rot),
-            1.2,
-            seed + 21 + s + g,
-            true,
-          );
-          // veins
-          c.strokeStyle = "rgba(40,30,60,.5)";
-          c.lineWidth = 0.9;
-          for (let k = -1; k <= 1; k++) {
-            c.beginPath();
-            c.moveTo(
-              wg.cx - Math.cos(wg.rot) * 52,
-              wg.cy - Math.sin(wg.rot) * 52,
-            );
-            const ex =
-                wg.cx + Math.cos(wg.rot) * 55 - Math.sin(wg.rot) * k * 13,
-              ey = wg.cy + Math.sin(wg.rot) * 55 + Math.cos(wg.rot) * k * 13;
-            c.quadraticCurveTo(
-              (wg.cx + ex) / 2 - Math.sin(wg.rot) * k * 10,
-              (wg.cy + ey) / 2 + Math.cos(wg.rot) * k * 10,
-              ex,
-              ey,
-            );
-            c.stroke();
-          }
-        } else {
-          c.strokeStyle = "#cfd6ff";
-          c.lineWidth = 1.4;
-          c.globalAlpha = 0.8;
-          wob(
-            c,
-            ellPts(wg.cx, wg.cy, 60, 20, wg.rot),
-            1.2,
-            seed + 21 + s + g,
-            true,
-          );
-          c.globalAlpha = 1;
-        }
-      }
-    // body parts: fill (ink) + hatch + outline
-    const parts = [
-      ["abd", "#c99a5a", [-30, 6, 60, 96]],
-      ["thorax", "#b8864e", [-28, -32, 56, 64]],
-      ["head", "#c9a063", [-22, -60, 44, 40]],
-    ];
-    for (const [k, col, box] of parts) {
-      const p = FLY[k];
-      if (ink) {
-        c.fillStyle = col;
-        c.globalAlpha = 1;
-        c.fill(p);
-        if (k === "abd") {
-          c.save();
-          c.clip(p);
-          c.strokeStyle = "#3b2412";
-          c.lineWidth = 7;
-          c.globalAlpha = 0.9;
-          for (let i = 0; i < 5; i++) {
-            const y = 26 + i * 16;
-            c.beginPath();
-            c.moveTo(-30, y - 3);
-            c.quadraticCurveTo(0, y + 6, 30, y - 3);
-            c.stroke();
-          }
-          c.restore();
-        }
-        hatch(c, p, box, {
-          angle: 1.2,
-          gap: 4.5,
-          len: 9,
-          jitter: 3,
-          color: "#3a2214",
-          alpha: 0.35,
-          width: 1,
-          seed: seed + 40,
-        });
-        grain(c, p, box, 160, "#2b1608", 0.35, seed + 50, 1.4);
-      }
-      c.strokeStyle = line;
-      c.lineWidth = lw;
-      c.globalAlpha = 1;
-      wob(c, ellPts(...pathArgs(k)), 1.8, seed + 60 + k.length, true);
-    }
-    compoundEye(c, mode, FLY.eyeL, -1, seed);
-    compoundEye(c, mode, FLY.eyeR, 1, seed);
-    c.strokeStyle = line;
-    c.lineWidth = 1.6;
-    wob(c, ellPts(-19, -44, 13, 15, -0.3), 1.2, seed + 70, true);
-    wob(c, ellPts(19, -44, 13, 15, 0.3), 1.2, seed + 71, true);
-    // antennae
-    c.lineWidth = 1.4;
-    for (const s of [-1, 1]) {
-      wob(
-        c,
-        [
-          [s * 6, -56],
-          [s * 12, -70],
-          [s * 20, -74],
-        ],
-        1,
-        seed + 80 + s,
-      );
-      c.beginPath();
-      c.arc(s * 20, -74, 2.2, 0, TAU);
-      c.stroke();
-    }
-    if (ink) {
-      scribble(c, FLY.thorax, 0, 0, { seed: seed + 90, amp: 5, alpha: 0.5 });
-      scribble(c, FLY.abd, 0, 54, { seed: seed + 91, amp: 6, alpha: 0.5 });
-    }
-    c.restore();
-  }
-  function pathArgs(k) {
-    return {
-      head: [0, -40, 20, 18],
-      thorax: [0, 0, 26, 30],
-      abd: [0, 54, 27, 46],
-    }[k];
-  }
+// Designed for 1:1 with literal centres (540, 540); render it square.
+// ---------- the puppet: a paper boat ----------
+const HULL = [[-78, 0], [78, 0], [52, 44], [-52, 44]], SAIL = [[0, -84], [-46, 0], [46, 0]];
+const BOAT = { hull: polyPath(HULL), sail: polyPath(SAIL) };
+function drawBoat(c, mode, pose, seed) {
+  const ink = mode !== 'blueprint', line = ink ? PAL.ink : PAL.chalk;
+  c.save(); c.rotate(pose.tilt || 0); c.lineJoin = 'round'; c.lineCap = 'round';
+  if (ink) for (const [k, box] of [['sail', [-50, -88, 100, 92]], ['hull', [-82, -2, 164, 50]]]) { c.fillStyle = PAL.light; c.fill(BOAT[k]); surface(c, BOAT[k], box, { seed: seed + k.length, density: .16, color: PAL.inks[0], gap: 7, len: 12, alpha: .22, grain: 30, cell: 8 }); }
+  c.strokeStyle = line; c.lineWidth = ink ? 2.6 : 2.4; wob(c, HULL, 1.6, seed + 1, true); wob(c, SAIL, 1.6, seed + 2, true);
+  c.save(); c.setLineDash([7, 6]); c.lineWidth = 1.6; wob(c, [[0, -84], [0, 44]], 1, seed + 3); c.restore();
+  if (ink && pose.note) squiggleText(c, -44, 16, 88, 3, { seed: seed + 4, lineH: 9, amp: 2.5, width: 1, color: PAL.ink });
+  c.restore();
+}
 
-  // ---------- scene 0: fly on a peach ----------
-  function scenePeach(c, t, mode, seed = 1) {
-    const ink = mode === "ink";
-    c.setTransform(1, 0, 0, 1, 0, 0);
-    c.fillStyle = ink ? "#f3e6cf" : "#0b0d1f";
-    c.fillRect(0, 0, W, H);
-    if (ink) {
-      c.save();
-      c.translate(W / 2, H / 2);
-      c.rotate(-Math.PI / 4);
-      c.fillStyle = "rgba(255,238,200,.65)";
-      for (let i = -6; i <= 6; i++) c.fillRect(-1200, i * 160 - 40, 2400, 80);
-      c.restore();
-    } else {
-      grain(
-        c,
-        rectPath(0, 0, W, H),
-        [0, 0, W, H],
-        400,
-        "#ffffff",
-        0.5,
-        seed + 5,
-        1.6,
-      );
-    }
-    cam(c, 540, 520, lerp(1.15, 1.3, sm(0, 2.4, t)));
-    const peach = circPath(560, 980, 700),
-      pbox = [-140, 280, 1400, 1400];
-    if (ink) {
-      c.fillStyle = "#e79256";
-      c.fill(peach);
-      c.save();
-      c.clip(peach);
-      hatch(c, circPath(300, 560, 420), [-120, 140, 840, 840], {
-        angle: 0.8,
-        gap: 6,
-        len: 16,
-        jitter: 6,
-        color: "#fff1d6",
-        alpha: 0.6,
-        width: 1.4,
-        seed: seed + 2,
-      });
-      hatch(c, circPath(820, 1150, 620), [200, 530, 1240, 1240], {
-        angle: -0.6,
-        gap: 5,
-        len: 18,
-        jitter: 5,
-        color: "#c8473f",
-        alpha: 0.38,
-        width: 1.2,
-        seed: seed + 3,
-      });
-      hatch(c, circPath(860, 1200, 480), [380, 720, 960, 960], {
-        angle: 0.9,
-        gap: 6,
-        len: 20,
-        jitter: 5,
-        color: "#8e2a30",
-        alpha: 0.35,
-        width: 1.1,
-        seed: seed + 4,
-      });
-      c.restore();
-      grain(c, peach, pbox, 7000, "#7a2f16", 0.35, seed + 6, 2);
-      c.strokeStyle = "#2a1a2e";
-      c.lineWidth = 3;
-      c.globalAlpha = 0.85;
-      wob(c, ellPts(560, 980, 700, 700, 0, 120), 2.5, seed + 7, true);
-      c.globalAlpha = 1;
-      // dew drop
-      const d = circPath(215, 690, 15);
-      c.fillStyle = "rgba(255,244,225,.55)";
-      c.fill(d);
-      c.strokeStyle = "#2a1a2e";
-      c.lineWidth = 2;
-      c.stroke(d);
-      c.fillStyle = "rgba(255,255,255,.9)";
-      c.fill(ellPath(219, 694, 6, 4));
-      c.fill(circPath(209, 684, 2));
-    } else {
-      c.strokeStyle = "#cfd6ff";
-      c.lineWidth = 1.2;
-      c.globalAlpha = 0.7;
-      wob(c, ellPts(560, 980, 700, 700, 0, 120), 1.5, seed + 7, true);
-      c.globalAlpha = 1;
-    }
-    // the fly, big, sitting; idle twitch quantised to the 12 fps grid
-    const f = Math.floor(t * FPS_DRAW),
-      tw = rng(seed + f);
-    const twitch = f % 9 === 0 ? 0.18 : 0;
-    c.save();
-    c.translate(520, 430);
-    c.rotate(-0.17);
-    c.scale(1.9, 1.9);
-    if (ink) {
-      construction(c, 0, 10, 120, seed + 9, "rgba(70,100,255,.45)");
-    }
-    drawFly(
-      c,
-      mode,
-      { wing: 0.55 + twitch, flap: 0, legs: 0, walk: 0 },
-      seed + (BOIL ? f % 3 : 0),
-    );
-    c.restore();
-    if (ink) {
-      c.strokeStyle = "rgba(70,100,255,.5)";
-      c.lineWidth = 0.9;
-      cross(c, 300, 300, 8);
-      cross(c, 760, 640, 8);
-    }
-  }
-  // ink-blot transition: blueprint version of the scene grows out of the fly
-  function blotIn(c, t, drawInside) {
-    const p = sm(2.4, 3.2, t, easeOut),
-      R = lerp(0, 1000, p);
-    if (p <= 0) return;
-    drawInside(octx);
-    const r = rng(77);
-    const pts = [];
-    for (let i = 0; i < 72; i++) {
-      const a = (i / 72) * TAU;
-      pts.push([
-        540 + 20 + Math.cos(a) * R * (1 + (r() - 0.5) * 0.16),
-        380 + Math.sin(a) * R * (1 + (r() - 0.5) * 0.16),
-      ]);
-    }
-    c.setTransform(1, 0, 0, 1, 0, 0);
-    const path = new Path2D();
-    pts.forEach((q, i) =>
-      i ? path.lineTo(q[0], q[1]) : path.moveTo(q[0], q[1]),
-    );
-    path.closePath();
-    c.save();
-    c.clip(path);
-    c.drawImage(off, 0, 0, W, H);
-    c.restore();
-    // bristly fringe
-    c.save();
-    c.strokeStyle = "#0b0d1f";
-    c.lineWidth = 1.6;
-    c.globalAlpha = 0.9;
-    const rr = rng(78);
-    for (let i = 0; i < 420; i++) {
-      const a = rr() * TAU,
-        rad = R * (1 + (rr() - 0.5) * 0.14),
-        L = 10 + rr() * 38;
-      const x = 560 + Math.cos(a) * rad,
-        y = 380 + Math.sin(a) * rad;
-      c.beginPath();
-      c.moveTo(x, y);
-      c.lineTo(x + Math.cos(a) * L, y + Math.sin(a) * L);
-      c.stroke();
-    }
-    c.restore();
-  }
+// ---------- riso cards: each card draws three plates (blue, pink, yellow) in black on white ----------
+function risoCard(c, draw, o = {}) {
+  const inks = o.inks || PAL.inks.slice(0, 3), angles = o.angles || [.26, 1.31, 0], cell = o.cell || 7; paper(c);
+  inks.forEach((ink, k) => { const P = plate(), g = P.getContext('2d'); g.fillStyle = '#000'; g.strokeStyle = '#000'; g.lineWidth = 6; draw(g, k); printPlate(c, P, { cell, ink, angle: angles[k], seed: 30 + k }); });
+}
+const gray = v => `rgb(${255 - v * 255 | 0},${255 - v * 255 | 0},${255 - v * 255 | 0})`;   // plate coverage 0..1 -> grey
+const radial = (g, x, y, r0, r1, c0, c1) => { const gr = g.createRadialGradient(x, y, r0, x, y, r1); gr.addColorStop(0, c0); gr.addColorStop(1, c1); return gr; };
+const linear = (g, y0, y1, c0, c1) => { const gr = g.createLinearGradient(0, y0, 0, y1); gr.addColorStop(0, c0); gr.addColorStop(1, c1); return gr; };
+const CARDS = [
+  (c) => risoCard(c, (g, k) => { // sun over the sea
+    if (k === 0) { g.fillStyle = linear(g, 0, 600, gray(.02), gray(.35)); g.fillRect(0, 0, W, 600); g.fillStyle = '#fff'; g.beginPath(); g.arc(540, 430, 150, 0, TAU); g.fill(); g.fillStyle = gray(.85); g.fillRect(0, 600, W, 480); }
+    if (k === 1) { g.fillStyle = radial(g, 540, 430, 60, 520, gray(.9), gray(0)); g.fillRect(0, 0, W, 600); }
+    if (k === 2) { g.fillStyle = gray(.95); g.beginPath(); g.arc(540, 430, 150, 0, TAU); g.fill(); g.fillStyle = gray(.4); g.fillRect(0, 600, W, 480); } }),
+  (c) => risoCard(c, (g, k) => { // lighthouse
+    if (k === 0) { g.fillStyle = gray(.15); g.fillRect(0, 0, W, 700); g.fillStyle = '#fff'; g.fillRect(460, 240, 160, 470); g.fillStyle = gray(.8); g.fillRect(0, 700, W, 380); for (let i = 0; i < 5; i += 2) { g.fillStyle = gray(.9); g.fillRect(470, 250 + i * 90, 140, 90); } }
+    if (k === 1) { g.fillStyle = linear(g, 0, 700, gray(.55), gray(0)); g.fillRect(0, 0, W, 700); g.fillStyle = '#fff'; g.fillRect(460, 240, 160, 470); for (let i = 1; i < 5; i += 2) { g.fillStyle = gray(.9); g.fillRect(470, 250 + i * 90, 140, 90); } }
+    if (k === 2) { g.fillStyle = gray(.9); g.beginPath(); g.moveTo(540, 200); g.lineTo(1080, 40); g.lineTo(1080, 330); g.closePath(); g.fill(); g.beginPath(); g.moveTo(540, 200); g.lineTo(0, 60); g.lineTo(0, 320); g.closePath(); g.fill(); g.fillRect(500, 180, 80, 70); } }),
+  (c) => risoCard(c, (g, k) => { // big moon
+    if (k === 0) { g.fillStyle = gray(.9); g.fillRect(0, 0, W, H); g.fillStyle = '#fff'; g.beginPath(); g.arc(540, 420, 300, 0, TAU); g.fill(); }
+    if (k === 1) { g.fillStyle = radial(g, 540, 420, 300, 520, gray(.6), gray(0)); g.fillRect(0, 0, W, H); }
+    if (k === 2) { g.fillStyle = gray(.7); g.beginPath(); g.arc(540, 420, 300, 0, TAU); g.fill(); g.fillStyle = gray(.3); for (const [x, y, r] of [[470, 350, 40], [600, 480, 60], [520, 560, 25]]) { g.beginPath(); g.arc(x, y, r, 0, TAU); g.fill(); } } }),
+  (c) => risoCard(c, (g, k) => { // the wave
+    if (k === 0) { g.fillStyle = gray(.9); g.beginPath(); g.moveTo(0, 1080); g.lineTo(0, 500); g.bezierCurveTo(300, 380, 700, 120, 860, 260); g.bezierCurveTo(900, 330, 760, 400, 700, 380); g.bezierCurveTo(820, 480, 1080, 560, 1080, 700); g.lineTo(1080, 1080); g.closePath(); g.fill(); g.fillStyle = '#fff'; for (let i = 0; i < 12; i++) { g.beginPath(); g.arc(700 + i * 28, 300 + Math.sin(i) * 30, 14 + (i % 3) * 5, 0, TAU); g.fill(); } }
+    if (k === 1) { g.fillStyle = linear(g, 0, 700, gray(.8), gray(0)); g.fillRect(0, 0, W, 700); }
+    if (k === 2) { g.fillStyle = radial(g, 200, 160, 40, 300, gray(.9), gray(0)); g.fillRect(0, 0, W, 500); } }),
+  (c) => risoCard(c, (g, k) => { // city lights
+    const r = rng(5); if (k === 0) { g.fillStyle = gray(.85); g.fillRect(0, 0, W, H); g.fillStyle = gray(.98); for (let b = 0; b < 9; b++) g.fillRect(b * 120, 360 + (r() * 300 | 0), 110, 800); }
+    if (k === 2) { g.fillStyle = gray(.95); for (let b = 0; b < 9; b++) for (let y = 400; y < 1000; y += 46) for (let x = 0; x < 3; x++) if (r() < .55) g.fillRect(b * 120 + 14 + x * 32, y, 20, 26); g.beginPath(); g.arc(900, 160, 60, 0, TAU); g.fill(); }
+    if (k === 1) { g.fillStyle = radial(g, 900, 160, 60, 300, gray(.6), gray(0)); g.fillRect(600, 0, 480, 400); } }),
+  (c) => risoCard(c, (g, k) => { // mountains at dusk
+    const ridge = (y, a, w) => { g.beginPath(); g.moveTo(0, 1080); g.lineTo(0, y); for (let x = 0; x <= 1080; x += 20) g.lineTo(x, y - Math.abs(Math.sin(x / w) * a) - Math.sin(x / 37) * 12); g.lineTo(1080, 1080); g.closePath(); g.fill(); };
+    if (k === 0) { g.fillStyle = gray(.45); ridge(620, 220, 260); g.fillStyle = gray(.9); ridge(780, 160, 170); }
+    if (k === 1) { g.fillStyle = linear(g, 0, 700, gray(.1), gray(.75)); g.fillRect(0, 0, W, 700); g.fillStyle = '#fff'; ridge(620, 220, 260); }
+    if (k === 2) { g.fillStyle = gray(.95); g.beginPath(); g.arc(760, 420, 90, 0, TAU); g.fill(); g.fillStyle = linear(g, 300, 700, gray(0), gray(.7)); g.fillRect(0, 300, W, 400); } }),
+  (c) => risoCard(c, (g, k) => { // rain and a rainbow
+    const r = rng(9); if (k === 0) { g.fillStyle = gray(.8); g.fillRect(0, 700, W, 380); g.strokeStyle = gray(.7); g.lineWidth = 3; for (let i = 0; i < 160; i++) { const x = r() * W, y = r() * 700; g.beginPath(); g.moveTo(x, y); g.lineTo(x - 12, y + 60); g.stroke(); } g.lineWidth = 26; g.strokeStyle = gray(.9); g.beginPath(); g.arc(540, 760, 330, Math.PI, TAU); g.stroke(); }
+    if (k === 1) { g.lineWidth = 26; g.strokeStyle = gray(.9); g.beginPath(); g.arc(540, 760, 385, Math.PI, TAU); g.stroke(); }
+    if (k === 2) { g.lineWidth = 26; g.strokeStyle = gray(.9); g.beginPath(); g.arc(540, 760, 358, Math.PI, TAU); g.stroke(); g.fillStyle = linear(g, 0, 600, gray(.3), gray(0)); g.fillRect(0, 0, W, 600); } }),
+  (c) => risoCard(c, (g, k) => { // a ringed planet
+    const r = rng(11); if (k === 0) { g.fillStyle = gray(.92); g.fillRect(0, 0, W, H); g.fillStyle = '#fff'; g.beginPath(); g.arc(560, 520, 220, 0, TAU); g.fill(); for (let i = 0; i < 90; i++) { g.beginPath(); g.arc(r() * W, r() * H, 2 + r() * 3, 0, TAU); g.fill(); } g.strokeStyle = '#fff'; g.lineWidth = 22; g.beginPath(); g.ellipse(560, 520, 420, 110, -.35, 0, TAU); g.stroke(); }
+    if (k === 1) { g.fillStyle = radial(g, 480, 440, 40, 280, gray(.95), gray(.3)); g.beginPath(); g.arc(560, 520, 220, 0, TAU); g.fill(); g.strokeStyle = gray(.8); g.lineWidth = 18; g.beginPath(); g.ellipse(560, 520, 420, 110, -.35, 0, TAU); g.stroke(); }
+    if (k === 2) { g.fillStyle = gray(.6); g.beginPath(); g.ellipse(560, 520, 220, 60, 0, 0, TAU); g.fill(); } }),
+];
 
-  // ---------- scene 1: blueprint egg, cleavage, segmentation ----------
-  const DOUBLINGS = [1.1, 1.4, 1.7, 2.0, 2.3];
-  function sceneEgg(c, tau, seed = 11) {
-    c.setTransform(1, 0, 0, 1, 0, 0);
-    c.fillStyle = "#0b0d1f";
-    c.fillRect(0, 0, W, H);
-    grain(
-      c,
-      rectPath(0, 0, W, H),
-      [0, 0, W, H],
-      500,
-      "#ffffff",
-      0.45,
-      seed,
-      1.6,
-    );
-    const cx = 540,
-      cy = 560,
-      rot = -0.42,
-      rx = 205,
-      ry = 330;
-    cam(c, 540, 540, 1);
-    // 0: a lone spark
-    const s0 = sm(0, 0.3, tau);
-    aster(c, cx, cy, 4, 14, "#7fe7ff", seed + 1, s0);
-    // 1: construction
-    construction(
-      c,
-      cx,
-      cy,
-      300,
-      seed + 2,
-      "rgba(150,170,255,.7)",
-      sm(0.3, 0.7, tau),
-    );
-    // 2: egg outline draws itself
-    const pe = sm(0.7, 1.1, tau, easeOut);
-    if (pe > 0) {
-      c.save();
-      c.strokeStyle = "#e6ebff";
-      c.lineWidth = 3;
-      const per = TAU * Math.max(rx, ry) * 1.1;
-      c.setLineDash([per * pe, per]);
-      wob(c, ellPts(cx, cy, rx, ry, rot, 140), 1.5, seed + 3, true);
-      c.restore();
-    }
-    const egg = ellPath(cx, cy, rx, ry, rot);
-    // hex lattice inside
-    const pl = sm(1.0, 1.4, tau);
-    if (pl > 0) {
-      c.save();
-      c.clip(egg);
-      hexLattice(
-        c,
-        [cx - 360, cy - 360, 720, 720],
-        17,
-        "#8d97c9",
-        0.38 * pl,
-        0.9,
-      );
-      c.restore();
-    }
-    // polar bodies (two pale balloons on stalks at the top pole)
-    if (pe > 0.5) {
-      c.save();
-      c.strokeStyle = "#cfd6ff";
-      c.lineWidth = 2;
-      const tx = cx + Math.sin(rot) * ry * 0.96,
-        ty = cy - Math.cos(rot) * ry * 0.96;
-      for (const [dx, dy, r0] of [
-        [-70, -95, 22],
-        [-18, -118, 19],
-      ]) {
-        c.beginPath();
-        c.moveTo(tx, ty);
-        c.lineTo(tx + dx, ty + dy);
-        c.stroke();
-        c.fillStyle = "rgba(150,170,255,.6)";
-        c.fill(ellPath(tx + dx, ty + dy - 8, r0, r0 * 1.25, 0.4));
-      }
-      c.restore();
-    }
-    // nuclei doubling
-    const k = DOUBLINGS.filter((d) => tau >= d).length;
-    const n = Math.pow(2, k);
-    const rr = rng(seed + 4);
-    const pts = [];
-    for (let i = 0; i < 32; i++) {
-      let x, y;
-      do {
-        const u = (rr() - 0.5) * 2,
-          v = (rr() - 0.5) * 2;
-        x = u * rx * 0.85;
-        y = v * ry * 0.85;
-        if ((x * x) / (rx * rx) + (y * y) / (ry * ry) < 0.72) break;
-      } while (true);
-      pts.push([
-        cx + x * Math.cos(rot) - y * Math.sin(rot),
-        cy + x * Math.sin(rot) + y * Math.cos(rot),
-      ]);
-    }
-    const fadeN = 1 - sm(2.4, 2.8, tau);
-    if (tau >= 1.0 && fadeN > 0) {
-      c.save();
-      c.globalAlpha = fadeN;
-      const last = k ? DOUBLINGS[k - 1] : 1.0;
-      const g = sm(last, last + 0.25, tau, easeOut);
-      // spindle lines between sibling pairs right after a doubling
-      if (k && g < 1) {
-        c.strokeStyle = "rgba(127,231,255,.8)";
-        c.lineWidth = 1;
-        for (let i = 0; i < n; i += 2) {
-          c.beginPath();
-          c.moveTo(pts[i][0], pts[i][1]);
-          c.lineTo(pts[i + 1][0], pts[i + 1][1]);
-          c.stroke();
-        }
-      }
-      for (let i = 0; i < n; i++)
-        aster(
-          c,
-          pts[i][0],
-          pts[i][1],
-          k < 3 ? 7 : 5,
-          12,
-          "#7fe7ff",
-          seed + 10 + i,
-          0.6 + 0.4 * g,
-        );
-      c.restore();
-    }
-    // segmentation stripes
-    const nb = tau >= 2.4 ? Math.min(7, 1 + Math.floor((tau - 2.4) / 0.11)) : 0;
-    if (nb) {
-      c.save();
-      c.clip(egg);
-      c.translate(cx, cy);
-      c.rotate(rot);
-      for (let i = 0; i < nb; i++) {
-        const y = -ry * 0.7 + i * ((ry * 1.4) / 7);
-        c.fillStyle = "rgba(95,224,138,.85)";
-        c.fillRect(-rx - 20, y, rx * 2 + 40, 26);
-        grain(
-          c,
-          rectPath(-rx - 20, y, rx * 2 + 40, 26),
-          [-rx - 20, y, rx * 2 + 40, 26],
-          260,
-          "#ffffff",
-          0.55,
-          seed + 30 + i,
-          1.6,
-        );
-      }
-      c.restore();
-      c.save();
-      c.globalAlpha = 0.5;
-      c.strokeStyle = "#ffb3f0";
-      c.lineWidth = 1;
-      c.stroke(ellPath(cx, cy, rx * 1.06, ry * 1.03, rot));
-      c.restore();
-    }
-    // lineage tree, top right
-    if (k) {
-      c.save();
-      c.strokeStyle = "#cfd6ff";
-      c.fillStyle = "#cfd6ff";
-      c.lineWidth = 1;
-      const x0 = 930,
-        y0 = 80;
-      for (let d = 0; d <= k; d++) {
-        const cnt = Math.pow(2, d),
-          span = Math.min(220, cnt * 14);
-        for (let i = 0; i < cnt; i++) {
-          const x = x0 - span / 2 + (cnt === 1 ? 0 : (i * span) / (cnt - 1)),
-            y = y0 + d * 22;
-          c.beginPath();
-          c.arc(x, y, 2, 0, TAU);
-          c.fill();
-          if (d < k) {
-            const cc = cnt * 2,
-              sp = Math.min(220, cc * 14);
-            for (const j of [2 * i, 2 * i + 1]) {
-              const x2 = x0 - sp / 2 + (j * sp) / (cc - 1),
-                y2 = y0 + (d + 1) * 22;
-              c.beginPath();
-              c.moveTo(x, y);
-              c.lineTo(x2, y2);
-              c.stroke();
-            }
-          }
-        }
-      }
-      c.restore();
-    }
+// ---------- scenes ----------
+function sceneIntro(c, tau, i) {
+  usePalette('risoPop'); paper(c);
+  for (let b = 0; b * 4 / 12 <= tau; b++) { const r = (tau - b * 4 / 12) * 260; if (r > 8 && r < 900) crayon(c, ellPts(540, 540, r, r, 0, Math.max(48, r / 5 | 0)), b % 2 ? PAL.accents[0] : PAL.accents[1], 4, 40 + b, true); }
+  const p = sm(1.3, 2.0, tau, easeOut), R = 30 + p * 380;
+  if (p > 0) { iris(c, 540, 540, R, cc => CARDS[0](cc, 0, i)); c.strokeStyle = PAL.ink; c.lineWidth = 3; wob(c, ellPts(540, 540, R, R, 0, 100), 2, 41, true); }
+  seedDot(c, 540, 540, 10);
+}
+function sceneMontage(c, tau, i) { usePalette('risoPop'); montage(c, CARDS, tau, .25, i); seedDot(c, 540, 540, 10); }
+function sceneGallery(c, tau, i) {
+  usePalette('risoPop'); paper(c); dotScreen(c, rectPath(0, 0, W, H), [0, 0, W, H], { cell: 9, color: PAL.inks[2], density: .16, angle: .26, jitter: .3, seed: 50 });
+  badges(c, CARDS, { progress: sm(0, .5, tau, easeOut), scale: 1 - sm(1.0, 1.5, tau, easeIn) * .98, seed: 51 });
+  seedDot(c, 540, 540, 10);
+}
+function sceneSea(c, tau, i) {
+  usePalette('screenSea'); const nightMode = tau >= 1.5;
+  if (!nightMode) { paper(c);
+    const sun = circPath(760, 200, 70); c.fillStyle = PAL.fills[5]; c.fill(sun); dotScreen(c, sun, [690, 130, 140, 140], { cell: 6, color: PAL.blush, density: .35, seed: 60 });
+    const m = polyPath([[0, 520], [180, 380], [330, 470], [480, 360], [640, 470], [800, 390], [1080, 500], [1080, 560], [0, 560]]); c.fillStyle = PAL.fills[2]; c.fill(m); dotScreen(c, m, [0, 360, 1080, 200], { cell: 6, color: PAL.fills[1], density: .45, seed: 61 });
+    const band = rectPath(0, 545, W, 90); c.fillStyle = PAL.fills[5]; c.fill(band); dotScreen(c, band, [0, 545, W, 90], { cell: 6, color: PAL.fills[4], density: .6, seed: 62 });
+    const r = rng(63); c.strokeStyle = PAL.ink; c.lineWidth = 2; for (let k = 0; k < 90; k++) { const x = r() * W; wob(c, [[x, 640], [x + (r() - .5) * 20, 560 + r() * 40]], 2, 64 + k); }
+    const water = rectPath(0, 632, W, 450); c.fillStyle = PAL.fills[0]; c.fill(water); dotScreen(c, water, [0, 632, W, 450], { cell: 6, color: PAL.fills[7], density: .4, seed: 65 });
+  } else { night(c, PAL.night, 66); const moon = circPath(720, 170, 60); c.fillStyle = PAL.light; c.fill(moon); dotScreen(c, moon, [660, 110, 120, 120], { cell: 5, color: PAL.chalkDim, density: .3, seed: 67 });
+    const hill = polyPath([[600, 640], [780, 420], [1080, 380], [1080, 640]]); c.fillStyle = PAL.fills[7]; c.fill(hill); c.fillStyle = PAL.fills[7]; c.fillRect(830, 380, 60, 60); c.beginPath(); c.moveTo(825, 380); c.lineTo(860, 345); c.lineTo(895, 380); c.fill();
+    const glow = circPath(860, 420, 90); dotScreen(c, glow, [770, 330, 180, 180], { cell: 5, color: PAL.fills[5], density: (x, y) => 1 - Math.hypot(x - 860, y - 420) / 90, seed: 68 }); c.fillStyle = PAL.fills[5]; c.fillRect(850, 405, 20, 22);
+    const water = rectPath(0, 632, W, 450); c.fillStyle = PAL.fills[7]; c.fill(water); dotScreen(c, water, [0, 632, W, 450], { cell: 6, color: PAL.fills[0], density: .25, seed: 69 });
   }
+  const r2 = rng(70); c.strokeStyle = nightMode ? PAL.chalkDim : PAL.light; c.lineWidth = 2; for (let k = 0; k < 40; k++) { const x = r2() * W, y = 660 + r2() * 400, L = 20 + r2() * 60; c.beginPath(); c.moveTo(x, y); c.lineTo(x + L, y); c.stroke(); }
+  c.save(); c.translate(540, 700 + Math.round(Math.sin(tau * 3) * 4)); c.scale(1.1, 1.1); drawBoat(c, 'ink', { tilt: Math.sin(tau * 3) * .04, note: true }, 71); c.restore();
+}
+function scenePage(c, tau, i) {
+  usePalette('pencilMinimal'); paper(c);
+  squiggleText(c, 80, 90, 920, 6, { seed: 80, lineH: 26, amp: 5, color: PAL.shade });
+  handText(c, 'what i keep', 80, 300, { size: 26, ink: PAL.ink, ink2: null });
+  stickyNote(c, 720, 250, 120, 81, (c, s) => { c.strokeStyle = PAL.ink; c.lineWidth = 1; c.beginPath(); for (let a = 0; a < 22; a += .2) c.lineTo(s / 2 + Math.cos(a) * a * 1.9, s / 2 + Math.sin(a) * a * 1.9); c.stroke(); });
+  const y1 = lerp(1100, 620, sm(0, .8, tau)); section(c, y1, PAL.fills[0], 82);
+  if (y1 < 1000) { plant(c, 180, 1085, 120, 4, 83, { leaf: PAL.accents[0], flower: PAL.accents[1] }); plant(c, 900, 1085, 100, 4, 84, { leaf: PAL.accents[0], flower: PAL.accents[1] }); plant(c, 560, 1085, 90, 3, 85, { leaf: PAL.accents[0], flower: PAL.accents[1] }); }
+  const y2 = lerp(1100, 700, sm(1.4, 2.0, tau)); if (y2 < 1080) { section(c, y2, PAL.night, 86); for (let k = 1; k <= 5; k++) dottedArc(c, 540, 960, 40 + k * 42, PAL.chalkDim, 87 + k); dotBurst(c, 260, 940, 90, 12, PAL.accents[3], 93); dotBurst(c, 860, 900, 70, 10, PAL.accents[1], 94); c.save(); c.translate(540, 940); c.scale(.55, .55); drawBoat(c, 'blueprint', {}, 95); c.restore(); }
+  thread(c, 540, 96, PAL.accents[0]);
+}
+function sceneInk(c, tau, i) {
+  usePalette('paperInk'); paper(c); cam(c, 540, 520, lerp(1.1, 1.2, sm(0, 1.5, tau)));
+  const ground = circPath(560, 1000, 700), gbox = [-140, 300, 1400, 1400]; c.fillStyle = PAL.fills[0]; c.fill(ground);
+  c.save(); c.clip(ground); hatch(c, circPath(300, 580, 420), [-120, 160, 840, 840], { angle: .8, gap: 6, len: 16, jitter: 6, color: PAL.light, alpha: .6, width: 1.4, seed: 100 }); hatch(c, circPath(820, 1150, 620), [200, 530, 1240, 1240], { angle: -.6, gap: 5, len: 18, jitter: 5, color: PAL.blush, alpha: .38, seed: 101 }); c.restore();
+  grain(c, ground, gbox, 7000, PAL.shade, .35, 102, 2); c.strokeStyle = PAL.ink; c.lineWidth = 3; c.globalAlpha = .85; wob(c, ellPts(560, 1000, 700, 700, 0, 120), 2.5, 103, true); c.globalAlpha = 1;
+  c.save(); c.translate(540, 440); c.rotate(-.1); c.scale(1.9, 1.9); construction(c, 0, -10, 110, 104); drawBoat(c, 'ink', { note: true }, 105); scribble(c, BOAT.hull, 0, 22, { seed: 106, amp: 5 }); c.restore();
+  if (pulse(i, 9)) speedLines(c, 440, 470, Math.PI, 107 + i, 5, .4);
+}
+function sceneSignoff(c, tau, i) { usePalette('risoPop'); paper(c); ripples(c, 540, 540, [260, 330, 400], alpha(PAL.accents[1], .35), 110, 3); signOff(c, 'four looks', 'one core', { y: 500, size: 96, progressA: sm(0, .6, tau), progressB: sm(.6, 1.2, tau) }); }
 
-  // ---------- scene 2: flight over the kitchen floor ----------
-  const PATH = [
-    [300, 2000],
-    [1300, 1500],
-    [500, 700],
-    [1900, 450],
-  ];
-  function drawRoom(c, seed = 21) {
-    c.fillStyle = "#eef0e8";
-    c.fillRect(-200, -200, 2800, 2800);
-    for (let i = -1; i < 22; i++)
-      for (let j = -1; j < 22; j++) {
-        if ((i + j) % 2) {
-          c.fillStyle = "#a9c4c9";
-          c.fillRect(i * 120 + 8, j * 120 + 8, 104, 104);
-          grain(
-            c,
-            rectPath(i * 120 + 8, j * 120 + 8, 104, 104),
-            [i * 120 + 8, j * 120 + 8, 104, 104],
-            14,
-            "#5e8a91",
-            0.35,
-            seed + i * 31 + j,
-            2,
-          );
-        }
-      }
-    c.strokeStyle = "rgba(40,50,80,.35)";
-    c.lineWidth = 1;
-    for (let i = 0; i < 22; i++)
-      for (let j = 0; j < 22; j++) cross(c, i * 120, j * 120, 4);
-    // table with wood grain
-    c.fillStyle = "#d9b078";
-    c.fillRect(900, 250, 960, 760);
-    const r = rng(seed + 3);
-    c.strokeStyle = "rgba(120,70,20,.35)";
-    c.lineWidth = 1.2;
-    for (let i = 0; i < 40; i++) {
-      const y = 260 + r() * 740;
-      wob(
-        c,
-        [
-          [910, y],
-          [1200, y + (r() - 0.5) * 20],
-          [1500, y + (r() - 0.5) * 20],
-          [1850, y],
-        ],
-        3,
-        seed + 40 + i,
-      );
-    }
-    c.strokeStyle = "#2a1a2e";
-    c.lineWidth = 3;
-    wob(
-      c,
-      [
-        [900, 250],
-        [1860, 250],
-        [1860, 1010],
-        [900, 1010],
-      ],
-      2.5,
-      seed + 4,
-      true,
-    );
-    // plate with rings + fruit
-    const px = 1380,
-      py = 650;
-    c.fillStyle = "#f4f1e6";
-    c.fill(circPath(px, py, 230));
-    c.strokeStyle = "#7fb3a8";
-    c.lineWidth = 5;
-    c.stroke(circPath(px, py, 215));
-    c.strokeStyle = "#2a1a2e";
-    c.lineWidth = 2.5;
-    wob(c, ellPts(px, py, 230, 230, 0, 80), 2, seed + 5, true);
-    c.strokeStyle = "rgba(120,140,160,.6)";
-    c.lineWidth = 1;
-    for (let k = 1; k < 6; k++) c.stroke(circPath(px, py, 40 * k));
-    const orange = circPath(px - 60, py - 20, 85);
-    c.fillStyle = "#f0923c";
-    c.fill(orange);
-    hatch(c, orange, [px - 150, py - 110, 180, 180], {
-      angle: 1,
-      gap: 5,
-      len: 12,
-      jitter: 4,
-      color: "#b8501e",
-      alpha: 0.4,
-      seed: seed + 6,
-    });
-    c.strokeStyle = "#2a1a2e";
-    c.lineWidth = 2.5;
-    wob(c, ellPts(px - 60, py - 20, 85, 85), 2, seed + 7, true);
-    const gr = rng(seed + 8);
-    for (let i = 0; i < 9; i++) {
-      const gx = px + 80 + (gr() - 0.5) * 90,
-        gy = py + 70 + (gr() - 0.5) * 70;
-      const g = circPath(gx, gy, 22);
-      c.fillStyle = "#7b4b9a";
-      c.fill(g);
-      c.strokeStyle = "#2a1a2e";
-      c.lineWidth = 2;
-      c.stroke(g);
-      c.fillStyle = "rgba(255,255,255,.5)";
-      c.fill(circPath(gx - 6, gy - 7, 5));
-    }
-  }
-  function sceneFlight(c, tau, seed = 21) {
-    const u = sm(0, 2.2, tau, easeIO);
-    const p = bez(...PATH, u),
-      q = bez(...PATH, Math.min(1, u + 0.01));
-    const dir = Math.atan2(q[1] - p[1], q[0] - p[0]);
-    c.setTransform(1, 0, 0, 1, 0, 0);
-    c.fillStyle = "#eef0e8";
-    c.fillRect(0, 0, W, H);
-    cam(c, p[0] + Math.cos(dir) * 120, p[1] + Math.sin(dir) * 120, 1);
-    drawRoom(c, seed);
-    // shadow
-    c.save();
-    c.translate(p[0] + 45, p[1] + 70);
-    c.rotate(dir + Math.PI / 2);
-    const sh = ellPath(0, 0, 40, 90);
-    hatch(c, sh, [-50, -100, 100, 200], {
-      angle: 0.4,
-      gap: 4,
-      len: 12,
-      jitter: 3,
-      color: "#2a1a2e",
-      alpha: 0.35,
-      seed: seed + 9,
-    });
-    c.restore();
-    const f = Math.floor(tau * FPS_DRAW);
-    speedLines(c, p[0], p[1], dir, seed + f, 9, 0.55);
-    loops(c, p[0], p[1], dir, seed + 3, 0.7);
-    c.save();
-    c.translate(p[0], p[1]);
-    c.rotate(dir + Math.PI / 2);
-    drawFly(
-      c,
-      "ink",
-      { wing: 1.25, flap: 1, legs: 1, walk: 0 },
-      seed + (BOIL ? f % 3 : 0),
-    );
-    c.restore();
-  }
+// ---------- score ----------
+function score(ac, t0, dest) {
+  const master = ac.createGain(); master.gain.value = .6; master.connect(dest); const r = rng(7);
+  for (let t = 0; t < 2; t += 1 / 3) note(ac, master, pentHz(1, r() * 5 | 0), t0, t, .3, 'triangle', .15);
+  for (let k = 0; k < 8; k++) note(ac, master, pentHz(1 + (k % 2), k), t0, 2 + k * .25, .22, 'square', .07);
+  note(ac, master, pentHz(0, 0), t0, 4, 1.2, 'sine', .25); note(ac, master, pentHz(1, 2), t0, 4.5, .8, 'sine', .15);
+  for (let t = 5.5; t < 8; t += .5) note(ac, master, pentHz(0, r() * 5 | 0), t0, t, .6, 'triangle', .14);
+  for (let t = 8; t < 10.5; t += .75) note(ac, master, pentHz(-1, r() * 5 | 0), t0, t, .9, 'sine', .12);
+  for (let t = 10.5; t < 12; t += .5) note(ac, master, pentHz(0, r() * 5 | 0), t0, t, .6, 'triangle', .15);
+  note(ac, master, pentHz(0, 0), t0, 12, 1.4, 'sine', .25); note(ac, master, pentHz(0, 2), t0, 12.6, 1.0, 'sine', .18);
+}
 
-  // ---------- scene 3: what the fly sees (compound-eye mosaic) ----------
-  function sceneEye(c, tau, seed = 31) {
-    const u = sm(0, 0.7, tau);
-    // render the room once into an offscreen buffer
-    o2ctx.setTransform(1, 0, 0, 1, 0, 0);
-    o2ctx.fillStyle = "#eef0e8";
-    o2ctx.fillRect(0, 0, W, H);
-    cam(o2ctx, 1380, 650, 0.8);
-    drawRoom(o2ctx, 21);
-    const img = o2ctx.getImageData(0, 0, W, H).data;
-    const s = lerp(40, 13, u);
-    c.setTransform(1, 0, 0, 1, 0, 0);
-    c.fillStyle = "#0b0d1f";
-    c.fillRect(0, 0, W, H);
-    c.save();
-    c.clip(circPath(540, 540, 505));
-    hexCells([0, 0, W, H], s, (x, y) => {
-      const xi = clamp(Math.round(x), 0, W - 1),
-        yi = clamp(Math.round(y), 0, H - 1),
-        i = (yi * W + xi) * 4;
-      c.fillStyle = `rgb(${(img[i] * 0.92) | 0},${(img[i + 1] * 0.92) | 0},${(img[i + 2] * 0.95) | 0})`;
-      const hp = hexPath(x, y, s);
-      c.fill(hp);
-      c.strokeStyle = "rgba(20,25,60,.55)";
-      c.lineWidth = 1;
-      c.stroke(hp);
-    });
-    c.fillStyle = "rgba(120,160,255,.10)";
-    c.fillRect(0, 0, W, H);
-    c.strokeStyle = "rgba(20,30,90,.5)";
-    c.lineWidth = 1;
-    const r = rng(seed);
-    for (let i = 0; i < 10; i++) cross(c, r() * W, r() * H, 5);
-    c.restore();
-    c.strokeStyle = "#e6ebff";
-    c.lineWidth = 3;
-    wob(c, ellPts(540, 540, 505, 505, 0, 120), 2, seed + 1, true);
-  }
-
-  // ---------- timeline ----------
-  function scenePeachInk(c, tau, i) {
-    scenePeach(c, tau, "ink");
-    blotIn(c, tau, (cc) => scenePeach(cc, tau, "blueprint"));
-  }
-  // ---------- score (Web Audio; same timeline drives the music) ----------
-  function buildScore(ac, t0, dest) {
-    const master = ac.createGain();
-    master.gain.value = 0.6;
-    master.connect(dest || ac.destination);
-    const note = (f, t, d, type = "triangle", g = 0.25) => {
-      const o = ac.createOscillator(),
-        e = ac.createGain();
-      o.type = type;
-      o.frequency.value = f;
-      e.gain.setValueAtTime(0, t0 + t);
-      e.gain.linearRampToValueAtTime(g, t0 + t + 0.02);
-      e.gain.exponentialRampToValueAtTime(0.0008, t0 + t + d);
-      o.connect(e);
-      e.connect(master);
-      o.start(t0 + t);
-      o.stop(t0 + t + d + 0.05);
-    };
-    const pent = [0, 2, 4, 7, 9],
-      base = 220,
-      r = rng(7),
-      hz = (o, s) => base * Math.pow(2, o + pent[s] / 12);
-    for (let t = 0; t < 2.4; t += 0.5)
-      note(hz(0, Math.floor(r() * 5)), t, 0.7, "triangle", 0.2);
-    note(55, 2.4, 1.2, "sawtooth", 0.12);
-    note(110, 2.5, 1.0, "sine", 0.15);
-    DOUBLINGS.forEach((t, i) => note(hz(1, i % 5), 3.2 + t, 0.5, "sine", 0.22));
-    for (let i = 0; i < 7; i++)
-      note(hz(2, i % 5), 3.2 + 2.4 + i * 0.11, 0.25, "triangle", 0.14);
-    for (let t = 6.4; t < 8.6; t += 0.125)
-      note(hz(1, Math.floor(r() * 5)), t, 0.14, "square", 0.05);
-    for (let t = 6.4; t < 8.6; t += 0.5) note(hz(0, 0), t, 0.4, "sine", 0.12);
-    note(hz(-1, 0), 8.6, 1.0, "sine", 0.25);
-    note(hz(0, 2), 8.7, 0.9, "sine", 0.15);
-  }
-
-  defineFilm({
-    timeline: [
-      { name: "peach", dur: 3.2, fn: scenePeachInk },
-      { name: "egg", dur: 3.2, fn: (c, tau, i) => sceneEgg(c, tau) },
-      { name: "flight", dur: 2.2, fn: (c, tau, i) => sceneFlight(c, tau) },
-      { name: "eye", dur: 0.9, fn: (c, tau, i) => sceneEye(c, tau) },
-    ],
-    score: (ac, t0, dest) => buildScore(ac, t0, dest),
-  });
+defineFilm({ palette: 'risoPop', timeline: [
+  { name: 'intro',   dur: 2.0, fn: sceneIntro },
+  { name: 'montage', dur: 2.0, fn: sceneMontage },
+  { name: 'gallery', dur: 1.5, fn: sceneGallery },
+  { name: 'sea',     dur: 2.5, fn: sceneSea },
+  { name: 'page',    dur: 2.5, fn: scenePage },
+  { name: 'ink',     dur: 1.5, fn: sceneInk },
+  { name: 'signoff', dur: 1.5, fn: sceneSignoff },
+], score });
 </script>

@@ -1,240 +1,208 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Kinetic Wall Clock - A Million Times 120</title>
-    <style>
-        :root {
-            --bg-color: #0a0a0a;
-            --rod-color: #e0e0e0;
-            --rod-width: 3px;
-            --rod-length: 24px;
-            --grid-gap: 12px;
-        }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kinetic Wall Clock — A Million Times 120</title>
+<style>
+  :root{
+    --tick:  #8f8868;   /* muted tan for background rods   */
+    --cream: #f1e7c0;   /* warm cream for the digits       */
+  }
+  *{ box-sizing:border-box; }
+  html,body{ height:100%; }
+  body{
+    margin:0;
+    display:flex; align-items:center; justify-content:center;
+    overflow:hidden;
+    background: radial-gradient(circle at 50% 38%, #d3c185 0%, #b3a067 55%, #8f7f4c 100%);
+  }
 
-        body {
-            background-color: #1a1a1a;
-            margin: 0;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-            overflow: hidden;
-            font-family: sans-serif;
-        }
+  /* The dark panel + cream frame */
+  #panel{
+    display:grid;
+    gap:0;
+    padding:0;
+    border:16px solid #e9dda6;
+    border-radius:3px;
+    background:
+      radial-gradient(120% 120% at 50% 44%,
+        #20221a 0%, #15160f 42%, #0a0a07 72%, #050504 100%);
+    box-shadow:
+      0 28px 60px rgba(0,0,0,.55),
+      inset 0 0 70px  rgba(0,0,0,.75),
+      inset 0 0 150px rgba(0,0,0,.55);
+  }
 
-        /* The "Frame" of the installation */
-        #installation-frame {
-            background-color: var(--bg-color);
-            padding: 40px;
-            border: 12px solid #333;
-            box-shadow: 0 50px 100px rgba(0,0,0,0.8), inset 0 0 50px rgba(0,0,0,1);
-            border-radius: 4px;
-            position: relative;
-        }
-
-        #clock-grid {
-            display: grid;
-            /* Grid dimensions defined in JS, but gap here */
-            gap: var(--grid-gap);
-            position: relative;
-        }
-
-        .rod {
-            width: var(--rod-width);
-            height: var(--rod-length);
-            background-color: var(--rod-color);
-            border-radius: 2px;
-            transition: transform 0.8s cubic-bezier(0.4, 0, 0.2, 1);
-            transform-origin: center center;
-            box-shadow: 0 0 2px rgba(0,0,0,0.5);
-        }
-
-        /* Ambient glow effect */
-        .rod.active {
-            background-color: #fff;
-            box-shadow: 0 0 8px rgba(255,255,255,0.3);
-        }
-    </style>
+  /* One rod = one grid cell's content, centered in its cell.
+     Being shorter than the cell is what creates the dashed look. */
+  .rod{
+    width:  var(--rw, 4px);
+    height: var(--rl, 16px);
+    justify-self:center;
+    align-self:center;
+    background: var(--tick);
+    border-radius:2px;
+    opacity:0;                 /* revealed by JS (intro fade) */
+    will-change: transform, opacity;
+  }
+  /* Foreground (digit/colon) rods morph smoothly when the time changes */
+  .rod.fg{
+    transition:
+      transform .6s cubic-bezier(.4,0,.2,1),
+      opacity   .6s ease,
+      background-color .6s ease;
+  }
+</style>
 </head>
 <body>
+  <div id="panel"></div>
 
-    <div id="installation-frame">
-        <div id="clock-grid"></div>
-    </div>
+<script>
+(() => {
+  "use strict";
 
-    <script>
-        /**
-         * CONFIGURATION
-         */
-        const ROWS = 12;
-        const COLS = 32;
-        const DIGIT_WIDTH = 5;
-        const DIGIT_HEIGHT = 7;
-        const DIGIT_GAP = 2;
-        const START_X = 4;
-        const START_Y = 2;
+  /* ---------- grid geometry ---------- */
+  const COLS = 25, ROWS = 16;
+  const DIGIT_W = 4, DIGIT_H = 7;
 
-        const gridElement = document.getElementById('clock-grid');
-        const rods = [];
+  // origins (top-left cell) of the four digits, and the colon strip
+  const digitOrigins = [
+    { x:  2, y: 4 },  // H tens
+    { x:  7, y: 4 },  // H ones
+    { x: 14, y: 4 },  // M tens
+    { x: 19, y: 4 },  // M ones
+  ];
+  const colonX = 12, colonTop = 4, colonBot = 10, colonDots = [5, 9];
 
-        /**
-         * DIGIT DEFINITIONS
-         * Each number is a list of segments.
-         * Each segment: [startX, startY, endX, endY]
-         * Angles are calculated based on these segments.
-         */
-        const digitMap = {
-            0: [[0,0, 4,0], [4,0, 4,6], [4,6, 0,6], [0,6, 0,0]],
-            1: [[4,0, 4,6]],
-            2: [[0,0, 4,0], [4,0, 4,3], [4,3, 0,3], [0,3, 0,3], [0,3, 0,3], [0,3, 4,3], [4,3, 4,3], [0,3, 0,6], [0,6, 4,6]], // Correction handled in draw
-            // Simpler representation: Top, Mid, Bottom, Left-Top, Left-Bottom, Right-Top, Right-Bottom
-            // Let's use a segment-based approach for cleaner logic
-        };
+  const panel = document.getElementById('panel');
+  const cellRef = [];          // cellRef[y][x] = { el, isBg }
+  const bgRods  = [];          // { el, baseAngle, phase }
 
-        // 7-Segment Display logic: [top, mid, bottom, top-left, bottom-left, top-right, bottom-right]
-        const segments = {
-            0: [1, 0, 1, 1, 1, 1, 1],
-            1: [0, 0, 0, 0, 0, 1, 1],
-            2: [1, 1, 1, 1, 0, 0, 1],
-            3: [1, 1, 1, 0, 0, 1, 1],
-            4: [0, 1, 0, 1, 0, 1, 1],
-            5: [1, 1, 1, 1, 0, 0, 0], // Wait, 5 is Top, Top-Left, Mid, Bottom-Right, Bottom
-            '5_fixed': [1, 1, 1, 1, 0, 0, 1], // Re-mapping below
-        };
+  /* ---------- 7-segment definition ----------
+     index order: [top, topRight, bottomRight, bottom, bottomLeft, topLeft, middle] */
+  const SEG = {
+    0:[1,1,1,1,1,1,0], 1:[0,1,1,0,0,0,0], 2:[1,1,0,1,1,0,1],
+    3:[1,1,1,1,0,0,1], 4:[0,1,1,0,0,1,1], 5:[1,0,1,1,0,1,1],
+    6:[1,0,1,1,1,1,1], 7:[1,1,1,0,0,0,0], 8:[1,1,1,1,1,1,1],
+    9:[1,1,1,1,0,1,1],
+  };
+  // local cell lists for each of the 7 segments (4 wide x 7 tall)
+  const H = (row,c0,c1) => { const a=[]; for(let c=c0;c<=c1;c++) a.push({x:c,y:row,o:'h'}); return a; };
+  const V = (col,r0,r1) => { const a=[]; for(let r=r0;r<=r1;r++) a.push({x:col,y:r,o:'v'}); return a; };
+  const SEG_CELLS = [
+    H(0,0,3),  // top
+    V(3,1,3),  // top-right
+    V(3,4,6),  // bottom-right
+    H(6,0,3),  // bottom
+    V(0,4,6),  // bottom-left
+    V(0,1,3),  // top-left
+    H(3,0,3),  // middle
+  ];
+  function activeCells(val){
+    const on = SEG[val], out = [];
+    for(let i=0;i<7;i++) if(on[i]) out.push(...SEG_CELLS[i]);
+    return out;
+  }
 
-        // Redefined segment mapping for accuracy
-        const digitSegments = {
-            0: [1, 0, 1, 1, 1, 1, 1],
-            1: [0, 0, 0, 0, 0, 1, 1],
-            2: [1, 1, 1, 1, 0, 0, 1],
-            3: [1, 1, 1, 0, 0, 1, 1],
-            4: [0, 1, 0, 1, 0, 1, 1],
-            5: [1, 1, 1, 1, 0, 0, 0], // corrected in logic
-            6: [1, 1, 1, 1, 1, 0, 1],
-            7: [1, 0, 0, 0, 0, 1, 1],
-            8: [1, 1, 1, 1, 1, 1, 1],
-            9: [1, 1, 1, 1, 0, 1, 1],
-        };
-        // Custom override for 5 because it's tricky
-        digitSegments[5] = [1, 1, 1, 1, 0, 0, 1]; 
+  /* ---------- reserved cells (digit windows + colon) get no background ticks ---------- */
+  const reserved = Array.from({length:ROWS}, () => Array(COLS).fill(false));
+  digitOrigins.forEach(o => {
+    for(let ly=0; ly<DIGIT_H; ly++)
+      for(let lx=0; lx<DIGIT_W; lx++)
+        reserved[o.y+ly][o.x+lx] = true;
+  });
+  for(let r=colonTop; r<=colonBot; r++) reserved[r][colonX] = true;
 
-        /**
-         * INITIALIZE GRID
-         */
-        function init() {
-            gridElement.style.gridTemplateColumns = `repeat(${COLS}, var(--grid-gap)`;
-            gridElement.style.gridTemplateRows = `repeat(${ROWS}, var(--grid-gap)`;
+  /* ---------- build the rods ---------- */
+  const hash = (x,y) => { const s = Math.sin(x*12.9898 + y*78.233)*43758.5453; return s - Math.floor(s); };
 
-            for (let y = 0; y < ROWS; y++) {
-                for (let x = 0; x < COLS; x++) {
-                    const rod = document.createElement('div');
-                    rod.className = 'rod';
-                    gridElement.appendChild(rod);
-                    rods.push({ x, y, element: rod });
-                }
-            }
-            
-            update();
-            setInterval(update, 1000);
-            animateBackground();
-        }
+  for(let y=0; y<ROWS; y++){
+    cellRef[y] = [];
+    for(let x=0; x<COLS; x++){
+      const el = document.createElement('div');
+      el.className = 'rod';
+      const isBg = !reserved[y][x];
+      if(isBg){
+        const baseAngle = 45 + (hash(x,y) - 0.5) * 50;   // brushed diagonal field
+        const phase = x*0.6 + y*0.9;
+        bgRods.push({ el, baseAngle, phase });
+      } else {
+        el.classList.add('fg');
+      }
+      panel.appendChild(el);
+      cellRef[y][x] = { el, isBg };
+    }
+  }
 
-        function getRodAt(x, y) {
-            if (x < 0 || x >= COLS || y < 0 || y >= ROWS) return null;
-            return rods[y * COLS + x];
-        }
+  /* ---------- responsive sizing ---------- */
+  function layout(){
+    const pad = 16;
+    const maxW = window.innerWidth  * 0.94 - 2*pad;
+    const maxH = window.innerHeight * 0.92 - 2*pad;
+    let cell = Math.min(maxW/COLS, maxH/ROWS);
+    cell = Math.max(14, Math.min(34, cell));
+    panel.style.setProperty('--rw', Math.max(2, cell*0.16) + 'px');
+    panel.style.setProperty('--rl', (cell*0.8) + 'px');
+    panel.style.gridTemplateColumns = `repeat(${COLS}, ${cell}px)`;
+    panel.style.gridTemplateRows    = `repeat(${ROWS}, ${cell}px)`;
+  }
 
-        /**
-         * CORE LOGIC: Set angles for segments
-         */
-        function setSegment(x, y, length, orientation, isActive) {
-            for (let i = 0; i < length; i++) {
-                let rx = x, ry = y;
-                let angle = 0;
+  /* ---------- set a rod's visual state ---------- */
+  function setActive(cell, o){
+    const e = cell.el;
+    e.style.opacity = 1;
+    e.style.backgroundColor = 'var(--cream)';
+    e.style.boxShadow = '0 0 7px rgba(241,231,192,.55)';
+    e.style.transform = `rotate(${o === 'h' ? 90 : 0}deg)`;
+  }
+  function setInactive(cell){
+    const e = cell.el;
+    e.style.opacity = 0;
+    e.style.boxShadow = 'none';
+    e.style.transform = 'rotate(45deg)';   // rest angle (fades out diagonally)
+  }
 
-                if (orientation === 'h') {
-                    rx = x + i;
-                    angle = 90; // Horizontal
-                } else {
-                    ry = y + i;
-                    angle = 0; // Vertical
-                }
+  /* ---------- render the current time (accurate, via Date) ---------- */
+  const pad = n => String(n).padStart(2, '0');
+  function renderTime(){
+    const now = new Date();
+    const hh = pad(now.getHours());   // 24-hour, unambiguous
+    const mm = pad(now.getMinutes());
+    const digits = [hh[0], hh[1], mm[0], mm[1]];
 
-                const rod = getRodAt(rx, ry);
-                if (rod) {
-                    rod.element.style.transform = `rotate(${angle}deg)`;
-                    if (isActive) rod.element.classList.add('active');
-                    else rod.element.classList.remove('active');
-                }
-            }
-        }
+    // clear every digit window, then draw the active segments
+    digitOrigins.forEach((o, i) => {
+      for(let ly=0; ly<DIGIT_H; ly++)
+        for(let lx=0; lx<DIGIT_W; lx++)
+          setInactive(cellRef[o.y+ly][o.x+lx]);
+      for(const c of activeCells(digits[i]))
+        setActive(cellRef[o.y + c.y][o.x + c.x], c.o);
+    });
 
-        function drawDigit(val, offsetX, offsetY) {
-            const segs = digitSegments[val];
-            // top
-            setSegment(offsetX, offsetY, DIGIT_WIDTH, 'h', segs[0]);
-            // mid
-            setSegment(offsetX, offsetY + 3, DIGIT_WIDTH, 'h', segs[1]);
-            // bottom
-            setSegment(offsetX, offsetY + 6, DIGIT_WIDTH, 'h', segs[2]);
-            // top-left
-            setSegment(offsetX, offsetY, 3, 'v', segs[3]);
-            // bottom-left
-            setSegment(offsetX, offsetY + 3, 3, 'v', segs[4]);
-            // top-right
-            setSegment(offsetX + 3, offsetY, 3, 'v', segs[5]);
-            // bottom-right
-            setSegment(offsetX + 3, offsetY + 3, 3, 'v', segs[6]);
-        }
+    // colon
+    for(let r=colonTop; r<=colonBot; r++) setInactive(cellRef[r][colonX]);
+    for(const r of colonDots)            setActive(cellRef[r][colonX], 'v');
+  }
 
-        function update() {
-            const now = new Date();
-            const h = now.getHours().toString().padStart(2, '0');
-            const m = now.getMinutes().toString().padStart(2, '0');
-            const timeStr = `${h}:${m}`;
+  /* ---------- kinetic background: gentle diagonal drift ---------- */
+  function tick(t){
+    const time = t * 0.001;
+    for(const b of bgRods){
+      const a = b.baseAngle + Math.sin(time*0.5 + b.phase) * 14;
+      b.el.style.transform = `rotate(${a}deg)`;
+      b.el.style.opacity   = 0.32 + (Math.sin(time*0.7 + b.phase)*0.5 + 0.5) * 0.28;
+    }
+    requestAnimationFrame(tick);
+  }
 
-            // Reset all rods to non-active
-            rods.forEach(r => r.element.classList.remove('active'));
-
-            // Draw the 4 digits
-            drawDigit(h[0], START_X, START_Y);
-            drawDigit(h[1], START_X + DIGIT_WIDTH + DIGIT_GAP, START_Y);
-            
-            // Colon
-            setSegment(START_X + (DIGIT_WIDTH + DIGIT_GAP) * 2 - 1, START_Y + 2, 1, 'v', true);
-            setSegment(START_X + (DIGIT_WIDTH + DIGIT_GAP) * 2 - 1, START_Y + 4, 1, 'v', true);
-            
-            drawDigit(m[0], START_X + (DIGIT_WIDTH + DIGIT_GAP) * 2 + 1, START_Y);
-            drawDigit(m[1], START_X + (DIGIT_WIDTH + DIGIT_GAP) * 3 + 1, START_Y);
-        }
-
-        /**
-         * AMBIENT ANIMATION
-         * Rotates the background rods slightly to create the "kinetic" feel
-         */
-        function animateBackground() {
-            const time = Date.now() * 0.001;
-            
-            rods.forEach((rod, index) => {
-                // Only animate rods that aren't part of the current time display
-                // For simplicity, we apply a subtle rotation to everyone; 
-                // the "update()" function will override the active ones every second, 
-                // but the active ones have higher priority in the human eye.
-                
-                if (!rod.element.classList.contains('active')) {
-                    const noise = Math.sin(time + (rod.x * 0.3) + (rod.y * 0.5));
-                    const angle = noise * 45; // Rotate between -45 and 45 degrees
-                    rod.element.style.transform = `rotate(${angle}deg)`;
-                    rod.element.style.opacity = 0.3 + (noise * 0.2);
-                }
-            });
-            
-            requestAnimationFrame(animateBackground);
-        }
-
-        init();
-    </script>
+  /* ---------- boot ---------- */
+  layout();
+  renderTime();
+  requestAnimationFrame(tick);
+  setInterval(renderTime, 1000);
+  window.addEventListener('resize', layout);
+})();
+</script>
 </body>
 </html>

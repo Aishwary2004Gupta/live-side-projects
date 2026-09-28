@@ -1,216 +1,47 @@
 <!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>A Million Times - Kinetic Wall Clock</title>
-    <style>
-        :root {
-            --bg: #0a0a0a;
-            --rod-idle: #1e1e1e;
-            --rod-active: #e8e8e8;
-            --rod-second: #4caf50;
-            --w: 3px;
-            --h: 26px;
-            --gap: 13px;
-        }
-
-        body {
-            margin: 0;
-            background: #000;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-            overflow: hidden;
-        }
-
-        #frame {
-            background: var(--bg);
-            padding: 50px 70px;
-            border: 1px solid #1a1a1a;
-            box-shadow: 
-                0 0 80px rgba(0,0,0,0.9),
-                inset 0 0 120px rgba(0,0,0,1);
-            border-radius: 3px;
-        }
-
-        #grid {
-            display: grid;
-            gap: var(--gap);
-        }
-
-        .rod {
-            width: var(--w);
-            height: var(--h);
-            background: var(--rod-idle);
-            border-radius: 1px;
-            transform: rotate(90deg);
-            transform-origin: center center;
-            will-change: transform, background-color;
-            transition: background-color 0.4s ease;
-        }
-
-        .rod.active {
-            background: var(--rod-active);
-            box-shadow: 0 0 6px rgba(255,255,255,0.25);
-        }
-
-        .rod.second {
-            background: var(--rod-second);
-            box-shadow: 0 0 10px rgba(76,175,80,0.6);
-        }
-    </style>
-</head>
-<body>
-
-<div id="frame">
-    <div id="grid"></div>
-</div>
-
-<script>
-/**
- * A Million Times - Kinetic Wall Clock Recreation
- * Pure HTML / CSS / Vanilla JS
- */
-
-const ROWS = 12;
-const COLS = 30;
-const START_Y = 2;
-const START_X = 1;
-const GAP = 2; // grid cells between digits
-
-const grid = document.getElementById('grid');
-const rods = [];
-
-/* 5x7 Digit masks: ' ' = idle, 'h' = horizontal rod, 'v' = vertical rod */
-const DIGITS = {
-    0: ["hhhhh","v   v","v   v","     ","v   v","v   v","hhhhh"],
-    1: ["    v","    v","    v","    v","    v","    v","    v"],
-    2: ["hhhhh","    v","    v","hhhhh","v    ","v    ","hhhhh"],
-    3: ["hhhhh","    v","    v","hhhhh","    v","    v","hhhhh"],
-    4: ["v   v","v   v","v   v","hhhhh","    v","    v","    v"],
-    5: ["hhhhh","v    ","v    ","hhhhh","    v","    v","hhhhh"],
-    6: ["hhhhh","v    ","v    ","hhhhh","v   v","v   v","hhhhh"],
-    7: ["hhhhh","    v","    v","    v","    v","    v","    v"],
-    8: ["hhhhh","v   v","v   v","hhhhh","v   v","v   v","hhhhh"],
-    9: ["hhhhh","v   v","v   v","hhhhh","    v","    v","    v"]
-};
-
-function init() {
-    grid.style.gridTemplateColumns = `repeat(${COLS}, auto)`;
-    grid.style.gridTemplateRows = `repeat(${ROWS}, auto)`;
-
-    for (let y = 0; y < ROWS; y++) {
-        for (let x = 0; x < COLS; x++) {
-            const el = document.createElement('div');
-            el.className = 'rod';
-            grid.appendChild(el);
-            rods.push({
-                x, y, el,
-                angle: 90,
-                target: 90,
-                active: false,
-                isSecond: false
-            });
-        }
-    }
-    requestAnimationFrame(animate);
-}
-
-function rodAt(x, y) {
-    if (x < 0 || x >= COLS || y < 0 || y >= ROWS) return null;
-    return rods[y * COLS + x];
-}
-
-function setRod(x, y, active, orient) {
-    const r = rodAt(x, y);
-    if (!r) return;
-    r.active = active;
-    if (active) {
-        r.target = orient === 'v' ? 0 : 90;
-        if (!r.isSecond) r.el.classList.add('active');
-    } else {
-        if (!r.isSecond) r.el.classList.remove('active');
-    }
-}
-
-function drawDigit(num, ox, oy) {
-    const mask = DIGITS[num];
-    for (let r = 0; r < 7; r++) {
-        for (let c = 0; c < 5; c++) {
-            const ch = mask[r][c];
-            if (ch === ' ') {
-                setRod(ox + c, oy + r, false);
-            } else {
-                setRod(ox + c, oy + r, true, ch);
+<html>
+    <head>
+        <meta charset="utf-8">
+        <title>A million times clock</title>
+        <style media="screen">
+            html {
+                height: 100%;
             }
-        }
-    }
-}
-
-function drawColon(ox, oy) {
-    setRod(ox, oy + 2, true, 'v');
-    setRod(ox, oy + 4, true, 'v');
-}
-
-function updateTime() {
-    const now = new Date();
-    const h = String(now.getHours()).padStart(2, '0');
-    const m = String(now.getMinutes()).padStart(2, '0');
-    const s = now.getSeconds();
-
-    // Reset all non-second rods
-    rods.forEach(r => {
-        if (!r.isSecond) {
-            r.active = false;
-            r.el.classList.remove('active');
-        }
-    });
-
-    // Draw HH:MM
-    drawDigit(h[0], START_X, START_Y);
-    drawDigit(h[1], START_X + 7, START_Y);
-
-    drawColon(START_X + 14, START_Y);
-
-    drawDigit(m[0], START_X + 16, START_Y);
-    drawDigit(m[1], START_X + 23, START_Y);
-
-    // Update green second hand (top right)
-    const sec = rodAt(COLS - 3, 0);
-    if (sec) {
-        sec.isSecond = true;
-        sec.active = true;
-        sec.target = 90 + (s / 60) * 360; // full sweep over 60s
-        sec.el.classList.add('second');
-    }
-}
-
-function animate() {
-    const t = Date.now() * 0.001;
-
-    updateTime();
-
-    rods.forEach(r => {
-        let target = r.target;
-
-        // Ambient kinetic wave for idle rods
-        if (!r.active && !r.isSecond) {
-            const phase = (r.x + r.y) * 0.22;
-            target = 90 + Math.sin(t + phase) * 45;
-        }
-
-        // Smooth physical interpolation
-        r.angle += (target - r.angle) * 0.08;
-        r.el.style.transform = `rotate(${r.angle}deg)`;
-    });
-
-    requestAnimationFrame(animate);
-}
-
-init();
-</script>
-
-</body>
+            body {
+                background-color: #f7f7f7;
+                min-height: 100%;
+                margin: 0;
+                display: flex;
+                flex-direction: column;
+                font-family: monospace;
+            }
+            .header {
+                text-align: center;
+                padding: 20px;
+            }
+            .footer {
+                text-align: center;
+                padding: 20px;
+            }
+            .clock {
+                flex-grow: 1;
+                position: relative;
+                display: flex;
+                align-items: center;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="header">
+            <h1>A million times clock</h1>
+            <p>
+                <!-- <a href="https://www.youtube.com/watch?v=L88DlFh8aWM" target="_blank">Watch the original</a> &middot; -->
+                <!-- <a href="https://github.com/malte-wessel/a-million-times" target="_blank">View source on github</a> -->
+            </p>
+        </div>
+        <div class="clock"></div>
+        <div class="footer">
+            <!-- Made by <a href="https://twitter.com/drbreak" target="_blank">Malte Wessel</a> -->
+        </div>
+    <script type="text/javascript" src="main.bundle.js"></script></body>
 </html>

@@ -38,13 +38,14 @@ pane.addBinding(settings, 'theme', { options: Object.fromEntries(Object.keys(the
     .on('change', ({ value }) => applyTheme(value));
 
 function fitClock() {
-    const clock = document.querySelector('.clock > div');
-    if (!clock) return;
+    const clockArea = document.querySelector('.clock');
+    const clock = clockArea?.firstElementChild;
+    if (!clock || !clockArea) return;
 
     const scale = Math.min(
         1,
-        (window.innerWidth - 32) / clock.offsetWidth,
-        (window.innerHeight - 100) / clock.offsetHeight
+        (clockArea.clientWidth - 24) / clock.offsetWidth,
+        (clockArea.clientHeight - 24) / clock.offsetHeight
     );
     root.style.setProperty('--clock-scale', Math.max(0, scale));
 }

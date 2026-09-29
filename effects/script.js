@@ -992,6 +992,12 @@ const MODELS = {
         rotation: { x: -0.1, y: Math.PI + 0.6, z: 0 },
         position: { x: 0, y: -1.2, z: 0 },
     },
+    try: {
+        url: "https://raw.githubusercontent.com/Aishwary2004Gupta/models/cloud/f1_helmet_austrian_gp_2018.glb",
+        scale: 25,
+        rotation: { x: -0.1, y: Math.PI + 0.6, z: 0 },
+        position: { x: 0, y: -1.2, z: 0 },
+    },
 };
 
 function disposeModel(root) {

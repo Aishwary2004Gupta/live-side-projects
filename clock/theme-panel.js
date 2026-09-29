@@ -1,15 +1,15 @@
 import { Pane } from 'https://cdn.jsdelivr.net/npm/tweakpane@4.0.5/+esm';
 
 const themes = {
-    'Reference gold': {
-        ink: '#d4a82e',
-        dial: 'none',
-        hand: 'brightness(0) saturate(100%) invert(77%) sepia(80%) saturate(680%) hue-rotate(359deg) brightness(102%) contrast(101%)'
-    },
     'Clean paper': {
         ink: '#272820',
         dial: 'none',
         hand: 'none'
+    },
+    'Reference gold': {
+        ink: '#d4a82e',
+        dial: 'none',
+        hand: 'brightness(0) saturate(100%) invert(77%) sepia(80%) saturate(680%) hue-rotate(359deg) brightness(102%) contrast(101%)'
     },
     'Arctic blue': {
         ink: '#168bd2',
@@ -23,7 +23,7 @@ const themes = {
     }
 };
 
-const settings = { theme: 'Reference gold' };
+const settings = { theme: 'Clean paper' };
 const root = document.documentElement;
 const pane = new Pane({ container: document.querySelector('#theme-panel'), title: 'Clock themes' });
 

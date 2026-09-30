@@ -52,4 +52,5 @@ function fitClock() {
 
 applyTheme(settings.theme);
 fitClock();
-window.addEventListener('resize', fitClock);
+const clockArea = document.querySelector('.clock');
+if (clockArea) new ResizeObserver(fitClock).observe(clockArea);

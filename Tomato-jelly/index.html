@@ -1,1281 +1,568 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <meta
-      name="viewport"
-      content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"
-    />
-    <title>Tomato Jelly — Material Studies No. 010</title>
-    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
-    <style>
-      :root {
-        --bg: #faf9f6;
-        --ink: #1a1613;
-        --mute: #6b625a;
-        --line: #2a241f26;
-      }
-      * {
-        box-sizing: border-box;
-      }
-      html,
-      body {
-        margin: 0;
-        padding: 0;
-        height: 100%;
-        background: var(--bg);
-        color: var(--ink);
-        font-family: "Inter", "Helvetica Neue", system-ui, sans-serif;
-        -webkit-font-smoothing: antialiased;
-        overflow: hidden;
-        touch-action: none;
-      }
-      canvas {
-        position: fixed;
-        inset: 0;
-        width: 100%;
-        height: 100%;
-        display: block;
-        touch-action: none;
-        cursor: grab;
-      }
-      canvas.grabbing {
-        cursor: grabbing;
-      }
-      .ui {
-        position: fixed;
-        inset: 0;
-        pointer-events: none;
-        z-index: 5;
-      }
-      .ui > * {
-        pointer-events: none;
-      }
-      .ui .panel {
-        pointer-events: auto;
-      }
-      header {
-        position: absolute;
-        top: 22px;
-        left: 28px;
-        right: 28px;
-        display: flex;
-        justify-content: space-between;
-        align-items: flex-start;
-        gap: 20px;
-      }
-      .eyebrow {
-        font-size: 10.5px;
-        letter-spacing: 0.28em;
-        color: var(--mute);
-        text-transform: uppercase;
-        font-weight: 500;
-      }
-      .status {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        font-size: 10.5px;
-        letter-spacing: 0.28em;
-        text-transform: uppercase;
-        color: var(--mute);
-      }
-      .dot {
-        width: 7px;
-        height: 7px;
-        border-radius: 50%;
-        background: #4a9b5a;
-        animation: pulse 1.8s infinite;
-      }
-      @keyframes pulse {
-        0%,
-        100% {
-          opacity: 1;
-        }
-        50% {
-          opacity: 0.35;
-        }
-      }
-      @media (prefers-reduced-motion: reduce) {
-        .dot {
-          animation: none;
-        }
-      }
-      .title {
-        position: absolute;
-        left: 28px;
-        top: 56px;
-        max-width: 420px;
-      }
-      .title h1 {
-        font-family: "Playfair Display", "Didot", "Times New Roman", serif;
-        font-style: italic;
-        font-weight: 500;
-        font-size: clamp(44px, 6.4vw, 92px);
-        line-height: 0.95;
-        margin: 12px 0 10px;
-        letter-spacing: -0.015em;
-      }
-      .title p {
-        font-size: 13px;
-        color: var(--mute);
-        margin: 0;
-        letter-spacing: 0.02em;
-        max-width: 300px;
-        line-height: 1.5;
-      }
-      .panel {
-        position: absolute;
-        right: 24px;
-        top: 54px;
-        width: 262px;
-        max-height: calc(100vh - 76px);
-        overflow-y: auto;
-        padding: 14px 16px 10px;
-        background: #faf5ec;
-        border: 1px solid var(--line);
-        border-radius: 2px;
-        font-size: 11px;
-        letter-spacing: 0.04em;
-        color: var(--ink);
-      }
-      .panel h3 {
-        font-size: 9.5px;
-        letter-spacing: 0.3em;
-        text-transform: uppercase;
-        color: var(--mute);
-        margin: 0 0 7px;
-        font-weight: 600;
-      }
-      .panel section {
-        margin-bottom: 10px;
-        padding-bottom: 10px;
-        border-bottom: 1px solid var(--line);
-      }
-      .panel section:last-child {
-        border-bottom: none;
-        margin-bottom: 0;
-        padding-bottom: 0;
-      }
-      .palette,
-      .toggles {
-        display: flex;
-        gap: 5px;
-      }
-      button {
-        font: inherit;
-        color: var(--ink);
-      }
-      .palette button,
-      .toggles button,
-      .btns button {
-        padding: 7px 4px;
-        border: 1px solid var(--line);
-        background: transparent;
-        cursor: pointer;
-        font-size: 9.5px;
-        letter-spacing: 0.16em;
-        text-transform: uppercase;
-        border-radius: 1px;
-        transition:
-          background 0.2s,
-          color 0.2s;
-      }
-      .palette button,
-      .toggles button {
-        flex: 1;
-      }
-      .palette button:hover,
-      .toggles button:hover,
-      .btns button:hover {
-        background: #efe6d6;
-      }
-      .palette button.on,
-      .toggles button.on {
-        background: var(--ink);
-        color: #faf5ec;
-        border-color: var(--ink);
-      }
-      .btns {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 5px;
-      }
-      .slider {
-        display: flex;
-        flex-direction: column;
-        gap: 4px;
-        margin-bottom: 7px;
-      }
-      .slider:last-child {
-        margin-bottom: 0;
-      }
-      .slider label {
-        display: flex;
-        justify-content: space-between;
-        font-size: 10px;
-        color: var(--mute);
-        letter-spacing: 0.1em;
-        text-transform: uppercase;
-      }
-      .slider label span {
-        color: var(--ink);
-        font-variant-numeric: tabular-nums;
-      }
-      input[type="range"] {
-        appearance: none;
-        -webkit-appearance: none;
-        width: 100%;
-        height: 2px;
-        background: #2a241f40;
-        outline: none;
-        margin: 6px 0;
-      }
-      input[type="range"]::-webkit-slider-thumb {
-        appearance: none;
-        -webkit-appearance: none;
-        width: 14px;
-        height: 14px;
-        background: var(--ink);
-        border-radius: 50%;
-        cursor: pointer;
-      }
-      input[type="range"]::-moz-range-thumb {
-        width: 14px;
-        height: 14px;
-        background: var(--ink);
-        border-radius: 50%;
-        cursor: pointer;
-        border: none;
-      }
-      .readout {
-        display: flex;
-        justify-content: space-between;
-        align-items: baseline;
-        font-size: 10.5px;
-        padding: 2px 0;
-        color: var(--mute);
-        letter-spacing: 0.06em;
-      }
-      .readout b {
-        color: var(--ink);
-        font-weight: 500;
-        font-variant-numeric: tabular-nums;
-      }
-      .readout small {
-        font-size: 8.5px;
-        color: #9a9088;
-        letter-spacing: 0.06em;
-        text-transform: uppercase;
-        display: block;
-        margin-top: 1px;
-      }
-      footer {
-        position: absolute;
-        bottom: 18px;
-        left: 28px;
-        max-width: 440px;
-        font-size: 10px;
-        letter-spacing: 0.18em;
-        text-transform: uppercase;
-        color: var(--mute);
-        line-height: 1.7;
-      }
-      .err {
-        position: fixed;
-        inset: 0;
-        display: none;
-        align-items: center;
-        justify-content: center;
-        background: var(--bg);
-        z-index: 100;
-        padding: 30px;
-      }
-      .err .box {
-        max-width: 520px;
-        padding: 34px;
-        border: 1px solid var(--line);
-        background: #faf5ec;
-      }
-      .err h2 {
-        font-family: "Playfair Display", serif;
-        font-style: italic;
-        font-weight: 500;
-        font-size: 32px;
-        margin: 10px 0 12px;
-      }
-      .err p {
-        font-size: 13px;
-        line-height: 1.6;
-        color: var(--mute);
-        margin: 0 0 10px;
-      }
-      .toast {
-        position: fixed;
-        left: 28px;
-        bottom: 70px;
-        max-width: 420px;
-        background: #faf5ec;
-        border: 1px solid #b4332a;
-        padding: 10px 12px;
-        font-size: 11px;
-        display: none;
-        z-index: 50;
-        pointer-events: none;
-      }
-      @media (max-width: 780px) {
-        .panel {
-          top: auto;
-          bottom: 10px;
-          right: 10px;
-          left: 10px;
-          width: auto;
-          max-height: 38vh;
-        }
-        .title {
-          top: 46px;
-          left: 14px;
-          max-width: 80%;
-        }
-        .title h1 {
-          font-size: 42px;
-          margin: 6px 0 4px;
-        }
-        .title .eyebrow:first-child {
-          display: none;
-        }
-        footer {
-          display: none;
-        }
-        header {
-          left: 14px;
-          right: 14px;
-          top: 14px;
-        }
-      }
-    </style>
-  </head>
-  <body>
-    <canvas id="c"></canvas>
-    <div class="ui">
-      <header>
-        <div class="eyebrow">Material Studies / No. 010</div>
-        <div class="status">
-          <span class="dot"></span><span>WebGPU · Live</span>
-        </div>
-      </header>
-      <div class="title">
-        <div class="eyebrow">Edible Simulations</div>
-        <h1>Tomato Jelly.</h1>
-        <p>A little tang. A little wobble.</p>
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
+<title>Tomato Jelly — Material Studies No. 010</title>
+<style>
+  :root{ --bg:#faf9f6; --ink:#1a1613; --mute:#6b625a; --line:#2a241f26; }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;height:100%;background:var(--bg);color:var(--ink);
+    font-family:"Inter","Helvetica Neue",system-ui,sans-serif;-webkit-font-smoothing:antialiased;overflow:hidden;touch-action:none}
+  canvas{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:none;cursor:grab}
+  canvas.grabbing{cursor:grabbing}
+  canvas.knife{cursor:crosshair}
+  .ui{position:fixed;inset:0;pointer-events:none;z-index:5}
+  .ui > *{pointer-events:none}
+  .ui .panel{pointer-events:auto}
+  header{position:absolute;top:22px;left:28px;right:28px;display:flex;justify-content:space-between;align-items:flex-start;gap:20px}
+  .eyebrow{font-size:10.5px;letter-spacing:.28em;color:var(--mute);text-transform:uppercase;font-weight:500}
+  .status{display:flex;align-items:center;gap:8px;font-size:10.5px;letter-spacing:.28em;text-transform:uppercase;color:var(--mute)}
+  .dot{width:7px;height:7px;border-radius:50%;background:#4a9b5a;animation:pulse 1.8s infinite}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+  @media (prefers-reduced-motion:reduce){.dot{animation:none}}
+  .title{position:absolute;left:28px;top:56px;max-width:420px}
+  .title h1{font-family:"Playfair Display","Didot","Times New Roman",serif;font-style:italic;font-weight:500;
+    font-size:clamp(44px,6.4vw,92px);line-height:.95;margin:12px 0 10px;letter-spacing:-.015em}
+  .title p{font-size:13px;color:var(--mute);margin:0;letter-spacing:.02em;max-width:300px;line-height:1.5}
+  .panel{position:absolute;right:24px;top:54px;width:262px;max-height:calc(100vh - 76px);overflow-y:auto;padding:14px 16px 10px;
+    background:#faf5ec;border:1px solid var(--line);border-radius:2px;font-size:11px;letter-spacing:.04em;color:var(--ink)}
+  .panel h3{font-size:9.5px;letter-spacing:.3em;text-transform:uppercase;color:var(--mute);margin:0 0 7px;font-weight:600}
+  .panel section{margin-bottom:10px;padding-bottom:10px;border-bottom:1px solid var(--line)}
+  .panel section:last-child{border-bottom:none;margin-bottom:0;padding-bottom:0}
+  .palette,.toggles{display:flex;gap:5px}
+  button{font:inherit;color:var(--ink)}
+  .palette button,.toggles button,.btns button{padding:7px 4px;border:1px solid var(--line);background:transparent;cursor:pointer;
+    font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;border-radius:1px;transition:background .2s,color .2s}
+  .palette button,.toggles button{flex:1}
+  .palette button:hover,.toggles button:hover,.btns button:hover{background:#efe6d6}
+  .palette button.on,.toggles button.on{background:var(--ink);color:#faf5ec;border-color:var(--ink)}
+  .btns{display:grid;grid-template-columns:1fr 1fr;gap:5px}
+  .slider{display:flex;flex-direction:column;gap:4px;margin-bottom:7px}
+  .slider:last-child{margin-bottom:0}
+  .slider label{display:flex;justify-content:space-between;font-size:10px;color:var(--mute);letter-spacing:.1em;text-transform:uppercase}
+  .slider label span{color:var(--ink);font-variant-numeric:tabular-nums}
+  input[type=range]{appearance:none;-webkit-appearance:none;width:100%;height:2px;background:#2a241f40;outline:none;margin:6px 0}
+  input[type=range]::-webkit-slider-thumb{appearance:none;-webkit-appearance:none;width:14px;height:14px;background:var(--ink);border-radius:50%;cursor:pointer}
+  input[type=range]::-moz-range-thumb{width:14px;height:14px;background:var(--ink);border-radius:50%;cursor:pointer;border:none}
+  .readout{display:flex;justify-content:space-between;align-items:baseline;font-size:10.5px;padding:2px 0;color:var(--mute);letter-spacing:.06em}
+  .readout b{color:var(--ink);font-weight:500;font-variant-numeric:tabular-nums}
+  .readout small{font-size:8.5px;color:#9a9088;letter-spacing:.06em;text-transform:uppercase;display:block;margin-top:1px}
+  footer{position:absolute;bottom:18px;left:28px;max-width:460px;font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--mute);line-height:1.7}
+  .err{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:var(--bg);z-index:100;padding:30px}
+  .err .box{max-width:520px;padding:34px;border:1px solid var(--line);background:#faf5ec}
+  .err h2{font-family:"Playfair Display",serif;font-style:italic;font-weight:500;font-size:32px;margin:10px 0 12px}
+  .err p{font-size:13px;line-height:1.6;color:var(--mute);margin:0 0 10px}
+  .toast{position:fixed;left:28px;bottom:70px;max-width:420px;background:#faf5ec;border:1px solid #b4332a;padding:10px 12px;font-size:11px;display:none;z-index:50;pointer-events:none}
+  .note{position:fixed;left:50%;bottom:66px;transform:translateX(-50%);background:#faf5ec;border:1px solid var(--line);padding:8px 14px;
+    font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--mute);display:none;z-index:50;pointer-events:none;white-space:nowrap}
+  @media (max-width:780px){
+    .panel{top:auto;bottom:10px;right:10px;left:10px;width:auto;max-height:38vh}
+    .title{top:46px;left:14px;max-width:80%}
+    .title h1{font-size:42px;margin:6px 0 4px}
+    .title .eyebrow:first-child{display:none}
+    footer{display:none}
+    header{left:14px;right:14px;top:14px}
+    .note{bottom:calc(38vh + 24px)}
+  }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div class="ui">
+  <header>
+    <div class="eyebrow">Material Studies / No. 010</div>
+    <div class="status"><span class="dot"></span><span>WebGPU · Live</span></div>
+  </header>
+  <div class="title">
+    <div class="eyebrow">Edible Simulations</div>
+    <h1>Tomato Jelly.</h1>
+    <p>A little tang. A little wobble.</p>
+  </div>
+  <div class="panel">
+    <section>
+      <h3>Tool</h3>
+      <div class="palette" id="tool">
+        <button data-t="grab" class="on">Grab</button>
+        <button data-t="knife">Knife (K)</button>
       </div>
-      <div class="panel">
-        <section>
-          <h3>Shape</h3>
-          <div class="palette" id="shp">
-            <button data-s="slice" class="on">Slice</button>
-            <button data-s="half">Half</button>
-            <button data-s="wedge">Wedge</button>
-          </div>
-        </section>
-        <section>
-          <h3>Palette</h3>
-          <div class="palette" id="pal">
-            <button data-p="0" class="on">Classic</button>
-            <button data-p="1">Golden</button>
-            <button data-p="2">Mint</button>
-          </div>
-        </section>
-        <section>
-          <h3>Material</h3>
-          <div class="slider">
-            <label>Firmness <span id="firmV">0.55</span></label>
-            <input
-              type="range"
-              min="0.1"
-              max="1"
-              step="0.01"
-              value="0.55"
-              id="firm"
-              aria-label="Firmness"
-            />
-          </div>
-          <div class="slider">
-            <label>Internal damping <span id="dampV">0.22</span></label>
-            <input
-              type="range"
-              min="0"
-              max="0.6"
-              step="0.01"
-              value="0.22"
-              id="damp"
-              aria-label="Internal damping"
-            />
-          </div>
-        </section>
-        <section>
-          <h3>Actions</h3>
-          <div class="btns">
-            <button id="nudge">Nudge</button>
-            <button id="reset">Reset</button>
-            <button id="rview">Reset view</button>
-            <button id="pause">Pause</button>
-          </div>
-        </section>
-        <section>
-          <h3>Display</h3>
-          <div class="toggles">
-            <button id="slow">¼ speed</button>
-            <button id="mesh">Show mesh</button>
-          </div>
-        </section>
-        <section>
-          <h3>Readouts</h3>
-          <div class="readout">
-            <span>Mass<small>jelly-grams (jg), illustrative</small></span
-            ><b id="mass">—</b>
-          </div>
-          <div class="readout">
-            <span>Rel. volume<small>current ÷ rest volume</small></span
-            ><b id="vol">—</b>
-          </div>
-          <div class="readout">
-            <span>Kinetic<small>wobble-joules (wJ), illustrative</small></span
-            ><b id="ke">—</b>
-          </div>
-        </section>
+    </section>
+    <section>
+      <h3>Shape</h3>
+      <div class="palette" id="shp">
+        <button data-s="slice" class="on">Slice</button>
+        <button data-s="half">Half</button>
+        <button data-s="wedge">Wedge</button>
       </div>
-      <footer>
-        Drag the jelly to stretch · Right-drag or empty space orbits · Scroll
-        zooms · Shift pulls depth · Two fingers pinch · WGSL · XPBD · Procedural
-      </footer>
-    </div>
-    <div id="toast" class="toast"></div>
-    <div id="err" class="err">
-      <div class="box">
-        <div class="eyebrow">Material Studies / No. 010</div>
-        <h2>WebGPU unavailable.</h2>
-        <p id="errMsg">
-          This piece renders with native WebGPU, which this browser does not
-          expose.
-        </p>
-        <p>
-          Try a recent desktop Chrome or Edge (113+), Safari 26+, or a recent
-          Android Chrome. Check that hardware acceleration is enabled.
-        </p>
+    </section>
+    <section>
+      <h3>Palette</h3>
+      <div class="palette" id="pal">
+        <button data-p="0" class="on">Classic</button>
+        <button data-p="1">Golden</button>
+        <button data-p="2">Mint</button>
       </div>
-    </div>
+    </section>
+    <section>
+      <h3>Material</h3>
+      <div class="slider"><label>Firmness <span id="firmV">0.55</span></label>
+        <input type="range" min="0.1" max="1" step="0.01" value="0.55" id="firm" aria-label="Firmness"/></div>
+      <div class="slider"><label>Internal damping <span id="dampV">0.22</span></label>
+        <input type="range" min="0" max="0.6" step="0.01" value="0.22" id="damp" aria-label="Internal damping"/></div>
+    </section>
+    <section>
+      <h3>Actions</h3>
+      <div class="btns">
+        <button id="nudge">Nudge</button>
+        <button id="reset">Reset</button>
+        <button id="rview">Reset view</button>
+        <button id="pause">Pause</button>
+      </div>
+    </section>
+    <section>
+      <h3>Display</h3>
+      <div class="toggles">
+        <button id="slow">¼ speed</button>
+        <button id="mesh">Show mesh</button>
+      </div>
+    </section>
+    <section>
+      <h3>Readouts</h3>
+      <div class="readout"><span>Pieces<small>separate soft bodies · cap 12</small></span><b id="pieces">1 / 12</b></div>
+      <div class="readout"><span>Mass<small>jelly-grams (jg), illustrative</small></span><b id="mass">—</b></div>
+      <div class="readout"><span>Rel. volume<small>current ÷ rest volume</small></span><b id="vol">—</b></div>
+      <div class="readout"><span>Kinetic<small>wobble-joules (wJ), illustrative</small></span><b id="ke">—</b></div>
+    </section>
+  </div>
+  <footer>Grab: drag the jelly · Knife (K): drag a line across it to cut · Right-drag or empty space orbits · Scroll zooms · Shift pulls depth · Two fingers pinch</footer>
+</div>
+<div id="toast" class="toast"></div>
+<div id="note" class="note"></div>
+<div id="err" class="err"><div class="box">
+  <div class="eyebrow">Material Studies / No. 010</div>
+  <h2>WebGPU unavailable.</h2>
+  <p id="errMsg">This piece renders with native WebGPU, which this browser does not expose.</p>
+  <p>Try a recent desktop Chrome or Edge (113+), Safari 26+, or a recent Android Chrome. Check that hardware acceleration is enabled.</p>
+</div></div>
 
-    <script type="module">
-      "use strict";
-      const $ = (id) => document.getElementById(id);
-      function fail(m) {
-        $("errMsg").textContent = m;
-        $("err").style.display = "flex";
-        throw new Error(m);
+<script type="module">
+'use strict';
+const $=id=>document.getElementById(id);
+function fail(m){$('errMsg').textContent=m;$('err').style.display='flex';throw new Error(m)}
+function toast(m){const t=$('toast');t.textContent=m;t.style.display='block';console.error(m)}
+let noteT=null;
+function note(m){const n=$('note');n.textContent=m;n.style.display='block';clearTimeout(noteT);noteT=setTimeout(()=>{n.style.display='none'},2400)}
+if(!navigator.gpu) fail("navigator.gpu is not available in this browser.");
+
+const canvas=$('c');
+let adapter=null,device=null;
+try{
+  adapter=await navigator.gpu.requestAdapter({powerPreference:'high-performance'})||await navigator.gpu.requestAdapter();
+  if(!adapter) fail("No suitable GPU adapter was found.");
+  device=await adapter.requestDevice();
+}catch(e){ fail("Could not initialise WebGPU: "+e.message) }
+device.addEventListener?.('uncapturederror',e=>toast('WebGPU error: '+e.error.message));
+device.lost.then(i=>toast('GPU device lost: '+i.message));
+const ctx=canvas.getContext('webgpu');
+const fmt=navigator.gpu.getPreferredCanvasFormat();
+ctx.configure({device,format:fmt,alphaMode:'opaque'});
+const DEPTH='depth24plus';
+const DPR=Math.min(window.devicePixelRatio||1,2);
+
+// ================= math =================
+const vsub=(a,b)=>({x:a.x-b.x,y:a.y-b.y,z:a.z-b.z});
+const vdot=(a,b)=>a.x*b.x+a.y*b.y+a.z*b.z;
+const vcross=(a,b)=>({x:a.y*b.z-a.z*b.y,y:a.z*b.x-a.x*b.z,z:a.x*b.y-a.y*b.x});
+const vlen=a=>Math.hypot(a.x,a.y,a.z);
+const vnorm=a=>{const l=vlen(a)||1;return{x:a.x/l,y:a.y/l,z:a.z/l}};
+function mMul(a,b){const o=new Float32Array(16);for(let i=0;i<4;i++)for(let j=0;j<4;j++){let s=0;for(let k=0;k<4;k++)s+=a[k*4+j]*b[i*4+k];o[i*4+j]=s}return o}
+const FOV=Math.PI*0.26, TANH=Math.tan(FOV/2);
+function mPersp(asp,n,f,ox,oy){const t=1/TANH;const o=new Float32Array(16);
+  o[0]=t/asp;o[5]=t;o[8]=-ox;o[9]=-oy;o[10]=f/(n-f);o[11]=-1;o[14]=(f*n)/(n-f);return o}
+function mLookAt(eye,c,up){
+  const f=vnorm(vsub(c,eye));const s=vnorm(vcross(f,up));const u=vcross(s,f);
+  const o=new Float32Array(16);
+  o[0]=s.x;o[4]=s.y;o[8]=s.z;o[12]=-vdot(s,eye);
+  o[1]=u.x;o[5]=u.y;o[9]=u.z;o[13]=-vdot(u,eye);
+  o[2]=-f.x;o[6]=-f.y;o[10]=-f.z;o[14]=vdot(f,eye);
+  o[15]=1;return o;
+}
+function mat4Inv(a){
+  const o=new Float32Array(16);
+  o[0] = a[5]*a[10]*a[15]-a[5]*a[11]*a[14]-a[9]*a[6]*a[15]+a[9]*a[7]*a[14]+a[13]*a[6]*a[11]-a[13]*a[7]*a[10];
+  o[4] =-a[4]*a[10]*a[15]+a[4]*a[11]*a[14]+a[8]*a[6]*a[15]-a[8]*a[7]*a[14]-a[12]*a[6]*a[11]+a[12]*a[7]*a[10];
+  o[8] = a[4]*a[9] *a[15]-a[4]*a[11]*a[13]-a[8]*a[5]*a[15]+a[8]*a[7]*a[13]+a[12]*a[5]*a[11]-a[12]*a[7]*a[9];
+  o[12]=-a[4]*a[9] *a[14]+a[4]*a[10]*a[13]+a[8]*a[5]*a[14]-a[8]*a[6]*a[13]-a[12]*a[5]*a[10]+a[12]*a[6]*a[9];
+  o[1] =-a[1]*a[10]*a[15]+a[1]*a[11]*a[14]+a[9]*a[2]*a[15]-a[9]*a[3]*a[14]-a[13]*a[2]*a[11]+a[13]*a[3]*a[10];
+  o[5] = a[0]*a[10]*a[15]-a[0]*a[11]*a[14]-a[8]*a[2]*a[15]+a[8]*a[3]*a[14]+a[12]*a[2]*a[11]-a[12]*a[3]*a[10];
+  o[9] =-a[0]*a[9] *a[15]+a[0]*a[11]*a[13]+a[8]*a[1]*a[15]-a[8]*a[3]*a[13]-a[12]*a[1]*a[11]+a[12]*a[3]*a[9];
+  o[13]= a[0]*a[9] *a[14]-a[0]*a[10]*a[13]-a[8]*a[1]*a[14]+a[8]*a[2]*a[13]+a[12]*a[1]*a[10]-a[12]*a[2]*a[9];
+  o[2] = a[1]*a[6] *a[15]-a[1]*a[7] *a[14]-a[5]*a[2]*a[15]+a[5]*a[3]*a[14]+a[13]*a[2]*a[7]-a[13]*a[3]*a[6];
+  o[6] =-a[0]*a[6] *a[15]+a[0]*a[7] *a[14]+a[4]*a[2]*a[15]-a[4]*a[3]*a[14]-a[12]*a[2]*a[7]+a[12]*a[3]*a[6];
+  o[10]= a[0]*a[5] *a[15]-a[0]*a[7] *a[13]-a[4]*a[1]*a[15]+a[4]*a[3]*a[13]+a[12]*a[1]*a[7]-a[12]*a[3]*a[5];
+  o[14]=-a[0]*a[5] *a[14]+a[0]*a[6] *a[13]+a[4]*a[1]*a[14]-a[4]*a[2]*a[13]-a[12]*a[1]*a[6]+a[12]*a[2]*a[5];
+  o[3] =-a[1]*a[6] *a[11]+a[1]*a[7] *a[10]+a[5]*a[2]*a[11]-a[5]*a[3]*a[10]-a[9] *a[2]*a[7]+a[9] *a[3]*a[6];
+  o[7] = a[0]*a[6] *a[11]-a[0]*a[7] *a[10]-a[4]*a[2]*a[11]+a[4]*a[3]*a[10]+a[8] *a[2]*a[7]-a[8] *a[3]*a[6];
+  o[11]=-a[0]*a[5] *a[11]+a[0]*a[7] *a[9] +a[4]*a[1]*a[11]-a[4]*a[3]*a[9] -a[8] *a[1]*a[7]+a[8] *a[3]*a[5];
+  o[15]= a[0]*a[5] *a[10]-a[0]*a[6] *a[9] -a[4]*a[1]*a[10]+a[4]*a[2]*a[9] +a[8] *a[1]*a[6]-a[8] *a[2]*a[5];
+  let det=a[0]*o[0]+a[1]*o[4]+a[2]*o[8]+a[3]*o[12];
+  if(Math.abs(det)<1e-12) return null;
+  det=1/det; for(let i=0;i<16;i++) o[i]*=det;
+  return o;
+}
+function mulVec(m,v){
+  return [m[0]*v[0]+m[4]*v[1]+m[8]*v[2]+m[12]*v[3], m[1]*v[0]+m[5]*v[1]+m[9]*v[2]+m[13]*v[3],
+          m[2]*v[0]+m[6]*v[1]+m[10]*v[2]+m[14]*v[3], m[3]*v[0]+m[7]*v[1]+m[11]*v[2]+m[15]*v[3]];
+}
+const rnd=n=>{const x=Math.sin(n*127.1+311.7)*43758.5453;return x-Math.floor(x)};
+
+// ================= Shapes =================
+// All shapes share one tomato-centred frame (fruit centre = origin, rind radius = 1) so the
+// procedural anatomy is identical for every cut, including knife cuts through the thickness.
+const SHAPES={
+  slice:{R:2.05,THK:0.50,NK:4,n:4,off:-Math.PI/4,halfW:2.05,W:4.1,H:4.1},
+  half :{R:2.50,THK:0.63,NK:4,n:4,off:-Math.PI/4,halfW:2.5,W:4.6,H:4.6},
+  wedge:{R:2.48,THK:0.70,NK:5,n:4,off:-Math.PI/4,halfW:1.65,W:3.3,H:2.48},
+};
+const KEYM=65536, MAX_PIECES=12;
+let bodyCounter=0;
+
+function buildShape(kind){
+  const cfg=SHAPES[kind],R=cfg.R,THK=cfg.THK,NK=cfg.NK;
+  const sq=(u,v)=>{const s=Math.max(Math.abs(u),Math.abs(v)),rho=Math.hypot(u,v);return rho<1e-9?[0,0]:[u*s/rho,v*s/rho]};
+  let NI,NJ,cy,nominal,tomato;
+  if(kind==='slice'){
+    NI=16;NJ=16;cy=0;
+    nominal=(i,j)=>{const p=sq(i/NI*2-1,j/NJ*2-1);return[p[0]*R,p[1]*R]};
+    tomato=(i,j)=>{const p=nominal(i,j);return[p[0]/R,p[1]/R]};
+  }else if(kind==='half'){
+    NI=16;NJ=8;cy=-0.20*R;
+    nominal=(i,j)=>{const p=sq(i/NI*2-1,j/NJ);
+      const x=p[0]*R,y=-p[1]*R,c=Math.SQRT1_2;
+      return[(x-y)*c,(x+y)*c]};
+    tomato=(i,j)=>{const p=nominal(i,j);return[p[0]/R,p[1]/R]};
+  }else{
+    NI=10;NJ=14;cy=-0.62*R;
+    const R0=0.15*R,HALF=0.73;
+    const polar=(i,j)=>({r:R0+(R-R0)*(i/NI),a:(j/NJ*2-1)*HALF});
+    nominal=(i,j)=>{const {r,a}=polar(i,j);const w=Math.pow(1-i/NI,3);
+      const bulge=0.65*R0*(1-(a/HALF)*(a/HALF))*w;
+      return[r*Math.sin(a),-r*Math.cos(a)+bulge]};
+    tomato=(i,j)=>{const {r,a}=polar(i,j);return[r*Math.sin(a)/R,-r*Math.cos(a)/R]};
+  }
+  const inset=(x,y,tz)=>{const e=Math.abs(tz-0.5)*2,s=1-0.055*e*e*e;return[x*s,cy+(y-cy)*s]};
+
+  const nodes=[],grid=[];
+  for(let i=0;i<=NI;i++){grid.push([]);for(let j=0;j<=NJ;j++)grid[i].push(new Array(NK+1))}
+  for(let i=0;i<=NI;i++)for(let j=0;j<=NJ;j++){
+    const [nx,ny]=nominal(i,j),[tx,ty]=tomato(i,j);
+    for(let k=0;k<=NK;k++){
+      const tz=k/NK,[x,y]=inset(nx,ny,tz),z=(tz-0.5)*THK;
+      grid[i][j][k]=nodes.length;
+      nodes.push({rest:{x,y,z},pos:{x,y,z},prev:{x,y,z},vel:{x:0,y:0,z:0},vpre:0,tx,ty,tz,rind:Math.hypot(tx,ty)>0.9,cutMask:0});
+    }
+  }
+  let mn=1e9,mx=-1e9;
+  for(const n of nodes){mn=Math.min(mn,n.rest.y);mx=Math.max(mx,n.rest.y)}
+  const shift=-(mn+mx)/2;
+  for(const n of nodes){n.rest.y+=shift;n.pos.y+=shift;n.prev.y+=shift}
+  const fy=mn+shift;
+
+  const quads=[];
+  for(let i=0;i<NI;i++)for(let j=0;j<NJ;j++)for(let k=0;k<NK;k++){
+    const g=(a,b,c)=>grid[i+a][j+b][k+c];
+    if(((i+j+k)&1)===0){
+      quads.push([g(0,0,0),g(1,0,0),g(0,1,0),g(0,0,1)],[g(1,1,0),g(1,0,0),g(0,1,0),g(1,1,1)],
+        [g(1,0,1),g(1,0,0),g(0,0,1),g(1,1,1)],[g(0,1,1),g(0,1,0),g(0,0,1),g(1,1,1)],[g(1,0,0),g(0,1,0),g(0,0,1),g(1,1,1)]);
+    }else{
+      quads.push([g(1,0,0),g(0,0,0),g(1,1,0),g(1,0,1)],[g(0,1,0),g(0,0,0),g(1,1,0),g(0,1,1)],
+        [g(0,0,1),g(0,0,0),g(1,0,1),g(0,1,1)],[g(1,1,1),g(1,1,0),g(1,0,1),g(0,1,1)],[g(0,0,0),g(1,1,0),g(1,0,1),g(0,1,1)]);
+    }
+  }
+
+  // ----- 52 seed placements (26 per face), grouped inside the four locules -----
+  const specs=[];
+  const nl=cfg.n,off=cfg.off,sLoc=Math.PI*2/nl;
+  const inDomain=(tx,ty)=>kind==='slice'?true:(kind==='half'?(ty-tx)*Math.SQRT1_2<-0.085:Math.abs(Math.atan2(tx,-ty))<0.73-0.06);
+  for(let f=0;f<2;f++){
+    const lists=[];
+    for(let li=0;li<nl;li++){
+      const arr=[],c=off+(li+0.5)*sLoc;
+      for(let j=0;j<14;j++)for(const sd of [-1,1]){
+        const id=f*1000+li*60+j*3+sd+1;
+        const r=0.55+0.23*(j/13)+(rnd(id+0.5)-0.5)*0.016;
+        const th=c+sd*(0.33+0.45*(j%3)/2)*(0.37+0.08*(r-0.55));
+        const tx=r*Math.cos(th),ty=r*Math.sin(th);
+        if(inDomain(tx,ty))arr.push({tx,ty,id});
       }
-      function toast(m) {
-        const t = $("toast");
-        t.textContent = m;
-        t.style.display = "block";
-        console.error(m);
+      lists.push(arr);
+    }
+    const total=lists.reduce((s,a)=>s+a.length,0)||1;
+    const quota=lists.map(a=>Math.floor(26*a.length/total));
+    let rem=26-quota.reduce((s,q)=>s+q,0);
+    const order=lists.map((a,i)=>i).sort((a,b)=>lists[b].length-lists[a].length);
+    for(let g=0;rem>0&&g<200;g++){const li=order[g%order.length];if(quota[li]<lists[li].length){quota[li]++;rem--}}
+    for(let li=0;li<nl;li++){
+      const arr=lists[li],q=quota[li];
+      for(let m=0;m<q;m++){
+        const idx=Math.min(arr.length-1,Math.floor((m+rnd(f*91+li*17+m*3.3))*arr.length/q));
+        const cd=arr[idx];
+        const [ix,iy]=inset(cd.tx*R,cd.ty*R,f===0?1:0);
+        const rl=Math.hypot(cd.tx,cd.ty)||1;
+        specs.push({P:{x:ix,y:iy+shift,z:(f===0?1:-1)*THK/2},dir:{x:-cd.tx/rl,y:-cd.ty/rl,z:0},nrm:{x:0,y:0,z:f===0?1:-1},
+          size:(0.071+0.022*rnd(cd.id+9.1))*(R/2.35)});
       }
-      if (!navigator.gpu)
-        fail("navigator.gpu is not available in this browser.");
+    }
+  }
+  let k=0;while(specs.length<52&&specs.length>0){specs.push(specs[k%specs.length]);k++}
+  while(specs.length>52)specs.pop();
+  return {nodes,quads,seedSpecs:specs,floorY:fy,cfg};
+}
 
-      const canvas = $("c");
-      let adapter = null,
-        device = null;
-      try {
-        adapter =
-          (await navigator.gpu.requestAdapter({
-            powerPreference: "high-performance",
-          })) || (await navigator.gpu.requestAdapter());
-        if (!adapter) fail("No suitable GPU adapter was found.");
-        device = await adapter.requestDevice();
-      } catch (e) {
-        fail("Could not initialise WebGPU: " + e.message);
+// Build a simulation body from node objects and tetrahedron index quads:
+// compacts orphan nodes, drops degenerate tets, derives edges, the boundary surface and cut-face bookkeeping.
+function finalizeBody(nodesIn,quads){
+  const used=new Uint8Array(nodesIn.length),tets0=[];
+  for(const q of quads){
+    const pa=nodesIn[q[0]].rest,pb=nodesIn[q[1]].rest,pc=nodesIn[q[2]].rest,pd=nodesIn[q[3]].rest;
+    const vol=vdot(vcross(vsub(pb,pa),vsub(pc,pa)),vsub(pd,pa))/6;
+    if(Math.abs(vol)<1e-9)continue;
+    tets0.push([q[0],q[1],q[2],q[3],Math.abs(vol),vol<0?-1:1]);
+    used[q[0]]=1;used[q[1]]=1;used[q[2]]=1;used[q[3]]=1;
+  }
+  const map=new Int32Array(nodesIn.length).fill(-1),nodes=[];
+  for(let i=0;i<nodesIn.length;i++)if(used[i]){map[i]=nodes.length;nodes.push(nodesIn[i])}
+  const tets=tets0.map(t=>({a:map[t[0]],b:map[t[1]],c:map[t[2]],d:map[t[3]],restVol:t[4],sign:t[5]}));
+  let restVolTotal=0;for(const t of tets)restVolTotal+=t.restVol;
+  const edgeMap=new Map();
+  const addE=(a,b)=>{const lo=Math.min(a,b),hi=Math.max(a,b),key=lo*KEYM+hi;
+    if(!edgeMap.has(key)){const A=nodes[lo],B=nodes[hi];edgeMap.set(key,{a:lo,b:hi,rest:vlen(vsub(A.rest,B.rest)),firm:(A.rind&&B.rind)?0.5:1.0})}};
+  for(const t of tets){addE(t.a,t.b);addE(t.a,t.c);addE(t.a,t.d);addE(t.b,t.c);addE(t.b,t.d);addE(t.c,t.d)}
+  const edges=[...edgeMap.values()];
+  // boundary = faces referenced by exactly one tet, oriented away from the opposite vertex
+  const faceMap=new Map(),tri3=[0,0,0];
+  const addF=(a,b,c,o)=>{tri3[0]=a;tri3[1]=b;tri3[2]=c;tri3.sort((x,y)=>x-y);
+    const key=(tri3[0]*KEYM+tri3[1])*KEYM+tri3[2];const e=faceMap.get(key);if(e)e.n++;else faceMap.set(key,{n:1,a,b,c,o})};
+  for(const t of tets){addF(t.b,t.c,t.d,t.a);addF(t.a,t.c,t.d,t.b);addF(t.a,t.b,t.d,t.c);addF(t.a,t.b,t.c,t.d)}
+  const surfTris=[];
+  for(const f of faceMap.values()){
+    if(f.n!==1)continue;
+    const A=nodes[f.a].rest,B=nodes[f.b].rest,C=nodes[f.c].rest,O=nodes[f.o].rest;
+    const nn=vcross(vsub(B,A),vsub(C,A));
+    if(vdot(nn,vsub(A,O))<0)surfTris.push([f.a,f.c,f.b]);else surfTris.push([f.a,f.b,f.c]);
+  }
+  const surfaceList=[...new Set(surfTris.flat())];
+  // cut faces: all three vertices lie on a common cut plane (shared cutMask bit)
+  const nonCut=[],cutIdx=[],cutSlot=[],slotMap=new Map();let slotCount=0;
+  for(const t of surfTris){
+    const m=nodes[t[0]].cutMask&nodes[t[1]].cutMask&nodes[t[2]].cutMask;
+    if(m===0){nonCut.push(t[0],t[1],t[2]);continue}
+    const bi=31-Math.clz32(m&(-m));
+    for(let j=0;j<3;j++){const k=t[j]*32+bi;let s=slotMap.get(k);if(s===undefined){s=slotCount++;slotMap.set(k,s)}cutIdx.push(t[j]);cutSlot.push(s)}
+  }
+  return {nodes,tets,edges,surfTris,surfaceList,nonCut:Int32Array.from(nonCut),cutIdx:Int32Array.from(cutIdx),cutSlot:Int32Array.from(cutSlot),
+    cutSlots:new Float32Array(Math.max(1,slotCount)*3),nrmA:new Float32Array(nodes.length*3),restVolTotal,seeds:[],id:bodyCounter++,side:0,vOff:0,dOff:0};
+}
+
+// Attach seeds to the nearest surface triangle (facing the same way) among the given bodies.
+function attachSeeds(pieces,specs){
+  for(const sp of specs){
+    let best=null,bd=1e9;
+    for(const b of pieces){
+      for(let ti=0;ti<b.surfTris.length;ti++){
+        const t=b.surfTris[ti];
+        const A=b.nodes[t[0]].pos,B=b.nodes[t[1]].pos,C=b.nodes[t[2]].pos;
+        const v0=vsub(B,A),v1=vsub(C,A);
+        const nn=vcross(v0,v1);const nl=vlen(nn);if(nl<1e-12)continue;
+        if(vdot(nn,sp.nrm)<0.5*nl)continue;
+        const v2=vsub(sp.P,A);
+        const d00=vdot(v0,v0),d01=vdot(v0,v1),d11=vdot(v1,v1),d20=vdot(v2,v0),d21=vdot(v2,v1);
+        const den=d00*d11-d01*d01;if(Math.abs(den)<1e-12)continue;
+        let v=(d11*d20-d01*d21)/den,w=(d00*d21-d01*d20)/den,u=1-v-w;
+        u=Math.max(0,u);v=Math.max(0,v);w=Math.max(0,w);const sm=u+v+w;u/=sm;v/=sm;w/=sm;
+        const Q={x:A.x*u+B.x*v+C.x*w,y:A.y*u+B.y*v+C.y*w,z:A.z*u+B.z*v+C.z*w};
+        const d=(Q.x-sp.P.x)**2+(Q.y-sp.P.y)**2+(Q.z-sp.P.z)**2;
+        if(d<bd){bd=d;best={b,ti,u,v,w,e1:v0,e2:v1}}
       }
-      device.addEventListener?.("uncapturederror", (e) =>
-        toast("WebGPU error: " + e.error.message),
-      );
-      device.lost.then((i) => toast("GPU device lost: " + i.message));
-      const ctx = canvas.getContext("webgpu");
-      const fmt = navigator.gpu.getPreferredCanvasFormat();
-      ctx.configure({ device, format: fmt, alphaMode: "opaque" });
-      const DEPTH = "depth24plus";
-      const DPR = Math.min(window.devicePixelRatio || 1, 2);
+    }
+    if(!best||bd>0.25)continue;
+    const {b,ti,u,v,w,e1,e2}=best;
+    const a11=vdot(e1,e1),a12=vdot(e1,e2),a22=vdot(e2,e2),b1=vdot(sp.dir,e1),b2=vdot(sp.dir,e2);
+    const den=a11*a22-a12*a12||1;
+    b.seeds.push({tri:ti,bary:[u,v,w],al:(b1*a22-b2*a12)/den,be:(a11*b2-a12*b1)/den,size:sp.size});
+  }
+}
+function seedSpecsOf(b){
+  return b.seeds.map(sd=>{
+    const t=b.surfTris[sd.tri];const A=b.nodes[t[0]].pos,B=b.nodes[t[1]].pos,C=b.nodes[t[2]].pos;
+    const [u,v,w]=sd.bary;const e1=vsub(B,A),e2=vsub(C,A);
+    return {P:{x:A.x*u+B.x*v+C.x*w,y:A.y*u+B.y*v+C.y*w,z:A.z*u+B.z*v+C.z*w},
+      dir:vnorm({x:e1.x*sd.al+e2.x*sd.be,y:e1.y*sd.al+e2.y*sd.be,z:e1.z*sd.al+e2.z*sd.be}),nrm:vnorm(vcross(e1,e2)),size:sd.size};
+  });
+}
 
-      // ================= math =================
-      const vsub = (a, b) => ({ x: a.x - b.x, y: a.y - b.y, z: a.z - b.z });
-      const vdot = (a, b) => a.x * b.x + a.y * b.y + a.z * b.z;
-      const vcross = (a, b) => ({
-        x: a.y * b.z - a.z * b.y,
-        y: a.z * b.x - a.x * b.z,
-        z: a.x * b.y - a.y * b.x,
-      });
-      const vlen = (a) => Math.hypot(a.x, a.y, a.z);
-      const vnorm = (a) => {
-        const l = vlen(a) || 1;
-        return { x: a.x / l, y: a.y / l, z: a.z / l };
-      };
-      function mMul(a, b) {
-        const o = new Float32Array(16);
-        for (let i = 0; i < 4; i++)
-          for (let j = 0; j < 4; j++) {
-            let s = 0;
-            for (let k = 0; k < 4; k++) s += a[k * 4 + j] * b[i * 4 + k];
-            o[i * 4 + j] = s;
-          }
-        return o;
-      }
-      const FOV = Math.PI * 0.26,
-        TANH = Math.tan(FOV / 2);
-      function mPersp(asp, n, f, ox, oy) {
-        const t = 1 / TANH;
-        const o = new Float32Array(16);
-        o[0] = t / asp;
-        o[5] = t;
-        o[8] = -ox;
-        o[9] = -oy;
-        o[10] = f / (n - f);
-        o[11] = -1;
-        o[14] = (f * n) / (n - f);
-        return o;
-      }
-      function mLookAt(eye, c, up) {
-        const f = vnorm(vsub(c, eye));
-        const s = vnorm(vcross(f, up));
-        const u = vcross(s, f);
-        const o = new Float32Array(16);
-        o[0] = s.x;
-        o[4] = s.y;
-        o[8] = s.z;
-        o[12] = -vdot(s, eye);
-        o[1] = u.x;
-        o[5] = u.y;
-        o[9] = u.z;
-        o[13] = -vdot(u, eye);
-        o[2] = -f.x;
-        o[6] = -f.y;
-        o[10] = -f.z;
-        o[14] = vdot(f, eye);
-        o[15] = 1;
-        return o;
-      }
-      function mat4Inv(a) {
-        const o = new Float32Array(16);
-        o[0] =
-          a[5] * a[10] * a[15] -
-          a[5] * a[11] * a[14] -
-          a[9] * a[6] * a[15] +
-          a[9] * a[7] * a[14] +
-          a[13] * a[6] * a[11] -
-          a[13] * a[7] * a[10];
-        o[4] =
-          -a[4] * a[10] * a[15] +
-          a[4] * a[11] * a[14] +
-          a[8] * a[6] * a[15] -
-          a[8] * a[7] * a[14] -
-          a[12] * a[6] * a[11] +
-          a[12] * a[7] * a[10];
-        o[8] =
-          a[4] * a[9] * a[15] -
-          a[4] * a[11] * a[13] -
-          a[8] * a[5] * a[15] +
-          a[8] * a[7] * a[13] +
-          a[12] * a[5] * a[11] -
-          a[12] * a[7] * a[9];
-        o[12] =
-          -a[4] * a[9] * a[14] +
-          a[4] * a[10] * a[13] +
-          a[8] * a[5] * a[14] -
-          a[8] * a[6] * a[13] -
-          a[12] * a[5] * a[10] +
-          a[12] * a[6] * a[9];
-        o[1] =
-          -a[1] * a[10] * a[15] +
-          a[1] * a[11] * a[14] +
-          a[9] * a[2] * a[15] -
-          a[9] * a[3] * a[14] -
-          a[13] * a[2] * a[11] +
-          a[13] * a[3] * a[10];
-        o[5] =
-          a[0] * a[10] * a[15] -
-          a[0] * a[11] * a[14] -
-          a[8] * a[2] * a[15] +
-          a[8] * a[3] * a[14] +
-          a[12] * a[2] * a[11] -
-          a[12] * a[3] * a[10];
-        o[9] =
-          -a[0] * a[9] * a[15] +
-          a[0] * a[11] * a[13] +
-          a[8] * a[1] * a[15] -
-          a[8] * a[3] * a[13] -
-          a[12] * a[1] * a[11] +
-          a[12] * a[3] * a[9];
-        o[13] =
-          a[0] * a[9] * a[14] -
-          a[0] * a[10] * a[13] -
-          a[8] * a[1] * a[14] +
-          a[8] * a[2] * a[13] +
-          a[12] * a[1] * a[10] -
-          a[12] * a[2] * a[9];
-        o[2] =
-          a[1] * a[6] * a[15] -
-          a[1] * a[7] * a[14] -
-          a[5] * a[2] * a[15] +
-          a[5] * a[3] * a[14] +
-          a[13] * a[2] * a[7] -
-          a[13] * a[3] * a[6];
-        o[6] =
-          -a[0] * a[6] * a[15] +
-          a[0] * a[7] * a[14] +
-          a[4] * a[2] * a[15] -
-          a[4] * a[3] * a[14] -
-          a[12] * a[2] * a[7] +
-          a[12] * a[3] * a[6];
-        o[10] =
-          a[0] * a[5] * a[15] -
-          a[0] * a[7] * a[13] -
-          a[4] * a[1] * a[15] +
-          a[4] * a[3] * a[13] +
-          a[12] * a[1] * a[7] -
-          a[12] * a[3] * a[5];
-        o[14] =
-          -a[0] * a[5] * a[14] +
-          a[0] * a[6] * a[13] +
-          a[4] * a[1] * a[14] -
-          a[4] * a[2] * a[13] -
-          a[12] * a[1] * a[6] +
-          a[12] * a[2] * a[5];
-        o[3] =
-          -a[1] * a[6] * a[11] +
-          a[1] * a[7] * a[10] +
-          a[5] * a[2] * a[11] -
-          a[5] * a[3] * a[10] -
-          a[9] * a[2] * a[7] +
-          a[9] * a[3] * a[6];
-        o[7] =
-          a[0] * a[6] * a[11] -
-          a[0] * a[7] * a[10] -
-          a[4] * a[2] * a[11] +
-          a[4] * a[3] * a[10] +
-          a[8] * a[2] * a[7] -
-          a[8] * a[3] * a[6];
-        o[11] =
-          -a[0] * a[5] * a[11] +
-          a[0] * a[7] * a[9] +
-          a[4] * a[1] * a[11] -
-          a[4] * a[3] * a[9] -
-          a[8] * a[1] * a[7] +
-          a[8] * a[3] * a[5];
-        o[15] =
-          a[0] * a[5] * a[10] -
-          a[0] * a[6] * a[9] -
-          a[4] * a[1] * a[10] +
-          a[4] * a[2] * a[9] +
-          a[8] * a[1] * a[6] -
-          a[8] * a[2] * a[5];
-        let det = a[0] * o[0] + a[1] * o[4] + a[2] * o[8] + a[3] * o[12];
-        if (Math.abs(det) < 1e-12) return null;
-        det = 1 / det;
-        for (let i = 0; i < 16; i++) o[i] *= det;
-        return o;
-      }
-      function mulVec(m, v) {
-        return [
-          m[0] * v[0] + m[4] * v[1] + m[8] * v[2] + m[12] * v[3],
-          m[1] * v[0] + m[5] * v[1] + m[9] * v[2] + m[13] * v[3],
-          m[2] * v[0] + m[6] * v[1] + m[10] * v[2] + m[14] * v[3],
-          m[3] * v[0] + m[7] * v[1] + m[11] * v[2] + m[15] * v[3],
-        ];
-      }
-      const rnd = (n) => {
-        const x = Math.sin(n * 127.1 + 311.7) * 43758.5453;
-        return x - Math.floor(x);
-      };
+// ================= Knife: plane split of a tetrahedral body =================
+// Each crossing tet is split exactly at the plane (1-3 → tet + prism, 2-2 → prism + prism).
+// Prisms become three tets using the min-index diagonal rule, so shared faces split identically.
+function prismTets(A,B,C,A2,B2,C2,out){
+  const v=[A,B,C,A2,B2,C2];
+  let m=0;for(let k=1;k<6;k++)if(v[k]<v[m])m=k;
+  let top=[A,B,C],bot=[A2,B2,C2];
+  if(m>=3){top=[A2,B2,C2];bot=[A,B,C];m-=3}
+  const a=top[m],b=top[(m+1)%3],c=top[(m+2)%3],a2=bot[m],b2=bot[(m+1)%3],c2=bot[(m+2)%3];
+  out.push([a,a2,b2,c2]);
+  const qm=Math.min(b,c,c2,b2);
+  if(qm===b||qm===c2){out.push([a,b,c,c2]);out.push([a,b,c2,b2])}
+  else{out.push([a,b,c,b2]);out.push([a,c,c2,b2])}
+}
+function planeCut(body,n,d,bit){
+  const nodes=body.nodes,N=nodes.length;
+  const s=new Float64Array(N);let np=0,nn=0;
+  for(let i=0;i<N;i++){const p=nodes[i].pos;let v=n.x*p.x+n.y*p.y+n.z*p.z-d;if(v>-1e-4&&v<1e-4)v=1e-4;s[i]=v;if(v>0)np++;else nn++}
+  if(np===0||nn===0)return null;
+  const all=nodes.slice(),isect=new Map();
+  const L=(a,b,t)=>a+(b-a)*t;
+  const mk=(A,B,t)=>({
+    rest:{x:L(A.rest.x,B.rest.x,t),y:L(A.rest.y,B.rest.y,t),z:L(A.rest.z,B.rest.z,t)},
+    pos:{x:L(A.pos.x,B.pos.x,t),y:L(A.pos.y,B.pos.y,t),z:L(A.pos.z,B.pos.z,t)},
+    prev:{x:L(A.pos.x,B.pos.x,t),y:L(A.pos.y,B.pos.y,t),z:L(A.pos.z,B.pos.z,t)},
+    vel:{x:L(A.vel.x,B.vel.x,t),y:L(A.vel.y,B.vel.y,t),z:L(A.vel.z,B.vel.z,t)},vpre:0,
+    tx:L(A.tx,B.tx,t),ty:L(A.ty,B.ty,t),tz:L(A.tz,B.tz,t),rind:A.rind&&B.rind,cutMask:(A.cutMask&B.cutMask)|bit});
+  // one intersection point per crossing edge, duplicated: copy a for the + side, copy b for the − side
+  const getI=(i,j)=>{
+    const lo=Math.min(i,j),hi=Math.max(i,j),key=lo*KEYM+hi;let r=isect.get(key);if(r)return r;
+    let t=s[lo]/(s[lo]-s[hi]);t=Math.min(0.96,Math.max(0.04,t));
+    const A=nodes[lo],B=nodes[hi];
+    r={a:all.length};all.push(mk(A,B,t));r.b=all.length;all.push(mk(A,B,t));isect.set(key,r);return r;
+  };
+  const qa=[],qb=[];
+  for(const t of body.tets){
+    const v=[t.a,t.b,t.c,t.d],P=[],M=[];
+    for(const k of v){if(s[k]>0)P.push(k);else M.push(k)}
+    if(M.length===0){qa.push(v);continue}
+    if(P.length===0){qb.push(v);continue}
+    if(P.length===1||M.length===1){
+      const lp=P.length===1,lone=lp?P[0]:M[0],oth=lp?M:P;
+      const I=oth.map(u=>getI(lone,u));
+      if(lp){qa.push([lone,I[0].a,I[1].a,I[2].a]);prismTets(oth[0],oth[1],oth[2],I[0].b,I[1].b,I[2].b,qb)}
+      else{qb.push([lone,I[0].b,I[1].b,I[2].b]);prismTets(oth[0],oth[1],oth[2],I[0].a,I[1].a,I[2].a,qa)}
+    }else{
+      const [p1,p2]=P,[m1,m2]=M;
+      const i11=getI(p1,m1),i12=getI(p1,m2),i21=getI(p2,m1),i22=getI(p2,m2);
+      prismTets(p1,i11.a,i12.a,p2,i21.a,i22.a,qa);
+      prismTets(m1,i11.b,i21.b,m2,i12.b,i22.b,qb);
+    }
+  }
+  // connected components → separate bodies
+  const parent=new Int32Array(all.length);for(let i=0;i<all.length;i++)parent[i]=i;
+  const find=i=>{while(parent[i]!==i){parent[i]=parent[parent[i]];i=parent[i]}return i};
+  const uni=(a,b)=>{a=find(a);b=find(b);if(a!==b)parent[a]=b};
+  for(const q of qa){uni(q[0],q[1]);uni(q[0],q[2]);uni(q[0],q[3])}
+  for(const q of qb){uni(q[0],q[1]);uni(q[0],q[2]);uni(q[0],q[3])}
+  const comp=new Map();
+  const put=(q,side)=>{const r=find(q[0]);let c=comp.get(r);if(!c){c={quads:[],side};comp.set(r,c)}c.quads.push(q)};
+  for(const q of qa)put(q,1);
+  for(const q of qb)put(q,-1);
+  const pieces=[];
+  for(const c of comp.values()){const b=finalizeBody(all,c.quads);b.side=c.side;pieces.push(b)}
+  return pieces;
+}
 
-      // ================= Shapes =================
-      // All shapes share one tomato-centred coordinate frame (centre of the fruit = origin, outer rind radius = 1)
-      // so the procedural anatomy in the shader is identical for every cut.
-      const SHAPES = {
-        slice: {
-          R: 2.05,
-          THK: 0.5,
-          NK: 4,
-          n: 4,
-          off: -Math.PI / 4,
-          halfW: 2.05,
-          W: 4.1,
-          H: 4.1,
-        },
-        half: {
-          R: 2.5,
-          THK: 0.63,
-          NK: 4,
-          n: 4,
-          off: -Math.PI / 4,
-          halfW: 2.5,
-          W: 4.6,
-          H: 4.6,
-        },
-        wedge: {
-          R: 2.48,
-          THK: 0.7,
-          NK: 5,
-          n: 4,
-          off: -Math.PI / 4,
-          halfW: 1.65,
-          W: 3.3,
-          H: 2.48,
-        },
-      };
+// ================= Model state + GPU buffers =================
+let bodies=[],floorY=0,SH=SHAPES.slice,origVol=1,cutCounter=0;
+const bufs={},caps={};
+function ensure(name,bytes,usage){
+  if(bufs[name]&&caps[name]>=bytes)return bufs[name];
+  const size=Math.max(256,Math.ceil(bytes*1.5/256)*256);
+  if(bufs[name])bufs[name].destroy();
+  bufs[name]=device.createBuffer({size,usage});caps[name]=size;return bufs[name];
+}
+let vtxData,idxData,wireData,seedData,idxCount=0,wireCount=0,seedCount=0;
+function rebuildTopology(){
+  let nv=0,ni=0,nw=0,ns=0;
+  for(const b of bodies){b.vOff=nv;nv+=b.nodes.length;b.dOff=nv;nv+=b.cutIdx.length;ni+=b.surfTris.length*3;nw+=b.surfTris.length*6;ns+=b.seeds.length}
+  vtxData=new Float32Array(Math.max(1,nv)*12);
+  idxData=new Uint32Array(Math.max(3,ni));wireData=new Uint32Array(Math.max(2,nw));seedData=new Float32Array(Math.max(1,ns)*8);
+  let p=0,q=0;
+  for(const b of bodies){
+    const nc=b.nonCut;for(let k=0;k<nc.length;k++)idxData[p++]=b.vOff+nc[k];
+    for(let k=0;k<b.cutIdx.length;k++)idxData[p++]=b.dOff+k;
+    for(const t of b.surfTris){const a=b.vOff+t[0],bb=b.vOff+t[1],c=b.vOff+t[2];wireData[q++]=a;wireData[q++]=bb;wireData[q++]=bb;wireData[q++]=c;wireData[q++]=c;wireData[q++]=a}
+  }
+  idxCount=ni;wireCount=nw;seedCount=ns;
+  ensure('vtx',vtxData.byteLength,GPUBufferUsage.VERTEX|GPUBufferUsage.COPY_DST);
+  ensure('idx',idxData.byteLength,GPUBufferUsage.INDEX|GPUBufferUsage.COPY_DST);
+  ensure('wire',wireData.byteLength,GPUBufferUsage.INDEX|GPUBufferUsage.COPY_DST);
+  ensure('seed',seedData.byteLength,GPUBufferUsage.VERTEX|GPUBufferUsage.COPY_DST);
+  device.queue.writeBuffer(bufs.idx,0,idxData);
+  device.queue.writeBuffer(bufs.wire,0,wireData);
+}
+function loadShape(kind){
+  sim.shape=kind;sim.grab=null;knife.active=false;canvas.classList.remove('grabbing');
+  const m=buildShape(kind);
+  SH=m.cfg;floorY=m.floorY;
+  const b=finalizeBody(m.nodes,m.quads);
+  attachSeeds([b],m.seedSpecs);
+  bodies=[b];origVol=b.restVolTotal;cutCounter=0;
+  rebuildTopology();
+}
 
-      function buildShape(kind) {
-        const cfg = SHAPES[kind],
-          R = cfg.R,
-          THK = cfg.THK,
-          NK = cfg.NK;
-        // square-ring -> circular-ring mapping (no degenerate cells)
-        const sq = (u, v) => {
-          const s = Math.max(Math.abs(u), Math.abs(v)),
-            rho = Math.hypot(u, v);
-          return rho < 1e-9 ? [0, 0] : [(u * s) / rho, (v * s) / rho];
-        };
-        let NI, NJ, cy, nominal, tomato;
-        if (kind === "slice") {
-          NI = 16;
-          NJ = 16;
-          cy = 0;
-          nominal = (i, j) => {
-            const p = sq((i / NI) * 2 - 1, (j / NJ) * 2 - 1);
-            return [p[0] * R, p[1] * R];
-          };
-          tomato = (i, j) => {
-            const p = nominal(i, j);
-            return [p[0] / R, p[1] / R];
-          };
-        } else if (kind === "half") {
-          NI = 16;
-          NJ = 8;
-          cy = -0.2 * R;
-          // The diameter rises diagonally, as in the half-cut reference.
-          nominal = (i, j) => {
-            const p = sq((i / NI) * 2 - 1, j / NJ);
-            const x = p[0] * R,
-              y = -p[1] * R,
-              c = Math.SQRT1_2;
-            return [(x - y) * c, (x + y) * c];
-          };
-          tomato = (i, j) => {
-            const p = nominal(i, j);
-            return [p[0] / R, p[1] / R];
-          };
-        } else {
-          NI = 10;
-          NJ = 14;
-          cy = -0.62 * R; // apex at the fruit centre, rind below
-          const R0 = 0.15 * R,
-            HALF = 0.73;
-          const polar = (i, j) => ({
-            r: R0 + (R - R0) * (i / NI),
-            a: ((j / NJ) * 2 - 1) * HALF,
-          });
-          nominal = (i, j) => {
-            const { r, a } = polar(i, j);
-            const w = Math.pow(1 - i / NI, 3);
-            const bulge = 0.65 * R0 * (1 - (a / HALF) * (a / HALF)) * w;
-            return [r * Math.sin(a), -r * Math.cos(a) + bulge];
-          };
-          tomato = (i, j) => {
-            const { r, a } = polar(i, j);
-            return [(r * Math.sin(a)) / R, (-r * Math.cos(a)) / R];
-          };
-        }
-        const inset = (x, y, tz) => {
-          const e = Math.abs(tz - 0.5) * 2,
-            s = 1 - 0.055 * e * e * e;
-          return [x * s, cy + (y - cy) * s];
-        };
+// seed sphere (shared, instanced)
+const sph=(()=>{const lat=10,lon=14,pos=[],idx=[];
+  for(let i=0;i<=lat;i++){const th=i/lat*Math.PI;for(let j=0;j<=lon;j++){const ph=j/lon*2*Math.PI;
+    pos.push(Math.sin(th)*Math.cos(ph),Math.cos(th),Math.sin(th)*Math.sin(ph))}}
+  for(let i=0;i<lat;i++)for(let j=0;j<lon;j++){const a=i*(lon+1)+j,b=a+lon+1;idx.push(a,b,a+1,b,b+1,a+1)}
+  return{pos:new Float32Array(pos),idx:new Uint16Array(idx)}})();
+const sphVB=device.createBuffer({size:sph.pos.byteLength,usage:GPUBufferUsage.VERTEX|GPUBufferUsage.COPY_DST});
+device.queue.writeBuffer(sphVB,0,sph.pos);
+const sphIB=device.createBuffer({size:sph.idx.byteLength,usage:GPUBufferUsage.INDEX|GPUBufferUsage.COPY_DST});
+device.queue.writeBuffer(sphIB,0,sph.idx);
 
-        const nodes = [],
-          grid = [];
-        for (let i = 0; i <= NI; i++) {
-          grid.push([]);
-          for (let j = 0; j <= NJ; j++) grid[i].push(new Array(NK + 1));
-        }
-        for (let i = 0; i <= NI; i++)
-          for (let j = 0; j <= NJ; j++) {
-            const [nx, ny] = nominal(i, j),
-              [tx, ty] = tomato(i, j);
-            for (let k = 0; k <= NK; k++) {
-              const tz = k / NK,
-                [x, y] = inset(nx, ny, tz),
-                z = (tz - 0.5) * THK;
-              grid[i][j][k] = nodes.length;
-              nodes.push({
-                rest: { x, y, z },
-                pos: { x, y, z },
-                prev: { x, y, z },
-                vel: { x: 0, y: 0, z: 0 },
-                vpre: 0,
-                tx,
-                ty,
-                tz,
-                rind: Math.hypot(tx, ty) > 0.9,
-              });
-            }
-          }
-        let mn = 1e9,
-          mx = -1e9;
-        for (const n of nodes) {
-          mn = Math.min(mn, n.rest.y);
-          mx = Math.max(mx, n.rest.y);
-        }
-        const shift = -(mn + mx) / 2;
-        for (const n of nodes) {
-          n.rest.y += shift;
-          n.pos.y += shift;
-          n.prev.y += shift;
-        }
-        const floorY = mn + shift;
+// uniforms: 3 mat4 + 12 vec4 + 12 shadow vec4 + 3 lift vec4 = 624 bytes
+const UBO_SIZE=624;
+const uboBuf=device.createBuffer({size:UBO_SIZE,usage:GPUBufferUsage.UNIFORM|GPUBufferUsage.COPY_DST});
+const ubo=new Float32Array(UBO_SIZE/4);
+const shadows=new Float32Array(48),lifts=new Float32Array(12);let shadowCount=0;
 
-        // tetrahedra (5 per hex cell, alternating parity so shared faces match)
-        const tets = [];
-        const pushTet = (a, b, c, d) => {
-          const pa = nodes[a].rest,
-            pb = nodes[b].rest,
-            pc = nodes[c].rest,
-            pd = nodes[d].rest;
-          const vol =
-            vdot(vcross(vsub(pb, pa), vsub(pc, pa)), vsub(pd, pa)) / 6;
-          tets.push({
-            a,
-            b,
-            c,
-            d,
-            restVol: Math.abs(vol),
-            sign: vol < 0 ? -1 : 1,
-          });
-        };
-        for (let i = 0; i < NI; i++)
-          for (let j = 0; j < NJ; j++)
-            for (let k = 0; k < NK; k++) {
-              const g = (a, b, c) => grid[i + a][j + b][k + c];
-              if (((i + j + k) & 1) === 0) {
-                pushTet(g(0, 0, 0), g(1, 0, 0), g(0, 1, 0), g(0, 0, 1));
-                pushTet(g(1, 1, 0), g(1, 0, 0), g(0, 1, 0), g(1, 1, 1));
-                pushTet(g(1, 0, 1), g(1, 0, 0), g(0, 0, 1), g(1, 1, 1));
-                pushTet(g(0, 1, 1), g(0, 1, 0), g(0, 0, 1), g(1, 1, 1));
-                pushTet(g(1, 0, 0), g(0, 1, 0), g(0, 0, 1), g(1, 1, 1));
-              } else {
-                pushTet(g(1, 0, 0), g(0, 0, 0), g(1, 1, 0), g(1, 0, 1));
-                pushTet(g(0, 1, 0), g(0, 0, 0), g(1, 1, 0), g(0, 1, 1));
-                pushTet(g(0, 0, 1), g(0, 0, 0), g(1, 0, 1), g(0, 1, 1));
-                pushTet(g(1, 1, 1), g(1, 1, 0), g(1, 0, 1), g(0, 1, 1));
-                pushTet(g(0, 0, 0), g(1, 1, 0), g(1, 0, 1), g(0, 1, 1));
-              }
-            }
-        let restVolTotal = 0;
-        for (const t of tets) restVolTotal += t.restVol;
-        const edgeMap = new Map();
-        const addE = (a, b) => {
-          const lo = Math.min(a, b),
-            hi = Math.max(a, b),
-            key = lo * 100000 + hi;
-          if (!edgeMap.has(key))
-            edgeMap.set(key, {
-              a: lo,
-              b: hi,
-              rest: vlen(vsub(nodes[lo].rest, nodes[hi].rest)),
-              firm: nodes[lo].rind && nodes[hi].rind ? 0.5 : 1.0,
-            });
-        };
-        for (const t of tets) {
-          addE(t.a, t.b);
-          addE(t.a, t.c);
-          addE(t.a, t.d);
-          addE(t.b, t.c);
-          addE(t.b, t.d);
-          addE(t.c, t.d);
-        }
-        const edges = [...edgeMap.values()];
+let depthTex=null,depthView=null;
+function resize(){
+  const w=Math.max(2,Math.floor(canvas.clientWidth*DPR)),h=Math.max(2,Math.floor(canvas.clientHeight*DPR));
+  if(canvas.width!==w||canvas.height!==h||!depthTex){
+    canvas.width=w;canvas.height=h;
+    if(depthTex)depthTex.destroy();
+    depthTex=device.createTexture({size:[w,h],format:DEPTH,usage:GPUTextureUsage.RENDER_ATTACHMENT});
+    depthView=depthTex.createView();
+  }
+}
+window.addEventListener('resize',resize);
+resize();
 
-        // outward-oriented boundary triangles
-        const surfTris = [];
-        const bodyC = { x: 0, y: cy + shift, z: 0 };
-        const addQuad = (a, b, c, d) => {
-          for (const t of [
-            [a, b, c],
-            [a, c, d],
-          ]) {
-            const A = nodes[t[0]].rest,
-              B = nodes[t[1]].rest,
-              C = nodes[t[2]].rest;
-            const n = vcross(vsub(B, A), vsub(C, A));
-            const cen = {
-              x: (A.x + B.x + C.x) / 3,
-              y: (A.y + B.y + C.y) / 3,
-              z: (A.z + B.z + C.z) / 3,
-            };
-            if (vdot(n, vsub(cen, bodyC)) < 0) t.reverse();
-            surfTris.push(t);
-          }
-        };
-        const G = (i, j, k) => grid[i][j][k];
-        for (let j = 0; j < NJ; j++)
-          for (let k = 0; k < NK; k++) {
-            addQuad(
-              G(NI, j, k),
-              G(NI, j + 1, k),
-              G(NI, j + 1, k + 1),
-              G(NI, j, k + 1),
-            );
-            addQuad(
-              G(0, j, k),
-              G(0, j + 1, k),
-              G(0, j + 1, k + 1),
-              G(0, j, k + 1),
-            );
-          }
-        for (let i = 0; i < NI; i++)
-          for (let k = 0; k < NK; k++) {
-            addQuad(
-              G(i, 0, k),
-              G(i + 1, 0, k),
-              G(i + 1, 0, k + 1),
-              G(i, 0, k + 1),
-            );
-            addQuad(
-              G(i, NJ, k),
-              G(i + 1, NJ, k),
-              G(i + 1, NJ, k + 1),
-              G(i, NJ, k + 1),
-            );
-          }
-        for (let i = 0; i < NI; i++)
-          for (let j = 0; j < NJ; j++) {
-            addQuad(
-              G(i, j, 0),
-              G(i + 1, j, 0),
-              G(i + 1, j + 1, 0),
-              G(i, j + 1, 0),
-            );
-            addQuad(
-              G(i, j, NK),
-              G(i + 1, j, NK),
-              G(i + 1, j + 1, NK),
-              G(i, j + 1, NK),
-            );
-          }
-        const surfaceList = [...new Set(surfTris.flat())];
+// ================= Simulation state =================
+const sim={firmness:0.55,damping:0.22,paused:false,slow:false,showMesh:false,palette:0,grab:null,substeps:8,tool:'grab',shape:'slice'};
+const knife={active:false,id:null,p0:null,p1:null,flash:0};
+if(window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches){sim.paused=true;$('pause').textContent='Resume'}
+loadShape('slice');
 
-        // ----- 52 seeds (26 per face) embedded on the surface via barycentric coordinates -----
-        const seeds = [];
-        {
-          const faceTris = [[], []];
-          surfTris.forEach((t, ti) => {
-            const zs = t.map((i) => nodes[i].rest.z);
-            if (Math.min(...zs) > THK * 0.45) faceTris[0].push(ti);
-            else if (Math.max(...zs) < -THK * 0.45) faceTris[1].push(ti);
-          });
-          const nl = cfg.n,
-            off = cfg.off,
-            sLoc = (Math.PI * 2) / nl;
-          const inDomain = (tx, ty) =>
-            kind === "slice"
-              ? true
-              : kind === "half"
-                ? (ty - tx) * Math.SQRT1_2 < -0.085
-                : Math.abs(Math.atan2(tx, -ty)) < 0.73 - 0.06;
-          for (let f = 0; f < 2; f++) {
-            const lists = [];
-            for (let li = 0; li < nl; li++) {
-              const arr = [],
-                c = off + (li + 0.5) * sLoc;
-              for (let j = 0; j < 14; j++)
-                for (const sd of [-1, 1]) {
-                  const id = f * 1000 + li * 60 + j * 3 + sd + 1;
-                  const r =
-                    0.55 + 0.23 * (j / 13) + (rnd(id + 0.5) - 0.5) * 0.016;
-                  const th =
-                    c +
-                    sd *
-                      (0.33 + (0.45 * (j % 3)) / 2) *
-                      (0.37 + 0.08 * (r - 0.55));
-                  const tx = r * Math.cos(th),
-                    ty = r * Math.sin(th);
-                  if (inDomain(tx, ty)) arr.push({ tx, ty, id });
-                }
-              lists.push(arr);
-            }
-            const total = lists.reduce((s, a) => s + a.length, 0) || 1;
-            const quota = lists.map((a) => Math.floor((26 * a.length) / total));
-            let rem = 26 - quota.reduce((s, q) => s + q, 0);
-            const order = lists
-              .map((a, i) => i)
-              .sort((a, b) => lists[b].length - lists[a].length);
-            for (let g = 0; rem > 0 && g < 200; g++) {
-              const li = order[g % order.length];
-              if (quota[li] < lists[li].length) {
-                quota[li]++;
-                rem--;
-              }
-            }
-            for (let li = 0; li < nl; li++) {
-              const arr = lists[li],
-                q = quota[li];
-              for (let m = 0; m < q; m++) {
-                const idx = Math.min(
-                  arr.length - 1,
-                  Math.floor(
-                    ((m + rnd(f * 91 + li * 17 + m * 3.3)) * arr.length) / q,
-                  ),
-                );
-                const cd = arr[idx];
-                const [ix, iy] = inset(cd.tx * R, cd.ty * R, f === 0 ? 1 : 0);
-                const P = {
-                  x: ix,
-                  y: iy + shift,
-                  z: ((f === 0 ? 1 : -1) * THK) / 2,
-                };
-                let best = -1,
-                  bd = 1e9,
-                  bb = null;
-                for (const ti of faceTris[f]) {
-                  const t = surfTris[ti];
-                  const A = nodes[t[0]].rest,
-                    B = nodes[t[1]].rest,
-                    C = nodes[t[2]].rest;
-                  const v0 = vsub(B, A),
-                    v1 = vsub(C, A),
-                    v2 = vsub(P, A);
-                  const d00 = vdot(v0, v0),
-                    d01 = vdot(v0, v1),
-                    d11 = vdot(v1, v1),
-                    d20 = vdot(v2, v0),
-                    d21 = vdot(v2, v1);
-                  const den = d00 * d11 - d01 * d01;
-                  if (Math.abs(den) < 1e-12) continue;
-                  let v = (d11 * d20 - d01 * d21) / den,
-                    w = (d00 * d21 - d01 * d20) / den,
-                    u = 1 - v - w;
-                  u = Math.max(0, u);
-                  v = Math.max(0, v);
-                  w = Math.max(0, w);
-                  const sm = u + v + w;
-                  u /= sm;
-                  v /= sm;
-                  w /= sm;
-                  const Q = {
-                    x: A.x * u + B.x * v + C.x * w,
-                    y: A.y * u + B.y * v + C.y * w,
-                    z: A.z * u + B.z * v + C.z * w,
-                  };
-                  const d =
-                    (Q.x - P.x) ** 2 + (Q.y - P.y) ** 2 + (Q.z - P.z) ** 2;
-                  if (d < bd) {
-                    bd = d;
-                    best = ti;
-                    bb = [u, v, w, v0, v1];
-                  }
-                }
-                if (best < 0) continue;
-                const [u, v, w, e1, e2] = bb;
-                const rl = Math.hypot(cd.tx, cd.ty) || 1;
-                const dir = { x: -cd.tx / rl, y: -cd.ty / rl, z: 0 }; // narrow end of the seed points to the core
-                const a11 = vdot(e1, e1),
-                  a12 = vdot(e1, e2),
-                  a22 = vdot(e2, e2),
-                  b1 = vdot(dir, e1),
-                  b2 = vdot(dir, e2);
-                const den = a11 * a22 - a12 * a12 || 1;
-                seeds.push({
-                  tri: best,
-                  bary: [u, v, w],
-                  al: (b1 * a22 - b2 * a12) / den,
-                  be: (a11 * b2 - a12 * b1) / den,
-                  size: (0.071 + 0.022 * rnd(cd.id + 9.1)) * (R / 2.35),
-                });
-              }
-            }
-          }
-          // safety: always exactly 52
-          let k = 0;
-          while (seeds.length < 52 && seeds.length > 0) {
-            seeds.push({ ...seeds[k % seeds.length] });
-            k++;
-          }
-          while (seeds.length > 52) seeds.pop();
-        }
-        return {
-          nodes,
-          tets,
-          edges,
-          surfTris,
-          surfaceList,
-          seeds,
-          floorY,
-          restVolTotal,
-          cfg,
-        };
-      }
-
-      // ================= Active model + GPU buffers =================
-      let nodes,
-        tets,
-        edges,
-        surfTris,
-        surfaceList,
-        seeds,
-        floorY,
-        restVolTotal,
-        SH,
-        NV;
-      let vtxData,
-        vtxBuf,
-        idxData,
-        idxBuf,
-        wireData,
-        wireBuf,
-        seedData,
-        seedBuf,
-        nrmAcc;
-      function makeBuffers() {
-        for (const b of [vtxBuf, idxBuf, wireBuf, seedBuf]) if (b) b.destroy();
-        NV = nodes.length;
-        vtxData = new Float32Array(NV * 12);
-        vtxBuf = device.createBuffer({
-          size: vtxData.byteLength,
-          usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST,
-        });
-        idxData = new Uint32Array(surfTris.flat());
-        idxBuf = device.createBuffer({
-          size: idxData.byteLength,
-          usage: GPUBufferUsage.INDEX | GPUBufferUsage.COPY_DST,
-        });
-        device.queue.writeBuffer(idxBuf, 0, idxData);
-        wireData = new Uint32Array(surfTris.length * 6);
-        {
-          let p = 0;
-          for (const t of surfTris) {
-            wireData[p++] = t[0];
-            wireData[p++] = t[1];
-            wireData[p++] = t[1];
-            wireData[p++] = t[2];
-            wireData[p++] = t[2];
-            wireData[p++] = t[0];
-          }
-        }
-        wireBuf = device.createBuffer({
-          size: wireData.byteLength,
-          usage: GPUBufferUsage.INDEX | GPUBufferUsage.COPY_DST,
-        });
-        device.queue.writeBuffer(wireBuf, 0, wireData);
-        seedData = new Float32Array(seeds.length * 8);
-        seedBuf = device.createBuffer({
-          size: seedData.byteLength,
-          usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST,
-        });
-        nrmAcc = new Float32Array(NV * 3);
-      }
-      function loadShape(kind) {
-        const m = buildShape(kind);
-        ({
-          nodes,
-          tets,
-          edges,
-          surfTris,
-          surfaceList,
-          seeds,
-          floorY,
-          restVolTotal,
-        } = m);
-        SH = m.cfg;
-        makeBuffers();
-      }
-      loadShape("slice");
-
-      // seed sphere (shared, instanced)
-      const sph = (() => {
-        const lat = 10,
-          lon = 14,
-          pos = [],
-          idx = [];
-        for (let i = 0; i <= lat; i++) {
-          const th = (i / lat) * Math.PI;
-          for (let j = 0; j <= lon; j++) {
-            const ph = (j / lon) * 2 * Math.PI;
-            pos.push(
-              Math.sin(th) * Math.cos(ph),
-              Math.cos(th),
-              Math.sin(th) * Math.sin(ph),
-            );
-          }
-        }
-        for (let i = 0; i < lat; i++)
-          for (let j = 0; j < lon; j++) {
-            const a = i * (lon + 1) + j,
-              b = a + lon + 1;
-            idx.push(a, b, a + 1, b, b + 1, a + 1);
-          }
-        return { pos: new Float32Array(pos), idx: new Uint16Array(idx) };
-      })();
-      const sphVB = device.createBuffer({
-        size: sph.pos.byteLength,
-        usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST,
-      });
-      device.queue.writeBuffer(sphVB, 0, sph.pos);
-      const sphIB = device.createBuffer({
-        size: sph.idx.byteLength,
-        usage: GPUBufferUsage.INDEX | GPUBufferUsage.COPY_DST,
-      });
-      device.queue.writeBuffer(sphIB, 0, sph.idx);
-
-      // uniforms: 3 mats + 10 vec4 = 352 bytes
-      const UBO_SIZE = 352;
-      const uboBuf = device.createBuffer({
-        size: UBO_SIZE,
-        usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
-      });
-      const ubo = new Float32Array(UBO_SIZE / 4);
-
-      let depthTex = null,
-        depthView = null;
-      function resize() {
-        const w = Math.max(2, Math.floor(canvas.clientWidth * DPR)),
-          h = Math.max(2, Math.floor(canvas.clientHeight * DPR));
-        if (canvas.width !== w || canvas.height !== h || !depthTex) {
-          canvas.width = w;
-          canvas.height = h;
-          if (depthTex) depthTex.destroy();
-          depthTex = device.createTexture({
-            size: [w, h],
-            format: DEPTH,
-            usage: GPUTextureUsage.RENDER_ATTACHMENT,
-          });
-          depthView = depthTex.createView();
-        }
-      }
-      window.addEventListener("resize", resize);
-      resize();
-
-      // ================= WGSL =================
-      const common = /* wgsl */ `
+// ================= WGSL =================
+const common=/* wgsl */`
 struct Uniforms{
   view:mat4x4f, proj:mat4x4f, viewProj:mat4x4f,
   camPos:vec4f,
-  light:vec4f,   // xyz = light dir, w = body lift above floor
+  light:vec4f,   // xyz = light dir
   params:vec4f,  // time, palette, showMesh, aspect
   pal0:vec4f, pal1:vec4f, pal2:vec4f, pal3:vec4f,
-  extra:vec4f,   // floorY, grab flash, comX, comZ
-  shape:vec4f    // halfWidth, halfThickness, locule count, locule angle offset
+  extra:vec4f,   // floorY, grab flash, 0, 0
+  shape:vec4f,   // R, THK, THK/R (z scale in rind units), locule count
+  shape2:vec4f,  // locule angle offset, 0, 0, 0
+  blade:vec4f,   // stroke endpoints in NDC
+  blade2:vec4f,  // alpha, half width, end extension, shadow count
+  shadows:array<vec4f,12>,     // x, z, half extent x, half extent z per piece
+  shadowLift:array<vec4f,3>    // lift above the floor per piece
 };
 @group(0) @binding(0) var<uniform> U:Uniforms;
 `;
 
-      const bgWGSL = /* wgsl */ `
+const bgWGSL=/* wgsl */`
 ${common}
 struct VOut{@builtin(position) pos:vec4f, @location(0) uv:vec2f};
 @vertex fn vs(@builtin(vertex_index) vi:u32)->VOut{
@@ -1287,42 +574,47 @@ struct VOut{@builtin(position) pos:vec4f, @location(0) uv:vec2f};
   return o;
 }
 @fragment fn fs(i:VOut)->@location(0) vec4f{
-  let uv=i.uv;
   let top=vec3f(0.990,0.988,0.982);
   let bot=vec3f(0.975,0.971,0.960);
-  var c=mix(bot,top,smoothstep(0.0,0.85,uv.y));
+  let c=mix(bot,top,smoothstep(0.0,0.85,i.uv.y));
   return vec4f(c,1.0);
 }`;
 
-      const shadowWGSL = /* wgsl */ `
+const shadowWGSL=/* wgsl */`
 ${common}
 struct VOut{@builtin(position) pos:vec4f, @location(0) w:vec3f};
 @vertex fn vs(@builtin(vertex_index) vi:u32)->VOut{
   var q=array<vec2f,6>(vec2f(-1.0,-1.0),vec2f(1.0,-1.0),vec2f(1.0,1.0),vec2f(-1.0,-1.0),vec2f(1.0,1.0),vec2f(-1.0,1.0));
   let p=q[vi];
-  let wp=vec3f(p.x*8.0+U.extra.z, U.extra.x-0.004, p.y*8.0+U.extra.w);
+  let wp=vec3f(p.x*9.0, U.extra.x-0.004, p.y*9.0);
   var o:VOut;
   o.pos=U.viewProj*vec4f(wp,1.0);
   o.w=wp;
   return o;
 }
 @fragment fn fs(i:VOut)->@location(0) vec4f{
-  let dx=i.w.x-U.extra.z; let dz=i.w.z-U.extra.w;
-  let lift=max(U.light.w,0.0);
-  let wx=U.shape.x*1.55+0.4; let wz=U.shape.y*2.4+0.1;
-  let broad=exp(-(dx*dx/(wx*wx)+dz*dz/(wz*wz))*1.7);
-  let tight=exp(-(dx*dx/(0.15*U.shape.x*U.shape.x+0.1)+dz*dz/0.10));
-  let a=(0.16*broad+0.30*tight)/(1.0+lift*1.6);
-  return vec4f(0.24,0.18,0.16,a*0.55);
+  let cnt=i32(U.blade2.w);
+  var acc=0.0;
+  for(var k=0;k<12;k=k+1){
+    if(k>=cnt){break;}
+    let sh=U.shadows[k];
+    let lift=U.shadowLift[k/4][k%4];
+    let dx=i.w.x-sh.x; let dz=i.w.z-sh.y;
+    let ex=sh.z*0.92+0.22+lift*0.6; let ez=sh.w*0.92+0.14+lift*0.6;
+    let q=dx*dx/(ex*ex)+dz*dz/(ez*ez);
+    let a=(0.20*exp(-q*1.5)+0.34*exp(-q*5.5))/(1.0+lift*1.8);
+    acc=max(acc,a);
+  }
+  return vec4f(0.24,0.18,0.16,acc*0.6);
 }`;
 
-      const bodyWGSL = /* wgsl */ `
+const bodyWGSL=/* wgsl */`
 ${common}
-struct VIn{@location(0) pos:vec3f,@location(1) nrm:vec3f,@location(2) uv:vec3f};
-struct VOut{@builtin(position) clip:vec4f,@location(0) wpos:vec3f,@location(1) nrm:vec3f,@location(2) uv:vec3f};
+struct VIn{@location(0) pos:vec4f,@location(1) nrm:vec3f,@location(2) uv:vec3f};
+struct VOut{@builtin(position) clip:vec4f,@location(0) wpos:vec3f,@location(1) nrm:vec3f,@location(2) uv:vec3f,@location(3) cut:f32};
 @vertex fn vs(v:VIn)->VOut{
   var o:VOut;
-  o.wpos=v.pos; o.clip=U.viewProj*vec4f(v.pos,1.0); o.nrm=v.nrm; o.uv=v.uv;
+  o.wpos=v.pos.xyz; o.clip=U.viewProj*vec4f(v.pos.xyz,1.0); o.nrm=v.nrm; o.uv=v.uv; o.cut=v.pos.w;
   return o;
 }
 fn hash31(p:vec3f)->f32{
@@ -1346,23 +638,34 @@ fn smin(a:f32,b:f32,k:f32)->f32{
   let h=max(k-abs(a-b),0.0)/k;
   return min(a,b)-h*h*k*0.25;
 }
-// tiny bubbles inside the gel (tomato-frame 2D cells)
-fn bubbleAt(p:vec2f)->f32{
-  let s=p*7.0; let c=floor(s);
-  let h=hash31(vec3f(c,5.0));
-  let off=vec2f(hash31(vec3f(c,11.0)),hash31(vec3f(c,23.0)))*0.5+vec2f(0.25);
-  let rad=0.07+0.06*hash31(vec3f(c,37.0));
-  let d=length(fract(s)-off);
-  let hasB=step(0.935,h);
-  let rimB=1.0-smoothstep(0.0,0.03,abs(d-rad));
-  let diskB=1.0-smoothstep(rad*0.4,rad,d);
-  return hasB*(rimB*0.55+diskB*0.14);
+// spherical bubbles in the fruit frame (x,y in rind units, z scaled to match) — visible on any cut
+fn bubble3(p:vec3f)->vec2f{
+  let s=p*7.5; let c=floor(s); let f=s-c;
+  let present=step(0.93,hash31(c+vec3f(0.37,0.11,0.73)));
+  let ctr=vec3f(hash31(c+vec3f(1.1,0.0,0.0)),hash31(c+vec3f(0.0,2.3,0.0)),hash31(c+vec3f(0.0,0.0,3.7)))*0.5+vec3f(0.25);
+  let rad=0.08+0.10*hash31(c+vec3f(5.9,1.3,2.2));
+  let d=length(f-ctr);
+  let rim=present*(1.0-smoothstep(0.0,0.035,abs(d-rad)));
+  let ins=present*(1.0-smoothstep(rad*0.5,rad,d));
+  return vec2f(rim,ins);
 }
-
-// Four plump locules. Their tapered inner ends leave the branching ivory columella visible.
+// seeds buried in the gel, revealed when a cut passes through the thickness
+fn seedField(p:vec3f,rdir:vec2f)->vec2f{
+  let lz=U.shape.z*0.5;
+  let cxy=floor(p.xy*8.5); let cz=floor(p.z/lz);
+  let c=vec3f(cxy,cz);
+  if(hash31(c+vec3f(0.71,0.23,0.57))<0.5){ return vec2f(0.0); }
+  let ctr=vec3f((cxy+vec2f(0.35)+vec2f(hash31(c+vec3f(1.3,0.2,0.1)),hash31(c+vec3f(0.4,2.9,0.6)))*0.3)/8.5,(cz+0.5)*lz);
+  let d=p-ctr;
+  let u=dot(d.xy,rdir); let v=dot(d.xy,vec2f(-rdir.y,rdir.x)); let w=d.z;
+  let e=(u*u)/(0.040*0.040)+(v*v)/(0.024*0.024)+(w*w)/(0.013*0.013);
+  let fill=1.0-smoothstep(0.80,1.0,e);
+  return vec2f(fill,smoothstep(0.45,0.95,e)*fill);
+}
+// Four plump locules; their tapered inner ends leave the branching ivory columella visible.
 struct Anat{sd:f32,r:f32,th:f32,li:f32};
 fn anat(t:vec2f)->Anat{
-  let nl=U.shape.z; let off=U.shape.w;
+  let nl=U.shape.w; let off=U.shape2.x;
   let w1=noise3(vec3f(t*3.4,1.3))-0.5;
   let w2=noise3(vec3f(t*3.4+vec2f(5.2,1.1),4.1))-0.5;
   let tw=t+vec2f(w1,w2)*0.022;
@@ -1391,21 +694,20 @@ fn anat(t:vec2f)->Anat{
   let L=normalize(U.light.xyz);
   let H=normalize(L+V);
   let t0=i.uv.xy; let tz=i.uv.z;
+  let wet=clamp(i.cut,0.0,1.0);
+  let p3=vec3f(t0,tz*U.shape.z);
 
   let flesh=U.pal0.rgb; let core=U.pal1.rgb; let skin=U.pal2.rgb; let deep=U.pal3.rgb;
 
-  // Small lateral shift of the internal layers as the face tilts away from the camera.
+  // small lateral shift of the internal layers as the surface tilts away from the camera
   let tp=t0+N.xy*0.012;
   let A=anat(tp);
   let r0=length(tp);
   let skinMask=smoothstep(0.978,0.998,r0);
   let gelMask=smoothstep(-0.008,0.009,A.sd)*(1.0-skinMask);
-  // Side faces have normals transverse to the cut faces. The old test used tz,
-  // which accidentally masked the *entire* exposed face, hiding the tomato.
-  let sideMask=1.0-smoothstep(0.25,0.80,abs(N.z));
   let facing=abs(dot(N,V));
 
-  // --- walls / core (cream, fibrous, radiating) ---
+  // layer 6: columella core, layer 5: radial walls (cream, fibrous)
   let wallPink=mix(core,flesh,0.52);
   let outerRed=mix(flesh,skin,0.25);
   let fib=fbm(vec3f(A.th*23.0,A.r*2.7,0.7));
@@ -1417,16 +719,18 @@ fn anat(t:vec2f)->Anat{
   let corePulse=1.0-smoothstep(0.10,0.32,A.r);
   wallCol=mix(wallCol,core*vec3f(1.0,0.95,0.82),corePulse*0.68);
 
-  // --- outer wall (pericarp): pink inside, red outside, fine grain ---
-  let grain=noise3(vec3f(t0*235.0,tz*4.0));
-  let grain2=noise3(vec3f(t0*67.0+vec2f(5.0,3.0),tz*2.0));
-  var peri=mix(wallPink,outerRed,smoothstep(0.73,0.97,r0));
-  peri=peri*(0.83+0.26*grain+0.10*grain2);
-  let innerRind=1.0-smoothstep(0.0,0.016,abs(r0-0.90));
-  peri=mix(peri,core*0.88,innerRind*0.22);
-  let solid=mix(wallCol,peri,smoothstep(0.70,0.83,r0));
+  // layer 3: pale inner pericarp ring, layer 2: red grainy outer pericarp
+  let grain=noise3(vec3f(t0*235.0,tz*9.0));
+  let grain2=noise3(vec3f(t0*67.0+vec2f(5.0,3.0),tz*4.0));
+  let outerBand=smoothstep(0.845,0.885,r0);
+  var peri=mix(wallPink*vec3f(1.02,0.97,0.95),outerRed,outerBand);
+  peri=mix(peri,outerRed*0.9,smoothstep(0.93,0.978,r0)*0.45);
+  peri=peri*(0.84+0.24*grain+0.10*grain2);
+  let seam=1.0-smoothstep(0.0,0.014,abs(r0-0.862));
+  peri=mix(peri,core*0.92,seam*0.28);
+  let solid=mix(wallCol,peri,smoothstep(0.70,0.80,r0));
 
-  // --- glossy gel in the seed chambers ---
+  // layer 4: glossy locular gel
   let gdepth=smoothstep(0.0,0.11,A.sd);
   let edgeL=1.0-smoothstep(0.0,0.035,A.sd);
   var gel=mix(flesh*1.07,deep,gdepth*0.72);
@@ -1435,21 +739,26 @@ fn anat(t:vec2f)->Anat{
   gel=mix(gel,min(flesh*vec3f(1.0,1.9,1.7)+vec3f(0.08),vec3f(1.0)),edgeL*0.37);
   gel=gel*(0.84+0.26*fbm(vec3f(t0*6.5,tz*3.0+2.0)));
   gel=mix(gel,deep*0.9,(1.0-facing)*0.20);
-  let bub=bubbleAt(t0+V.xy*0.02);
-  gel=gel+vec3f(1.0,0.95,0.9)*bub*0.55;
+  // bubbles and buried seeds
+  let bub=bubble3(p3);
+  gel=mix(gel,gel*0.8+vec3f(0.18,0.10,0.08),bub.y*0.6)+vec3f(1.0,0.95,0.9)*bub.x*0.55;
+  let interior=smoothstep(0.05,0.14,tz)*(1.0-smoothstep(0.86,0.95,tz));
+  let rl=max(length(t0),1e-4); let rdir=t0/rl;
+  let sf=seedField(p3,rdir);
+  let seedCol=core*vec3f(0.98,0.90,0.62);
+  gel=mix(gel,mix(seedCol,seedCol*0.55,sf.y),sf.x*interior);
 
   var col=mix(solid,gel,gelMask);
-  let lip=(1.0-smoothstep(0.002,0.026,abs(A.sd)))*(1.0-sideMask)*(1.0-skinMask);
+  let lip=(1.0-smoothstep(0.002,0.026,abs(A.sd)))*(1.0-skinMask);
   col=mix(col,deep*1.18,lip*0.32);
-  // On narrow perimeter and flat cut sides, show flesh instead of the face's chambers.
-  col=mix(col,solid*(0.92+0.12*fbm(vec3f(t0*5.0,tz*7.0))),sideMask*0.92);
+  col=col+vec3f(1.0,0.95,0.9)*bub.x*0.25*(1.0-gelMask)*(1.0-skinMask);
 
-  // --- skin: thin, red, subtle mottling ---
+  // layer 1: thin red skin with subtle mottling
   let sn=fbm(vec3f(t0*6.0,tz*2.0+4.0)); let sn2=noise3(vec3f(t0*60.0,tz*5.0));
   let skinC=skin*(0.82+0.32*sn)*(0.92+0.14*sn2);
   col=mix(col,skinC,skinMask);
 
-  // --- surface normal: wet meniscus around the gel, grain elsewhere ---
+  // surface normal: wet meniscus around the gel, grain elsewhere
   let g2=vec2f(dpdx(A.sd),-dpdy(A.sd));
   let gd=g2/max(length(g2),1e-7);
   let rightW=vec3f(U.view[0][0],U.view[1][0],U.view[2][0]);
@@ -1457,10 +766,10 @@ fn anat(t:vec2f)->Anat{
   let men=(1.0-smoothstep(0.0,0.065,A.sd))*gelMask;
   let wob=vec3f(fbm(vec3f(t0*3.1,1.0))-0.5,fbm(vec3f(t0*3.1+vec2f(4.0,7.0),2.0))-0.5,0.0);
   let Ng=normalize(N+(rightW*gd.x+upW*gd.y)*men*0.42+wob*0.12);
-  let Nr=normalize(N+vec3f(grain-0.5,sn2-0.5,0.0)*0.05);
+  let Nr=normalize(N+vec3f(grain-0.5,sn2-0.5,0.0)*0.05*(1.0-0.6*wet));
   let Nf=normalize(mix(Nr,Ng,gelMask));
 
-  // --- lighting ---
+  // lighting
   let ndl=dot(Nf,L);
   let wrap=clamp((ndl+0.45)/1.45,0.0,1.0);
   let amb=mix(vec3f(0.57,0.51,0.46),vec3f(0.82,0.78,0.73),Nf.y*0.5+0.5)*0.53;
@@ -1470,21 +779,22 @@ fn anat(t:vec2f)->Anat{
   let sss=mix(flesh,core,0.3)*(0.07+0.20*back)*(0.5+gelMask*0.9)*(1.0-skinMask*0.7);
   lit=lit+sss*0.7;
 
-  // Fresnel + restrained studio softbox reflection + highlight
+  // Fresnel + restrained studio softbox reflection + highlight; fresh cuts are wetter
   let Rv=reflect(-V,Nf);
   let fres=0.04+0.96*pow(1.0-max(dot(Nf,V),0.0),5.0);
   let sbox=smoothstep(0.30,0.85,dot(Rv,normalize(vec3f(0.5,0.8,0.6))));
   let envG=mix(0.35,0.9,Rv.y*0.5+0.5);
   let gloss=mix(mix(0.22,0.5,skinMask),1.0,gelMask)*(1.0-0.6*corePulse*(1.0-gelMask));
+  let glossW=gloss*(1.0+0.7*wet)+0.25*wet;
   let spec=pow(max(dot(Nf,H),0.0),mix(60.0,140.0,gelMask))*0.45;
-  lit=lit+vec3f(1.0,0.98,0.95)*(fres*envG*0.4+sbox*(0.05+fres*0.3)+spec)*gloss;
+  lit=lit+vec3f(1.0,0.98,0.95)*(fres*envG*(0.4+0.3*wet)+sbox*(0.05+fres*0.3+0.08*wet)+spec)*glossW;
   lit=lit+vec3f(0.25,0.15,0.1)*U.extra.y*0.05;
 
   lit=lit/(1.0+0.13*lit);
   return vec4f(clamp(lit,vec3f(0.0),vec3f(1.0)),1.0);
 }`;
 
-      const seedWGSL = /* wgsl */ `
+const seedWGSL=/* wgsl */`
 ${common}
 struct VIn{@location(0) lp:vec3f,@location(1) ipos:vec3f,@location(2) size:f32,@location(3) q:vec4f};
 struct VOut{@builtin(position) clip:vec4f,@location(0) wpos:vec3f,@location(1) nrm:vec3f};
@@ -1493,7 +803,6 @@ fn rotQ(v:vec3f,q:vec4f)->vec3f{
   return 2.0*dot(u,v)*u+(s*s-dot(u,u))*v+2.0*s*cross(u,v);
 }
 @vertex fn vs(v:VIn)->VOut{
-  // tapered oval: wide end at -y, narrow tip at +y
   let taper=0.80-0.32*v.lp.y;
   let sc=vec3f(v.lp.x*v.size*0.55*taper, v.lp.y*v.size, v.lp.z*v.size*0.34*taper);
   let wp=v.ipos+rotQ(sc,v.q);
@@ -1517,948 +826,579 @@ fn rotQ(v:vec3f,q:vec4f)->vec3f{
   return vec4f(c,1.0);
 }`;
 
-      const wireWGSL = /* wgsl */ `
+const wireWGSL=/* wgsl */`
 ${common}
 @vertex fn vs(@location(0) p:vec3f)->@builtin(position) vec4f{ return U.viewProj*vec4f(p,1.0); }
 @fragment fn fs()->@location(0) vec4f{ return vec4f(0.1,0.08,0.06,0.5); }`;
 
-      async function mk(code, label) {
-        const m = device.createShaderModule({ code, label });
-        const info = await m.getCompilationInfo();
-        for (const msg of info.messages) {
-          if (msg.type === "error") {
-            toast(`WGSL ${label}: ${msg.message} (line ${msg.lineNum})`);
-          }
-        }
-        return m;
-      }
-      const [bgM, shM, bodyM, seedM, wireM] = await Promise.all([
-        mk(bgWGSL, "bg"),
-        mk(shadowWGSL, "shadow"),
-        mk(bodyWGSL, "body"),
-        mk(seedWGSL, "seed"),
-        mk(wireWGSL, "wire"),
-      ]);
+const bladeWGSL=/* wgsl */`
+${common}
+struct BOut{@builtin(position) pos:vec4f,@location(0) uv:vec2f};
+@vertex fn vs(@builtin(vertex_index) vi:u32)->BOut{
+  let asp=vec2f(U.params.w,1.0);
+  let a=U.blade.xy*asp; let b=U.blade.zw*asp;
+  var d=b-a; let len=max(length(d),1e-5); d=d/len;
+  let nrm=vec2f(-d.y,d.x);
+  let hw=U.blade2.y; let ext=U.blade2.z;
+  var corners=array<vec2f,6>(vec2f(-1.0,-1.0),vec2f(1.0,-1.0),vec2f(1.0,1.0),vec2f(-1.0,-1.0),vec2f(1.0,1.0),vec2f(-1.0,1.0));
+  let c=corners[vi];
+  let along=mix(-ext,len+ext,c.x*0.5+0.5);
+  let p=a+d*along+nrm*(c.y*hw*2.0);
+  var o:BOut; o.pos=vec4f(p/asp,0.0,1.0); o.uv=vec2f(along/len,c.y); return o;
+}
+@fragment fn fs(i:BOut)->@location(0) vec4f{
+  let w=abs(i.uv.y);
+  let body=1.0-smoothstep(0.35,0.6,w);
+  let halo=(1.0-smoothstep(0.6,1.0,w))*0.35;
+  let endFade=smoothstep(-0.06,0.03,i.uv.x)*(1.0-smoothstep(0.97,1.06,i.uv.x));
+  let steel=mix(vec3f(0.42,0.45,0.50),vec3f(0.98,0.99,1.0),1.0-smoothstep(0.0,0.4,w));
+  let a=(body+halo)*U.blade2.x*(0.35+0.65*endFade);
+  return vec4f(steel,a);
+}`;
 
-      const bgl = device.createBindGroupLayout({
-        entries: [
-          {
-            binding: 0,
-            visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT,
-            buffer: { type: "uniform" },
-          },
-        ],
-      });
-      const layout = device.createPipelineLayout({ bindGroupLayouts: [bgl] });
-      const blend = {
-        color: {
-          srcFactor: "src-alpha",
-          dstFactor: "one-minus-src-alpha",
-          operation: "add",
-        },
-        alpha: {
-          srcFactor: "one",
-          dstFactor: "one-minus-src-alpha",
-          operation: "add",
-        },
-      };
+async function mk(code,label){
+  const m=device.createShaderModule({code,label});
+  const info=await m.getCompilationInfo();
+  for(const msg of info.messages){ if(msg.type==='error'){ toast(`WGSL ${label}: ${msg.message} (line ${msg.lineNum})`); } }
+  return m;
+}
+const [bgM,shM,bodyM,seedM,wireM,bladeM]=await Promise.all([mk(bgWGSL,'bg'),mk(shadowWGSL,'shadow'),mk(bodyWGSL,'body'),mk(seedWGSL,'seed'),mk(wireWGSL,'wire'),mk(bladeWGSL,'blade')]);
 
-      const bgPipe = device.createRenderPipeline({
-        layout,
-        vertex: { module: bgM, entryPoint: "vs" },
-        fragment: { module: bgM, entryPoint: "fs", targets: [{ format: fmt }] },
-        primitive: { topology: "triangle-list" },
-        depthStencil: {
-          format: DEPTH,
-          depthWriteEnabled: false,
-          depthCompare: "always",
-        },
-      });
-      const shPipe = device.createRenderPipeline({
-        layout,
-        vertex: { module: shM, entryPoint: "vs" },
-        fragment: {
-          module: shM,
-          entryPoint: "fs",
-          targets: [{ format: fmt, blend }],
-        },
-        primitive: { topology: "triangle-list", cullMode: "none" },
-        depthStencil: {
-          format: DEPTH,
-          depthWriteEnabled: false,
-          depthCompare: "less-equal",
-        },
-      });
-      const bodyPipe = device.createRenderPipeline({
-        layout,
-        vertex: {
-          module: bodyM,
-          entryPoint: "vs",
-          buffers: [
-            {
-              arrayStride: 48,
-              attributes: [
-                { shaderLocation: 0, offset: 0, format: "float32x3" },
-                { shaderLocation: 1, offset: 16, format: "float32x3" },
-                { shaderLocation: 2, offset: 32, format: "float32x3" },
-              ],
-            },
-          ],
-        },
-        fragment: {
-          module: bodyM,
-          entryPoint: "fs",
-          targets: [{ format: fmt }],
-        },
-        primitive: { topology: "triangle-list", cullMode: "none" },
-        depthStencil: {
-          format: DEPTH,
-          depthWriteEnabled: true,
-          depthCompare: "less",
-        },
-      });
-      const seedPipe = device.createRenderPipeline({
-        layout,
-        vertex: {
-          module: seedM,
-          entryPoint: "vs",
-          buffers: [
-            {
-              arrayStride: 12,
-              attributes: [
-                { shaderLocation: 0, offset: 0, format: "float32x3" },
-              ],
-            },
-            {
-              arrayStride: 32,
-              stepMode: "instance",
-              attributes: [
-                { shaderLocation: 1, offset: 0, format: "float32x3" },
-                { shaderLocation: 2, offset: 12, format: "float32" },
-                { shaderLocation: 3, offset: 16, format: "float32x4" },
-              ],
-            },
-          ],
-        },
-        fragment: {
-          module: seedM,
-          entryPoint: "fs",
-          targets: [{ format: fmt }],
-        },
-        primitive: { topology: "triangle-list", cullMode: "none" },
-        depthStencil: {
-          format: DEPTH,
-          depthWriteEnabled: true,
-          depthCompare: "less",
-        },
-      });
-      const wirePipe = device.createRenderPipeline({
-        layout,
-        vertex: {
-          module: wireM,
-          entryPoint: "vs",
-          buffers: [
-            {
-              arrayStride: 48,
-              attributes: [
-                { shaderLocation: 0, offset: 0, format: "float32x3" },
-              ],
-            },
-          ],
-        },
-        fragment: {
-          module: wireM,
-          entryPoint: "fs",
-          targets: [{ format: fmt, blend }],
-        },
-        primitive: { topology: "line-list" },
-        depthStencil: {
-          format: DEPTH,
-          depthWriteEnabled: false,
-          depthCompare: "less-equal",
-        },
-      });
-      const bindGroup = device.createBindGroup({
-        layout: bgl,
-        entries: [{ binding: 0, resource: { buffer: uboBuf } }],
-      });
+const bgl=device.createBindGroupLayout({entries:[{binding:0,visibility:GPUShaderStage.VERTEX|GPUShaderStage.FRAGMENT,buffer:{type:'uniform'}}]});
+const layout=device.createPipelineLayout({bindGroupLayouts:[bgl]});
+const blend={color:{srcFactor:'src-alpha',dstFactor:'one-minus-src-alpha',operation:'add'},alpha:{srcFactor:'one',dstFactor:'one-minus-src-alpha',operation:'add'}};
 
-      // ================= Palettes =================
-      // flesh = gel colour, core = cream core/walls, skin = rind, deep = gel depth
-      const palettes = [
-        {
-          flesh: [0.9, 0.1, 0.05],
-          core: [0.99, 0.88, 0.62],
-          skin: [0.8, 0.13, 0.07],
-          deep: [0.52, 0.02, 0.03],
-        }, // Classic: ripe red
-        {
-          flesh: [0.98, 0.58, 0.04],
-          core: [1.0, 0.94, 0.7],
-          skin: [0.92, 0.55, 0.08],
-          deep: [0.74, 0.27, 0.02],
-        }, // Golden: yellow-orange heirloom
-        {
-          flesh: [0.5, 0.78, 0.22],
-          core: [0.96, 0.97, 0.78],
-          skin: [0.45, 0.66, 0.2],
-          deep: [0.18, 0.4, 0.08],
-        }, // Mint: green tomato
-      ];
+const bgPipe=device.createRenderPipeline({layout,
+  vertex:{module:bgM,entryPoint:'vs'},fragment:{module:bgM,entryPoint:'fs',targets:[{format:fmt}]},
+  primitive:{topology:'triangle-list'},depthStencil:{format:DEPTH,depthWriteEnabled:false,depthCompare:'always'}});
+const shPipe=device.createRenderPipeline({layout,
+  vertex:{module:shM,entryPoint:'vs'},fragment:{module:shM,entryPoint:'fs',targets:[{format:fmt,blend}]},
+  primitive:{topology:'triangle-list',cullMode:'none'},depthStencil:{format:DEPTH,depthWriteEnabled:false,depthCompare:'less-equal'}});
+const bodyPipe=device.createRenderPipeline({layout,
+  vertex:{module:bodyM,entryPoint:'vs',buffers:[{arrayStride:48,attributes:[
+    {shaderLocation:0,offset:0,format:'float32x4'},{shaderLocation:1,offset:16,format:'float32x3'},{shaderLocation:2,offset:32,format:'float32x3'}]}]},
+  fragment:{module:bodyM,entryPoint:'fs',targets:[{format:fmt}]},
+  primitive:{topology:'triangle-list',cullMode:'none'},depthStencil:{format:DEPTH,depthWriteEnabled:true,depthCompare:'less'}});
+const seedPipe=device.createRenderPipeline({layout,
+  vertex:{module:seedM,entryPoint:'vs',buffers:[
+    {arrayStride:12,attributes:[{shaderLocation:0,offset:0,format:'float32x3'}]},
+    {arrayStride:32,stepMode:'instance',attributes:[
+      {shaderLocation:1,offset:0,format:'float32x3'},{shaderLocation:2,offset:12,format:'float32'},{shaderLocation:3,offset:16,format:'float32x4'}]}]},
+  fragment:{module:seedM,entryPoint:'fs',targets:[{format:fmt}]},
+  primitive:{topology:'triangle-list',cullMode:'none'},depthStencil:{format:DEPTH,depthWriteEnabled:true,depthCompare:'less'}});
+const wirePipe=device.createRenderPipeline({layout,
+  vertex:{module:wireM,entryPoint:'vs',buffers:[{arrayStride:48,attributes:[{shaderLocation:0,offset:0,format:'float32x3'}]}]},
+  fragment:{module:wireM,entryPoint:'fs',targets:[{format:fmt,blend}]},
+  primitive:{topology:'line-list'},depthStencil:{format:DEPTH,depthWriteEnabled:false,depthCompare:'less-equal'}});
+const bladePipe=device.createRenderPipeline({layout,
+  vertex:{module:bladeM,entryPoint:'vs'},fragment:{module:bladeM,entryPoint:'fs',targets:[{format:fmt,blend}]},
+  primitive:{topology:'triangle-list',cullMode:'none'},depthStencil:{format:DEPTH,depthWriteEnabled:false,depthCompare:'always'}});
+const bindGroup=device.createBindGroup({layout:bgl,entries:[{binding:0,resource:{buffer:uboBuf}}]});
 
-      // ================= Camera =================
-      const mobile = () => window.innerWidth <= 780;
-      function defaultDist() {
-        const asp = canvas.clientWidth / Math.max(1, canvas.clientHeight);
-        const fv = mobile() ? 0.42 : 0.75,
-          fh = mobile() ? 0.92 : 0.68;
-        const dv = SH.H / 2 / (TANH * fv),
-          dh = SH.W / 2 / (TANH * asp * fh);
-        return Math.min(24, Math.max(4, Math.max(dv, dh) + SH.THK * 0.5));
-      }
-      const viewOffset = () => (mobile() ? [0, 0.22] : [0.09, -0.025]);
-      let camYaw = 0.16,
-        camPitch = 0.055,
-        camDist = defaultDist();
-      const camTarget = { x: 0, y: 0, z: 0 };
-      function camPos() {
-        const cp = Math.cos(camPitch);
-        return {
-          x: camTarget.x + camDist * cp * Math.sin(camYaw),
-          y: camTarget.y + camDist * Math.sin(camPitch),
-          z: camTarget.z + camDist * cp * Math.cos(camYaw),
-        };
-      }
-      function camMatrices() {
-        const asp = canvas.clientWidth / Math.max(1, canvas.clientHeight);
-        const [ox, oy] = viewOffset();
-        const cam = camPos();
-        const view = mLookAt(cam, camTarget, { x: 0, y: 1, z: 0 });
-        const proj = mPersp(asp, 0.1, 100, ox, oy);
-        return { cam, view, proj, vp: mMul(proj, view), asp };
-      }
+// ================= Palettes =================
+// flesh = gel colour, core = cream core/walls, skin = rind, deep = gel depth
+const palettes=[
+  {flesh:[0.90,0.10,0.05],core:[0.99,0.88,0.62],skin:[0.80,0.13,0.07],deep:[0.52,0.02,0.03]},  // Classic: ripe red
+  {flesh:[0.98,0.58,0.04],core:[1.00,0.94,0.70],skin:[0.92,0.55,0.08],deep:[0.74,0.27,0.02]},  // Golden: yellow-orange heirloom
+  {flesh:[0.50,0.78,0.22],core:[0.96,0.97,0.78],skin:[0.45,0.66,0.20],deep:[0.18,0.40,0.08]},  // Mint: green tomato
+];
 
-      // ================= Simulation (XPBD on a tetrahedral mesh) =================
-      const sim = {
-        firmness: 0.55,
-        damping: 0.22,
-        paused: false,
-        slow: false,
-        showMesh: false,
-        palette: 0,
-        grab: null,
-        substeps: 8,
-      };
-      if (
-        window.matchMedia &&
-        window.matchMedia("(prefers-reduced-motion: reduce)").matches
-      ) {
-        sim.paused = true;
-        $("pause").textContent = "Resume";
-      }
-      const GRAV = -9.8;
-      function resetSim() {
-        sim.grab = null;
-        canvas.classList.remove("grabbing");
-        for (const n of nodes) {
-          n.pos = { ...n.rest };
-          n.prev = { ...n.rest };
-          n.vel = { x: 0, y: 0, z: 0 };
-        }
-      }
-      function simulate(dt) {
-        const sub = sim.substeps,
-          h = dt / sub,
-          h2 = h * h,
-          N = nodes.length;
-        const f = sim.firmness;
-        const kE = 1500 + 9000 * f * f;
-        const aE = 1 / (kE * h2);
-        const aV = ((1.1 - f) * 6e-9) / h2;
-        const kd = 1 - Math.exp(-sim.damping * 8 * h);
-        const drag = 1 - 0.05 * h;
-        const kz = 0.001; // weak tether to the rest plane: keeps the upright body from toppling flat
-        const grab = sim.grab;
-        for (let s = 0; s < sub; s++) {
-          // internal damping removes only motion relative to the centre of mass
-          let cx = 0,
-            cy = 0,
-            cz = 0;
-          for (const n of nodes) {
-            cx += n.vel.x;
-            cy += n.vel.y;
-            cz += n.vel.z;
-          }
-          cx /= N;
-          cy /= N;
-          cz /= N;
-          for (const n of nodes) {
-            n.prev.x = n.pos.x;
-            n.prev.y = n.pos.y;
-            n.prev.z = n.pos.z;
-            n.vel.y += GRAV * h;
-            n.vel.x = (n.vel.x - (n.vel.x - cx) * kd) * drag;
-            n.vel.y = (n.vel.y - (n.vel.y - cy) * kd) * drag;
-            n.vel.z = (n.vel.z - (n.vel.z - cz) * kd) * drag;
-            n.vpre = n.vel.y;
-            n.pos.x += n.vel.x * h;
-            n.pos.y += n.vel.y * h;
-            n.pos.z += n.vel.z * h;
-            n.pos.z += (n.rest.z - n.pos.z) * kz;
-          }
-          // grab: bounded soft pull of a local patch toward the anchor
-          if (grab) {
-            const an = grab.anchor;
-            for (const g of grab.verts) {
-              const n = nodes[g.idx];
-              const dx = an.x + g.off.x - n.pos.x,
-                dy = an.y + g.off.y - n.pos.y,
-                dz = an.z + g.off.z - n.pos.z;
-              const l = Math.hypot(dx, dy, dz),
-                mxs = 0.05;
-              const k = 0.5 * g.w * (l > mxs ? mxs / l : 1);
-              n.pos.x += dx * k;
-              n.pos.y += dy * k;
-              n.pos.z += dz * k;
-            }
-          }
-          // edge (distance) constraints — rind edges are stiffer
-          for (const e of edges) {
-            const a = nodes[e.a],
-              b = nodes[e.b];
-            const dx = b.pos.x - a.pos.x,
-              dy = b.pos.y - a.pos.y,
-              dz = b.pos.z - a.pos.z;
-            const d = Math.sqrt(dx * dx + dy * dy + dz * dz);
-            if (d < 1e-9) continue;
-            const dl = -(d - e.rest) / (2 + aE * e.firm);
-            const k = dl / d;
-            a.pos.x -= dx * k;
-            a.pos.y -= dy * k;
-            a.pos.z -= dz * k;
-            b.pos.x += dx * k;
-            b.pos.y += dy * k;
-            b.pos.z += dz * k;
-          }
-          // tetra volume constraints (volume preservation; stiff when nearly inverted)
-          for (const t of tets) {
-            const a = nodes[t.a].pos,
-              b = nodes[t.b].pos,
-              c = nodes[t.c].pos,
-              d = nodes[t.d].pos;
-            const e1x = b.x - a.x,
-              e1y = b.y - a.y,
-              e1z = b.z - a.z,
-              e2x = c.x - a.x,
-              e2y = c.y - a.y,
-              e2z = c.z - a.z,
-              e3x = d.x - a.x,
-              e3y = d.y - a.y,
-              e3z = d.z - a.z;
-            const g1x = (e2y * e3z - e2z * e3y) / 6,
-              g1y = (e2z * e3x - e2x * e3z) / 6,
-              g1z = (e2x * e3y - e2y * e3x) / 6;
-            const g2x = (e3y * e1z - e3z * e1y) / 6,
-              g2y = (e3z * e1x - e3x * e1z) / 6,
-              g2z = (e3x * e1y - e3y * e1x) / 6;
-            const g3x = (e1y * e2z - e1z * e2y) / 6,
-              g3y = (e1z * e2x - e1x * e2z) / 6,
-              g3z = (e1x * e2y - e1y * e2x) / 6;
-            const g0x = -(g1x + g2x + g3x),
-              g0y = -(g1y + g2y + g3y),
-              g0z = -(g1z + g2z + g3z);
-            const vol = e1x * g1x + e1y * g1y + e1z * g1z;
-            const C = vol * t.sign - t.restVol;
-            const w =
-              g0x * g0x +
-              g0y * g0y +
-              g0z * g0z +
-              g1x * g1x +
-              g1y * g1y +
-              g1z * g1z +
-              g2x * g2x +
-              g2y * g2y +
-              g2z * g2z +
-              g3x * g3x +
-              g3y * g3y +
-              g3z * g3z;
-            if (w < 1e-14) continue;
-            const inverted = vol * t.sign < 0.15 * t.restVol;
-            const dl = (-C / (w + (inverted ? 0 : aV))) * t.sign;
-            a.x += g0x * dl;
-            a.y += g0y * dl;
-            a.z += g0z * dl;
-            b.x += g1x * dl;
-            b.y += g1y * dl;
-            b.z += g1z * dl;
-            c.x += g2x * dl;
-            c.y += g2y * dl;
-            c.z += g2z * dl;
-            d.x += g3x * dl;
-            d.y += g3y * dl;
-            d.z += g3z * dl;
-          }
-          // floor: gentle friction and a soft bounce
-          for (const n of nodes) {
-            const p = n.pos;
-            let hit = false;
-            if (p.y < floorY) {
-              p.y = floorY;
-              hit = true;
-            }
-            let vx = (p.x - n.prev.x) / h,
-              vy = (p.y - n.prev.y) / h,
-              vz = (p.z - n.prev.z) / h;
-            if (hit) {
-              vx *= 0.997;
-              vz *= 0.997;
-              vy = n.vpre < -1.2 ? -0.22 * n.vpre : Math.max(vy, 0);
-            }
-            n.vel.x = vx;
-            n.vel.y = vy;
-            n.vel.z = vz;
-          }
-        }
-        // safeguards: NaN / runaway recovery and velocity clamp
-        for (const n of nodes) {
-          const p = n.pos,
-            v = n.vel;
-          if (
-            !isFinite(p.x + p.y + p.z) ||
-            Math.abs(p.x) > 30 ||
-            Math.abs(p.z) > 30 ||
-            p.y > 30
-          ) {
-            resetSim();
-            return;
-          }
-          const sp = Math.hypot(v.x, v.y, v.z);
-          if (sp > 22) {
-            const k = 22 / sp;
-            v.x *= k;
-            v.y *= k;
-            v.z *= k;
-          }
-        }
-      }
+// ================= Camera =================
+const mobile=()=>window.innerWidth<=780;
+function defaultDist(){
+  const asp=canvas.clientWidth/Math.max(1,canvas.clientHeight);
+  const fv=mobile()?0.42:0.75, fh=mobile()?0.92:0.68;
+  const dv=(SH.H/2)/(TANH*fv), dh=(SH.W/2)/(TANH*asp*fh);
+  return Math.min(24,Math.max(4,Math.max(dv,dh)+SH.THK*0.5));
+}
+const viewOffset=()=>mobile()?[0,0.22]:[0.09,-0.025];
+let camYaw=0.16,camPitch=0.055,camDist=defaultDist();
+const camTarget={x:0,y:0,z:0};
+function camPos(){
+  const cp=Math.cos(camPitch);
+  return{x:camTarget.x+camDist*cp*Math.sin(camYaw),y:camTarget.y+camDist*Math.sin(camPitch),z:camTarget.z+camDist*cp*Math.cos(camYaw)};
+}
+function camMatrices(){
+  const asp=canvas.clientWidth/Math.max(1,canvas.clientHeight);
+  const [ox,oy]=viewOffset();
+  const cam=camPos();
+  const view=mLookAt(cam,camTarget,{x:0,y:1,z:0});
+  const proj=mPersp(asp,0.1,100,ox,oy);
+  return{cam,view,proj,vp:mMul(proj,view),asp};
+}
 
-      // ================= Per-frame GPU updates =================
-      const body = { comX: 0, comZ: 0, minY: 0 };
-      function updateGPU() {
-        nrmAcc.fill(0);
-        for (const t of surfTris) {
-          const A = nodes[t[0]].pos,
-            B = nodes[t[1]].pos,
-            C = nodes[t[2]].pos;
-          const e1x = B.x - A.x,
-            e1y = B.y - A.y,
-            e1z = B.z - A.z,
-            e2x = C.x - A.x,
-            e2y = C.y - A.y,
-            e2z = C.z - A.z;
-          const nx = e1y * e2z - e1z * e2y,
-            ny = e1z * e2x - e1x * e2z,
-            nz = e1x * e2y - e1y * e2x;
-          for (let q = 0; q < 3; q++) {
-            const i = t[q] * 3;
-            nrmAcc[i] += nx;
-            nrmAcc[i + 1] += ny;
-            nrmAcc[i + 2] += nz;
-          }
+// ================= Simulation (XPBD on tetrahedral meshes, one per piece) =================
+const GRAV=-9.8;
+function resetSim(){loadShape(sim.shape)}
+// cheap contact between pieces: hashed surface-particle repulsion, once per step
+function collideBodies(){
+  const r=0.16,r2=r*r,inv=1/0.2;
+  const grid=new Map();
+  const key=(x,y,z)=>(Math.imul(x,73856093)^Math.imul(y,19349663)^Math.imul(z,83492791));
+  for(let bi=0;bi<bodies.length;bi++){const b=bodies[bi];
+    for(const i of b.surfaceList){const p=b.nodes[i].pos;const k=key(Math.floor(p.x*inv),Math.floor(p.y*inv),Math.floor(p.z*inv));
+      let a=grid.get(k);if(!a){a=[];grid.set(k,a)}a.push(bi,i)}}
+  for(let bi=0;bi<bodies.length;bi++){const b=bodies[bi];
+    for(const i of b.surfaceList){
+      const n=b.nodes[i],p=n.pos;
+      const cx=Math.floor(p.x*inv),cy=Math.floor(p.y*inv),cz=Math.floor(p.z*inv);
+      for(let dx=-1;dx<=1;dx++)for(let dy=-1;dy<=1;dy++)for(let dz=-1;dz<=1;dz++){
+        const a=grid.get(key(cx+dx,cy+dy,cz+dz));if(!a)continue;
+        for(let k=0;k<a.length;k+=2){
+          const bj=a[k];if(bj<=bi)continue;
+          const m=bodies[bj].nodes[a[k+1]],q=m.pos;
+          const ddx=p.x-q.x,ddy=p.y-q.y,ddz=p.z-q.z;const d2=ddx*ddx+ddy*ddy+ddz*ddz;
+          if(d2>=r2||d2<1e-12)continue;
+          const d=Math.sqrt(d2),ux=ddx/d,uy=ddy/d,uz=ddz/d,push=(r-d)*0.3;
+          p.x+=ux*push;p.y+=uy*push;p.z+=uz*push;q.x-=ux*push;q.y-=uy*push;q.z-=uz*push;
+          const vn=(n.vel.x-m.vel.x)*ux+(n.vel.y-m.vel.y)*uy+(n.vel.z-m.vel.z)*uz;
+          if(vn<0){const j=vn*0.45;n.vel.x-=ux*j;n.vel.y-=uy*j;n.vel.z-=uz*j;m.vel.x+=ux*j;m.vel.y+=uy*j;m.vel.z+=uz*j}
         }
-        let sx = 0,
-          sz = 0,
-          mn = 1e9;
-        for (let i = 0; i < NV; i++) {
-          const n = nodes[i],
-            o = i * 12;
-          const nx = nrmAcc[i * 3],
-            ny = nrmAcc[i * 3 + 1],
-            nz = nrmAcc[i * 3 + 2],
-            l = Math.hypot(nx, ny, nz) || 1;
-          vtxData[o] = n.pos.x;
-          vtxData[o + 1] = n.pos.y;
-          vtxData[o + 2] = n.pos.z;
-          vtxData[o + 4] = nx / l;
-          vtxData[o + 5] = ny / l;
-          vtxData[o + 6] = nz / l;
-          vtxData[o + 8] = n.tx;
-          vtxData[o + 9] = n.ty;
-          vtxData[o + 10] = n.tz;
-          sx += n.pos.x;
-          sz += n.pos.z;
-          if (n.pos.y < mn) mn = n.pos.y;
+      }
+    }
+  }
+}
+function simulate(dt){
+  const sub=sim.substeps,h=dt/sub,h2=h*h;
+  const f=sim.firmness;
+  const kE=1500+9000*f*f;
+  const aE=1/(kE*h2);
+  const aV=(1.1-f)*6e-9/h2;
+  const kd=1-Math.exp(-sim.damping*8*h);
+  const drag=1-0.05*h;
+  const kz=0.001;                     // weak tether to the rest plane keeps thin upright pieces from toppling flat
+  if(bodies.length>1)collideBodies();
+  const grab=sim.grab;
+  for(let s=0;s<sub;s++){
+    for(const b of bodies){
+      const nodes=b.nodes,N=nodes.length;
+      // internal damping removes only motion relative to the piece's centre of mass
+      let cx=0,cy=0,cz=0;
+      for(const n of nodes){cx+=n.vel.x;cy+=n.vel.y;cz+=n.vel.z}
+      cx/=N;cy/=N;cz/=N;
+      for(const n of nodes){
+        n.prev.x=n.pos.x;n.prev.y=n.pos.y;n.prev.z=n.pos.z;
+        n.vel.y+=GRAV*h;
+        n.vel.x=(n.vel.x-(n.vel.x-cx)*kd)*drag;
+        n.vel.y=(n.vel.y-(n.vel.y-cy)*kd)*drag;
+        n.vel.z=(n.vel.z-(n.vel.z-cz)*kd)*drag;
+        n.vpre=n.vel.y;
+        n.pos.x+=n.vel.x*h;n.pos.y+=n.vel.y*h;n.pos.z+=n.vel.z*h;
+        n.pos.z+=(n.rest.z-n.pos.z)*kz;
+      }
+      // grab: bounded soft pull of a local patch toward the anchor
+      if(grab&&grab.body===b){
+        const an=grab.anchor;
+        for(const g of grab.verts){
+          const n=nodes[g.idx];
+          const dx=an.x+g.off.x-n.pos.x,dy=an.y+g.off.y-n.pos.y,dz=an.z+g.off.z-n.pos.z;
+          const l=Math.hypot(dx,dy,dz),mxs=0.05;
+          const k=0.5*g.w*(l>mxs?mxs/l:1);
+          n.pos.x+=dx*k;n.pos.y+=dy*k;n.pos.z+=dz*k;
         }
-        body.comX = sx / NV;
-        body.comZ = sz / NV;
-        body.minY = mn;
-        device.queue.writeBuffer(vtxBuf, 0, vtxData);
+      }
+      // edge (distance) constraints — rind edges are stiffer
+      for(const e of b.edges){
+        const a=nodes[e.a],c=nodes[e.b];
+        const dx=c.pos.x-a.pos.x,dy=c.pos.y-a.pos.y,dz=c.pos.z-a.pos.z;
+        const d=Math.sqrt(dx*dx+dy*dy+dz*dz);if(d<1e-9)continue;
+        const dl=-(d-e.rest)/(2+aE*e.firm);
+        const k=dl/d;
+        a.pos.x-=dx*k;a.pos.y-=dy*k;a.pos.z-=dz*k;
+        c.pos.x+=dx*k;c.pos.y+=dy*k;c.pos.z+=dz*k;
+      }
+      // tetra volume constraints (volume preservation; rigid when nearly inverted)
+      for(const t of b.tets){
+        const a=nodes[t.a].pos,bb=nodes[t.b].pos,c=nodes[t.c].pos,d=nodes[t.d].pos;
+        const e1x=bb.x-a.x,e1y=bb.y-a.y,e1z=bb.z-a.z,e2x=c.x-a.x,e2y=c.y-a.y,e2z=c.z-a.z,e3x=d.x-a.x,e3y=d.y-a.y,e3z=d.z-a.z;
+        const g1x=(e2y*e3z-e2z*e3y)/6,g1y=(e2z*e3x-e2x*e3z)/6,g1z=(e2x*e3y-e2y*e3x)/6;
+        const g2x=(e3y*e1z-e3z*e1y)/6,g2y=(e3z*e1x-e3x*e1z)/6,g2z=(e3x*e1y-e3y*e1x)/6;
+        const g3x=(e1y*e2z-e1z*e2y)/6,g3y=(e1z*e2x-e1x*e2z)/6,g3z=(e1x*e2y-e1y*e2x)/6;
+        const g0x=-(g1x+g2x+g3x),g0y=-(g1y+g2y+g3y),g0z=-(g1z+g2z+g3z);
+        const vol=e1x*g1x+e1y*g1y+e1z*g1z;
+        const C=vol*t.sign-t.restVol;
+        const w=g0x*g0x+g0y*g0y+g0z*g0z+g1x*g1x+g1y*g1y+g1z*g1z+g2x*g2x+g2y*g2y+g2z*g2z+g3x*g3x+g3y*g3y+g3z*g3z;
+        if(w<1e-14)continue;
+        const inverted=vol*t.sign<0.15*t.restVol;
+        const dl=-C/(w+(inverted?0:aV))*t.sign;
+        a.x+=g0x*dl;a.y+=g0y*dl;a.z+=g0z*dl;
+        bb.x+=g1x*dl;bb.y+=g1y*dl;bb.z+=g1z*dl;
+        c.x+=g2x*dl;c.y+=g2y*dl;c.z+=g2z*dl;
+        d.x+=g3x*dl;d.y+=g3y*dl;d.z+=g3z*dl;
+      }
+      // floor: gentle friction and a soft bounce
+      for(const n of nodes){
+        const p=n.pos;
+        let hit=false;
+        if(p.y<floorY){p.y=floorY;hit=true}
+        let vx=(p.x-n.prev.x)/h,vy=(p.y-n.prev.y)/h,vz=(p.z-n.prev.z)/h;
+        if(hit){
+          vx*=0.97;vz*=0.97;
+          vy=n.vpre<-1.2?-0.22*n.vpre:Math.max(vy,0);
+        }
+        n.vel.x=vx;n.vel.y=vy;n.vel.z=vz;
+      }
+    }
+  }
+  // safeguards: NaN / runaway recovery and velocity clamp
+  for(const b of bodies)for(const n of b.nodes){
+    const p=n.pos,v=n.vel;
+    if(!isFinite(p.x+p.y+p.z)||Math.abs(p.x)>30||Math.abs(p.z)>30||p.y>30){resetSim();return}
+    const sp=Math.hypot(v.x,v.y,v.z);
+    if(sp>22){const k=22/sp;v.x*=k;v.y*=k;v.z*=k}
+  }
+}
 
-        // seeds ride on the deforming surface: position from barycentrics, orientation from the local triangle frame
-        for (let s = 0; s < seeds.length; s++) {
-          const sd = seeds[s],
-            t = surfTris[sd.tri];
-          const A = nodes[t[0]].pos,
-            B = nodes[t[1]].pos,
-            C = nodes[t[2]].pos;
-          const [u, v, w] = sd.bary;
-          const e1 = { x: B.x - A.x, y: B.y - A.y, z: B.z - A.z },
-            e2 = { x: C.x - A.x, y: C.y - A.y, z: C.z - A.z };
-          const n = vnorm(vcross(e1, e2));
-          const off = sd.size * 0.2;
-          let tg = {
-            x: e1.x * sd.al + e2.x * sd.be,
-            y: e1.y * sd.al + e2.y * sd.be,
-            z: e1.z * sd.al + e2.z * sd.be,
-          };
-          const dd = vdot(tg, n);
-          tg = { x: tg.x - n.x * dd, y: tg.y - n.y * dd, z: tg.z - n.z * dd };
-          tg = vnorm(tg);
-          const X = vcross(tg, n),
-            Y = tg,
-            Z = n;
-          const m00 = X.x,
-            m01 = Y.x,
-            m02 = Z.x,
-            m10 = X.y,
-            m11 = Y.y,
-            m12 = Z.y,
-            m20 = X.z,
-            m21 = Y.z,
-            m22 = Z.z;
-          const tr = m00 + m11 + m22;
-          let qx, qy, qz, qw;
-          if (tr > 0) {
-            const S = Math.sqrt(tr + 1) * 2;
-            qw = 0.25 * S;
-            qx = (m21 - m12) / S;
-            qy = (m02 - m20) / S;
-            qz = (m10 - m01) / S;
-          } else if (m00 > m11 && m00 > m22) {
-            const S = Math.sqrt(1 + m00 - m11 - m22) * 2;
-            qw = (m21 - m12) / S;
-            qx = 0.25 * S;
-            qy = (m01 + m10) / S;
-            qz = (m02 + m20) / S;
-          } else if (m11 > m22) {
-            const S = Math.sqrt(1 + m11 - m00 - m22) * 2;
-            qw = (m02 - m20) / S;
-            qx = (m01 + m10) / S;
-            qy = 0.25 * S;
-            qz = (m12 + m21) / S;
-          } else {
-            const S = Math.sqrt(1 + m22 - m00 - m11) * 2;
-            qw = (m10 - m01) / S;
-            qx = (m02 + m20) / S;
-            qy = (m12 + m21) / S;
-            qz = 0.25 * S;
-          }
-          const o = s * 8;
-          seedData[o] = A.x * u + B.x * v + C.x * w + n.x * off;
-          seedData[o + 1] = A.y * u + B.y * v + C.y * w + n.y * off;
-          seedData[o + 2] = A.z * u + B.z * v + C.z * w + n.z * off;
-          seedData[o + 3] = sd.size;
-          seedData[o + 4] = qx;
-          seedData[o + 5] = qy;
-          seedData[o + 6] = qz;
-          seedData[o + 7] = qw;
-        }
-        device.queue.writeBuffer(seedBuf, 0, seedData);
-      }
+// ================= Per-frame GPU updates =================
+function updateGPU(){
+  let sp=0;shadowCount=0;
+  for(const b of bodies){
+    const nodes=b.nodes,N=nodes.length,nrmA=b.nrmA,nc=b.nonCut;
+    nrmA.fill(0);
+    for(let k=0;k<nc.length;k+=3){
+      const A=nodes[nc[k]].pos,B=nodes[nc[k+1]].pos,C=nodes[nc[k+2]].pos;
+      const e1x=B.x-A.x,e1y=B.y-A.y,e1z=B.z-A.z,e2x=C.x-A.x,e2y=C.y-A.y,e2z=C.z-A.z;
+      const nx=e1y*e2z-e1z*e2y,ny=e1z*e2x-e1x*e2z,nz=e1x*e2y-e1y*e2x;
+      for(let q=0;q<3;q++){const i=nc[k+q]*3;nrmA[i]+=nx;nrmA[i+1]+=ny;nrmA[i+2]+=nz}
+    }
+    const cs=b.cutSlots,ci=b.cutIdx,csl=b.cutSlot;
+    cs.fill(0);
+    for(let k=0;k<ci.length;k+=3){
+      const A=nodes[ci[k]].pos,B=nodes[ci[k+1]].pos,C=nodes[ci[k+2]].pos;
+      const e1x=B.x-A.x,e1y=B.y-A.y,e1z=B.z-A.z,e2x=C.x-A.x,e2y=C.y-A.y,e2z=C.z-A.z;
+      const nx=e1y*e2z-e1z*e2y,ny=e1z*e2x-e1x*e2z,nz=e1x*e2y-e1y*e2x;
+      for(let q=0;q<3;q++){const s=csl[k+q]*3;cs[s]+=nx;cs[s+1]+=ny;cs[s+2]+=nz}
+    }
+    let sx=0,sz=0,mn=1e9,minx=1e9,maxx=-1e9,minz=1e9,maxz=-1e9;
+    for(let i=0;i<N;i++){
+      const n=nodes[i],o=(b.vOff+i)*12;
+      let nx=nrmA[i*3],ny=nrmA[i*3+1],nz=nrmA[i*3+2],l=Math.hypot(nx,ny,nz);
+      if(l<1e-12){nx=0;ny=1;nz=0;l=1}
+      vtxData[o]=n.pos.x;vtxData[o+1]=n.pos.y;vtxData[o+2]=n.pos.z;vtxData[o+3]=0;
+      vtxData[o+4]=nx/l;vtxData[o+5]=ny/l;vtxData[o+6]=nz/l;
+      vtxData[o+8]=n.tx;vtxData[o+9]=n.ty;vtxData[o+10]=n.tz;
+      sx+=n.pos.x;sz+=n.pos.z;if(n.pos.y<mn)mn=n.pos.y;
+      if(n.pos.x<minx)minx=n.pos.x;if(n.pos.x>maxx)maxx=n.pos.x;if(n.pos.z<minz)minz=n.pos.z;if(n.pos.z>maxz)maxz=n.pos.z;
+    }
+    // cut-face corners get their own render vertices with the cut-face normal → crisp edges
+    for(let k=0;k<ci.length;k++){
+      const n=nodes[ci[k]],o=(b.dOff+k)*12,s=csl[k]*3;
+      let nx=cs[s],ny=cs[s+1],nz=cs[s+2],l=Math.hypot(nx,ny,nz);
+      if(l<1e-12){nx=0;ny=1;nz=0;l=1}
+      vtxData[o]=n.pos.x;vtxData[o+1]=n.pos.y;vtxData[o+2]=n.pos.z;vtxData[o+3]=1;
+      vtxData[o+4]=nx/l;vtxData[o+5]=ny/l;vtxData[o+6]=nz/l;
+      vtxData[o+8]=n.tx;vtxData[o+9]=n.ty;vtxData[o+10]=n.tz;
+    }
+    if(shadowCount<12){
+      shadows[shadowCount*4]=sx/N;shadows[shadowCount*4+1]=sz/N;
+      shadows[shadowCount*4+2]=(maxx-minx)/2;shadows[shadowCount*4+3]=(maxz-minz)/2;
+      lifts[shadowCount]=Math.max(0,mn-floorY);shadowCount++;
+    }
+    // seeds ride on the deforming surface
+    for(const sd of b.seeds){
+      const t=b.surfTris[sd.tri];
+      const A=nodes[t[0]].pos,B=nodes[t[1]].pos,C=nodes[t[2]].pos;
+      const [u,v,w]=sd.bary;
+      const e1={x:B.x-A.x,y:B.y-A.y,z:B.z-A.z},e2={x:C.x-A.x,y:C.y-A.y,z:C.z-A.z};
+      const n=vnorm(vcross(e1,e2));
+      const off=sd.size*0.2;
+      let tg={x:e1.x*sd.al+e2.x*sd.be,y:e1.y*sd.al+e2.y*sd.be,z:e1.z*sd.al+e2.z*sd.be};
+      const dd=vdot(tg,n);tg={x:tg.x-n.x*dd,y:tg.y-n.y*dd,z:tg.z-n.z*dd};tg=vnorm(tg);
+      const X=vcross(tg,n),Y=tg,Z=n;
+      const m00=X.x,m01=Y.x,m02=Z.x,m10=X.y,m11=Y.y,m12=Z.y,m20=X.z,m21=Y.z,m22=Z.z;
+      const tr=m00+m11+m22;let qx,qy,qz,qw;
+      if(tr>0){const S=Math.sqrt(tr+1)*2;qw=0.25*S;qx=(m21-m12)/S;qy=(m02-m20)/S;qz=(m10-m01)/S}
+      else if(m00>m11&&m00>m22){const S=Math.sqrt(1+m00-m11-m22)*2;qw=(m21-m12)/S;qx=0.25*S;qy=(m01+m10)/S;qz=(m02+m20)/S}
+      else if(m11>m22){const S=Math.sqrt(1+m11-m00-m22)*2;qw=(m02-m20)/S;qx=(m01+m10)/S;qy=0.25*S;qz=(m12+m21)/S}
+      else{const S=Math.sqrt(1+m22-m00-m11)*2;qw=(m10-m01)/S;qx=(m02+m20)/S;qy=(m12+m21)/S;qz=0.25*S}
+      const o=sp*8;sp++;
+      seedData[o]=A.x*u+B.x*v+C.x*w+n.x*off;seedData[o+1]=A.y*u+B.y*v+C.y*w+n.y*off;seedData[o+2]=A.z*u+B.z*v+C.z*w+n.z*off;
+      seedData[o+3]=sd.size;
+      seedData[o+4]=qx;seedData[o+5]=qy;seedData[o+6]=qz;seedData[o+7]=qw;
+    }
+  }
+  device.queue.writeBuffer(bufs.vtx,0,vtxData);
+  device.queue.writeBuffer(bufs.seed,0,seedData);
+}
 
-      function readouts() {
-        let vol = 0;
-        for (const t of tets) {
-          const a = nodes[t.a].pos,
-            b = nodes[t.b].pos,
-            c = nodes[t.c].pos,
-            d = nodes[t.d].pos;
-          const e1x = b.x - a.x,
-            e1y = b.y - a.y,
-            e1z = b.z - a.z,
-            e2x = c.x - a.x,
-            e2y = c.y - a.y,
-            e2z = c.z - a.z,
-            e3x = d.x - a.x,
-            e3y = d.y - a.y,
-            e3z = d.z - a.z;
-          vol +=
-            ((e1x * (e2y * e3z - e2z * e3y) +
-              e1y * (e2z * e3x - e2x * e3z) +
-              e1z * (e2x * e3y - e2y * e3x)) /
-              6) *
-            t.sign;
-        }
-        const mass = restVolTotal * 30; // illustrative: 30 jelly-grams per cubic unit
-        const per = mass / NV;
-        let ke = 0;
-        for (const n of nodes)
-          ke +=
-            0.5 *
-            per *
-            (n.vel.x * n.vel.x + n.vel.y * n.vel.y + n.vel.z * n.vel.z);
-        return { mass, rel: vol / restVolTotal, ke: ke * 0.01 };
-      }
+function readouts(){
+  let vol=0,rest=0,nTot=0;
+  for(const b of bodies){
+    rest+=b.restVolTotal;nTot+=b.nodes.length;
+    for(const t of b.tets){
+      const a=b.nodes[t.a].pos,bb=b.nodes[t.b].pos,c=b.nodes[t.c].pos,d=b.nodes[t.d].pos;
+      const e1x=bb.x-a.x,e1y=bb.y-a.y,e1z=bb.z-a.z,e2x=c.x-a.x,e2y=c.y-a.y,e2z=c.z-a.z,e3x=d.x-a.x,e3y=d.y-a.y,e3z=d.z-a.z;
+      vol+=((e1x*(e2y*e3z-e2z*e3y)+e1y*(e2z*e3x-e2x*e3z)+e1z*(e2x*e3y-e2y*e3x))/6)*t.sign;
+    }
+  }
+  const mass=origVol*30;           // illustrative: 30 jelly-grams per cubic unit
+  const per=mass/Math.max(1,nTot);
+  let ke=0;for(const b of bodies)for(const n of b.nodes)ke+=0.5*per*(n.vel.x*n.vel.x+n.vel.y*n.vel.y+n.vel.z*n.vel.z);
+  return{mass,rel:vol/Math.max(rest,1e-9),ke:ke*0.01,pieces:bodies.length};
+}
 
-      // ================= Interaction =================
-      const pointers = new Map();
-      let orbiting = false,
-        pinchPrev = null;
-      function getRay(sx, sy) {
-        const { cam, vp } = camMatrices();
-        const inv = mat4Inv(vp);
-        if (!inv) return null;
-        const nx = (sx / canvas.clientWidth) * 2 - 1,
-          ny = 1 - (sy / canvas.clientHeight) * 2;
-        const f = mulVec(inv, [nx, ny, 1, 1]);
-        const far = { x: f[0] / f[3], y: f[1] / f[3], z: f[2] / f[3] };
-        return { o: cam, d: vnorm(vsub(far, cam)) };
-      }
-      function pickSurface(sx, sy) {
-        const ray = getRay(sx, sy);
-        if (!ray) return null;
-        let bt = Infinity;
-        for (const t of surfTris) {
-          const A = nodes[t[0]].pos,
-            B = nodes[t[1]].pos,
-            C = nodes[t[2]].pos;
-          const e1 = vsub(B, A),
-            e2 = vsub(C, A),
-            p = vcross(ray.d, e2),
-            det = vdot(e1, p);
-          if (Math.abs(det) < 1e-10) continue;
-          const inv = 1 / det,
-            s = vsub(ray.o, A),
-            u = vdot(s, p) * inv;
-          if (u < 0 || u > 1) continue;
-          const q = vcross(s, e1),
-            v = vdot(ray.d, q) * inv;
-          if (v < 0 || u + v > 1) continue;
-          const tt = vdot(e2, q) * inv;
-          if (tt > 0 && tt < bt) bt = tt;
-        }
-        if (bt === Infinity) return null;
-        return {
-          t: bt,
-          point: {
-            x: ray.o.x + ray.d.x * bt,
-            y: ray.o.y + ray.d.y * bt,
-            z: ray.o.z + ray.d.z * bt,
-          },
-        };
-      }
-      function startGrab(hit) {
-        const radius = 0.8,
-          verts = [];
-        for (const i of surfaceList) {
-          const p = nodes[i].pos,
-            d = Math.hypot(
-              p.x - hit.point.x,
-              p.y - hit.point.y,
-              p.z - hit.point.z,
-            );
-          if (d < radius) {
-            const w = Math.pow(1 - d / radius, 1.5);
-            verts.push({
-              idx: i,
-              w,
-              off: {
-                x: p.x - hit.point.x,
-                y: p.y - hit.point.y,
-                z: p.z - hit.point.z,
-              },
-            });
-          }
-        }
-        sim.grab = {
-          anchor: { ...hit.point },
-          start: { ...hit.point },
-          verts,
-          dist: hit.t,
-        };
-        canvas.classList.add("grabbing");
-      }
-      function clampAnchor() {
-        const g = sim.grab;
-        if (!g) return;
-        const a = g.anchor,
-          s = g.start;
-        const dx = a.x - s.x,
-          dy = a.y - s.y,
-          dz = a.z - s.z,
-          l = Math.hypot(dx, dy, dz),
-          mxd = 3.6;
-        if (l > mxd) {
-          a.x = s.x + (dx / l) * mxd;
-          a.y = s.y + (dy / l) * mxd;
-          a.z = s.z + (dz / l) * mxd;
-        }
-        if (a.y < floorY + 0.15) a.y = floorY + 0.15;
-      }
-      function releaseAll() {
-        sim.grab = null;
-        pointers.clear();
-        orbiting = false;
-        pinchPrev = null;
-        canvas.classList.remove("grabbing");
-      }
-      canvas.addEventListener("pointerdown", (e) => {
-        e.preventDefault();
-        try {
-          canvas.setPointerCapture(e.pointerId);
-        } catch (_) {}
-        pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
-        if (pointers.size === 1) {
-          if (e.button === 2) {
-            orbiting = true;
-          } else {
-            const hit = pickSurface(e.clientX, e.clientY);
-            if (hit) startGrab(hit);
-            else orbiting = true;
-          }
-        } else if (pointers.size === 2) {
-          const p = [...pointers.values()];
-          pinchPrev = Math.hypot(p[0].x - p[1].x, p[0].y - p[1].y);
-        }
-      });
-      canvas.addEventListener("pointermove", (e) => {
-        const pr = pointers.get(e.pointerId);
-        if (!pr) return;
-        const dx = e.clientX - pr.x,
-          dy = e.clientY - pr.y;
-        pr.x = e.clientX;
-        pr.y = e.clientY;
-        const first = pointers.keys().next().value === e.pointerId;
-        if (pointers.size >= 2) {
-          const p = [...pointers.values()];
-          const d = Math.hypot(p[0].x - p[1].x, p[0].y - p[1].y);
-          if (pinchPrev) {
-            const delta = d - pinchPrev;
-            if (sim.grab) {
-              // second finger: pull the grab in depth
-              const cd = vnorm(vsub(camTarget, camPos())),
-                sc = (sim.grab.dist * 2 * TANH) / canvas.clientHeight;
-              sim.grab.anchor.x -= cd.x * delta * sc;
-              sim.grab.anchor.y -= cd.y * delta * sc;
-              sim.grab.anchor.z -= cd.z * delta * sc;
-              clampAnchor();
-            } else {
-              camDist = Math.max(
-                2.5,
-                Math.min(24, (camDist * pinchPrev) / Math.max(d, 1)),
-              );
-              if (first) {
-                camYaw -= dx * 0.005;
-                camPitch = Math.max(
-                  -0.05,
-                  Math.min(1.35, camPitch + dy * 0.005),
-                );
-              }
-            }
-          }
-          pinchPrev = d;
-          return;
-        }
-        if (sim.grab && first) {
-          const cd = vnorm(vsub(camTarget, camPos()));
-          const right = vnorm(vcross(cd, { x: 0, y: 1, z: 0 }));
-          const up = vcross(right, cd);
-          const sc = (sim.grab.dist * 2 * TANH) / canvas.clientHeight;
-          const a = sim.grab.anchor;
-          if (e.shiftKey) {
-            const m = -dy * sc * 2;
-            a.x += cd.x * m;
-            a.y += cd.y * m;
-            a.z += cd.z * m;
-          } else {
-            a.x += right.x * dx * sc - up.x * dy * sc;
-            a.y += right.y * dx * sc - up.y * dy * sc;
-            a.z += right.z * dx * sc - up.z * dy * sc;
-          }
-          clampAnchor();
-        } else if (orbiting) {
-          camYaw -= dx * 0.006;
-          camPitch = Math.max(-0.05, Math.min(1.35, camPitch + dy * 0.006));
-        }
-      });
-      function endPointer(e) {
-        if (!pointers.has(e.pointerId)) return;
-        pointers.delete(e.pointerId);
-        try {
-          if (canvas.hasPointerCapture(e.pointerId))
-            canvas.releasePointerCapture(e.pointerId);
-        } catch (_) {}
-        pinchPrev = null;
-        if (pointers.size === 0) {
-          sim.grab = null;
-          orbiting = false;
-          canvas.classList.remove("grabbing");
-        }
-      }
-      canvas.addEventListener("pointerup", endPointer);
-      canvas.addEventListener("pointercancel", endPointer);
-      canvas.addEventListener("lostpointercapture", endPointer);
-      window.addEventListener("blur", releaseAll);
-      document.addEventListener("visibilitychange", () => {
-        if (document.hidden) releaseAll();
-      });
-      canvas.addEventListener("contextmenu", (e) => e.preventDefault());
-      canvas.addEventListener(
-        "wheel",
-        (e) => {
-          e.preventDefault();
-          camDist = Math.max(
-            2.5,
-            Math.min(24, camDist * Math.exp(e.deltaY * 0.001)),
-          );
-        },
-        { passive: false },
-      );
+// ================= Interaction =================
+const pointers=new Map();
+let orbiting=false,pinchPrev=null;
+function getRay(sx,sy){
+  const {cam,vp}=camMatrices();
+  const inv=mat4Inv(vp);if(!inv)return null;
+  const nx=sx/canvas.clientWidth*2-1,ny=1-sy/canvas.clientHeight*2;
+  const f=mulVec(inv,[nx,ny,1,1]);
+  const far={x:f[0]/f[3],y:f[1]/f[3],z:f[2]/f[3]};
+  return{o:cam,d:vnorm(vsub(far,cam))};
+}
+function pickSurface(sx,sy){
+  const ray=getRay(sx,sy);if(!ray)return null;
+  let bt=Infinity,bb=null;
+  for(const b of bodies){
+    for(const t of b.surfTris){
+      const A=b.nodes[t[0]].pos,B=b.nodes[t[1]].pos,C=b.nodes[t[2]].pos;
+      const e1=vsub(B,A),e2=vsub(C,A),p=vcross(ray.d,e2),det=vdot(e1,p);
+      if(Math.abs(det)<1e-10)continue;
+      const inv=1/det,s=vsub(ray.o,A),u=vdot(s,p)*inv;if(u<0||u>1)continue;
+      const q=vcross(s,e1),v=vdot(ray.d,q)*inv;if(v<0||u+v>1)continue;
+      const tt=vdot(e2,q)*inv;if(tt>0&&tt<bt){bt=tt;bb=b}
+    }
+  }
+  if(!bb)return null;
+  return{t:bt,body:bb,point:{x:ray.o.x+ray.d.x*bt,y:ray.o.y+ray.d.y*bt,z:ray.o.z+ray.d.z*bt}};
+}
+function startGrab(hit){
+  const b=hit.body,radius=0.8,verts=[];
+  for(const i of b.surfaceList){
+    const p=b.nodes[i].pos,d=Math.hypot(p.x-hit.point.x,p.y-hit.point.y,p.z-hit.point.z);
+    if(d<radius){const w=Math.pow(1-d/radius,1.5);verts.push({idx:i,w,off:{x:p.x-hit.point.x,y:p.y-hit.point.y,z:p.z-hit.point.z}})}
+  }
+  sim.grab={body:b,anchor:{...hit.point},start:{...hit.point},verts,dist:hit.t};
+  canvas.classList.add('grabbing');
+}
+function clampAnchor(){
+  const g=sim.grab;if(!g)return;
+  const a=g.anchor,s=g.start;
+  const dx=a.x-s.x,dy=a.y-s.y,dz=a.z-s.z,l=Math.hypot(dx,dy,dz),mxd=3.6;
+  if(l>mxd){a.x=s.x+dx/l*mxd;a.y=s.y+dy/l*mxd;a.z=s.z+dz/l*mxd}
+  if(a.y<floorY+0.15)a.y=floorY+0.15;
+}
+function releaseAll(){
+  sim.grab=null;pointers.clear();orbiting=false;pinchPrev=null;knife.active=false;canvas.classList.remove('grabbing');
+}
 
-      // ================= UI =================
-      $("firm").addEventListener("input", (e) => {
-        sim.firmness = +e.target.value;
-        $("firmV").textContent = (+e.target.value).toFixed(2);
-      });
-      $("damp").addEventListener("input", (e) => {
-        sim.damping = +e.target.value;
-        $("dampV").textContent = (+e.target.value).toFixed(2);
-      });
-      $("nudge").addEventListener("click", () => {
-        for (const n of nodes) {
-          n.vel.x += (Math.random() - 0.5) * 1.2 + 2.2;
-          n.vel.y += 3.2;
-          n.vel.z += (Math.random() - 0.5) * 1.0;
-        }
-      });
-      $("reset").addEventListener("click", resetSim);
-      $("rview").addEventListener("click", () => {
-        camYaw = 0.16;
-        camPitch = 0.055;
-        camDist = defaultDist();
-        camTarget.x = camTarget.y = camTarget.z = 0;
-      });
-      $("pause").addEventListener("click", (e) => {
-        sim.paused = !sim.paused;
-        e.target.textContent = sim.paused ? "Resume" : "Pause";
-      });
-      $("slow").addEventListener("click", (e) => {
-        sim.slow = !sim.slow;
-        e.target.classList.toggle("on", sim.slow);
-      });
-      $("mesh").addEventListener("click", (e) => {
-        sim.showMesh = !sim.showMesh;
-        e.target.classList.toggle("on", sim.showMesh);
-      });
-      document.querySelectorAll("#pal button").forEach((b) =>
-        b.addEventListener("click", () => {
-          document
-            .querySelectorAll("#pal button")
-            .forEach((x) => x.classList.remove("on"));
-          b.classList.add("on");
-          sim.palette = +b.dataset.p;
-        }),
-      );
-      document.querySelectorAll("#shp button").forEach((b) =>
-        b.addEventListener("click", () => {
-          document
-            .querySelectorAll("#shp button")
-            .forEach((x) => x.classList.remove("on"));
-          b.classList.add("on");
-          releaseAll();
-          loadShape(b.dataset.s);
-          camDist = defaultDist();
-        }),
-      );
+// The blade plane passes through the drawn line and continues straight away from the camera:
+// seen from above it is the vertical plane under the stroke.
+function doCut(p0,p1){
+  const r0=getRay(p0.x,p0.y),r1=getRay(p1.x,p1.y);if(!r0||!r1)return;
+  let n=vcross(r0.d,r1.d);if(vlen(n)<1e-6)return;n=vnorm(n);
+  const d=vdot(n,r0.o);
+  const {vp}=camMatrices();const W=canvas.clientWidth,Hc=canvas.clientHeight;
+  const sx=p1.x-p0.x,sy=p1.y-p0.y,sl2=sx*sx+sy*sy;
+  const toU=p=>{const c=mulVec(vp,[p.x,p.y,p.z,1]);if(c[3]<=0)return null;
+    const px=(c[0]/c[3]*0.5+0.5)*W,py=(0.5-c[1]/c[3]*0.5)*Hc;return((px-p0.x)*sx+(py-p0.y)*sy)/sl2};
+  const bit=1<<(cutCounter%30);
+  const results=[];let changed=false,rejected=null;
+  for(const b of bodies){
+    // only pieces the stroke actually passes over are cut (the blade follows through across them)
+    let near=false;
+    for(const nd of b.nodes){const p=nd.pos;const sv=n.x*p.x+n.y*p.y+n.z*p.z-d;
+      if(Math.abs(sv)<0.45){const u=toU(p);if(u!==null&&u>-0.08&&u<1.08){near=true;break}}}
+    if(!near){results.push([b]);continue}
+    const pieces=planeCut(b,n,d,bit);
+    if(!pieces||pieces.length<2){results.push([b]);continue}
+    const minVol=origVol*0.012;
+    if(pieces.some(p=>p.restVolTotal<minVol||p.tets.length<8)){rejected='Too thin to cut — kept in one piece';results.push([b]);continue}
+    attachSeeds(pieces,seedSpecsOf(b));
+    results.push(pieces);changed=true;
+  }
+  const total=results.reduce((s,a)=>s+a.length,0);
+  if(total>MAX_PIECES){note(`Piece limit reached (${MAX_PIECES}) — reset to start over`);return}
+  if(!changed){if(rejected)note(rejected);return}
+  const flat=results.flat();
+  if(sim.grab&&!flat.includes(sim.grab.body)){sim.grab=null;canvas.classList.remove('grabbing')}
+  bodies=flat;
+  for(const b of bodies)if(b.side){const k=0.9*b.side;for(const nd of b.nodes){nd.vel.x+=n.x*k;nd.vel.y+=n.y*k*0.35;nd.vel.z+=n.z*k}b.side=0}
+  cutCounter++;
+  rebuildTopology();
+  if(rejected)note(rejected);
+}
 
-      // ================= Frame =================
-      let last = performance.now(),
-        acc = 0,
-        lastRead = 0;
-      const STEP = 1 / 60;
-      function frame(now) {
-        resize();
-        let dt = Math.min((now - last) / 1000, 0.05);
-        last = now;
-        if (sim.slow) dt *= 0.25;
-        if (!sim.paused) {
-          acc += dt;
-          let it = 0;
-          while (acc >= STEP && it < 3) {
-            simulate(STEP);
-            acc -= STEP;
-            it++;
-          }
-          if (acc > STEP) acc = 0;
-        }
-        updateGPU();
-
-        const { cam, view, proj, vp, asp } = camMatrices();
-        ubo.set(view, 0);
-        ubo.set(proj, 16);
-        ubo.set(vp, 32);
-        ubo.set([cam.x, cam.y, cam.z, 0], 48);
-        ubo.set([0.55, 0.85, 0.55, Math.max(0, body.minY - floorY)], 52);
-        ubo.set([now * 0.001, sim.palette, sim.showMesh ? 1 : 0, asp], 56);
-        const p = palettes[sim.palette];
-        ubo.set([...p.flesh, 0], 60);
-        ubo.set([...p.core, 0], 64);
-        ubo.set([...p.skin, 0], 68);
-        ubo.set([...p.deep, 0], 72);
-        ubo.set([floorY, sim.grab ? 1 : 0, body.comX, body.comZ], 76);
-        ubo.set([SH.halfW, SH.THK / 2, SH.n, SH.off], 80);
-        device.queue.writeBuffer(uboBuf, 0, ubo);
-
-        const enc = device.createCommandEncoder();
-        const pass = enc.beginRenderPass({
-          colorAttachments: [
-            {
-              view: ctx.getCurrentTexture().createView(),
-              clearValue: { r: 0.95, g: 0.92, b: 0.88, a: 1 },
-              loadOp: "clear",
-              storeOp: "store",
-            },
-          ],
-          depthStencilAttachment: {
-            view: depthView,
-            depthClearValue: 1,
-            depthLoadOp: "clear",
-            depthStoreOp: "store",
-          },
-        });
-        pass.setBindGroup(0, bindGroup);
-        pass.setPipeline(bgPipe);
-        pass.draw(3);
-        pass.setPipeline(shPipe);
-        pass.draw(6);
-        pass.setPipeline(bodyPipe);
-        pass.setVertexBuffer(0, vtxBuf);
-        pass.setIndexBuffer(idxBuf, "uint32");
-        pass.drawIndexed(idxData.length);
-        pass.setPipeline(seedPipe);
-        pass.setVertexBuffer(0, sphVB);
-        pass.setVertexBuffer(1, seedBuf);
-        pass.setIndexBuffer(sphIB, "uint16");
-        pass.drawIndexed(sph.idx.length, seeds.length);
-        if (sim.showMesh) {
-          pass.setPipeline(wirePipe);
-          pass.setVertexBuffer(0, vtxBuf);
-          pass.setIndexBuffer(wireBuf, "uint32");
-          pass.drawIndexed(wireData.length);
-        }
-        pass.end();
-        device.queue.submit([enc.finish()]);
-
-        if (now - lastRead > 150) {
-          const r = readouts();
-          $("mass").textContent = r.mass.toFixed(1) + " jg";
-          $("vol").textContent = r.rel.toFixed(3);
-          $("ke").textContent = r.ke.toFixed(3) + " wJ";
-          lastRead = now;
-        }
-        requestAnimationFrame(frame);
+canvas.addEventListener('pointerdown',e=>{
+  e.preventDefault();
+  try{canvas.setPointerCapture(e.pointerId)}catch(_){}
+  pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});
+  if(pointers.size===1){
+    if(e.button===2){orbiting=true}
+    else if(sim.tool==='knife'){knife.active=true;knife.id=e.pointerId;knife.p0={x:e.clientX,y:e.clientY};knife.p1={x:e.clientX,y:e.clientY};knife.flash=0}
+    else{
+      const hit=pickSurface(e.clientX,e.clientY);
+      if(hit)startGrab(hit);else orbiting=true;
+    }
+  }else if(pointers.size===2){
+    knife.active=false;
+    const p=[...pointers.values()];
+    pinchPrev=Math.hypot(p[0].x-p[1].x,p[0].y-p[1].y);
+  }
+});
+canvas.addEventListener('pointermove',e=>{
+  const pr=pointers.get(e.pointerId);if(!pr)return;
+  const dx=e.clientX-pr.x,dy=e.clientY-pr.y;
+  pr.x=e.clientX;pr.y=e.clientY;
+  if(knife.active&&e.pointerId===knife.id&&pointers.size===1){knife.p1={x:e.clientX,y:e.clientY};return}
+  const first=pointers.keys().next().value===e.pointerId;
+  if(pointers.size>=2){
+    const p=[...pointers.values()];
+    const d=Math.hypot(p[0].x-p[1].x,p[0].y-p[1].y);
+    if(pinchPrev){
+      const delta=d-pinchPrev;
+      if(sim.grab){ // second finger: pull the grab in depth
+        const cd=vnorm(vsub(camTarget,camPos())),sc=sim.grab.dist*2*TANH/canvas.clientHeight;
+        sim.grab.anchor.x-=cd.x*delta*sc;sim.grab.anchor.y-=cd.y*delta*sc;sim.grab.anchor.z-=cd.z*delta*sc;
+        clampAnchor();
+      }else{
+        camDist=Math.max(2.5,Math.min(24,camDist*pinchPrev/Math.max(d,1)));
+        if(first){camYaw-=dx*0.005;camPitch=Math.max(-0.05,Math.min(1.35,camPitch+dy*0.005))}
       }
-      requestAnimationFrame(frame);
-    </script>
-  </body>
+    }
+    pinchPrev=d;return;
+  }
+  if(sim.grab&&first){
+    const cd=vnorm(vsub(camTarget,camPos()));
+    const right=vnorm(vcross(cd,{x:0,y:1,z:0}));
+    const up=vcross(right,cd);
+    const sc=sim.grab.dist*2*TANH/canvas.clientHeight;
+    const a=sim.grab.anchor;
+    if(e.shiftKey){const m=-dy*sc*2;a.x+=cd.x*m;a.y+=cd.y*m;a.z+=cd.z*m}
+    else{a.x+=right.x*dx*sc-up.x*dy*sc;a.y+=right.y*dx*sc-up.y*dy*sc;a.z+=right.z*dx*sc-up.z*dy*sc}
+    clampAnchor();
+  }else if(orbiting){
+    camYaw-=dx*0.006;camPitch=Math.max(-0.05,Math.min(1.35,camPitch+dy*0.006));
+  }
+});
+function endPointer(e){
+  if(!pointers.has(e.pointerId))return;
+  pointers.delete(e.pointerId);
+  try{if(canvas.hasPointerCapture(e.pointerId))canvas.releasePointerCapture(e.pointerId)}catch(_){}
+  pinchPrev=null;
+  if(knife.active&&e.pointerId===knife.id){
+    knife.active=false;
+    if(knife.p0&&knife.p1&&Math.hypot(knife.p1.x-knife.p0.x,knife.p1.y-knife.p0.y)>12)doCut(knife.p0,knife.p1);
+    knife.flash=1;
+  }
+  if(pointers.size===0){sim.grab=null;orbiting=false;canvas.classList.remove('grabbing')}
+}
+canvas.addEventListener('pointerup',endPointer);
+canvas.addEventListener('pointercancel',endPointer);
+canvas.addEventListener('lostpointercapture',endPointer);
+window.addEventListener('blur',releaseAll);
+document.addEventListener('visibilitychange',()=>{if(document.hidden)releaseAll()});
+canvas.addEventListener('contextmenu',e=>e.preventDefault());
+canvas.addEventListener('wheel',e=>{e.preventDefault();camDist=Math.max(2.5,Math.min(24,camDist*Math.exp(e.deltaY*0.001)))},{passive:false});
+
+// ================= UI =================
+function setTool(t){
+  sim.tool=t;
+  document.querySelectorAll('#tool button').forEach(x=>x.classList.toggle('on',x.dataset.t===t));
+  canvas.classList.toggle('knife',t==='knife');
+  if(t==='knife'&&sim.grab){sim.grab=null;canvas.classList.remove('grabbing')}
+}
+document.querySelectorAll('#tool button').forEach(b=>b.addEventListener('click',()=>setTool(b.dataset.t)));
+window.addEventListener('keydown',e=>{
+  if(e.key==='k'||e.key==='K')setTool(sim.tool==='knife'?'grab':'knife');
+  else if(e.key==='Escape')setTool('grab');
+});
+$('firm').addEventListener('input',e=>{sim.firmness=+e.target.value;$('firmV').textContent=(+e.target.value).toFixed(2)});
+$('damp').addEventListener('input',e=>{sim.damping=+e.target.value;$('dampV').textContent=(+e.target.value).toFixed(2)});
+$('nudge').addEventListener('click',()=>{
+  for(const b of bodies)for(const n of b.nodes){n.vel.x+=(Math.random()-0.5)*1.2+2.2;n.vel.y+=3.2;n.vel.z+=(Math.random()-0.5)*1.0}
+});
+$('reset').addEventListener('click',resetSim);
+$('rview').addEventListener('click',()=>{camYaw=0.16;camPitch=0.055;camDist=defaultDist();camTarget.x=camTarget.y=camTarget.z=0});
+$('pause').addEventListener('click',e=>{sim.paused=!sim.paused;e.target.textContent=sim.paused?'Resume':'Pause'});
+$('slow').addEventListener('click',e=>{sim.slow=!sim.slow;e.target.classList.toggle('on',sim.slow)});
+$('mesh').addEventListener('click',e=>{sim.showMesh=!sim.showMesh;e.target.classList.toggle('on',sim.showMesh)});
+document.querySelectorAll('#pal button').forEach(b=>b.addEventListener('click',()=>{
+  document.querySelectorAll('#pal button').forEach(x=>x.classList.remove('on'));
+  b.classList.add('on');sim.palette=+b.dataset.p;
+}));
+document.querySelectorAll('#shp button').forEach(b=>b.addEventListener('click',()=>{
+  document.querySelectorAll('#shp button').forEach(x=>x.classList.remove('on'));
+  b.classList.add('on');
+  releaseAll();
+  loadShape(b.dataset.s);
+  camDist=defaultDist();
+}));
+
+// ================= Frame =================
+let last=performance.now(),acc=0,lastRead=0;
+const STEP=1/60;
+function frame(now){
+  resize();
+  const rawDt=Math.min((now-last)/1000,0.05);last=now;
+  let dt=rawDt;
+  if(sim.slow)dt*=0.25;
+  if(!sim.paused){
+    acc+=dt;let it=0;
+    while(acc>=STEP&&it<3){simulate(STEP);acc-=STEP;it++}
+    if(acc>STEP)acc=0;
+  }
+  updateGPU();
+
+  const {cam,view,proj,vp,asp}=camMatrices();
+  const Hc=canvas.clientHeight,Wc=canvas.clientWidth;
+  ubo.set(view,0);ubo.set(proj,16);ubo.set(vp,32);
+  ubo.set([cam.x,cam.y,cam.z,0],48);
+  ubo.set([0.55,0.85,0.55,0],52);
+  ubo.set([now*0.001,sim.palette,sim.showMesh?1:0,asp],56);
+  const p=palettes[sim.palette];
+  ubo.set([...p.flesh,0],60);ubo.set([...p.core,0],64);ubo.set([...p.skin,0],68);ubo.set([...p.deep,0],72);
+  ubo.set([floorY,sim.grab?1:0,0,0],76);
+  ubo.set([SH.R,SH.THK,SH.THK/SH.R,SH.n],80);
+  ubo.set([SH.off,0,0,0],84);
+  let bladeA=0;
+  if(knife.active)bladeA=0.95;
+  else if(knife.flash>0){bladeA=knife.flash;knife.flash=Math.max(0,knife.flash-rawDt*3)}
+  if(knife.p0&&knife.p1)ubo.set([knife.p0.x/Wc*2-1,1-knife.p0.y/Hc*2,knife.p1.x/Wc*2-1,1-knife.p1.y/Hc*2],88);
+  ubo.set([bladeA,1.3*2/Hc,14*2/Hc,shadowCount],92);
+  ubo.set(shadows,96);ubo.set(lifts,144);
+  device.queue.writeBuffer(uboBuf,0,ubo);
+
+  const enc=device.createCommandEncoder();
+  const pass=enc.beginRenderPass({
+    colorAttachments:[{view:ctx.getCurrentTexture().createView(),clearValue:{r:0.98,g:0.975,b:0.965,a:1},loadOp:'clear',storeOp:'store'}],
+    depthStencilAttachment:{view:depthView,depthClearValue:1,depthLoadOp:'clear',depthStoreOp:'store'}
+  });
+  pass.setBindGroup(0,bindGroup);
+  pass.setPipeline(bgPipe);pass.draw(3);
+  pass.setPipeline(shPipe);pass.draw(6);
+  if(idxCount>0){
+    pass.setPipeline(bodyPipe);
+    pass.setVertexBuffer(0,bufs.vtx);pass.setIndexBuffer(bufs.idx,'uint32');
+    pass.drawIndexed(idxCount);
+  }
+  if(seedCount>0){
+    pass.setPipeline(seedPipe);
+    pass.setVertexBuffer(0,sphVB);pass.setVertexBuffer(1,bufs.seed);pass.setIndexBuffer(sphIB,'uint16');
+    pass.drawIndexed(sph.idx.length,seedCount);
+  }
+  if(sim.showMesh&&wireCount>0){
+    pass.setPipeline(wirePipe);
+    pass.setVertexBuffer(0,bufs.vtx);pass.setIndexBuffer(bufs.wire,'uint32');
+    pass.drawIndexed(wireCount);
+  }
+  if(bladeA>0.01){pass.setPipeline(bladePipe);pass.draw(6)}
+  pass.end();
+  device.queue.submit([enc.finish()]);
+
+  if(now-lastRead>150){
+    const r=readouts();
+    $('pieces').textContent=r.pieces+' / '+MAX_PIECES;
+    $('mass').textContent=r.mass.toFixed(1)+' jg';
+    $('vol').textContent=r.rel.toFixed(3);
+    $('ke').textContent=r.ke.toFixed(3)+' wJ';
+    lastRead=now;
+  }
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+</script>
+</body>
 </html>

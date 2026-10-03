@@ -86,20 +86,6 @@
         scrollbar-width: none;
         transition: opacity 0.5s ease;
       }
-      #paneHost {
-        position: fixed;
-        top: calc(12px + env(safe-area-inset-top, 0px));
-        right: 12px;
-        width: 290px;
-        max-width: calc(100% - 24px);
-        max-height: calc(100% - 24px);
-        overflow-y: auto;
-        z-index: 5;
-        scrollbar-width: none;
-      }
-      body:not(.nopane) .bar {
-        display: none;
-      }
       .bar::-webkit-scrollbar {
         display: none;
       }
@@ -163,8 +149,6 @@
       role="img"
       aria-label="A wall of 120 small analog clocks whose hands form the current time"
     ></canvas>
-
-    <div id="paneHost"></div>
 
     <div class="bar" id="bar">
       <button
@@ -259,18 +243,16 @@
         }
 
         let use24 = true;
-        function timeGrid(date, forced) {
+        function timeGrid(date) {
           let h = date.getHours();
           if (!use24) {
             h = h % 12;
             if (h === 0) h = 12;
           }
-          const digits = forced
-            ? forced.digits.split("")
-            : (
-                String(h).padStart(2, "0") +
-                String(date.getMinutes()).padStart(2, "0")
-              ).split("");
+          const digits = (
+            String(h).padStart(2, "0") +
+            String(date.getMinutes()).padStart(2, "0")
+          ).split("");
           const grid = [];
           for (let r = 0; r < ROWS; r++) {
             grid.push([]);
@@ -282,10 +264,6 @@
               for (let c = 0; c < 3; c++)
                 grid[DIGIT_ROW + r][DIGIT_COLS[i] + c] = a[r][c];
           });
-          if (forced && forced.colon) {
-            grid[DIGIT_ROW + 2][7] = [UP, UP];
-            grid[DIGIT_ROW + 4][7] = [UP, UP];
-          }
           return grid;
         }
         const timeKey = (d) =>
@@ -476,43 +454,13 @@
         ];
 
         /* ================= State machine ================= */
-        const P = {
-          app: "clock",
-          mode: "active",
-          h24: true,
-          pattern: 0,
-          speed: 1,
-          finish: "tidal",
-          handW: 0.118,
-          handL: 0.465,
-          shimmer: 1,
-          tmMin: 5,
-          tmSec: 0,
-          status: "Time",
-        };
-        let app = "clock",
-          pane = null,
-          swBtn = null,
-          tmBtn = null,
-          danceU = 0,
-          lastNow = performance.now() / 1000;
-        let lastApp = "",
-          slowNext = true;
-        const sw = { run: false, acc: 0, t0: 0 };
-        const tm = {
-          run: false,
-          acc: 0,
-          t0: 0,
-          total: 300,
-          done: false,
-          doneAt: 0,
-        };
         let mode = "active"; // active | original | minimal
         let phase = "hold"; // hold | dance | converge
         let view = "time"; // what the hands currently aim at: time | dance
         let tGrid = timeGrid(new Date());
         let lastKey = timeKey(new Date());
-        let danceIdx = -1;
+        let danceIdx = -1,
+          danceT0 = 0;
         let holdUntil = 0,
           danceUntil = 0,
           convergeUntil = 0;
@@ -530,31 +478,23 @@
           k.dur = dur;
         }
 
-        function showGrid(next, dur, fast) {
-          const now = performance.now() / 1000,
-            old = tGrid;
+        function enterTime(date, dur) {
+          const now = performance.now() / 1000;
           view = "time";
-          tGrid = next;
+          tGrid = timeGrid(date);
+          lastKey = timeKey(date);
           for (const k of clocks) {
-            const n = next[k.r][k.c],
-              o = old[k.r][k.c];
-            if (fast && n[0] === o[0] && n[1] === o[1]) continue;
-            const ex = fast ? 0 : Math.random() < 0.5 ? 0 : 1;
+            const ex = Math.random() < 0.5 ? 0 : 1;
+            const stagger = Math.min(1.3, k.c * 0.07 + Math.random() * 0.35);
             startTween(
               k,
               now,
-              fast
-                ? Math.random() * 0.15
-                : Math.min(1.3, k.c * 0.07 + Math.random() * 0.35),
-              fast ? 0.9 : Math.max(1.5, dur - 1.3),
+              stagger,
+              dur - 1.3 + ex * 0.9 > 1.5 ? dur - 1.3 : 1.5,
               ["cw", "ccw"],
               [ex, ex],
             );
           }
-        }
-        function enterTime(date, dur) {
-          lastKey = timeKey(date);
-          showGrid(timeGrid(date), dur, false);
           capEl.textContent = "Time";
         }
 
@@ -562,7 +502,7 @@
           const now = performance.now() / 1000;
           view = "dance";
           danceIdx = idx;
-          danceU = 0;
+          danceT0 = now;
           for (const k of clocks)
             startTween(k, now, k.d * 0.07, 3.2, ["short", "short"], [0, 0]);
           capEl.textContent =
@@ -578,141 +518,7 @@
           if (timeKey(d) !== lastKey) enterTime(d, 4.5);
         }
 
-        const secsDigits = (n) => {
-          if (n >= 6000) {
-            const m = Math.floor(n / 60);
-            return (
-              String(Math.floor(m / 60) % 100).padStart(2, "0") +
-              String(m % 60).padStart(2, "0")
-            );
-          }
-          return (
-            String(Math.floor(n / 60)).padStart(2, "0") +
-            String(n % 60).padStart(2, "0")
-          );
-        };
-        const fmt = (n) =>
-          String(Math.floor(n / 60)).padStart(2, "0") +
-          ":" +
-          String(n % 60).padStart(2, "0");
-        function showSecs(n, fast) {
-          showGrid(
-            timeGrid(null, { digits: secsDigits(n), colon: n < 6000 }),
-            3.5,
-            fast,
-          );
-        }
-        function tickApp() {
-          const ms = Date.now();
-          if (app === "timer" && tm.done) {
-            capEl.textContent = "Time's up";
-            if (ms >= tm.doneAt) {
-              tm.done = false;
-              showSecs(0, false);
-              lastApp = "timer:0";
-            }
-            return;
-          }
-          let n;
-          if (app === "stopwatch")
-            n = Math.floor((sw.acc + (sw.run ? ms - sw.t0 : 0)) / 1000);
-          else
-            n = Math.max(
-              0,
-              Math.ceil(
-                (tm.total * 1000 - tm.acc - (tm.run ? ms - tm.t0 : 0)) / 1000,
-              ),
-            );
-          if (app === "timer" && tm.run && n <= 0) {
-            tm.run = false;
-            tm.done = true;
-            tm.doneAt = ms + 7000;
-            tm.acc = 0;
-            syncBtns();
-            enterDance(3);
-            return;
-          }
-          const run = app === "stopwatch" ? sw.run : tm.run;
-          capEl.textContent =
-            (app === "stopwatch" ? "Stopwatch " : "Timer ") +
-            fmt(n) +
-            (run ? "" : " · paused");
-          const key = app + ":" + n;
-          if (key !== lastApp) {
-            lastApp = key;
-            const fast = !slowNext;
-            slowNext = false;
-            showSecs(n, fast);
-          }
-        }
-        function syncBtns() {
-          if (swBtn) swBtn.title = sw.run ? "Pause" : "Start";
-          if (tmBtn) tmBtn.title = tm.run ? "Pause" : "Start";
-        }
-        function swToggle() {
-          if (sw.run) {
-            sw.acc += Date.now() - sw.t0;
-            sw.run = false;
-          } else {
-            sw.t0 = Date.now();
-            sw.run = true;
-          }
-          syncBtns();
-        }
-        function swReset() {
-          sw.run = false;
-          sw.acc = 0;
-          lastApp = "";
-          syncBtns();
-        }
-        function tmSetTotal() {
-          tm.total = P.tmMin * 60 + P.tmSec;
-          if (!tm.run) {
-            tm.acc = 0;
-            tm.done = false;
-          }
-        }
-        function tmReset() {
-          tm.run = false;
-          tm.acc = 0;
-          tm.done = false;
-          tmSetTotal();
-          lastApp = "";
-          slowNext = true;
-          syncBtns();
-        }
-        function tmToggle() {
-          if (tm.done) tmReset();
-          if (tm.run) {
-            tm.acc += Date.now() - tm.t0;
-            tm.run = false;
-          } else if (tm.total * 1000 - tm.acc > 0) {
-            tm.t0 = Date.now();
-            tm.run = true;
-          }
-          syncBtns();
-        }
-        function updateFolders() {
-          if (!pane) return;
-          pane._fc.hidden = app !== "clock";
-          pane._fs.hidden = app !== "stopwatch";
-          pane._ft.hidden = app !== "timer";
-        }
-        function setApp(a) {
-          app = a;
-          P.app = a;
-          lastApp = "";
-          slowNext = true;
-          if (a === "clock") {
-            enterTime(new Date(), 4);
-            phase = "hold";
-            holdUntil = Date.now() + 4000;
-          }
-          updateFolders();
-        }
-
         function tickSchedule() {
-          if (app !== "clock") return tickApp();
           const ms = Date.now();
           if (mode === "minimal") {
             if (view !== "time") enterTime(new Date(), 3.5);
@@ -945,15 +751,14 @@
           by = (H - bh) / 2 - H * 0.025;
           gx = bx + MARGIN * pitch;
           gy = by + MARGIN * pitch;
-          handLen = pitch * P.handL;
-          handWid = Math.max(3, pitch * P.handW);
+          handLen = pitch * 0.465;
+          handWid = Math.max(3, pitch * 0.118);
           buildBoard();
           buildSprites();
         }
 
         function setFinish(f) {
           finish = f;
-          P.finish = f;
           document.documentElement.dataset.finish = f;
           document.querySelectorAll("[data-finish]").forEach((b) => {
             if (b.tagName === "BUTTON")
@@ -961,8 +766,6 @@
           });
           buildBoard();
           buildSprites();
-          themePane();
-          if (pane) pane.refresh();
         }
 
         function targetOf(k, i, u) {
@@ -974,11 +777,7 @@
           const now = performance.now() / 1000;
           tickSchedule();
           const F = FIN[finish];
-          const dt = Math.min(0.1, now - lastNow);
-          lastNow = now;
-          danceU += dt * P.speed;
-          const u = danceU;
-          if (P.status !== capEl.textContent) P.status = capEl.textContent;
+          const u = now - danceT0;
 
           // advance every hand
           for (const k of clocks) {
@@ -1032,10 +831,7 @@
               bx +
               bw * (0.12 + b * 0.27 + 0.09 * Math.sin(now * 0.11 + b * 1.9));
             const half = bw * (0.07 + 0.03 * Math.sin(now * 0.17 + b));
-            const a =
-              F.bandA *
-              P.shimmer *
-              (0.65 + 0.35 * Math.sin(now * 0.23 + b * 2.3));
+            const a = F.bandA * (0.65 + 0.35 * Math.sin(now * 0.23 + b * 2.3));
             const gr = ctx.createLinearGradient(
               cxp - half,
               by,
@@ -1120,7 +916,6 @@
         /* ================= Controls ================= */
         function setMode(m) {
           mode = m;
-          P.mode = m;
           document
             .querySelectorAll("[data-mode]")
             .forEach((b) =>
@@ -1145,8 +940,7 @@
             b.addEventListener("click", () => setMode(b.dataset.mode)),
           );
 
-        function nextPattern() {
-          if (app !== "clock") return;
+        document.getElementById("next").addEventListener("click", () => {
           const ms = Date.now(),
             nb = nextMinuteMs();
           if (mode === "minimal") setMode("active");
@@ -1157,26 +951,10 @@
             danceUntil = nb - 7000;
             enterDance(nextIdx());
           } else enterDance((danceIdx + 1) % PATTERNS.length);
-        }
-        document.getElementById("next").addEventListener("click", nextPattern);
-        function playPattern(i) {
-          if (app !== "clock") return;
-          const ms = Date.now(),
-            nb = nextMinuteMs();
-          if (mode === "minimal") setMode("active");
-          if (phase === "converge") return;
-          if (phase === "hold") {
-            if (nb - ms < 14000) return;
-            phase = "dance";
-            danceUntil = nb - 7000;
-          }
-          enterDance(i);
-        }
+        });
 
         document.getElementById("h24").addEventListener("click", (e) => {
           use24 = !use24;
-          P.h24 = use24;
-          if (pane) pane.refresh();
           e.currentTarget.setAttribute("aria-pressed", String(use24));
           e.currentTarget.textContent = use24 ? "24h" : "12h";
           if (view === "time") enterTime(new Date(), 3.5);
@@ -1211,188 +989,6 @@
           window.matchMedia("(prefers-reduced-motion: reduce)").matches
         )
           setMode("minimal");
-        /* ================= Tweakpane control panel, themed per finish ================= */
-        const UI = {
-          tidal: {
-            bg: "#0d1a35",
-            btn: "#1f3a68",
-            hi: "#2c4f8a",
-            fg: "#e8eefb",
-            lbl: "#a9bbdd",
-            inp: "#081227",
-            acc: "#9fc2ff",
-          },
-          white: {
-            bg: "#efefec",
-            btn: "#d9d9d4",
-            hi: "#c8c8c2",
-            fg: "#15161a",
-            lbl: "#4a4c55",
-            inp: "#fbfbf9",
-            acc: "#14161a",
-          },
-          black: {
-            bg: "#18191c",
-            btn: "#2c2d32",
-            hi: "#3b3c42",
-            fg: "#f1f1f3",
-            lbl: "#a5a7ae",
-            inp: "#0d0d0f",
-            acc: "#ffffff",
-          },
-          green: {
-            bg: "#0b211c",
-            btn: "#173d33",
-            hi: "#235646",
-            fg: "#ffd36a",
-            lbl: "#a9cfc0",
-            inp: "#06140f",
-            acc: "#f2b84b",
-          },
-        };
-        function themePane() {
-          if (!pane) return;
-          const u = UI[finish],
-            st = pane.element.style,
-            set = (k, v) => st.setProperty("--tp-" + k, v);
-          set("base-background-color", u.bg);
-          set("base-shadow-color", "rgba(0,0,0,.35)");
-          set("button-background-color", u.btn);
-          set("button-background-color-hover", u.hi);
-          set("button-background-color-focus", u.hi);
-          set("button-background-color-active", u.acc);
-          set("button-foreground-color", u.fg);
-          set("container-foreground-color", u.fg);
-          set("container-background-color", "rgba(128,128,128,.14)");
-          set("container-background-color-hover", "rgba(128,128,128,.22)");
-          set("container-background-color-focus", "rgba(128,128,128,.28)");
-          set("container-background-color-active", "rgba(128,128,128,.34)");
-          set("groove-foreground-color", u.acc + "55");
-          set("label-foreground-color", u.lbl);
-          set("input-background-color", u.inp);
-          set("input-background-color-hover", u.hi);
-          set("input-background-color-focus", u.hi);
-          set("input-background-color-active", u.btn);
-          set("input-foreground-color", u.fg);
-          set("monitor-background-color", u.inp);
-          set("monitor-foreground-color", u.acc);
-        }
-        async function initPane() {
-          let Pane = null;
-          for (const url of [
-            "https://cdn.jsdelivr.net/npm/tweakpane@4.0.4/dist/tweakpane.min.js",
-            "https://esm.sh/tweakpane@4.0.4",
-          ]) {
-            try {
-              const m = await import(url);
-              Pane =
-                m.Pane ||
-                (m.default && m.default.Pane) ||
-                (window.Tweakpane && window.Tweakpane.Pane);
-              if (Pane) break;
-            } catch (e) {}
-          }
-          if (!Pane) {
-            document.body.classList.add("nopane");
-            return;
-          }
-          pane = new Pane({
-            container: document.getElementById("paneHost"),
-            title: "A million Times 120",
-            expanded: window.innerWidth > 640,
-          });
-          const d = pane.addFolder({ title: "Display" });
-          d.addBinding(P, "app", {
-            label: "Show",
-            options: { Clock: "clock", Stopwatch: "stopwatch", Timer: "timer" },
-          }).on("change", (e) => setApp(e.value));
-          d.addBinding(P, "status", { label: "Now", readonly: true });
-
-          const fc = (pane._fc = pane.addFolder({
-            title: "Clock & choreography",
-          }));
-          fc.addBinding(P, "mode", {
-            label: "Program",
-            options: {
-              Active: "active",
-              Original: "original",
-              Minimal: "minimal",
-            },
-          }).on("change", (e) => setMode(e.value));
-          const opts = {};
-          PATTERNS.forEach((p, i) => {
-            opts[String(i + 1).padStart(2, "0") + " " + p[0]] = i;
-          });
-          fc.addBinding(P, "pattern", { label: "Play", options: opts }).on(
-            "change",
-            (e) => playPattern(+e.value),
-          );
-          fc.addBinding(P, "speed", {
-            label: "Speed",
-            min: 0.25,
-            max: 3,
-            step: 0.05,
-          });
-          fc.addBinding(P, "h24", { label: "24-hour" }).on("change", (e) => {
-            use24 = e.value;
-            if (app === "clock") enterTime(new Date(), 3.5);
-          });
-          fc.addButton({ title: "Next choreography" }).on("click", nextPattern);
-
-          const fs = (pane._fs = pane.addFolder({ title: "Stopwatch" }));
-          swBtn = fs.addButton({ title: "Start" });
-          swBtn.on("click", swToggle);
-          fs.addButton({ title: "Reset" }).on("click", swReset);
-
-          const ft = (pane._ft = pane.addFolder({ title: "Timer" }));
-          ft.addBinding(P, "tmMin", {
-            label: "Minutes",
-            min: 0,
-            max: 99,
-            step: 1,
-          }).on("change", tmSetTotal);
-          ft.addBinding(P, "tmSec", {
-            label: "Seconds",
-            min: 0,
-            max: 59,
-            step: 1,
-          }).on("change", tmSetTotal);
-          tmBtn = ft.addButton({ title: "Start" });
-          tmBtn.on("click", tmToggle);
-          ft.addButton({ title: "Reset" }).on("click", tmReset);
-
-          const fa = pane.addFolder({ title: "Appearance", expanded: false });
-          fa.addBinding(P, "finish", {
-            label: "Finish",
-            options: {
-              Tidal: "tidal",
-              White: "white",
-              Black: "black",
-              Green: "green",
-            },
-          }).on("change", (e) => setFinish(e.value));
-          fa.addBinding(P, "handW", {
-            label: "Hand width",
-            min: 0.06,
-            max: 0.2,
-            step: 0.002,
-          }).on("change", resize);
-          fa.addBinding(P, "handL", {
-            label: "Hand length",
-            min: 0.3,
-            max: 0.5,
-            step: 0.005,
-          }).on("change", resize);
-          fa.addBinding(P, "shimmer", {
-            label: "Light",
-            min: 0,
-            max: 3,
-            step: 0.05,
-          });
-          themePane();
-          updateFolders();
-        }
-        initPane();
         requestAnimationFrame(frame);
       })();
     </script>

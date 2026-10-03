@@ -201,14 +201,6 @@
         grid-template-columns: 1fr 1fr;
         gap: 5px;
       }
-      .btns button.on {
-        background: var(--ink);
-        color: #faf5ec;
-        border-color: var(--ink);
-      }
-      .btns button.full {
-        grid-column: 1/-1;
-      }
       .slider {
         display: flex;
         flex-direction: column;
@@ -331,80 +323,6 @@
         z-index: 50;
         pointer-events: none;
       }
-      .blade {
-        position: fixed;
-        height: 5px;
-        background: #d7d1c9;
-        border: 1px solid #544d47;
-        border-top-color: #fffdf8;
-        transform-origin: 0 50%;
-        pointer-events: none;
-        z-index: 8;
-        display: none;
-        box-shadow: 0 2px 5px #1a161344;
-      }
-      .blade::after {
-        content: "";
-        position: absolute;
-        right: -56px;
-        top: -4px;
-        width: 56px;
-        height: 13px;
-        background: #2b211e;
-        border: 1px solid #17110f;
-        border-radius: 0 8px 8px 0;
-      }
-      .knife-showcase {
-        position: fixed;
-        left: 28px;
-        bottom: 66px;
-        width: 194px;
-        height: 31px;
-        pointer-events: none;
-        z-index: 4;
-        transform: rotate(-12deg);
-        transform-origin: center;
-        opacity: 0.76;
-        transition:
-          opacity 0.18s,
-          transform 0.18s;
-      }
-      .knife-showcase .show-blade {
-        position: absolute;
-        left: 0;
-        top: 10px;
-        width: 132px;
-        height: 11px;
-        background: #ddd8d0;
-        border: 1px solid #625a53;
-        border-top-color: #fffefa;
-        clip-path: polygon(0 17%, 91% 17%, 100% 50%, 91% 83%, 0 83%);
-        box-shadow: 0 2px 4px #1a161326;
-      }
-      .knife-showcase .show-handle {
-        position: absolute;
-        left: 128px;
-        top: 6px;
-        width: 64px;
-        height: 18px;
-        background: #2b211e;
-        border: 1px solid #17110f;
-        border-radius: 2px 10px 10px 2px;
-      }
-      .knife-showcase .show-bolster {
-        position: absolute;
-        left: 123px;
-        top: 7px;
-        width: 11px;
-        height: 16px;
-        background: #a9a096;
-        border: 1px solid #5c554f;
-        z-index: 1;
-      }
-      .knife-showcase.active {
-        opacity: 1;
-        transform: rotate(-4deg) translateX(7px);
-      }
       @media (max-width: 780px) {
         .panel {
           top: auto;
@@ -426,8 +344,7 @@
         .title .eyebrow:first-child {
           display: none;
         }
-        footer,
-        .knife-showcase {
+        footer {
           display: none;
         }
         header {
@@ -502,8 +419,7 @@
             <button id="nudge">Nudge</button>
             <button id="reset">Reset</button>
             <button id="rview">Reset view</button>
-            <button id="knife">Knife</button>
-            <button id="pause" class="full">Pause</button>
+            <button id="pause">Pause</button>
           </div>
         </section>
         <section>
@@ -530,17 +446,11 @@
         </section>
       </div>
       <footer>
-        Drag the jelly to stretch · Knife mode: draw across a piece to cut ·
-        Right-drag or empty space orbits · Scroll zooms · Shift pulls depth ·
-        Two fingers pinch
+        Drag the jelly to stretch · Right-drag or empty space orbits · Scroll
+        zooms · Shift pulls depth · Two fingers pinch · WGSL · XPBD · Procedural
       </footer>
     </div>
     <div id="toast" class="toast"></div>
-    <div id="blade" class="blade" aria-hidden="true"></div>
-    <div id="knifeShowcase" class="knife-showcase" aria-hidden="true">
-      <span class="show-blade"></span><span class="show-bolster"></span
-      ><span class="show-handle"></span>
-    </div>
     <div id="err" class="err">
       <div class="box">
         <div class="eyebrow">Material Studies / No. 010</div>
@@ -564,13 +474,10 @@
         $("err").style.display = "flex";
         throw new Error(m);
       }
-      let toastTimer = 0;
       function toast(m) {
         const t = $("toast");
         t.textContent = m;
         t.style.display = "block";
-        clearTimeout(toastTimer);
-        toastTimer = setTimeout(() => (t.style.display = "none"), 3600);
         console.error(m);
       }
       if (!navigator.gpu)
@@ -796,7 +703,7 @@
         slice: {
           R: 2.05,
           THK: 0.5,
-          NK: 3,
+          NK: 4,
           n: 4,
           off: -Math.PI / 4,
           halfW: 2.05,
@@ -806,7 +713,7 @@
         half: {
           R: 2.5,
           THK: 0.63,
-          NK: 3,
+          NK: 4,
           n: 4,
           off: -Math.PI / 4,
           halfW: 2.5,
@@ -816,7 +723,7 @@
         wedge: {
           R: 2.48,
           THK: 0.7,
-          NK: 4,
+          NK: 5,
           n: 4,
           off: -Math.PI / 4,
           halfW: 1.65,
@@ -838,8 +745,8 @@
         };
         let NI, NJ, cy, nominal, tomato;
         if (kind === "slice") {
-          NI = 12;
-          NJ = 12;
+          NI = 16;
+          NJ = 16;
           cy = 0;
           nominal = (i, j) => {
             const p = sq((i / NI) * 2 - 1, (j / NJ) * 2 - 1);
@@ -850,8 +757,8 @@
             return [p[0] / R, p[1] / R];
           };
         } else if (kind === "half") {
-          NI = 12;
-          NJ = 6;
+          NI = 16;
+          NJ = 8;
           cy = -0.2 * R;
           // The diameter rises diagonally, as in the half-cut reference.
           nominal = (i, j) => {
@@ -866,8 +773,8 @@
             return [p[0] / R, p[1] / R];
           };
         } else {
-          NI = 8;
-          NJ = 12;
+          NI = 10;
+          NJ = 14;
           cy = -0.62 * R; // apex at the fruit centre, rind below
           const R0 = 0.15 * R,
             HALF = 0.73;
@@ -917,7 +824,6 @@
                 ty,
                 tz,
                 rind: Math.hypot(tx, ty) > 0.9,
-                cut: false,
               });
             }
           }
@@ -951,7 +857,6 @@
             d,
             restVol: Math.abs(vol),
             sign: vol < 0 ? -1 : 1,
-            piece: 0,
           });
         };
         for (let i = 0; i < NI; i++)
@@ -974,11 +879,97 @@
             }
         let restVolTotal = 0;
         for (const t of tets) restVolTotal += t.restVol;
-        const edges = buildEdges(nodes, tets);
-        const { surfTris, triPieces, surfaceList } = extractSurface(
-          nodes,
-          tets,
-        );
+        const edgeMap = new Map();
+        const addE = (a, b) => {
+          const lo = Math.min(a, b),
+            hi = Math.max(a, b),
+            key = lo * 100000 + hi;
+          if (!edgeMap.has(key))
+            edgeMap.set(key, {
+              a: lo,
+              b: hi,
+              rest: vlen(vsub(nodes[lo].rest, nodes[hi].rest)),
+              firm: nodes[lo].rind && nodes[hi].rind ? 0.5 : 1.0,
+            });
+        };
+        for (const t of tets) {
+          addE(t.a, t.b);
+          addE(t.a, t.c);
+          addE(t.a, t.d);
+          addE(t.b, t.c);
+          addE(t.b, t.d);
+          addE(t.c, t.d);
+        }
+        const edges = [...edgeMap.values()];
+
+        // outward-oriented boundary triangles
+        const surfTris = [];
+        const bodyC = { x: 0, y: cy + shift, z: 0 };
+        const addQuad = (a, b, c, d) => {
+          for (const t of [
+            [a, b, c],
+            [a, c, d],
+          ]) {
+            const A = nodes[t[0]].rest,
+              B = nodes[t[1]].rest,
+              C = nodes[t[2]].rest;
+            const n = vcross(vsub(B, A), vsub(C, A));
+            const cen = {
+              x: (A.x + B.x + C.x) / 3,
+              y: (A.y + B.y + C.y) / 3,
+              z: (A.z + B.z + C.z) / 3,
+            };
+            if (vdot(n, vsub(cen, bodyC)) < 0) t.reverse();
+            surfTris.push(t);
+          }
+        };
+        const G = (i, j, k) => grid[i][j][k];
+        for (let j = 0; j < NJ; j++)
+          for (let k = 0; k < NK; k++) {
+            addQuad(
+              G(NI, j, k),
+              G(NI, j + 1, k),
+              G(NI, j + 1, k + 1),
+              G(NI, j, k + 1),
+            );
+            addQuad(
+              G(0, j, k),
+              G(0, j + 1, k),
+              G(0, j + 1, k + 1),
+              G(0, j, k + 1),
+            );
+          }
+        for (let i = 0; i < NI; i++)
+          for (let k = 0; k < NK; k++) {
+            addQuad(
+              G(i, 0, k),
+              G(i + 1, 0, k),
+              G(i + 1, 0, k + 1),
+              G(i, 0, k + 1),
+            );
+            addQuad(
+              G(i, NJ, k),
+              G(i + 1, NJ, k),
+              G(i + 1, NJ, k + 1),
+              G(i, NJ, k + 1),
+            );
+          }
+        for (let i = 0; i < NI; i++)
+          for (let j = 0; j < NJ; j++) {
+            addQuad(
+              G(i, j, 0),
+              G(i + 1, j, 0),
+              G(i + 1, j + 1, 0),
+              G(i, j + 1, 0),
+            );
+            addQuad(
+              G(i, j, NK),
+              G(i + 1, j, NK),
+              G(i + 1, j + 1, NK),
+              G(i, j + 1, NK),
+            );
+          }
+        const surfaceList = [...new Set(surfTris.flat())];
 
         // ----- 52 seeds (26 per face) embedded on the surface via barycentric coordinates -----
         const seeds = [];
@@ -1123,7 +1114,6 @@
           tets,
           edges,
           surfTris,
-          triPieces,
           surfaceList,
           seeds,
           floorY,
@@ -1132,87 +1122,17 @@
         };
       }
 
-      function buildEdges(ns, ts) {
-        const edgeMap = new Map();
-        const addE = (a, b) => {
-          const lo = Math.min(a, b),
-            hi = Math.max(a, b),
-            key = lo + "_" + hi;
-          if (!edgeMap.has(key))
-            edgeMap.set(key, {
-              a: lo,
-              b: hi,
-              rest: vlen(vsub(ns[lo].rest, ns[hi].rest)),
-              firm: ns[lo].rind && ns[hi].rind ? 0.5 : 1.0,
-            });
-        };
-        for (const t of ts) {
-          addE(t.a, t.b);
-          addE(t.a, t.c);
-          addE(t.a, t.d);
-          addE(t.b, t.c);
-          addE(t.b, t.d);
-          addE(t.c, t.d);
-        }
-        return [...edgeMap.values()];
-      }
-
-      // A boundary face is used by one tetrahedron. Its winding is flipped if it faces its tet's opposite vertex.
-      function extractSurface(ns, ts) {
-        const faces = new Map();
-        const add = (a, b, c, opp, piece) => {
-          const key = [a, b, c].sort((x, y) => x - y).join("_");
-          const f = { a, b, c, opp, piece, count: 1 };
-          const prior = faces.get(key);
-          if (prior) prior.count++;
-          else faces.set(key, f);
-        };
-        for (const t of ts) {
-          add(t.a, t.b, t.c, t.d, t.piece);
-          add(t.a, t.d, t.b, t.c, t.piece);
-          add(t.a, t.c, t.d, t.b, t.piece);
-          add(t.b, t.d, t.c, t.a, t.piece);
-        }
-        const surfTris = [],
-          triPieces = [];
-        for (const f of faces.values())
-          if (f.count === 1) {
-            let a = f.a,
-              b = f.b,
-              c = f.c;
-            const A = ns[a].rest,
-              B = ns[b].rest,
-              C = ns[c].rest,
-              O = ns[f.opp].rest;
-            const n = vcross(vsub(B, A), vsub(C, A));
-            if (vdot(n, vsub(O, A)) > 0) {
-              const q = b;
-              b = c;
-              c = q;
-            }
-            surfTris.push([a, b, c]);
-            triPieces.push(f.piece);
-          }
-        return {
-          surfTris,
-          triPieces,
-          surfaceList: [...new Set(surfTris.flat())],
-        };
-      }
-
       // ================= Active model + GPU buffers =================
       let nodes,
         tets,
         edges,
         surfTris,
-        triPieces,
         surfaceList,
         seeds,
         floorY,
         restVolTotal,
         SH,
-        NV,
-        nodePiece;
+        NV;
       let vtxData,
         vtxBuf,
         idxData,
@@ -1267,24 +1187,15 @@
           tets,
           edges,
           surfTris,
-          triPieces,
           surfaceList,
           seeds,
           floorY,
           restVolTotal,
         } = m);
         SH = m.cfg;
-        rebuildNodePieces();
         makeBuffers();
       }
       loadShape("slice");
-
-      function rebuildNodePieces() {
-        nodePiece = new Int32Array(nodes.length);
-        nodePiece.fill(-1);
-        for (const t of tets)
-          for (const id of [t.a, t.b, t.c, t.d]) nodePiece[id] = t.piece;
-      }
 
       // seed sphere (shared, instanced)
       const sph = (() => {
@@ -1322,7 +1233,7 @@
       });
       device.queue.writeBuffer(sphIB, 0, sph.idx);
 
-      // Uniforms occupy 3 matrices and 9 vec4 values (336 bytes); allocation is 16-byte padded.
+      // uniforms: 3 mats + 10 vec4 = 352 bytes
       const UBO_SIZE = 352;
       const uboBuf = device.createBuffer({
         size: UBO_SIZE,
@@ -1407,8 +1318,8 @@ struct VOut{@builtin(position) pos:vec4f, @location(0) w:vec3f};
 
       const bodyWGSL = /* wgsl */ `
 ${common}
-struct VIn{@location(0) pos:vec3f,@location(1) nrm:vec3f,@location(2) uv:vec4f};
-struct VOut{@builtin(position) clip:vec4f,@location(0) wpos:vec3f,@location(1) nrm:vec3f,@location(2) uv:vec4f};
+struct VIn{@location(0) pos:vec3f,@location(1) nrm:vec3f,@location(2) uv:vec3f};
+struct VOut{@builtin(position) clip:vec4f,@location(0) wpos:vec3f,@location(1) nrm:vec3f,@location(2) uv:vec3f};
 @vertex fn vs(v:VIn)->VOut{
   var o:VOut;
   o.wpos=v.pos; o.clip=U.viewProj*vec4f(v.pos,1.0); o.nrm=v.nrm; o.uv=v.uv;
@@ -1491,8 +1402,7 @@ fn anat(t:vec2f)->Anat{
   let gelMask=smoothstep(-0.008,0.009,A.sd)*(1.0-skinMask);
   // Side faces have normals transverse to the cut faces. The old test used tz,
   // which accidentally masked the *entire* exposed face, hiding the tomato.
-  let cutFace=smoothstep(0.94,1.0,i.uv.w);
-  let sideMask=(1.0-smoothstep(0.25,0.80,abs(N.z)))*(1.0-cutFace);
+  let sideMask=1.0-smoothstep(0.25,0.80,abs(N.z));
   let facing=abs(dot(N,V));
 
   // --- walls / core (cream, fibrous, radiating) ---
@@ -1566,10 +1476,8 @@ fn anat(t:vec2f)->Anat{
   let sbox=smoothstep(0.30,0.85,dot(Rv,normalize(vec3f(0.5,0.8,0.6))));
   let envG=mix(0.35,0.9,Rv.y*0.5+0.5);
   let gloss=mix(mix(0.22,0.5,skinMask),1.0,gelMask)*(1.0-0.6*corePulse*(1.0-gelMask));
-  gloss=max(gloss,cutFace*0.72);
   let spec=pow(max(dot(Nf,H),0.0),mix(60.0,140.0,gelMask))*0.45;
   lit=lit+vec3f(1.0,0.98,0.95)*(fres*envG*0.4+sbox*(0.05+fres*0.3)+spec)*gloss;
-  lit=lit+mix(flesh,core,0.45)*cutFace*0.08;
   lit=lit+vec3f(0.25,0.15,0.1)*U.extra.y*0.05;
 
   lit=lit/(1.0+0.13*lit);
@@ -1692,7 +1600,7 @@ ${common}
               attributes: [
                 { shaderLocation: 0, offset: 0, format: "float32x3" },
                 { shaderLocation: 1, offset: 16, format: "float32x3" },
-                { shaderLocation: 2, offset: 32, format: "float32x4" },
+                { shaderLocation: 2, offset: 32, format: "float32x3" },
               ],
             },
           ],
@@ -1872,34 +1780,26 @@ ${common}
         const kz = 0.001; // weak tether to the rest plane: keeps the upright body from toppling flat
         const grab = sim.grab;
         for (let s = 0; s < sub; s++) {
-          // Internal damping is evaluated per disconnected piece, so cut pieces stay physically independent.
-          const pieceV = new Map();
-          for (let ni = 0; ni < N; ni++) {
-            const p = nodePiece[ni];
-            if (p < 0) continue;
-            const q = pieceV.get(p) || { x: 0, y: 0, z: 0, n: 0 },
-              v = nodes[ni].vel;
-            q.x += v.x;
-            q.y += v.y;
-            q.z += v.z;
-            q.n++;
-            pieceV.set(p, q);
+          // internal damping removes only motion relative to the centre of mass
+          let cx = 0,
+            cy = 0,
+            cz = 0;
+          for (const n of nodes) {
+            cx += n.vel.x;
+            cy += n.vel.y;
+            cz += n.vel.z;
           }
-          for (const q of pieceV.values()) {
-            q.x /= q.n;
-            q.y /= q.n;
-            q.z /= q.n;
-          }
-          for (let ni = 0; ni < N; ni++) {
-            const n = nodes[ni],
-              cv = pieceV.get(nodePiece[ni]) || { x: 0, y: 0, z: 0 };
+          cx /= N;
+          cy /= N;
+          cz /= N;
+          for (const n of nodes) {
             n.prev.x = n.pos.x;
             n.prev.y = n.pos.y;
             n.prev.z = n.pos.z;
             n.vel.y += GRAV * h;
-            n.vel.x = (n.vel.x - (n.vel.x - cv.x) * kd) * drag;
-            n.vel.y = (n.vel.y - (n.vel.y - cv.y) * kd) * drag;
-            n.vel.z = (n.vel.z - (n.vel.z - cv.z) * kd) * drag;
+            n.vel.x = (n.vel.x - (n.vel.x - cx) * kd) * drag;
+            n.vel.y = (n.vel.y - (n.vel.y - cy) * kd) * drag;
+            n.vel.z = (n.vel.z - (n.vel.z - cz) * kd) * drag;
             n.vpre = n.vel.y;
             n.pos.x += n.vel.x * h;
             n.pos.y += n.vel.y * h;
@@ -2085,7 +1985,6 @@ ${common}
           vtxData[o + 8] = n.tx;
           vtxData[o + 9] = n.ty;
           vtxData[o + 10] = n.tz;
-          vtxData[o + 11] = n.cut ? 1 : 0;
           sx += n.pos.x;
           sz += n.pos.z;
           if (n.pos.y < mn) mn = n.pos.y;
@@ -2201,374 +2100,10 @@ ${common}
         return { mass, rel: vol / restVolTotal, ke: ke * 0.01 };
       }
 
-      // ================= Real tetrahedral knife cuts =================
-      // Each cut replaces the selected body's crossing tets with clipped tetrahedra. Cut-plane vertices
-      // are duplicated per side, so no constraints or vertices remain shared between the two new bodies.
-      let nextPieceId = 1;
-      const MAX_PIECES = 12;
-      function makeTet(ids, piece) {
-        const [a, b, c, d] = ids;
-        const pa = nodes[a].rest,
-          pb = nodes[b].rest,
-          pc = nodes[c].rest,
-          pd = nodes[d].rest;
-        const vol = vdot(vcross(vsub(pb, pa), vsub(pc, pa)), vsub(pd, pa)) / 6;
-        if (Math.abs(vol) < 1e-9) return null;
-        return {
-          a,
-          b,
-          c,
-          d,
-          restVol: Math.abs(vol),
-          sign: vol < 0 ? -1 : 1,
-          piece,
-        };
-      }
-      function seedWorldPositions() {
-        return seeds.map((sd) => {
-          const t = surfTris[sd.tri] || surfTris[0];
-          const A = nodes[t[0]].pos,
-            B = nodes[t[1]].pos,
-            C = nodes[t[2]].pos,
-            [u, v, w] = sd.bary;
-          return {
-            x: A.x * u + B.x * v + C.x * w,
-            y: A.y * u + B.y * v + C.y * w,
-            z: A.z * u + B.z * v + C.z * w,
-          };
-        });
-      }
-      function reprojectSeeds(points) {
-        for (let s = 0; s < seeds.length; s++) {
-          const P = points[s] || { x: 0, y: 0, z: 0 };
-          let best = -1,
-            bd = Infinity,
-            bb = [1, 0, 0];
-          // Prefer the broad tomato faces so seeds do not migrate to an exposed knife face.
-          for (let pass = 0; pass < 2 && best < 0; pass++)
-            for (let ti = 0; ti < surfTris.length; ti++) {
-              const tr = surfTris[ti],
-                A = nodes[tr[0]].pos,
-                B = nodes[tr[1]].pos,
-                C = nodes[tr[2]].pos;
-              const n = vcross(vsub(B, A), vsub(C, A));
-              const nl = vlen(n) || 1;
-              if (pass === 0 && Math.abs(n.z / nl) < 0.55) continue;
-              const v0 = vsub(B, A),
-                v1 = vsub(C, A),
-                v2 = vsub(P, A);
-              const d00 = vdot(v0, v0),
-                d01 = vdot(v0, v1),
-                d11 = vdot(v1, v1),
-                d20 = vdot(v2, v0),
-                d21 = vdot(v2, v1);
-              const den = d00 * d11 - d01 * d01;
-              if (Math.abs(den) < 1e-12) continue;
-              let v = (d11 * d20 - d01 * d21) / den,
-                w = (d00 * d21 - d01 * d20) / den,
-                u = 1 - v - w;
-              u = Math.max(0, u);
-              v = Math.max(0, v);
-              w = Math.max(0, w);
-              const sum = u + v + w;
-              u /= sum;
-              v /= sum;
-              w /= sum;
-              const Q = {
-                x: A.x * u + B.x * v + C.x * w,
-                y: A.y * u + B.y * v + C.y * w,
-                z: A.z * u + B.z * v + C.z * w,
-              };
-              const dd = (Q.x - P.x) ** 2 + (Q.y - P.y) ** 2 + (Q.z - P.z) ** 2;
-              if (dd < bd) {
-                bd = dd;
-                best = ti;
-                bb = [u, v, w];
-              }
-            }
-          if (best < 0) continue;
-          const tr = surfTris[best],
-            A = nodes[tr[0]],
-            B = nodes[tr[1]],
-            C = nodes[tr[2]];
-          const [u, v, w] = bb,
-            e1 = vsub(B.pos, A.pos),
-            e2 = vsub(C.pos, A.pos);
-          const tx = A.tx * u + B.tx * v + C.tx * w,
-            ty = A.ty * u + B.ty * v + C.ty * w;
-          const rl = Math.hypot(tx, ty) || 1;
-          const dir = { x: -tx / rl, y: -ty / rl, z: 0 };
-          const a11 = vdot(e1, e1),
-            a12 = vdot(e1, e2),
-            a22 = vdot(e2, e2),
-            b1 = vdot(dir, e1),
-            b2 = vdot(dir, e2);
-          const den = a11 * a22 - a12 * a12 || 1;
-          seeds[s].tri = best;
-          seeds[s].bary = bb;
-          seeds[s].al = (b1 * a22 - b2 * a12) / den;
-          seeds[s].be = (a11 * b2 - a12 * b1) / den;
-        }
-      }
-      function cutPiece(planeNormal, planePoint, piece) {
-        const pieces = new Set(tets.map((t) => t.piece));
-        if (pieces.size >= MAX_PIECES) {
-          toast("Knife limit reached: up to 12 pieces.");
-          return false;
-        }
-        const source = tets.filter((t) => t.piece === piece);
-        if (!source.length) {
-          toast("Choose a visible jelly piece to cut.");
-          return false;
-        }
-        const savedSeeds = seedWorldPositions();
-        const baseNodeCount = nodes.length;
-        const offset = vdot(planeNormal, planePoint);
-        const signedCache = new Map();
-        const signed = (i) => {
-          if (signedCache.has(i)) return signedCache.get(i);
-          let d = vdot(nodes[i].pos, planeNormal) - offset;
-          // Avoid a topological ambiguity when a blade happens to hit a mesh vertex exactly.
-          // Snap a plane away from almost-coincident vertices. This is visually sub-pixel,
-          // but prevents near-zero tetrahedra and the solver explosions they cause.
-          if (Math.abs(d) < 0.012)
-            d = ((i * 1103515245) >>> 0) & 1 ? 0.012 : -0.012;
-          signedCache.set(i, d);
-          return d;
-        };
-        const crossCache = new Map();
-        const inter = (a, b, side) => {
-          const lo = Math.min(a, b),
-            hi = Math.max(a, b),
-            key = lo + "_" + hi + "_" + side;
-          if (crossCache.has(key)) return crossCache.get(key);
-          const da = signed(a),
-            db = signed(b),
-            t = Math.max(0.001, Math.min(0.999, da / (da - db)));
-          const A = nodes[a],
-            B = nodes[b],
-            L = (x, y) => x + (y - x) * t;
-          const id = nodes.length;
-          nodes.push({
-            rest: {
-              x: L(A.rest.x, B.rest.x),
-              y: L(A.rest.y, B.rest.y),
-              z: L(A.rest.z, B.rest.z),
-            },
-            pos: {
-              x: L(A.pos.x, B.pos.x),
-              y: L(A.pos.y, B.pos.y),
-              z: L(A.pos.z, B.pos.z),
-            },
-            prev: {
-              x: L(A.prev.x, B.prev.x),
-              y: L(A.prev.y, B.prev.y),
-              z: L(A.prev.z, B.prev.z),
-            },
-            vel: {
-              x: L(A.vel.x, B.vel.x),
-              y: L(A.vel.y, B.vel.y),
-              z: L(A.vel.z, B.vel.z),
-            },
-            vpre: L(A.vpre, B.vpre),
-            tx: L(A.tx, B.tx),
-            ty: L(A.ty, B.ty),
-            tz: L(A.tz, B.tz),
-            rind: A.rind && B.rind,
-            cut: true,
-          });
-          crossCache.set(key, id);
-          return id;
-        };
-        const childTets = [];
-        const posPiece = piece,
-          negPiece = nextPieceId;
-        let crossed = false,
-          posVol = 0,
-          negVol = 0;
-        const add = (ids, p) => {
-          const t = makeTet(ids, p);
-          if (t) {
-            childTets.push(t);
-            if (p === posPiece) posVol += t.restVol;
-            else negVol += t.restVol;
-          }
-        };
-        const prism = (a, b, c, A, B, C, p) => {
-          add([a, b, c, A], p);
-          add([b, c, A, B], p);
-          add([c, A, B, C], p);
-        };
-        for (const tet of source) {
-          const ids = [tet.a, tet.b, tet.c, tet.d],
-            P = ids.filter((i) => signed(i) > 0),
-            N = ids.filter((i) => signed(i) < 0);
-          if (P.length === 4) {
-            add(ids, posPiece);
-            continue;
-          }
-          if (N.length === 4) {
-            add(ids, negPiece);
-            continue;
-          }
-          crossed = true;
-          if (P.length === 1) {
-            const p = P[0],
-              n0 = N[0],
-              n1 = N[1],
-              n2 = N[2];
-            const i0 = inter(p, n0, "p"),
-              i1 = inter(p, n1, "p"),
-              i2 = inter(p, n2, "p");
-            add([p, i0, i1, i2], posPiece);
-            prism(
-              n0,
-              n1,
-              n2,
-              inter(n0, p, "n"),
-              inter(n1, p, "n"),
-              inter(n2, p, "n"),
-              negPiece,
-            );
-          } else if (N.length === 1) {
-            const n = N[0],
-              p0 = P[0],
-              p1 = P[1],
-              p2 = P[2];
-            const i0 = inter(n, p0, "n"),
-              i1 = inter(n, p1, "n"),
-              i2 = inter(n, p2, "n");
-            add([n, i0, i1, i2], negPiece);
-            prism(
-              p0,
-              p1,
-              p2,
-              inter(p0, n, "p"),
-              inter(p1, n, "p"),
-              inter(p2, n, "p"),
-              posPiece,
-            );
-          } else {
-            const p0 = P[0],
-              p1 = P[1],
-              n0 = N[0],
-              n1 = N[1];
-            const p00 = inter(p0, n0, "p"),
-              p01 = inter(p0, n1, "p"),
-              p10 = inter(p1, n0, "p"),
-              p11 = inter(p1, n1, "p");
-            prism(p0, p00, p01, p1, p10, p11, posPiece);
-            const n00 = inter(n0, p0, "n"),
-              n01 = inter(n0, p1, "n"),
-              n10 = inter(n1, p0, "n"),
-              n11 = inter(n1, p1, "n");
-            prism(n0, n00, n01, n1, n10, n11, negPiece);
-          }
-        }
-        const oldVol = source.reduce((s, t) => s + t.restVol, 0);
-        const minStable = Math.max(oldVol * 0.018, 0.002);
-        const newVol = posVol + negVol;
-        const volumeError = Math.abs(newVol - oldVol) / Math.max(oldVol, 1e-8);
-        const avgTetVol = oldVol / Math.max(1, source.length);
-        const hasMicroTet = childTets.some(
-          (t) => t.restVol < avgTetVol * 0.0003,
-        );
-        // Reject degenerate or numerically incomplete partitions instead of letting a sliver destabilise XPBD.
-        if (
-          !crossed ||
-          posVol < minStable ||
-          negVol < minStable ||
-          volumeError > 0.015 ||
-          hasMicroTet
-        ) {
-          nodes.length = baseNodeCount;
-          toast(
-            !crossed
-              ? "The blade missed that piece."
-              : "Cut is too close to mesh detail: the thin sliver was merged for stability.",
-          );
-          return false;
-        }
-        nextPieceId++;
-        tets = tets.filter((t) => t.piece !== piece).concat(childTets);
-        const plusNodes = new Set(),
-          minusNodes = new Set();
-        for (const t of childTets)
-          for (const id of [t.a, t.b, t.c, t.d]) {
-            (t.piece === posPiece ? plusNodes : minusNodes).add(id);
-          }
-        // A small release impulse opens the wet faces without overstretching a thin piece.
-        for (const id of plusNodes) {
-          const v = nodes[id].vel;
-          v.x += planeNormal.x * 0.34;
-          v.y += planeNormal.y * 0.34;
-          v.z += planeNormal.z * 0.34;
-        }
-        for (const id of minusNodes) {
-          const v = nodes[id].vel;
-          v.x -= planeNormal.x * 0.34;
-          v.y -= planeNormal.y * 0.34;
-          v.z -= planeNormal.z * 0.34;
-        }
-        edges = buildEdges(nodes, tets);
-        const surface = extractSurface(nodes, tets);
-        surfTris = surface.surfTris;
-        triPieces = surface.triPieces;
-        surfaceList = surface.surfaceList;
-        restVolTotal = tets.reduce((s, t) => s + t.restVol, 0);
-        rebuildNodePieces();
-        makeBuffers();
-        reprojectSeeds(savedSeeds);
-        acc = 0;
-        return true;
-      }
-
       // ================= Interaction =================
       const pointers = new Map();
       let orbiting = false,
-        pinchPrev = null,
-        knifeMode = false,
-        knifeStroke = null;
-      const blade = $("blade");
-      const knifeShowcase = $("knifeShowcase");
-      function showBlade(x0, y0, x1, y1) {
-        const dx = x1 - x0,
-          dy = y1 - y0,
-          l = Math.hypot(dx, dy);
-        blade.style.display = "block";
-        blade.style.left = x0 + "px";
-        blade.style.top = y0 - 1 + "px";
-        blade.style.width = l + "px";
-        blade.style.transform = `rotate(${Math.atan2(dy, dx)}rad)`;
-      }
-      function hideBlade() {
-        blade.style.display = "none";
-      }
-      function finishKnifeStroke() {
-        const s = knifeStroke;
-        knifeStroke = null;
-        hideBlade();
-        if (!s) return;
-        const dx = s.x1 - s.x0,
-          dy = s.y1 - s.y0,
-          l = Math.hypot(dx, dy);
-        if (l < 22) {
-          toast("Draw a longer knife line across a jelly piece.");
-          return;
-        }
-        const cam = camPos(),
-          fwd = vnorm(vsub(camTarget, cam));
-        const right = vnorm(vcross(fwd, { x: 0, y: 1, z: 0 }));
-        const screenUp = vnorm(vcross(right, fwd));
-        // The plane contains the apparent blade stroke and camera depth, so a screen stroke
-        // makes the expected visible division through the physical tetrahedral body.
-        const normal = vnorm({
-          x: right.x * dy + screenUp.x * dx,
-          y: right.y * dy + screenUp.y * dx,
-          z: right.z * dy + screenUp.z * dx,
-        });
-        cutPiece(normal, s.hit.point, s.piece);
-      }
+        pinchPrev = null;
       function getRay(sx, sy) {
         const { cam, vp } = camMatrices();
         const inv = mat4Inv(vp);
@@ -2582,10 +2117,8 @@ ${common}
       function pickSurface(sx, sy) {
         const ray = getRay(sx, sy);
         if (!ray) return null;
-        let bt = Infinity,
-          best = -1;
-        for (let ti = 0; ti < surfTris.length; ti++) {
-          const t = surfTris[ti];
+        let bt = Infinity;
+        for (const t of surfTris) {
           const A = nodes[t[0]].pos,
             B = nodes[t[1]].pos,
             C = nodes[t[2]].pos;
@@ -2602,15 +2135,11 @@ ${common}
             v = vdot(ray.d, q) * inv;
           if (v < 0 || u + v > 1) continue;
           const tt = vdot(e2, q) * inv;
-          if (tt > 0 && tt < bt) {
-            bt = tt;
-            best = ti;
-          }
+          if (tt > 0 && tt < bt) bt = tt;
         }
         if (bt === Infinity) return null;
         return {
           t: bt,
-          piece: triPieces[best],
           point: {
             x: ray.o.x + ray.d.x * bt,
             y: ray.o.y + ray.d.y * bt,
@@ -2671,8 +2200,6 @@ ${common}
         pointers.clear();
         orbiting = false;
         pinchPrev = null;
-        knifeStroke = null;
-        hideBlade();
         canvas.classList.remove("grabbing");
       }
       canvas.addEventListener("pointerdown", (e) => {
@@ -2686,24 +2213,10 @@ ${common}
             orbiting = true;
           } else {
             const hit = pickSurface(e.clientX, e.clientY);
-            if (knifeMode && hit) {
-              knifeStroke = {
-                x0: e.clientX,
-                y0: e.clientY,
-                x1: e.clientX,
-                y1: e.clientY,
-                hit,
-                piece: hit.piece,
-              };
-              showBlade(e.clientX, e.clientY, e.clientX + 1, e.clientY);
-            } else if (hit) startGrab(hit);
+            if (hit) startGrab(hit);
             else orbiting = true;
           }
         } else if (pointers.size === 2) {
-          if (knifeStroke) {
-            knifeStroke = null;
-            hideBlade();
-          }
           const p = [...pointers.values()];
           pinchPrev = Math.hypot(p[0].x - p[1].x, p[0].y - p[1].y);
         }
@@ -2746,16 +2259,7 @@ ${common}
           pinchPrev = d;
           return;
         }
-        if (knifeStroke && first) {
-          knifeStroke.x1 = e.clientX;
-          knifeStroke.y1 = e.clientY;
-          showBlade(
-            knifeStroke.x0,
-            knifeStroke.y0,
-            knifeStroke.x1,
-            knifeStroke.y1,
-          );
-        } else if (sim.grab && first) {
+        if (sim.grab && first) {
           const cd = vnorm(vsub(camTarget, camPos()));
           const right = vnorm(vcross(cd, { x: 0, y: 1, z: 0 }));
           const up = vcross(right, cd);
@@ -2786,7 +2290,6 @@ ${common}
         } catch (_) {}
         pinchPrev = null;
         if (pointers.size === 0) {
-          if (knifeStroke) finishKnifeStroke();
           sim.grab = null;
           orbiting = false;
           canvas.classList.remove("grabbing");
@@ -2835,16 +2338,6 @@ ${common}
         camDist = defaultDist();
         camTarget.x = camTarget.y = camTarget.z = 0;
       });
-      $("knife").addEventListener("click", (e) => {
-        knifeMode = !knifeMode;
-        e.target.classList.toggle("on", knifeMode);
-        e.target.textContent = knifeMode ? "Knife on" : "Knife";
-        knifeShowcase.classList.toggle("active", knifeMode);
-        if (!knifeMode) {
-          knifeStroke = null;
-          hideBlade();
-        }
-      });
       $("pause").addEventListener("click", (e) => {
         sim.paused = !sim.paused;
         e.target.textContent = sim.paused ? "Resume" : "Pause";
@@ -2874,7 +2367,6 @@ ${common}
           b.classList.add("on");
           releaseAll();
           loadShape(b.dataset.s);
-          nextPieceId = 1;
           camDist = defaultDist();
         }),
       );

@@ -851,7 +851,6 @@
                 tz,
                 rind: Math.hypot(tx, ty) > 0.9,
                 cutMask: 0,
-                cutShock: 0,
               });
             }
           }
@@ -1092,25 +1091,6 @@
         };
       }
 
-      // After an intentional kerf gap, rebase constraints to that relaxed shape so the mesh
-      // doesn't spring back into its sibling and start buzzing against its coincident surface.
-      function rebaseRestShape(body) {
-        let total = 0;
-        for (const e of body.edges)
-          e.rest = vlen(vsub(body.nodes[e.a].rest, body.nodes[e.b].rest));
-        for (const t of body.tets) {
-          const a = body.nodes[t.a].rest,
-            b = body.nodes[t.b].rest,
-            c = body.nodes[t.c].rest,
-            d = body.nodes[t.d].rest;
-          const vol = vdot(vcross(vsub(b, a), vsub(c, a)), vsub(d, a)) / 6;
-          t.restVol = Math.max(Math.abs(vol), 1e-10);
-          t.sign = vol < 0 ? -1 : 1;
-          total += t.restVol;
-        }
-        body.restVolTotal = total;
-      }
-
       // Attach seeds to the nearest surface triangle (facing the same way) among the given bodies.
       function attachSeeds(pieces, specs) {
         for (const sp of specs) {
@@ -1238,39 +1218,17 @@
         const s = new Float64Array(N);
         let np = 0,
           nn = 0;
-        // Work on copies so a rejected cut never mutates the live body. Snap nearly coplanar
-        // vertices onto the cut plane instead of clamping edge intersections away from it.
-        const all = nodes.map((x) => ({
-          ...x,
-          rest: { ...x.rest },
-          pos: { ...x.pos },
-          prev: { ...x.prev },
-          vel: { ...x.vel },
-        }));
         for (let i = 0; i < N; i++) {
-          const p = all[i].pos;
+          const p = nodes[i].pos;
           let v = n.x * p.x + n.y * p.y + n.z * p.z - d;
-          if (Math.abs(v) < 1e-4) {
-            const snap = n.x * p.x + n.y * p.y + n.z * p.z - d;
-            p.x -= n.x * snap;
-            p.y -= n.y * snap;
-            p.z -= n.z * snap;
-            all[i].prev.x -= n.x * snap;
-            all[i].prev.y -= n.y * snap;
-            all[i].prev.z -= n.z * snap;
-            all[i].rest.x -= n.x * snap;
-            all[i].rest.y -= n.y * snap;
-            all[i].rest.z -= n.z * snap;
-            all[i].cutMask |= bit;
-            all[i].cutShock = 1;
-            v = 1e-4;
-          }
+          if (v > -1e-4 && v < 1e-4) v = 1e-4;
           s[i] = v;
           if (v > 0) np++;
           else nn++;
         }
         if (np === 0 || nn === 0) return null;
-        const isect = new Map();
+        const all = nodes.slice(),
+          isect = new Map();
         const L = (a, b, t) => a + (b - a) * t;
         const mk = (A, B, t) => ({
           rest: {
@@ -1299,7 +1257,6 @@
           tz: L(A.tz, B.tz, t),
           rind: A.rind && B.rind,
           cutMask: (A.cutMask & B.cutMask) | bit,
-          cutShock: Math.max(A.cutShock || 0, B.cutShock || 0),
         });
         // one intersection point per crossing edge, duplicated: copy a for the + side, copy b for the − side
         const getI = (i, j) => {
@@ -1309,9 +1266,9 @@
           let r = isect.get(key);
           if (r) return r;
           let t = s[lo] / (s[lo] - s[hi]);
-          t = Math.min(0.999999, Math.max(0.000001, t));
-          const A = all[lo],
-            B = all[hi];
+          t = Math.min(0.96, Math.max(0.04, t));
+          const A = nodes[lo],
+            B = nodes[hi];
           r = { a: all.length };
           all.push(mk(A, B, t));
           r.b = all.length;
@@ -1401,12 +1358,6 @@
         for (const c of comp.values()) {
           const b = finalizeBody(all, c.quads);
           b.side = c.side;
-          for (const nd of b.nodes) {
-            const dist = Math.abs(
-              n.x * nd.pos.x + n.y * nd.pos.y + n.z * nd.pos.z - d,
-            );
-            nd.cutShock = Math.max(nd.cutShock || 0, Math.exp(-dist / 0.3));
-          }
           pieces.push(b);
         }
         return pieces;
@@ -1496,6 +1447,7 @@
         );
         device.queue.writeBuffer(bufs.idx, 0, idxData);
         device.queue.writeBuffer(bufs.wire, 0, wireData);
+        rebuildContactList();
       }
 
       // ================= Simulation / interaction state =================
@@ -1543,8 +1495,131 @@
         rebuildTopology();
       }
 
-      // Cut siblings begin with a small, explicit kerf. Avoid dense point-vs-point repulsion:
-      // near-coplanar duplicated cut vertices made that solver over-correct and buzz.
+      // ---- inter-piece contact: hashed surface-particle pairs built once per step, solved per substep ----
+      let cB = new Int32Array(0),
+        cI = new Int32Array(0),
+        cCount = 0;
+      const HS = 8192,
+        hHead = new Int32Array(HS);
+      let hNext = new Int32Array(4096);
+      let pairs = new Int32Array(16384),
+        pairCount = 0;
+      function rebuildContactList() {
+        const aB = [],
+          aI = [];
+        bodies.forEach((b, bi) => {
+          for (const i of b.surfaceList) {
+            aB.push(bi);
+            aI.push(i);
+          }
+        });
+        cB = Int32Array.from(aB);
+        cI = Int32Array.from(aI);
+        cCount = cB.length;
+        if (hNext.length < cCount) hNext = new Int32Array(cCount * 2);
+      }
+      const hc = (x, y, z) =>
+        ((Math.imul(x, 73856093) ^
+          Math.imul(y, 19349663) ^
+          Math.imul(z, 83492791)) >>>
+          0) &
+        (HS - 1);
+      function buildPairs() {
+        const inv = 1 / 0.3,
+          R2 = 0.26 * 0.26;
+        hHead.fill(-1);
+        for (let k = 0; k < cCount; k++) {
+          const p = bodies[cB[k]].nodes[cI[k]].pos;
+          const h = hc(
+            Math.floor(p.x * inv),
+            Math.floor(p.y * inv),
+            Math.floor(p.z * inv),
+          );
+          hNext[k] = hHead[h];
+          hHead[h] = k;
+        }
+        pairCount = 0;
+        for (let k = 0; k < cCount; k++) {
+          const bk = cB[k],
+            p = bodies[bk].nodes[cI[k]].pos;
+          const cx = Math.floor(p.x * inv),
+            cy = Math.floor(p.y * inv),
+            cz = Math.floor(p.z * inv);
+          for (let dx = -1; dx <= 1; dx++)
+            for (let dy = -1; dy <= 1; dy++)
+              for (let dz = -1; dz <= 1; dz++) {
+                let m = hHead[hc(cx + dx, cy + dy, cz + dz)];
+                while (m !== -1) {
+                  if (cB[m] > bk) {
+                    const q = bodies[cB[m]].nodes[cI[m]].pos;
+                    const ddx = p.x - q.x,
+                      ddy = p.y - q.y,
+                      ddz = p.z - q.z;
+                    if (ddx * ddx + ddy * ddy + ddz * ddz < R2) {
+                      if (pairCount * 2 + 2 > pairs.length) {
+                        const np = new Int32Array(pairs.length * 2);
+                        np.set(pairs);
+                        pairs = np;
+                      }
+                      pairs[pairCount * 2] = k;
+                      pairs[pairCount * 2 + 1] = m;
+                      pairCount++;
+                    }
+                  }
+                  m = hNext[m];
+                }
+              }
+        }
+      }
+      // Pushes move pos and prev together (no injected momentum → no jitter); approaching velocity is damped via prev.
+      function solveContacts(h) {
+        const r = 0.15;
+        for (let k = 0; k < pairCount; k++) {
+          const a = pairs[k * 2],
+            b = pairs[k * 2 + 1];
+          const A = bodies[cB[a]].nodes[cI[a]],
+            B = bodies[cB[b]].nodes[cI[b]];
+          const dx = A.pos.x - B.pos.x,
+            dy = A.pos.y - B.pos.y,
+            dz = A.pos.z - B.pos.z;
+          const d2 = dx * dx + dy * dy + dz * dz;
+          if (d2 >= r * r || d2 < 1e-14) continue;
+          const d = Math.sqrt(d2),
+            ux = dx / d,
+            uy = dy / d,
+            uz = dz / d;
+          let push = (r - d) * 0.5 * 0.35;
+          if (push > 0.006) push = 0.006;
+          A.pos.x += ux * push;
+          A.pos.y += uy * push;
+          A.pos.z += uz * push;
+          A.prev.x += ux * push;
+          A.prev.y += uy * push;
+          A.prev.z += uz * push;
+          B.pos.x -= ux * push;
+          B.pos.y -= uy * push;
+          B.pos.z -= uz * push;
+          B.prev.x -= ux * push;
+          B.prev.y -= uy * push;
+          B.prev.z -= uz * push;
+          const vax = (A.pos.x - A.prev.x) / h,
+            vay = (A.pos.y - A.prev.y) / h,
+            vaz = (A.pos.z - A.prev.z) / h;
+          const vbx = (B.pos.x - B.prev.x) / h,
+            vby = (B.pos.y - B.prev.y) / h,
+            vbz = (B.pos.z - B.prev.z) / h;
+          const vn = (vax - vbx) * ux + (vay - vby) * uy + (vaz - vbz) * uz;
+          if (vn < 0) {
+            const j = vn * 0.5 * h;
+            A.prev.x += ux * j;
+            A.prev.y += uy * j;
+            A.prev.z += uz * j;
+            B.prev.x -= ux * j;
+            B.prev.y -= uy * j;
+            B.prev.z -= uz * j;
+          }
+        }
+      }
 
       // ================= Knife model (procedural chef's knife) =================
       const KN = { BL: 3.0, BH: 0.66, HL: 1.42, TIPY: 0.46 };
@@ -2585,6 +2660,8 @@ ${common}
         const aV = ((1.1 - f) * 6e-9) / h2;
         const kd = 1 - Math.exp(-sim.damping * 8 * h);
         const drag = 1 - 0.05 * h;
+        if (bodies.length > 1) buildPairs();
+        else pairCount = 0;
         const grab = sim.grab;
         for (let s = 0; s < sub; s++) {
           for (const b of bodies) {
@@ -2610,15 +2687,6 @@ ${common}
               n.vel.x = (n.vel.x - (n.vel.x - cx) * kd) * drag;
               n.vel.y = (n.vel.y - (n.vel.y - cy) * kd) * drag;
               n.vel.z = (n.vel.z - (n.vel.z - cz) * kd) * drag;
-              // Damp local high-frequency motion around a fresh cut while retaining whole-piece drift.
-              const shock = n.cutShock || 0;
-              if (shock > 0.001) {
-                const keep = Math.exp(-h * 22 * shock);
-                n.vel.x = cx + (n.vel.x - cx) * keep;
-                n.vel.y = cy + (n.vel.y - cy) * keep;
-                n.vel.z = cz + (n.vel.z - cz) * keep;
-                n.cutShock = shock * Math.exp(-h * 3.4);
-              }
               n.vpre = n.vel.y;
               n.pos.x += n.vel.x * h;
               n.pos.y += n.vel.y * h;
@@ -2717,6 +2785,7 @@ ${common}
               d.z += g3z * dl;
             }
           }
+          if (pairCount > 0) solveContacts(h);
           // board (and the resting knife): gentle friction and a soft bounce
           for (const b of bodies) {
             for (const n of b.nodes) {
@@ -3184,42 +3253,14 @@ ${common}
             continue;
           }
           const minVol = origVol * 0.012;
-          const splitVol = pieces.reduce((s, p) => s + p.restVolTotal, 0);
-          const volError =
-            Math.abs(splitVol - b.restVolTotal) /
-            Math.max(b.restVolTotal, 1e-9);
           if (
-            pieces.some((p) => p.restVolTotal < minVol || p.tets.length < 8) ||
-            volError > 0.04
+            pieces.some((p) => p.restVolTotal < minVol || p.tets.length < 8)
           ) {
-            rejected =
-              volError > 0.04
-                ? "Unstable cut — kept in one piece"
-                : "Too thin to cut — kept in one piece";
+            rejected = "Too thin to cut — kept in one piece";
             results.push([b]);
             continue;
           }
-          const seedSpecs = seedSpecsOf(b);
-          // Give each new cut face a tiny kerf gap. Rebase the rest lengths and volumes at
-          // this settled pose so the XPBD solver has no reason to snap the faces together.
-          const gap = 0.018;
-          for (const piece of pieces) {
-            for (const nd of piece.nodes)
-              if (nd.cutMask & bit) {
-                const off = piece.side * gap;
-                nd.pos.x += n.x * off;
-                nd.pos.y += n.y * off;
-                nd.pos.z += n.z * off;
-                nd.prev.x += n.x * off;
-                nd.prev.y += n.y * off;
-                nd.prev.z += n.z * off;
-                nd.rest.x += n.x * off;
-                nd.rest.y += n.y * off;
-                nd.rest.z += n.z * off;
-              }
-            rebaseRestShape(piece);
-          }
-          attachSeeds(pieces, seedSpecs);
+          attachSeeds(pieces, seedSpecsOf(b));
           results.push(pieces);
           changed = true;
         }
@@ -3238,10 +3279,9 @@ ${common}
           canvas.classList.remove("grabbing");
         }
         bodies = flat;
-        // A very mild whole-piece drift eases the fresh faces apart without injecting a wobble.
         for (const b of bodies)
           if (b.side) {
-            const k = 0.035 * b.side;
+            const k = 1.6 * b.side;
             for (const nd of b.nodes) {
               nd.vel.x += n.x * k;
               nd.vel.z += n.z * k;

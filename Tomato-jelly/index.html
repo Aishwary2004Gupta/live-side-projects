@@ -7,7 +7,6 @@
       content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"
     />
     <title>Tomato Jelly — Material Studies No. 010</title>
-    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
     <style>
       :root {
         --bg: #faf9f6;
@@ -1087,7 +1086,6 @@
           seeds: [],
           id: bodyCounter++,
           side: 0,
-          sleep: false,
           vOff: 0,
           dOff: 0,
         };
@@ -1509,14 +1507,11 @@
       function rebuildContactList() {
         const aB = [],
           aI = [];
-        // Fresh cut pieces sleep until the user moves them. Excluding sleepers here is
-        // intentional: a resting cut seam must not receive micro-pushes from the contact solver.
         bodies.forEach((b, bi) => {
-          if (!b.sleep)
-            for (const i of b.surfaceList) {
-              aB.push(bi);
-              aI.push(i);
-            }
+          for (const i of b.surfaceList) {
+            aB.push(bi);
+            aI.push(i);
+          }
         });
         cB = Int32Array.from(aB);
         cI = Int32Array.from(aI);
@@ -2672,10 +2667,6 @@ ${common}
           for (const b of bodies) {
             const nodes = b.nodes,
               N = nodes.length;
-            // A cut is made with a tiny pre-separated rest gap and then sleeps. This is
-            // more stable than continually solving nearly coincident cut faces. Grabbing
-            // or nudging explicitly wakes a piece, preserving direct manipulation.
-            if (b.sleep && (!grab || grab.body !== b)) continue;
             // internal damping removes only motion relative to the piece's centre of mass
             let cx = 0,
               cy = 0,
@@ -3288,33 +3279,17 @@ ${common}
           canvas.classList.remove("grabbing");
         }
         bodies = flat;
-        // Do not kick cut pieces apart: an impulse is what caused post-cut vibration.
-        // Translate rest/current/previous positions together by a small gap instead.
-        // Uniform translation preserves every edge length and tetra volume exactly.
-        const gap = 0.061;
         for (const b of bodies)
           if (b.side) {
-            const sx = n.x * gap * b.side,
-              sz = n.z * gap * b.side;
+            const k = 1.6 * b.side;
             for (const nd of b.nodes) {
-              nd.rest.x += sx;
-              nd.rest.z += sz;
-              nd.pos.x += sx;
-              nd.pos.z += sz;
-              nd.prev.x += sx;
-              nd.prev.z += sz;
-              nd.vel.x = 0;
-              nd.vel.y = 0;
-              nd.vel.z = 0;
-              nd.vpre = 0;
+              nd.vel.x += n.x * k;
+              nd.vel.z += n.z * k;
             }
             b.side = 0;
-            b.sleep = true;
-            b.cutPiece = true;
           }
         cutCounter++;
         rebuildTopology();
-        note("Clean cut: pieces are settled. Grab or Nudge to move one.");
         if (rejected) note(rejected);
       }
 
@@ -3387,8 +3362,6 @@ ${common}
         const b = hit.body,
           radius = 0.8,
           verts = [];
-        b.sleep = false;
-        rebuildContactList();
         for (const i of b.surfaceList) {
           const p = b.nodes[i].pos,
             d = Math.hypot(
@@ -3621,15 +3594,12 @@ ${common}
         $("dampV").textContent = (+e.target.value).toFixed(2);
       });
       $("nudge").addEventListener("click", () => {
-        for (const b of bodies) {
-          b.sleep = false;
+        for (const b of bodies)
           for (const n of b.nodes) {
             n.vel.x += (Math.random() - 0.5) * 1.2 + 2.2;
             n.vel.y += 3.2;
             n.vel.z += (Math.random() - 0.5) * 1.0;
           }
-        }
-        rebuildContactList();
       });
       $("reset").addEventListener("click", resetSim);
       $("rview").addEventListener("click", resetView);

@@ -62,6 +62,14 @@
         touch-action: none;
         cursor: grab;
       }
+      #life {
+        position: fixed;
+        inset: 0;
+        z-index: 1;
+        width: 100%;
+        height: 100%;
+        pointer-events: none;
+      }
       #world.is-pick {
         cursor: grab;
       }
@@ -186,6 +194,10 @@
         display: grid;
         grid-template-columns: 1fr 1fr;
         gap: 7px;
+      }
+      .food-button {
+        width: 100%;
+        margin-top: 7px;
       }
       .dark {
         padding: 12px 7px;
@@ -649,6 +661,7 @@
       id="world"
       aria-label="A jelly island in a block of sea you can stir, tip and throw things into"
     ></canvas>
+    <canvas id="life" aria-hidden="true"></canvas>
     <header class="masthead">
       <div class="eyebrow">Material Studies</div>
       <h1>Island<br /><span class="second">Jelly.</span></h1>
@@ -675,6 +688,13 @@
             <button class="dark" id="drop-pebble">Drop a pebble</button
             ><button class="dark" id="drop-coconut">Drop a coconut</button>
           </div>
+          <button
+            class="dark food-button"
+            id="drop-food"
+            title="Drop fish food into the sea and watch the fish gather"
+          >
+            Drop fish food
+          </button>
           <div
             class="meter"
             role="meter"
@@ -1289,6 +1309,8 @@
             this.bodies = [];
             this.bubbles = [];
             this.decor = [];
+            this.fishes = [];
+            this.food = [];
             this.grab = null;
             this.bodyAccumulator = 0;
             this.waterAccumulator = 0;
@@ -1356,7 +1378,160 @@
                 seed: this.random(),
               });
             }
+            for (let k = 0; k < 8; k++) {
+              let point = null;
+              for (let attempt = 0; attempt < 160; attempt++) {
+                const x = (this.random() * 2 - 1) * (HALF - 0.2),
+                  z = (this.random() * 2 - 1) * (HALF - 0.2);
+                if (
+                  this.isOpenWater(x, z) &&
+                  this.fishes.every(
+                    (fish) => Math.hypot(fish.p[0] - x, fish.p[2] - z) > 0.32,
+                  )
+                ) {
+                  point = [x, z];
+                  break;
+                }
+              }
+              if (!point) continue;
+              const [x, z] = point,
+                surface = this.water.height(x, z);
+              this.fishes.push({
+                p: [x, surface - 0.16 - this.random() * 0.12, z],
+                heading: this.random() * TAU,
+                speed: 0.27 + this.random() * 0.12,
+                speedNow: 0.2,
+                length: 0.25 + this.random() * 0.12,
+                phase: this.random() * TAU,
+                colour: Math.floor(this.random() * 5),
+              });
+            }
             this.counts();
+          }
+          isOpenWater(x, z) {
+            return (
+              Math.abs(x) < HALF - 0.12 &&
+              Math.abs(z) < HALF - 0.12 &&
+              terrainH(x, z) < this.water.level - 0.16
+            );
+          }
+          randomWaterPoint() {
+            for (let attempt = 0; attempt < 240; attempt++) {
+              const x = (this.random() * 2 - 1) * (HALF - 0.18),
+                z = (this.random() * 2 - 1) * (HALF - 0.18);
+              if (this.isOpenWater(x, z)) return [x, z];
+            }
+            for (let z = -HALF + 0.2; z < HALF - 0.2; z += 0.16)
+              for (let x = -HALF + 0.2; x < HALF - 0.2; x += 0.16)
+                if (this.isOpenWater(x, z)) return [x, z];
+            return null;
+          }
+          dropFood() {
+            let point = null;
+            if (this.fishes.length) {
+              const fish = this.fishes[
+                Math.floor(this.random() * this.fishes.length)
+              ];
+              for (let attempt = 0; attempt < 24; attempt++) {
+                const angle = this.random() * TAU,
+                  distance = 0.12 + this.random() * 0.42,
+                  x = fish.p[0] + Math.cos(angle) * distance,
+                  z = fish.p[2] + Math.sin(angle) * distance;
+                if (this.isOpenWater(x, z)) {
+                  point = [x, z];
+                  break;
+                }
+              }
+            }
+            point ||= this.randomWaterPoint();
+            if (!point) return false;
+            if (this.food.length >= 4) this.food.shift();
+            this.food.push({ x: point[0], z: point[1], age: 0, seed: this.random() });
+            return true;
+          }
+          updateFishes(dt, cursor) {
+            for (const food of this.food) food.age += dt;
+            this.food = this.food.filter((food) => food.age < 30);
+            for (const fish of this.fishes) {
+              fish.phase += dt;
+              const [x, , z] = fish.p,
+                surface = this.water.height(x, z);
+              let target = null,
+                targetDistance = Infinity;
+              for (const food of this.food) {
+                const distance = Math.hypot(food.x - x, food.z - z);
+                if (distance < targetDistance) {
+                  target = food;
+                  targetDistance = distance;
+                }
+              }
+              let dx = Math.cos(fish.heading + Math.sin(fish.phase * 0.7) * 0.16),
+                dz = Math.sin(fish.heading + Math.sin(fish.phase * 0.7) * 0.16),
+                fleeing = false;
+              if (target) {
+                dx = target.x - x;
+                dz = target.z - z;
+              }
+              if (cursor) {
+                const awayX = x - cursor[0],
+                  awayZ = z - cursor[1],
+                  distance = Math.hypot(awayX, awayZ);
+                if (distance < 0.9) {
+                  const strength = 1 - distance / 0.9;
+                  dx += (awayX / (distance || 1)) * strength * 1.8;
+                  dz += (awayZ / (distance || 1)) * strength * 1.8;
+                  fleeing = true;
+                }
+              }
+              const desired = Math.atan2(dz, dx),
+                speed = fish.speed * (target && !fleeing ? 1.75 : fleeing ? 1.8 : 1),
+                offsets = [0, 0.42, -0.42, 0.9, -0.9, 1.55, -1.55, Math.PI];
+              let chosen = fish.heading,
+                bestAlignment = -Infinity;
+              for (const offset of offsets) {
+                const heading = desired + offset,
+                  nextX = x + Math.cos(heading) * speed * dt * 2,
+                  nextZ = z + Math.sin(heading) * speed * dt * 2;
+                if (!this.isOpenWater(nextX, nextZ)) continue;
+                const alignment = Math.cos(offset) - Math.abs(offset) * 0.035;
+                if (alignment > bestAlignment) {
+                  chosen = heading;
+                  bestAlignment = alignment;
+                }
+              }
+              const turn = Math.atan2(
+                Math.sin(chosen - fish.heading),
+                Math.cos(chosen - fish.heading),
+              );
+              fish.heading += clamp(turn, -2.4 * dt, 2.4 * dt);
+              fish.speedNow = mix(fish.speedNow, speed, Math.min(1, dt * 3));
+              const nextX = x + Math.cos(fish.heading) * fish.speedNow * dt,
+                nextZ = z + Math.sin(fish.heading) * fish.speedNow * dt;
+              if (this.isOpenWater(nextX, nextZ)) {
+                fish.p[0] = nextX;
+                fish.p[2] = nextZ;
+              }
+              const ground = terrainH(fish.p[0], fish.p[2]),
+                waterSurface = this.water.height(fish.p[0], fish.p[2]),
+                depth = target && !fleeing
+                  ? 0.07
+                  : 0.16 + 0.08 * (0.5 + 0.5 * Math.sin(fish.phase * 1.4)),
+                desiredY = clamp(
+                  waterSurface - depth,
+                  ground + 0.045,
+                  waterSurface - 0.035,
+                );
+              fish.p[1] = mix(fish.p[1], desiredY, Math.min(1, dt * 1.8));
+              if (
+                target &&
+                !fleeing &&
+                targetDistance < 0.16 &&
+                Math.abs(waterSurface - fish.p[1]) < 0.32
+              ) {
+                this.food.splice(this.food.indexOf(target), 1);
+                this.water.stir(target.x, target.z, 0.35);
+              }
+            }
           }
           makeBody(kind, p) {
             const r =
@@ -1543,7 +1718,7 @@
               total: this.bodies.length,
             });
           }
-          step(dt) {
+          step(dt, cursor) {
             dt = Math.min(dt, 0.05);
             this.bodyAccumulator += dt;
             let count = 0;
@@ -1559,6 +1734,7 @@
             this.updateTransform();
             this.bodyAccumulator = Math.min(this.bodyAccumulator, 1 / 240);
             this.waterAccumulator = Math.min(this.waterAccumulator, 1 / 120);
+            this.updateFishes(dt, cursor);
             this.counts();
           }
           bodyStep(dt) {
@@ -1894,7 +2070,13 @@
               ) &&
               Array.from(this.shear)
                 .concat(Array.from(this.tilt), Array.from(this.squash))
-                .every(Number.isFinite)
+                .every(Number.isFinite) &&
+              this.fishes.every((fish) =>
+                fish.p.concat(fish.heading, fish.speedNow).every(Number.isFinite),
+              ) &&
+              this.food.every((food) =>
+                [food.x, food.z, food.age].every(Number.isFinite),
+              )
             );
           }
         }

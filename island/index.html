@@ -1458,8 +1458,13 @@
             this.food = this.food.filter((food) => food.age < 30);
             for (const fish of this.fishes) {
               fish.phase += dt;
-              const [x, , z] = fish.p,
-                surface = this.water.height(x, z);
+              let [x, , z] = fish.p;
+              if (!this.isOpenWater(x, z)) {
+                const point = this.randomWaterPoint();
+                if (!point) continue;
+                fish.p[0] = x = point[0];
+                fish.p[2] = z = point[1];
+              }
               let target = null,
                 targetDistance = Infinity;
               for (const food of this.food) {
@@ -1482,8 +1487,12 @@
                   distance = Math.hypot(awayX, awayZ);
                 if (distance < 0.9) {
                   const strength = 1 - distance / 0.9;
-                  dx += (awayX / (distance || 1)) * strength * 1.8;
-                  dz += (awayZ / (distance || 1)) * strength * 1.8;
+                  const direction =
+                    distance > 0.001
+                      ? Math.atan2(awayZ, awayX)
+                      : fish.heading + Math.PI;
+                  dx += Math.cos(direction) * strength * 1.8;
+                  dz += Math.sin(direction) * strength * 1.8;
                   fleeing = true;
                 }
               }
@@ -3698,6 +3707,14 @@
           pointers.delete(e.pointerId);
           if (canvas.hasPointerCapture(e.pointerId))
             canvas.releasePointerCapture(e.pointerId);
+          const bounds = canvas.getBoundingClientRect();
+          if (
+            e.clientX < bounds.left ||
+            e.clientX > bounds.right ||
+            e.clientY < bounds.top ||
+            e.clientY > bounds.bottom
+          )
+            screenPointer = null;
           if (pinch) {
             if (pointers.size < 2) pinch = null;
             clearGesture(false);

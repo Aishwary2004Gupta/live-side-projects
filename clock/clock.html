@@ -1,707 +1,1541 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en" data-finish="tidal">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>A million Times 120 (Tidal)</title>
-<style>
-  :root {
-    --wall-a: #f2f3f5;
-    --wall-b: #b9bfc8;
-    --ui-bg: rgba(255,255,255,.74);
-    --ui-fg: #263040;
-    --ui-mute: #6a7483;
-    --ui-line: rgba(30,40,60,.16);
-    --ui-on-bg: #14213d;
-    --ui-on-fg: #f1f4f9;
-    box-sizing: border-box;
-    padding-top: env(safe-area-inset-top, 0px);
-    padding-bottom: env(safe-area-inset-bottom, 0px);
-  }
-  :root[data-finish="black"] { --wall-a: #dcdee2; --wall-b: #8d929b; }
-  :root[data-finish="green"] { --wall-a: #3b4743; --wall-b: #0f1816; }
-  :root[data-finish="white"] { --wall-a: #f6f6f7; --wall-b: #c4c8ce; }
-  *, *::before, *::after { box-sizing: inherit; }
-  html, body { height: 100%; margin: 0; }
-  body {
-    background: radial-gradient(ellipse at 50% 38%, var(--wall-a) 0%, var(--wall-b) 100%);
-    font-family: "Avenir Next", "Segoe UI", system-ui, -apple-system, Helvetica, Arial, sans-serif;
-    color: var(--ui-fg);
-    overflow: hidden;
-  }
-  canvas#wall { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
-  .bar {
-    position: fixed; right: 16px; top: 50%; transform: translateY(-50%);
-    width: 208px; max-height: calc(100% - 32px); overflow-y: auto; scrollbar-width: none;
-    display: flex; flex-direction: column; gap: 16px; padding: 16px;
-    background: var(--ui-bg); border: 1px solid var(--ui-line); border-radius: 20px;
-    backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
-    box-shadow: 0 12px 40px rgba(20,28,45,.14);
-  }
-  .bar::-webkit-scrollbar { display: none; }
-  .bar h3 { margin: 0 0 7px; font-size: 10.5px; font-weight: 600; letter-spacing: .13em; text-transform: uppercase; color: var(--ui-mute); }
-  .bar .cap { font-size: 13px; font-variant-numeric: tabular-nums; padding: 9px 12px; border-radius: 12px; background: rgba(30,40,60,.07); color: var(--ui-fg); }
-  .seg { display: flex; flex-direction: column; gap: 4px; }
-  .row { display: flex; gap: 4px; }
-  .row > button { flex: 1; }
-  .tadj { display: flex; gap: 4px; margin-top: 4px; }
-  .tadj[hidden] { display: none; }
-  .tadj button { flex: 1; padding: 7px 4px; }
-  .sw { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
-  .bar button {
-    font: inherit; font-size: 13px; color: var(--ui-fg); text-align: left;
-    background: rgba(255,255,255,.5); border: 1px solid var(--ui-line); border-radius: 11px;
-    padding: 8px 11px; cursor: pointer; white-space: nowrap; transition: background .2s, color .2s, border-color .2s;
-  }
-  .bar button:hover { background: rgba(255,255,255,.9); }
-  .bar button:focus-visible { outline: 2px solid var(--ui-on-bg); outline-offset: 1px; }
-  .bar button[aria-pressed="true"] { background: var(--ui-on-bg); color: var(--ui-on-fg); border-color: transparent; }
-  .sw button { display: flex; align-items: center; gap: 7px; padding: 8px; }
-  .sw i { width: 14px; height: 14px; border-radius: 50%; flex: none; border: 1px solid rgba(128,128,128,.45); }
-  @media (max-width: 760px) {
-    .bar { top: auto; bottom: calc(12px + env(safe-area-inset-bottom, 0px)); right: auto; left: 50%; transform: translateX(-50%);
-           width: auto; max-width: calc(100% - 20px); flex-direction: row; align-items: center; gap: 10px; padding: 7px; border-radius: 999px; overflow-x: auto; transition: opacity .5s; }
-    .bar h3, .bar .cap { display: none; }
-    .bar section { display: flex; gap: 4px; flex: none; }
-    .seg, .row, .sw, .tadj { flex-direction: row; display: flex; margin: 0; }
-    .bar button { border-radius: 999px; padding: 7px 12px; }
-    .tadj[hidden] { display: none; }
-    .bar.idle { opacity: 0; } .bar:hover, .bar:focus-within { opacity: 1; }
-  }
-</style>
-</head>
-<body>
-<canvas id="wall" role="img" aria-label="A wall of 120 small analog clocks whose hands form the current time"></canvas>
-
-<aside class="bar" id="bar" aria-label="Controls">
-  <div class="cap" id="cap">Time</div>
-  <section><h3>Program</h3><div class="seg">
-    <button data-mode="active" aria-pressed="true" title="20 choreographies, one every minute">Active</button>
-    <button data-mode="original" aria-pressed="false" title="The original choreography, every minute">Original</button>
-    <button data-mode="minimal" aria-pressed="false" title="Nine clocks, time in the centre">Minimal</button>
-  </div></section>
-  <section><h3>Shape</h3><div class="seg">
-    <button data-shape="rect" aria-pressed="true">Rectangle</button>
-    <button data-shape="round" aria-pressed="false">Round</button>
-    <button data-shape="vert" aria-pressed="false">Vertical</button>
-  </div></section>
-  <section><h3>Playback</h3><div class="row">
-    <button id="next" title="Jump to the next choreography">Next</button>
-    <button id="h24" aria-pressed="true">24h</button>
-  </div></section>
-  <section><h3>Timer</h3>
-    <button id="timer" aria-pressed="false" style="width:100%">Timer</button>
-    <div class="tadj" id="tadj" hidden><button id="tm-m">&minus;1m</button><button id="tm-p">+1m</button><button id="tm-s">+10s</button></div>
-  </section>
-  <section><h3>Finish</h3><div class="sw">
-    <button data-finish="tidal" aria-pressed="true"><i style="background:linear-gradient(135deg,#1d3560 55%,#e8eef7 55%)"></i>Tidal</button>
-    <button data-finish="white" aria-pressed="false"><i style="background:linear-gradient(135deg,#f3f3f1 55%,#16161a 55%)"></i>White</button>
-    <button data-finish="black" aria-pressed="false"><i style="background:linear-gradient(135deg,#1b1c1f 55%,#eceef2 55%)"></i>Black</button>
-    <button data-finish="green" aria-pressed="false"><i style="background:linear-gradient(135deg,#173a32 55%,#f2b84b 55%)"></i>Green</button>
-  </div></section>
-</aside>
-
-<script>
-(() => {
-  "use strict";
-
-  /* ================= Geometry (A million Times 120: 15 x 8 clocks, 212 x 121 cm) ================= */
-  // Rectangle: A million Times 120 (15 x 8, digits 3 x 6). Round: 61 clocks on a disc (9 x 9, digits 2 x 3).
-  const LAYOUTS = {
-    rect:  { cols: 15, rows: 8, bw: 16.24, bh: 9.24, round: false, mask: null, digitCols: [1, 4, 8, 11], digitRow: 1,
-             gw: 3, gh: 6, colon: [[3, 7, [0, 0]], [5, 7, [0, 0]]], label: "Rectangle" },
-    round: { cols: 9, rows: 9, bw: 11.3, bh: 11.3, round: true, digitCols: [0, 2, 5, 7], digitRow: 3,
-             mask: [[3, 5], [1, 7], [1, 7], [0, 8], [0, 8], [0, 8], [1, 7], [1, 7], [3, 5]],
-             gw: 2, gh: 3, colon: [[3, 4, [180, 180]], [5, 4, [0, 0]]], label: "Round" }
-  };
-  LAYOUTS.mini = { cols: 3, rows: 3, bw: 4.3, bh: 4.3, round: true, mini: true, mask: null, rings: false, hw: .8,
-                   rest: [45, 225], shDx: -.3, shDy: .2, shBlur: .3, hsx: -.04, hsy: .05, digitCols: [], digitRow: 0,
-                   gw: 0, gh: 0, colon: [], label: "Minimal", finish: "white" };
-  LAYOUTS.vert = { cols: 6, rows: 12, bw: 6.72, bh: 12.72, round: false, mask: null, digitCols: [0, 3, 0, 3], digitRow: [0, 0, 6, 6],
-                   gw: 3, gh: 6, colon: [], label: "Vertical", finish: "black" };
-  let L = LAYOUTS.rect, COLS = 15, ROWS = 8, cx = 7, cy = 3.5, DIGIT_COLS = [1, 4, 8, 11], DIGIT_ROW = 1;
-  const RGLY = { 0: "RD LD|UD UD|RU LU", 1: "II DD|II UD|II UU", 2: "RR LD|RD LU|RU LL", 3: "RR LD|RR UD|RR LU",
-                 4: "DD DD|UR UD|II UU", 5: "RD LL|UR LD|RR LU", 6: "RD LL|UD LD|RU LU", 7: "RR LD|II UD|II UU",
-                 8: "RD LD|RD LD|RU LU", 9: "RD LD|UR UD|RR LU" };
-  const DIRS = { U: 0, R: 90, D: 180, L: 270 };
-  const roundGlyph = ch => RGLY[ch].split("|").map(row => row.split(" ").map(c =>
-    c === "II" ? [225, 225] : [DIRS[c[0]], DIRS[c[1]]]));
-
-  /* ================= Digital typography ================= */
-  const GLYPHS = {
-    0: ["XXX","X.X","X.X","X.X","X.X","XXX"],
-    1: ["XX.",".X.",".X.",".X.",".X.",".X."],
-    2: ["XXX","..X","..X","XXX","X..","XXX"],
-    3: ["XXX","..X","..X","XXX","..X","XXX"],
-    4: ["X.X","X.X","X.X","XXX","..X","..X"],
-    5: ["XXX","X..","X..","XXX","..X","XXX"],
-    6: ["XXX","X..","X..","XXX","X.X","XXX"],
-    7: ["XXX","..X","..X","..X","..X","..X"],
-    8: ["XXX","X.X","X.X","XXX","X.X","XXX"],
-    9: ["XXX","X.X","X.X","XXX","..X","XXX"]
-  };
-  const IDLE_OUT = [225, 225];   // clocks outside the digits rest pointing down-left
-  const IDLE_IN  = [180, 180];   // empty clocks inside a digit rest pointing down
-  const UP = 0, RIGHT = 90, DOWN = 180, LEFT = 270;
-
-  function glyphAngles(ch) {
-    const g = GLYPHS[ch], out = [];
-    for (let r = 0; r < 6; r++) {
-      const row = [];
-      for (let c = 0; c < 3; c++) {
-        if (g[r][c] !== "X") { row.push(IDLE_IN.slice()); continue; }
-        const n = [];
-        if (r > 0 && g[r-1][c] === "X") n.push(UP);
-        if (c < 2 && g[r][c+1] === "X") n.push(RIGHT);
-        if (r < 5 && g[r+1][c] === "X") n.push(DOWN);
-        if (c > 0 && g[r][c-1] === "X") n.push(LEFT);
-        if (n.length === 0) row.push(IDLE_IN.slice());
-        else if (n.length === 1) row.push([n[0], n[0]]);
-        else if (n.length === 2) row.push(n);
-        else row.push(n.includes(UP) && n.includes(DOWN) ? [UP, DOWN] : [RIGHT, LEFT]);
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover"
+    />
+    <title>A million Times 120 (Tidal)</title>
+    <style>
+      :root {
+        --wall-a: #f2f3f5;
+        --wall-b: #b9bfc8;
+        --ui-bg: rgba(255, 255, 255, 0.74);
+        --ui-fg: #263040;
+        --ui-mute: #6a7483;
+        --ui-line: rgba(30, 40, 60, 0.16);
+        --ui-on-bg: #14213d;
+        --ui-on-fg: #f1f4f9;
+        box-sizing: border-box;
+        padding-top: env(safe-area-inset-top, 0px);
+        padding-bottom: env(safe-area-inset-bottom, 0px);
       }
-      out.push(row);
-    }
-    return out;
-  }
-
-  let use24 = true;
-  function timeGrid(date, forced) {
-    if (L.mini) return miniGrid("diamond", date || new Date());
-    let h = date ? date.getHours() : 0;
-    if (!use24) { h = h % 12; if (h === 0) h = 12; }
-    const digits = forced ? forced.digits.split("") : (String(h).padStart(2, "0") + String(date.getMinutes()).padStart(2, "0")).split("");
-    const grid = [];
-    for (let r = 0; r < ROWS; r++) { grid.push([]); for (let c = 0; c < COLS; c++) grid[r].push(IDLE_OUT.slice()); }
-    digits.forEach((d, i) => {
-      const a = L.round ? roundGlyph(d) : glyphAngles(d);
-      for (let r = 0; r < L.gh; r++) for (let c = 0; c < L.gw; c++) grid[(Array.isArray(DIGIT_ROW) ? DIGIT_ROW[i] : DIGIT_ROW) + r][DIGIT_COLS[i] + c] = a[r][c];
-    });
-    if (forced && forced.colon) for (const [r, c, a] of L.colon) grid[r][c] = a.slice();
-    return grid;
-  }
-  const timeKey = d => d.getHours() + ":" + d.getMinutes() + ":" + use24;
-
-  /* ================= Clocks ================= */
-  const D2R = Math.PI / 180, R2D = 180 / Math.PI;
-  const ang = (dx, dy) => Math.atan2(dx, -dy) * R2D;        // 0 = up, clockwise
-  const mod360 = d => ((d % 360) + 360) % 360;
-  const wrap180 = d => mod360(d + 180) - 180;
-  const ease = p => p < .5 ? 4*p*p*p : 1 - Math.pow(-2*p + 2, 3) / 2;
-  const sm = p => p * p * (3 - 2 * p);
-
-  let clocks = [];
-  function buildClocks() {
-    clocks = [];
-    for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) {
-      if (L.mask && (c < L.mask[r][0] || c > L.mask[r][1])) continue;
-      const x = c - cx, y = r - cy, aC = ang(-x, -y);
-      const px = L.mini ? (x - y) * 0.7071 : x, py = L.mini ? (x + y) * 0.7071 : y;
-      clocks.push({
-        r, c, x, y, px, py, d: Math.hypot(x, y), aC, aOut: aC + 180, aT: aC + 90,
-        xn: c / (COLS - 1), yn: r / (ROWS - 1),
-        shown: (L.rest || IDLE_OUT).slice(), hold: (L.rest || IDLE_OUT).slice(), off: [0, 0],
-        pend: null, t0: -1e9, dur: 1
-      });
-    }
-  }
-  function applyLayout(name) {
-    L = LAYOUTS[name]; COLS = L.cols; ROWS = L.rows; cx = (COLS - 1) / 2; cy = (ROWS - 1) / 2;
-    DIGIT_COLS = L.digitCols; DIGIT_ROW = L.digitRow; buildClocks();
-  }
-  applyLayout("rect");
-
-  /* ================= 20 choreographies ================= */
-  const PATTERNS = [
-    ["Rings",        (k, u) => { const s = 34 * Math.sin(.8 * k.d - .9 * u); return [k.aT + s, k.aT + 180 - s]; }],
-    ["Chevrons",     (k, u) => { const a = 90 + 85 * Math.sin(.75 * k.d - .65 * u); return [k.aC + a, k.aC - a]; }],
-    ["Tide",         (k, u) => { const w = Math.sin(.55 * k.x + .28 * k.y - .9 * u); return [90 + 68 * w, 270 + 68 * w]; }],
-    ["Needles",      (k, u) => { const a = 34 * u + 11 * (k.c + k.r); return [a, a + 180]; }],
-    ["Counter",      (k, u) => [48 * u + 9 * k.c, -48 * u + 9 * k.r + 90]],
-    ["Spiral",       (k, u) => { const a = k.aT + 26 * k.d - 28 * u; return [a, a + 180]; }],
-    ["Quadrants",    (k, u) => { const a = 2 * Math.atan2(k.y, k.x) * R2D + 22 * u; return [a, a + 180]; }],
-    ["Gaze",         (k, u) => {
-                       const a = ang(6.8 * Math.sin(.33 * u) - k.x, 3.1 * Math.sin(.51 * u + 1) - k.y);
-                       const o = 22 + 16 * Math.sin(.8 * u); return [a - o, a + o]; }],
-    ["Diverge",      (k, u) => { const o = 34 + 30 * Math.sin(.55 * u + .18 * k.d); return [k.aOut + o, k.aOut - o]; }],
-    ["Checker",      (k, u) => { const p = ((k.c + k.r) & 1) ? 1 : -1; const a = p * 52 * u + (p > 0 ? 0 : 90); return [a, a + 90]; }],
-    ["Columns",      (k, u) => { const s = 120 * Math.sin(.9 * u - .42 * k.c); return [180 + s, 180 - s]; }],
-    ["Rows",         (k, u) => { const s = 90 * Math.sin(.8 * u - .75 * k.r); return [90 + s, 270 - s]; }],
-    ["Diagonal",     (k, u) => { const a = 38 * u - 24 * (k.c + 1.6 * k.r); return [a, a + 90]; }],
-    ["Bloom",        (k, u) => { const s = 90 * Math.sin(.4 * u + .22 * k.d); return [k.aOut + s, k.aOut - s]; }],
-    ["Interference", (k, u) => {
-                       const p = Math.sin(.85 * Math.hypot(k.x + 4, k.y) - u) + Math.sin(.85 * Math.hypot(k.x - 4, k.y) - u);
-                       return [45 * p, 180 + 45 * p]; }],
-    ["Vortex",       (k, u) => { const a = k.aT + 24 * u * (1 - k.d / 9); return [a, a + 180]; }],
-    ["Hourglass",    (k, u) => { const b = k.x > 0 ? 270 : 90; const o = 50 + 40 * Math.sin(.5 * u + .35 * Math.abs(k.x)); return [b + o, b - o]; }],
-    ["Cascade",      (k, u) => { const o = 60 + 60 * Math.sin(.7 * (k.r + .3 * k.c) - u); return [o, -o]; }],
-    ["Metronome",    (k, u) => { const s = 70 * Math.sin(1.2 * u + .16 * k.c); return [180 + s - 14, 180 + s + 14]; }],
-    ["Quarter turns",(k, u) => {
-                       const n = .45 * u + .11 * (k.x + k.y), f = n - Math.floor(n);
-                       const a = 90 * (Math.floor(n) + sm(f));
-                       return [a, a + (((k.c + k.r) & 1) ? 180 : 0)]; }]
-  ];
-
-  /* ================= State machine ================= */
-  let mode = "active";               // active | original | minimal
-  let phase = "hold";                // hold | dance | converge
-  let view = "time";                 // what the hands currently aim at: time | dance
-  let tGrid = timeGrid(new Date());
-  let lastKey = timeKey(new Date());
-  let danceIdx = -1, danceT0 = 0;
-  let holdUntil = 0, danceUntil = 0, convergeUntil = 0;
-  const capEl = document.getElementById("cap");
-
-  const nextMinuteMs = () => { const n = Date.now(); return n - (n % 60000) + 60000; };
-
-  function startTween(k, now, delay, dur, dirs, extras) {
-    k.hold = [k.shown[0], k.shown[1]];
-    k.pend = { dirs, extras };
-    k.t0 = now + delay; k.dur = dur;
-  }
-
-  function showGrid(next, dur, fast) {
-    const now = performance.now() / 1000, old = tGrid;
-    view = "time"; tGrid = next;
-    for (const k of clocks) {
-      const n = next[k.r][k.c], o = old[k.r][k.c];
-      if (fast && n[0] === o[0] && n[1] === o[1]) continue;
-      const ex = fast ? 0 : (Math.random() < .5 ? 0 : 1);
-      startTween(k, now, fast ? Math.random() * .12 : Math.min(1.3, k.c * .07 + Math.random() * .35),
-                 fast ? .85 : Math.max(1.5, dur - 1.3),
-                 fast ? ["short", "short"] : ["cw", "ccw"], [ex, ex]);
-    }
-  }
-  function enterTime(date, dur) {
-    lastKey = timeKey(date);
-    showGrid(timeGrid(date), dur, false);
-    capEl.textContent = "Time";
-  }
-
-  function enterDance(idx) {
-    const now = performance.now() / 1000;
-    view = "dance"; danceIdx = idx; danceT0 = now;
-    for (const k of clocks) startTween(k, now, k.d * 0.07, 3.2, ["short", "short"], [0, 0]);
-    capEl.textContent = String(idx + 1).padStart(2, "0") + " / 20  " + PATTERNS[idx][0];
-  }
-
-  const nextIdx = () => mode === "original" ? 0 : (danceIdx + 1) % PATTERNS.length;
-
-  function checkMinute() {
-    if (view !== "time") return;
-    const d = new Date();
-    if (timeKey(d) !== lastKey) enterTime(d, 4.5);
-  }
-
-  // Minimal: 9 clocks on a diamond lattice. rest lines -> horizontal -> swirl -> diamond with the analog time in the centre.
-  const DIAMOND = { "0,0": [225, 135], "1,0": [135, 315], "2,0": [315, 225], "0,1": [45, 225], "2,1": [45, 225],
-                    "0,2": [45, 135], "1,2": [135, 315], "2,2": [315, 45] };   // key = "col,row"
-  function miniGrid(kind, date) {
-    const g = [[], [], []];
-    for (const k of clocks) {
-      let a;
-      if (kind === "rest") a = [45, 225];
-      else if (kind === "horiz") a = [90, 270];
-      else if (kind === "swirl") { const th = k.d ? ang(k.px, -k.py) : 0; a = k.d ? [th + 90, th + 180] : [100, 140]; }
-      else if (k.c === 1 && k.r === 1) a = [((date.getHours() % 12) + date.getMinutes() / 60) * 30, date.getMinutes() * 6];
-      else a = DIAMOND[k.c + "," + k.r];
-      g[k.r][k.c] = a.slice();
-    }
-    return g;
-  }
-  const MINI = [{ kind: "rest", move: 1.4, hold: .8 }, { kind: "horiz", move: 1.4, hold: .9 },
-                { kind: "swirl", move: 4.8, hold: 0 }, { kind: "diamond", move: 2.2, hold: 4 }];
-  let mi = -1, miAt = 0, miKey = "";
-  function showPose(grid, dur) {
-    const now = performance.now() / 1000;
-    view = "time"; tGrid = grid;
-    for (const k of clocks) startTween(k, now, k.d * 0.06, dur, ["short", "short"], [0, 0]);
-  }
-  function tickMini() {
-    const ms = Date.now(), d = new Date();
-    if (ms >= miAt) {
-      mi = (mi + 1) % MINI.length;
-      const st = MINI[mi];
-      showPose(miniGrid(st.kind, d), st.move);
-      miAt = ms + (st.move + st.hold) * 1000; miKey = timeKey(d);
-      capEl.textContent = "Minimal";
-    } else if (MINI[mi].kind === "diamond" && timeKey(d) !== miKey) {      // new minute: only the centre clock moves
-      miKey = timeKey(d); tGrid = miniGrid("diamond", d);
-      const c = clocks.find(k => k.r === 1 && k.c === 1);
-      startTween(c, performance.now() / 1000, 0, 1.6, ["short", "short"], [0, 0]);
-    }
-  }
-  let baseLayout = "rect", autoFinish = null;
-  function preferFinish(name) { const f = LAYOUTS[name].finish; if (f && finish !== f) { const prev = finish; setFinish(f); autoFinish = prev; } }
-  function restoreFinish() { const af = autoFinish; if (af) setFinish(af); }
-  function updateShapeUI() {
-    document.querySelectorAll("[data-shape]").forEach(b => b.setAttribute("aria-pressed", String(mode !== "minimal" && b.dataset.shape === baseLayout)));
-  }
-  function enterMini() {
-    restoreFinish(); applyLayout("mini"); resize(); preferFinish("mini");
-    tGrid = miniGrid("rest", new Date()); view = "time"; mi = -1; miAt = 0; updateShapeUI();
-  }
-  function leaveMini() {
-    restoreFinish(); applyLayout(baseLayout); resize(); preferFinish(baseLayout);
-    tGrid = timeGrid(new Date()); enterTime(new Date(), 4); updateShapeUI();
-  }
-  function setShape(name) {
-    if (mode === "minimal") setMode("active");
-    timerLeave();
-    restoreFinish(); baseLayout = name; applyLayout(name); resize(); preferFinish(name);
-    tGrid = timeGrid(new Date()); enterTime(new Date(), 5);
-    phase = "hold"; holdUntil = Date.now() + 5000; updateShapeUI();
-  }
-  // Timer on the 9-clock piece: the centre clock counts down (minutes hand + seconds hand), the ring dissolves as time passes.
-  const RING = ["0,0", "1,0", "2,0", "2,1", "2,2", "1,2", "0,2", "0,1"];
-  function miniTimerGrid(n) {
-    const g = miniGrid("diamond", new Date());
-    const gone = tState === "ready" ? 0 : Math.min(8, Math.floor((1 - n / tSet) * 8 + 1e-6));
-    RING.forEach((key, i) => { if (i < gone) { const [c, r] = key.split(",").map(Number); g[r][c] = [45, 225]; } });
-    g[1][1] = [(n / 10) % 360, (n % 60) * 6];
-    return g;
-  }
-
-  let tState = "idle", tSet = 300, tEnd = 0, tDone = false, tDoneAt = 0, tLast = -1, tSlow = true;
-  const tBtn = document.getElementById("timer"), tAdj = document.getElementById("tadj");
-  const tFmt = n => String(Math.floor(n / 60)).padStart(2, "0") + String(n % 60).padStart(2, "0");
-  function tUI() {
-    tBtn.textContent = tState === "idle" ? "Timer" : tState === "ready" ? "Start" : "Stop";
-    tBtn.setAttribute("aria-pressed", String(tState !== "idle"));
-    tAdj.hidden = tState !== "ready";
-  }
-  function timerLeave() {               // back to the plain clock; button says "Timer"
-    if (tState === "idle" && !tDone) return;
-    tState = "idle"; tDone = false; tUI();
-    phase = "hold"; holdUntil = Date.now() + 3000;
-    if (mode === "minimal") { mi = -1; miAt = 0; }
-    enterTime(new Date(), 4);
-  }
-  function tickTimer() {
-    const ms = Date.now();
-    if (tDone) { capEl.textContent = "Time's up"; if (ms >= tDoneAt) timerLeave(); return; }
-    const n = tState === "ready" ? tSet : Math.max(0, Math.ceil((tEnd - ms) / 1000));
-    if (tState === "running" && n <= 0) {
-      tState = "idle"; tDone = true; tDoneAt = ms + 7000; tUI(); enterDance(3); return;
-    }
-    if (n !== tLast) {
-      tLast = n; const fast = !tSlow; tSlow = false;
-      showGrid(L.mini ? miniTimerGrid(n) : timeGrid(null, { digits: tFmt(n), colon: true }), 3.5, fast);
-      capEl.textContent = "Timer " + tFmt(n).replace(/^(..)/, "$1:");
-    }
-  }
-  tBtn.addEventListener("click", () => {
-    if (tState === "idle") { tDone = false; tState = "ready"; tLast = -1; tSlow = true; }
-    else if (tState === "ready") { tState = "running"; tEnd = Date.now() + tSet * 1000; }
-    else { timerLeave(); return; }
-    tUI();
-  });
-  document.getElementById("tm-m").addEventListener("click", () => { tSet = Math.max(10, tSet - 60); });
-  document.getElementById("tm-p").addEventListener("click", () => { tSet = Math.min(5999, tSet + 60); });
-  document.getElementById("tm-s").addEventListener("click", () => { tSet = Math.min(5999, tSet + 10); });
-
-  function tickSchedule() {
-    if (tState !== "idle" || tDone) return tickTimer();
-    const ms = Date.now();
-    if (mode === "minimal") return tickMini();
-    if (phase === "hold") {
-      checkMinute();
-      if (ms >= holdUntil) {
-        const nb = nextMinuteMs();
-        if (nb - ms > 25000) { enterDance(nextIdx()); phase = "dance"; danceUntil = nb - 7000; }
-        else holdUntil = nb + 5000;
+      :root[data-finish="black"] {
+        --wall-a: #dcdee2;
+        --wall-b: #8d929b;
       }
-    } else if (phase === "dance") {
-      if (ms >= danceUntil) {
-        const nb = nextMinuteMs();
-        const dur = Math.max(3, Math.min(6.2, (nb - ms) / 1000 - 0.3));
-        enterTime(new Date(nb + 500), dur);
-        phase = "converge"; convergeUntil = nb;
+      :root[data-finish="green"] {
+        --wall-a: #3b4743;
+        --wall-b: #0f1816;
       }
-    } else if (phase === "converge") {
-      if (ms >= convergeUntil) { phase = "hold"; holdUntil = ms + 5000; }
-    }
-  }
-
-  /* ================= Rendering ================= */
-  const canvas = document.getElementById("wall");
-  const ctx = canvas.getContext("2d");
-  let W = 0, H = 0, DPR = 1, pitch = 40, bx = 0, by = 0, bw = 0, bh = 0, gx = 0, gy = 0;
-  let boardCv = null, sprites = [], handLen = 0, handWid = 0;
-  let finish = "tidal";
-  const NLEV = 9;
-
-  const FIN = {
-    tidal: {
-      board: ["#1d3560", "#102244", "#0a1630"],
-      bands: "rgba(150,185,255,", bandA: .07, bandOp: "lighter",
-      ringFaint: "rgba(190,210,245,.10)", ringLit: "rgba(215,230,255,.34)", ringDark: "rgba(0,0,0,.22)",
-      edge: "rgba(0,0,0,.4)", boardShadow: "rgba(10,20,45,.5)",
-      edgeB: [252,253,255], edgeD: [128,142,165], hiB: [226,233,243], hiD: [78,94,122], coreB: [136,152,178], coreD: [30,44,74],
-      hShadow: "rgba(0,0,0,.42)"
-    },
-    white: {
-      board: ["#f7f7f5", "#eeeeec", "#e4e4e1"],
-      bands: "rgba(0,0,0,", bandA: .035, bandOp: "source-over",
-      ringFaint: "rgba(0,0,0,.07)", ringLit: "rgba(255,255,255,1)", ringDark: "rgba(0,0,0,.20)",
-      edge: "rgba(0,0,0,.14)", boardShadow: "rgba(30,35,50,.26)",
-      edgeB: [74,76,84], edgeD: [20,20,24], hiB: [34,36,42], hiD: [8,8,10], coreB: [16,16,20], coreD: [0,0,0],
-      hShadow: "rgba(0,0,0,.20)"
-    },
-    green: {
-      board: ["#173a32", "#0e2822", "#08171a"],
-      bands: "rgba(130,210,180,", bandA: .06, bandOp: "lighter",
-      ringFaint: "rgba(170,220,200,.12)", ringLit: "rgba(200,240,225,.34)", ringDark: "rgba(0,0,0,.35)",
-      edge: "rgba(0,0,0,.45)", boardShadow: "rgba(4,16,14,.55)",
-      edgeB: [255,226,140], edgeD: [150,96,24], hiB: [255,196,64], hiD: [122,72,14], coreB: [214,148,28], coreD: [64,36,4],
-      hShadow: "rgba(0,0,0,.5)", pin: "#0a0f0e"
-    },
-    black: {
-      board: ["#232428", "#17181b", "#0d0d0f"],
-      bands: "rgba(255,255,255,", bandA: .045, bandOp: "lighter",
-      ringFaint: "rgba(255,255,255,.07)", ringLit: "rgba(255,255,255,.34)", ringDark: "rgba(0,0,0,.45)",
-      edge: "rgba(255,255,255,.08)", boardShadow: "rgba(10,10,14,.5)",
-      edgeB: [250,250,250], edgeD: [120,122,128], hiB: [232,233,236], hiD: [84,86,92], coreB: [150,152,158], coreD: [34,35,40],
-      hShadow: "rgba(0,0,0,.55)"
-    }
-  };
-  const mix = (a, b, t) => `rgb(${Math.round(a[0] + (b[0]-a[0])*t)},${Math.round(a[1] + (b[1]-a[1])*t)},${Math.round(a[2] + (b[2]-a[2])*t)})`;
-
-  function buildSprites() {
-    const F = FIN[finish];
-    sprites = [];
-    const Lp = handLen * DPR, Wp = handWid * DPR, back = Wp / 2, pad = Math.ceil(1.5 * DPR);
-    for (let i = 0; i < NLEV; i++) {
-      const t = i / (NLEV - 1);
-      const cv = document.createElement("canvas");
-      cv.width = Math.ceil(Wp + pad * 2); cv.height = Math.ceil(Lp + back + pad * 2);
-      const g = cv.getContext("2d");
-      const grad = g.createLinearGradient(pad, 0, pad + Wp, 0);
-      grad.addColorStop(0,   mix(F.edgeD, F.edgeB, t));
-      grad.addColorStop(.20, mix(F.hiD, F.hiB, t));
-      grad.addColorStop(.50, mix(F.coreD, F.coreB, t));
-      grad.addColorStop(.80, mix(F.hiD, F.hiB, t));
-      grad.addColorStop(1,   mix(F.edgeD, F.edgeB, t));
-      g.fillStyle = grad;
-      g.beginPath(); g.roundRect(pad, pad, Wp, Lp + back, Wp * 0.1); g.fill();
-      // bright polished tip
-      g.fillStyle = `rgba(255,255,255,${0.12 + 0.28 * t})`;
-      g.fillRect(pad, pad, Wp, Math.max(1, Wp * 0.18));
-      sprites.push({ cv, ox: pad + Wp / 2, oy: pad + Lp });
-    }
-  }
-
-  function buildBoard() {
-    const F = FIN[finish];
-    boardCv = document.createElement("canvas");
-    boardCv.width = Math.ceil(bw * DPR); boardCv.height = Math.ceil(bh * DPR);
-    const g = boardCv.getContext("2d");
-    g.scale(DPR, DPR);
-    const grad = g.createLinearGradient(0, 0, bw, bh * 0.35);
-    grad.addColorStop(0, F.board[0]); grad.addColorStop(.5, F.board[1]); grad.addColorStop(1, F.board[2]);
-    g.fillStyle = grad; g.fillRect(0, 0, bw, bh);
-    // soft vignette
-    const v = g.createRadialGradient(bw * .5, bh * .5, bh * .2, bw * .5, bh * .5, bw * .65);
-    v.addColorStop(0, "rgba(0,0,0,0)"); v.addColorStop(1, finish === "white" ? "rgba(0,0,0,.05)" : "rgba(0,0,0,.28)");
-    g.fillStyle = v; g.fillRect(0, 0, bw, bh);
-
-    // milled circular recesses
-    const R = pitch * 0.48, ox = (bw - COLS * pitch) / 2, oy = (bh - ROWS * pitch) / 2;
-    for (const k of (L.rings === false ? [] : clocks)) {
-      const x = bw / 2 + k.px * pitch, y = bh / 2 + k.py * pitch;
-      g.lineWidth = Math.max(.8, pitch * 0.012);
-      g.strokeStyle = F.ringFaint;
-      g.beginPath(); g.arc(x, y, R, 0, Math.PI * 2); g.stroke();
-      g.lineWidth = Math.max(1, pitch * 0.02);
-      g.strokeStyle = F.ringLit;                           // lit wall on the right
-      g.beginPath(); g.arc(x, y, R, -Math.PI * .42, Math.PI * .42); g.stroke();
-      g.strokeStyle = F.ringDark;                          // shaded wall on the left
-      g.beginPath(); g.arc(x, y, R * .985, Math.PI * .62, Math.PI * 1.38); g.stroke();
-    }
-  }
-
-  function bpath(inset) {
-    ctx.beginPath();
-    if (L.round) ctx.arc(bx + bw / 2, by + bh / 2, bw / 2 - inset, 0, Math.PI * 2);
-    else ctx.roundRect(bx + inset, by + inset, bw - 2 * inset, bh - 2 * inset, pitch * 0.05);
-  }
-  function resize() {
-    DPR = Math.min(window.devicePixelRatio || 1, 2.5);
-    W = window.innerWidth; H = window.innerHeight;
-    canvas.width = Math.round(W * DPR); canvas.height = Math.round(H * DPR);
-    const side = W > 760 ? 240 : 0;
-    const availW = (W - side) * 0.94, availH = H * (side ? 0.88 : (L.round ? 0.84 : 0.76));
-    pitch = Math.min(availW / L.bw, availH / L.bh);
-    bw = L.bw * pitch; bh = L.bh * pitch;
-    bx = (W - side - bw) / 2; by = (H - bh) / 2 - H * 0.02;
-    gx = bx + bw / 2; gy = by + bh / 2;
-    handLen = pitch * 0.465; handWid = Math.max(3, pitch * 0.118 * (L.hw || 1));
-    buildBoard(); buildSprites();
-  }
-
-  function setFinish(f) {
-    autoFinish = null;
-    finish = f;
-    document.documentElement.dataset.finish = f;
-    document.querySelectorAll("[data-finish]").forEach(b => { if (b.tagName === "BUTTON") b.setAttribute("aria-pressed", String(b.dataset.finish === f)); });
-    buildBoard(); buildSprites();
-  }
-
-  function targetOf(k, i, u) {
-    if (view === "time") return tGrid[k.r][k.c][i];
-    return PATTERNS[danceIdx][1](k, u)[i];
-  }
-
-  function frame() {
-    const now = performance.now() / 1000;
-    tickSchedule();
-    const F = FIN[finish];
-    const u = now - danceT0;
-
-    // advance every hand
-    for (const k of clocks) {
-      let tg = null;
-      if (view === "dance") tg = PATTERNS[danceIdx][1](k, u);
-      for (let i = 0; i < 2; i++) {
-        const U = tg ? tg[i] : tGrid[k.r][k.c][i];
-        if (k.pend && now >= k.t0) {
-          if (i === 0) k._init = true;
-          const s = k.hold[i], dir = k.pend.dirs[i], ex = k.pend.extras[i];
-          if (dir === "short") k.off[i] = wrap180(s - U);
-          else if (dir === "cw") k.off[i] = -(mod360(U - s) + 360 * ex);
-          else k.off[i] = mod360(s - U) + 360 * ex;
-          if (i === 1) k.pend = null;
+      :root[data-finish="white"] {
+        --wall-a: #f6f6f7;
+        --wall-b: #c4c8ce;
+      }
+      *,
+      *::before,
+      *::after {
+        box-sizing: inherit;
+      }
+      html,
+      body {
+        height: 100%;
+        margin: 0;
+      }
+      body {
+        background: radial-gradient(
+          ellipse at 50% 38%,
+          var(--wall-a) 0%,
+          var(--wall-b) 100%
+        );
+        font-family:
+          "Avenir Next",
+          "Segoe UI",
+          system-ui,
+          -apple-system,
+          Helvetica,
+          Arial,
+          sans-serif;
+        color: var(--ui-fg);
+        overflow: hidden;
+      }
+      canvas#wall {
+        position: fixed;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        display: block;
+      }
+      .bar {
+        position: fixed;
+        right: 16px;
+        top: 50%;
+        transform: translateY(-50%);
+        width: 208px;
+        max-height: calc(100% - 32px);
+        overflow-y: auto;
+        scrollbar-width: none;
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+        padding: 16px;
+        background: var(--ui-bg);
+        border: 1px solid var(--ui-line);
+        border-radius: 20px;
+        backdrop-filter: blur(14px);
+        -webkit-backdrop-filter: blur(14px);
+        box-shadow: 0 12px 40px rgba(20, 28, 45, 0.14);
+      }
+      .bar::-webkit-scrollbar {
+        display: none;
+      }
+      .bar h3 {
+        margin: 0 0 7px;
+        font-size: 10.5px;
+        font-weight: 600;
+        letter-spacing: 0.13em;
+        text-transform: uppercase;
+        color: var(--ui-mute);
+      }
+      .bar .cap {
+        font-size: 13px;
+        font-variant-numeric: tabular-nums;
+        padding: 9px 12px;
+        border-radius: 12px;
+        background: rgba(30, 40, 60, 0.07);
+        color: var(--ui-fg);
+      }
+      .seg {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+      }
+      .row {
+        display: flex;
+        gap: 4px;
+      }
+      .row > button {
+        flex: 1;
+      }
+      .tadj {
+        display: flex;
+        gap: 4px;
+        margin-top: 4px;
+      }
+      .tadj[hidden] {
+        display: none;
+      }
+      .tadj button {
+        flex: 1;
+        padding: 7px 4px;
+      }
+      .sw {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 4px;
+      }
+      .bar button {
+        font: inherit;
+        font-size: 13px;
+        color: var(--ui-fg);
+        text-align: left;
+        background: rgba(255, 255, 255, 0.5);
+        border: 1px solid var(--ui-line);
+        border-radius: 11px;
+        padding: 8px 11px;
+        cursor: pointer;
+        white-space: nowrap;
+        transition:
+          background 0.2s,
+          color 0.2s,
+          border-color 0.2s;
+      }
+      .bar button:hover {
+        background: rgba(255, 255, 255, 0.9);
+      }
+      .bar button:focus-visible {
+        outline: 2px solid var(--ui-on-bg);
+        outline-offset: 1px;
+      }
+      .bar button[aria-pressed="true"] {
+        background: var(--ui-on-bg);
+        color: var(--ui-on-fg);
+        border-color: transparent;
+      }
+      .sw button {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        padding: 8px;
+      }
+      .sw i {
+        width: 14px;
+        height: 14px;
+        border-radius: 50%;
+        flex: none;
+        border: 1px solid rgba(128, 128, 128, 0.45);
+      }
+      @media (max-width: 760px) {
+        .bar {
+          top: auto;
+          bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+          right: auto;
+          left: 50%;
+          transform: translateX(-50%);
+          width: auto;
+          max-width: calc(100% - 20px);
+          flex-direction: row;
+          align-items: center;
+          gap: 10px;
+          padding: 7px;
+          border-radius: 999px;
+          overflow-x: auto;
+          transition: opacity 0.5s;
         }
-        if (k.pend) k.shown[i] = k.hold[i];
-        else {
-          const q = (now - k.t0) / k.dur;
-          k.shown[i] = q >= 1 ? U : U + k.off[i] * (1 - ease(Math.max(0, q)));
+        .bar h3,
+        .bar .cap {
+          display: none;
+        }
+        .bar section {
+          display: flex;
+          gap: 4px;
+          flex: none;
+        }
+        .seg,
+        .row,
+        .sw,
+        .tadj {
+          flex-direction: row;
+          display: flex;
+          margin: 0;
+        }
+        .bar button {
+          border-radius: 999px;
+          padding: 7px 12px;
+        }
+        .tadj[hidden] {
+          display: none;
+        }
+        .bar.idle {
+          opacity: 0;
+        }
+        .bar:hover,
+        .bar:focus-within {
+          opacity: 1;
         }
       }
-    }
+    </style>
+  </head>
+  <body>
+    <canvas
+      id="wall"
+      role="img"
+      aria-label="A wall of 120 small analog clocks whose hands form the current time"
+    ></canvas>
 
-    // draw
-    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
-    ctx.clearRect(0, 0, W, H);
+    <aside class="bar" id="bar" aria-label="Controls">
+      <div class="cap" id="cap">Time</div>
+      <section>
+        <h3>Program</h3>
+        <div class="seg">
+          <button
+            data-mode="active"
+            aria-pressed="true"
+            title="20 choreographies, one every minute"
+          >
+            Active
+          </button>
+          <button
+            data-mode="original"
+            aria-pressed="false"
+            title="The original choreography, every minute"
+          >
+            Original
+          </button>
+          <button
+            data-mode="minimal"
+            aria-pressed="false"
+            title="Nine clocks, time in the centre"
+          >
+            Minimal
+          </button>
+        </div>
+      </section>
+      <section>
+        <h3>Shape</h3>
+        <div class="seg">
+          <button data-shape="rect" aria-pressed="true">Rectangle</button>
+          <button data-shape="round" aria-pressed="false">Round</button>
+          <button data-shape="vert" aria-pressed="false">Vertical</button>
+        </div>
+      </section>
+      <section>
+        <h3>Playback</h3>
+        <div class="row">
+          <button id="next" title="Jump to the next choreography">Next</button>
+          <button id="h24" aria-pressed="true">24h</button>
+        </div>
+      </section>
+      <section>
+        <h3>Timer</h3>
+        <button id="timer" aria-pressed="false" style="width: 100%">
+          Timer
+        </button>
+        <div class="tadj" id="tadj" hidden>
+          <button id="tm-m">&minus;1m</button><button id="tm-p">+1m</button
+          ><button id="tm-s">+10s</button>
+        </div>
+      </section>
+      <section>
+        <h3>Finish</h3>
+        <div class="sw">
+          <button data-finish="tidal" aria-pressed="true">
+            <i
+              style="
+                background: linear-gradient(135deg, #1d3560 55%, #e8eef7 55%);
+              "
+            ></i
+            >Tidal
+          </button>
+          <button data-finish="white" aria-pressed="false">
+            <i
+              style="
+                background: linear-gradient(135deg, #f3f3f1 55%, #16161a 55%);
+              "
+            ></i
+            >White
+          </button>
+          <button data-finish="black" aria-pressed="false">
+            <i
+              style="
+                background: linear-gradient(135deg, #1b1c1f 55%, #eceef2 55%);
+              "
+            ></i
+            >Black
+          </button>
+          <button data-finish="green" aria-pressed="false">
+            <i
+              style="
+                background: linear-gradient(135deg, #173a32 55%, #f2b84b 55%);
+              "
+            ></i
+            >Green
+          </button>
+        </div>
+      </section>
+    </aside>
 
-    ctx.save();
-    ctx.shadowColor = F.boardShadow; ctx.shadowBlur = pitch * (L.shBlur || 0.9); ctx.shadowOffsetX = pitch * (L.shDx || 0); ctx.shadowOffsetY = pitch * (L.shDy == null ? 0.32 : L.shDy);
-    ctx.fillStyle = F.board[1];
-    bpath(0); ctx.fill();
-    ctx.restore();
+    <script>
+      (() => {
+        "use strict";
 
-    ctx.save(); bpath(0); ctx.clip(); ctx.drawImage(boardCv, bx, by, bw, bh); ctx.restore();
+        /* ================= Geometry (A million Times 120: 15 x 8 clocks, 212 x 121 cm) ================= */
+        // Rectangle: A million Times 120 (15 x 8, digits 3 x 6). Round: 61 clocks on a disc (9 x 9, digits 2 x 3).
+        const LAYOUTS = {
+          rect: {
+            cols: 15,
+            rows: 8,
+            bw: 16.24,
+            bh: 9.24,
+            round: false,
+            mask: null,
+            digitCols: [1, 4, 8, 11],
+            digitRow: 1,
+            gw: 3,
+            gh: 6,
+            colon: [
+              [3, 7, [0, 0]],
+              [5, 7, [0, 0]],
+            ],
+            label: "Rectangle",
+          },
+          round: {
+            cols: 9,
+            rows: 9,
+            bw: 11.3,
+            bh: 11.3,
+            round: true,
+            digitCols: [0, 2, 5, 7],
+            digitRow: 3,
+            mask: [
+              [3, 5],
+              [1, 7],
+              [1, 7],
+              [0, 8],
+              [0, 8],
+              [0, 8],
+              [1, 7],
+              [1, 7],
+              [3, 5],
+            ],
+            gw: 2,
+            gh: 3,
+            colon: [
+              [3, 4, [180, 180]],
+              [5, 4, [0, 0]],
+            ],
+            label: "Round",
+          },
+        };
+        LAYOUTS.mini = {
+          cols: 3,
+          rows: 3,
+          bw: 4.3,
+          bh: 4.3,
+          round: true,
+          mini: true,
+          mask: null,
+          rings: false,
+          hw: 0.8,
+          rest: [45, 225],
+          shDx: -0.3,
+          shDy: 0.2,
+          shBlur: 0.3,
+          hsx: -0.04,
+          hsy: 0.05,
+          digitCols: [],
+          digitRow: 0,
+          gw: 0,
+          gh: 0,
+          colon: [],
+          label: "Minimal",
+          finish: "white",
+        };
+        LAYOUTS.vert = {
+          cols: 6,
+          rows: 12,
+          bw: 6.72,
+          bh: 12.72,
+          round: false,
+          mask: null,
+          digitCols: [0, 3, 0, 3],
+          digitRow: [0, 0, 6, 6],
+          gw: 3,
+          gh: 6,
+          colon: [],
+          label: "Vertical",
+          finish: "black",
+        };
+        let L = LAYOUTS.rect,
+          COLS = 15,
+          ROWS = 8,
+          cx = 7,
+          cy = 3.5,
+          DIGIT_COLS = [1, 4, 8, 11],
+          DIGIT_ROW = 1;
+        const RGLY = {
+          0: "RD LD|UD UD|RU LU",
+          1: "II DD|II UD|II UU",
+          2: "RR LD|RD LU|RU LL",
+          3: "RR LD|RR UD|RR LU",
+          4: "DD DD|UR UD|II UU",
+          5: "RD LL|UR LD|RR LU",
+          6: "RD LL|UD LD|RU LU",
+          7: "RR LD|II UD|II UU",
+          8: "RD LD|RD LD|RU LU",
+          9: "RD LD|UR UD|RR LU",
+        };
+        const DIRS = { U: 0, R: 90, D: 180, L: 270 };
+        const roundGlyph = (ch) =>
+          RGLY[ch]
+            .split("|")
+            .map((row) =>
+              row
+                .split(" ")
+                .map((c) =>
+                  c === "II" ? [225, 225] : [DIRS[c[0]], DIRS[c[1]]],
+                ),
+            );
 
-    // light moving over the surface like sunlight on water
-    ctx.save();
-    bpath(0); ctx.clip();
-    ctx.globalCompositeOperation = F.bandOp;
-    for (let b = 0; b < 4; b++) {
-      const cxp = bx + bw * (0.12 + b * 0.27 + 0.09 * Math.sin(now * 0.11 + b * 1.9));
-      const half = bw * (0.07 + 0.03 * Math.sin(now * 0.17 + b));
-      const a = F.bandA * (0.65 + 0.35 * Math.sin(now * 0.23 + b * 2.3));
-      const gr = ctx.createLinearGradient(cxp - half, by, cxp + half + bh * 0.25, by + bh);
-      gr.addColorStop(0, F.bands + "0)"); gr.addColorStop(.5, F.bands + a + ")"); gr.addColorStop(1, F.bands + "0)");
-      ctx.fillStyle = gr; ctx.fillRect(bx, by, bw, bh);
-    }
-    ctx.restore();
-    ctx.strokeStyle = F.edge; ctx.lineWidth = 1;
-    bpath(.5); ctx.stroke();
+        /* ================= Digital typography ================= */
+        const GLYPHS = {
+          0: ["XXX", "X.X", "X.X", "X.X", "X.X", "XXX"],
+          1: ["XX.", ".X.", ".X.", ".X.", ".X.", ".X."],
+          2: ["XXX", "..X", "..X", "XXX", "X..", "XXX"],
+          3: ["XXX", "..X", "..X", "XXX", "..X", "XXX"],
+          4: ["X.X", "X.X", "X.X", "XXX", "..X", "..X"],
+          5: ["XXX", "X..", "X..", "XXX", "..X", "XXX"],
+          6: ["XXX", "X..", "X..", "XXX", "X.X", "XXX"],
+          7: ["XXX", "..X", "..X", "..X", "..X", "..X"],
+          8: ["XXX", "X.X", "X.X", "XXX", "X.X", "XXX"],
+          9: ["XXX", "X.X", "X.X", "XXX", "..X", "XXX"],
+        };
+        const IDLE_OUT = [225, 225]; // clocks outside the digits rest pointing down-left
+        const IDLE_IN = [180, 180]; // empty clocks inside a digit rest pointing down
+        const UP = 0,
+          RIGHT = 90,
+          DOWN = 180,
+          LEFT = 270;
 
-    // hand shadows
-    const sx = pitch * (L.hsx == null ? 0.045 : L.hsx), sy = pitch * (L.hsy == null ? 0.06 : L.hsy);
-    ctx.lineCap = "butt"; ctx.lineWidth = handWid; ctx.strokeStyle = F.hShadow;
-    ctx.beginPath();
-    for (const k of clocks) {
-      const x = gx + k.px * pitch + sx, y = gy + k.py * pitch + sy;
-      for (let i = 0; i < 2; i++) {
-        const a = k.shown[i] * D2R;
-        ctx.moveTo(x - Math.sin(a) * handWid * .5, y + Math.cos(a) * handWid * .5);
-        ctx.lineTo(x + Math.sin(a) * handLen, y - Math.cos(a) * handLen);
-      }
-    }
-    ctx.stroke();
+        function glyphAngles(ch) {
+          const g = GLYPHS[ch],
+            out = [];
+          for (let r = 0; r < 6; r++) {
+            const row = [];
+            for (let c = 0; c < 3; c++) {
+              if (g[r][c] !== "X") {
+                row.push(IDLE_IN.slice());
+                continue;
+              }
+              const n = [];
+              if (r > 0 && g[r - 1][c] === "X") n.push(UP);
+              if (c < 2 && g[r][c + 1] === "X") n.push(RIGHT);
+              if (r < 5 && g[r + 1][c] === "X") n.push(DOWN);
+              if (c > 0 && g[r][c - 1] === "X") n.push(LEFT);
+              if (n.length === 0) row.push(IDLE_IN.slice());
+              else if (n.length === 1) row.push([n[0], n[0]]);
+              else if (n.length === 2) row.push(n);
+              else
+                row.push(
+                  n.includes(UP) && n.includes(DOWN)
+                    ? [UP, DOWN]
+                    : [RIGHT, LEFT],
+                );
+            }
+            out.push(row);
+          }
+          return out;
+        }
 
-    // polished hands (brightness follows a light that drifts across the board)
-    for (const k of clocks) {
-      const x = gx + k.px * pitch, y = gy + k.py * pitch;
-      const aL = 28 + 55 * Math.sin(k.xn * 2.6 + k.yn * 1.1 - now * 0.35);
-      for (let j = 1; j >= 0; j--) {
-        const a = k.shown[j];
-        const lum = 0.5 + 0.5 * Math.cos(2 * (a - aL) * D2R);
-        const t = Math.min(1, 0.18 + 0.82 * Math.pow(lum, 0.8));
-        const sp = sprites[Math.round(t * (NLEV - 1))];
-        ctx.save();
-        ctx.translate(x, y); ctx.rotate(a * D2R);
-        ctx.drawImage(sp.cv, -sp.ox / DPR, -sp.oy / DPR, sp.cv.width / DPR, sp.cv.height / DPR);
-        ctx.restore();
-      }
-    }
-    if (F.pin) {
-      ctx.fillStyle = F.pin;
-      const pr = Math.max(1.6, pitch * 0.026);
-      for (const k of clocks) {
-        ctx.beginPath(); ctx.arc(gx + k.px * pitch, gy + k.py * pitch, pr, 0, 6.2832); ctx.fill();
-      }
-    }
-    requestAnimationFrame(frame);
-  }
+        let use24 = true;
+        function timeGrid(date, forced) {
+          if (L.mini) return miniGrid("diamond", date || new Date());
+          let h = date ? date.getHours() : 0;
+          if (!use24) {
+            h = h % 12;
+            if (h === 0) h = 12;
+          }
+          const digits = forced
+            ? forced.digits.split("")
+            : (
+                String(h).padStart(2, "0") +
+                String(date.getMinutes()).padStart(2, "0")
+              ).split("");
+          const grid = [];
+          for (let r = 0; r < ROWS; r++) {
+            grid.push([]);
+            for (let c = 0; c < COLS; c++) grid[r].push(IDLE_OUT.slice());
+          }
+          digits.forEach((d, i) => {
+            const a = L.round ? roundGlyph(d) : glyphAngles(d);
+            for (let r = 0; r < L.gh; r++)
+              for (let c = 0; c < L.gw; c++)
+                grid[(Array.isArray(DIGIT_ROW) ? DIGIT_ROW[i] : DIGIT_ROW) + r][
+                  DIGIT_COLS[i] + c
+                ] = a[r][c];
+          });
+          if (forced && forced.colon)
+            for (const [r, c, a] of L.colon) grid[r][c] = a.slice();
+          return grid;
+        }
+        const timeKey = (d) =>
+          d.getHours() + ":" + d.getMinutes() + ":" + use24;
 
-  /* ================= Controls ================= */
-  function setMode(m) {
-    timerLeave();
-    const was = mode;
-    mode = m;
-    if (m === "minimal" && was !== "minimal") enterMini();
-    if (m !== "minimal" && was === "minimal") leaveMini();
-    document.querySelectorAll("[data-mode]").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.mode === m)));
-    const ms = Date.now();
-    if (m === "minimal") { phase = "hold"; return; }
-    if (view === "dance" && phase === "dance") { if (m === "original") enterDance(0); return; }
-    if (view !== "time") enterTime(new Date(), 3.5);
-    phase = "hold"; holdUntil = ms + 3000;
-  }
-  document.querySelectorAll("[data-mode]").forEach(b => b.addEventListener("click", () => setMode(b.dataset.mode)));
+        /* ================= Clocks ================= */
+        const D2R = Math.PI / 180,
+          R2D = 180 / Math.PI;
+        const ang = (dx, dy) => Math.atan2(dx, -dy) * R2D; // 0 = up, clockwise
+        const mod360 = (d) => ((d % 360) + 360) % 360;
+        const wrap180 = (d) => mod360(d + 180) - 180;
+        const ease = (p) =>
+          p < 0.5 ? 4 * p * p * p : 1 - Math.pow(-2 * p + 2, 3) / 2;
+        const sm = (p) => p * p * (3 - 2 * p);
 
-  document.getElementById("next").addEventListener("click", () => {
-    timerLeave();
-    if (mode === "minimal") { miAt = 0; return; }              // minimal: next step of its sequence
-    const ms = Date.now(), nb = nextMinuteMs();
-    let end = nb - 7000; if (end - ms < 12000) end += 60000;   // always at least ~12 s of choreography
-    phase = "dance"; danceUntil = end;
-    enterDance((danceIdx + 1) % PATTERNS.length);
-  });
+        let clocks = [];
+        function buildClocks() {
+          clocks = [];
+          for (let r = 0; r < ROWS; r++)
+            for (let c = 0; c < COLS; c++) {
+              if (L.mask && (c < L.mask[r][0] || c > L.mask[r][1])) continue;
+              const x = c - cx,
+                y = r - cy,
+                aC = ang(-x, -y);
+              const px = L.mini ? (x - y) * 0.7071 : x,
+                py = L.mini ? (x + y) * 0.7071 : y;
+              clocks.push({
+                r,
+                c,
+                x,
+                y,
+                px,
+                py,
+                d: Math.hypot(x, y),
+                aC,
+                aOut: aC + 180,
+                aT: aC + 90,
+                xn: c / (COLS - 1),
+                yn: r / (ROWS - 1),
+                shown: (L.rest || IDLE_OUT).slice(),
+                hold: (L.rest || IDLE_OUT).slice(),
+                off: [0, 0],
+                pend: null,
+                t0: -1e9,
+                dur: 1,
+              });
+            }
+        }
+        function applyLayout(name) {
+          L = LAYOUTS[name];
+          COLS = L.cols;
+          ROWS = L.rows;
+          cx = (COLS - 1) / 2;
+          cy = (ROWS - 1) / 2;
+          DIGIT_COLS = L.digitCols;
+          DIGIT_ROW = L.digitRow;
+          buildClocks();
+        }
+        applyLayout("rect");
 
+        /* ================= 20 choreographies ================= */
+        const PATTERNS = [
+          [
+            "Rings",
+            (k, u) => {
+              const s = 34 * Math.sin(0.8 * k.d - 0.9 * u);
+              return [k.aT + s, k.aT + 180 - s];
+            },
+          ],
+          [
+            "Chevrons",
+            (k, u) => {
+              const a = 90 + 85 * Math.sin(0.75 * k.d - 0.65 * u);
+              return [k.aC + a, k.aC - a];
+            },
+          ],
+          [
+            "Tide",
+            (k, u) => {
+              const w = Math.sin(0.55 * k.x + 0.28 * k.y - 0.9 * u);
+              return [90 + 68 * w, 270 + 68 * w];
+            },
+          ],
+          [
+            "Needles",
+            (k, u) => {
+              const a = 34 * u + 11 * (k.c + k.r);
+              return [a, a + 180];
+            },
+          ],
+          ["Counter", (k, u) => [48 * u + 9 * k.c, -48 * u + 9 * k.r + 90]],
+          [
+            "Spiral",
+            (k, u) => {
+              const a = k.aT + 26 * k.d - 28 * u;
+              return [a, a + 180];
+            },
+          ],
+          [
+            "Quadrants",
+            (k, u) => {
+              const a = 2 * Math.atan2(k.y, k.x) * R2D + 22 * u;
+              return [a, a + 180];
+            },
+          ],
+          [
+            "Gaze",
+            (k, u) => {
+              const a = ang(
+                6.8 * Math.sin(0.33 * u) - k.x,
+                3.1 * Math.sin(0.51 * u + 1) - k.y,
+              );
+              const o = 22 + 16 * Math.sin(0.8 * u);
+              return [a - o, a + o];
+            },
+          ],
+          [
+            "Diverge",
+            (k, u) => {
+              const o = 34 + 30 * Math.sin(0.55 * u + 0.18 * k.d);
+              return [k.aOut + o, k.aOut - o];
+            },
+          ],
+          [
+            "Checker",
+            (k, u) => {
+              const p = (k.c + k.r) & 1 ? 1 : -1;
+              const a = p * 52 * u + (p > 0 ? 0 : 90);
+              return [a, a + 90];
+            },
+          ],
+          [
+            "Columns",
+            (k, u) => {
+              const s = 120 * Math.sin(0.9 * u - 0.42 * k.c);
+              return [180 + s, 180 - s];
+            },
+          ],
+          [
+            "Rows",
+            (k, u) => {
+              const s = 90 * Math.sin(0.8 * u - 0.75 * k.r);
+              return [90 + s, 270 - s];
+            },
+          ],
+          [
+            "Diagonal",
+            (k, u) => {
+              const a = 38 * u - 24 * (k.c + 1.6 * k.r);
+              return [a, a + 90];
+            },
+          ],
+          [
+            "Bloom",
+            (k, u) => {
+              const s = 90 * Math.sin(0.4 * u + 0.22 * k.d);
+              return [k.aOut + s, k.aOut - s];
+            },
+          ],
+          [
+            "Interference",
+            (k, u) => {
+              const p =
+                Math.sin(0.85 * Math.hypot(k.x + 4, k.y) - u) +
+                Math.sin(0.85 * Math.hypot(k.x - 4, k.y) - u);
+              return [45 * p, 180 + 45 * p];
+            },
+          ],
+          [
+            "Vortex",
+            (k, u) => {
+              const a = k.aT + 24 * u * (1 - k.d / 9);
+              return [a, a + 180];
+            },
+          ],
+          [
+            "Hourglass",
+            (k, u) => {
+              const b = k.x > 0 ? 270 : 90;
+              const o = 50 + 40 * Math.sin(0.5 * u + 0.35 * Math.abs(k.x));
+              return [b + o, b - o];
+            },
+          ],
+          [
+            "Cascade",
+            (k, u) => {
+              const o = 60 + 60 * Math.sin(0.7 * (k.r + 0.3 * k.c) - u);
+              return [o, -o];
+            },
+          ],
+          [
+            "Metronome",
+            (k, u) => {
+              const s = 70 * Math.sin(1.2 * u + 0.16 * k.c);
+              return [180 + s - 14, 180 + s + 14];
+            },
+          ],
+          [
+            "Quarter turns",
+            (k, u) => {
+              const n = 0.45 * u + 0.11 * (k.x + k.y),
+                f = n - Math.floor(n);
+              const a = 90 * (Math.floor(n) + sm(f));
+              return [a, a + ((k.c + k.r) & 1 ? 180 : 0)];
+            },
+          ],
+        ];
 
-  document.getElementById("h24").addEventListener("click", e => {
-    timerLeave();
-    use24 = !use24;
-    e.currentTarget.setAttribute("aria-pressed", String(use24));
-    e.currentTarget.textContent = use24 ? "24h" : "12h";
-    if (mode !== "minimal" && view === "time") enterTime(new Date(), 3.5);
-    else lastKey = "";
-  });
-  document.querySelectorAll("button[data-finish]").forEach(b => b.addEventListener("click", () => setFinish(b.dataset.finish)));
+        /* ================= State machine ================= */
+        let mode = "active"; // active | original | minimal
+        let phase = "hold"; // hold | dance | converge
+        let view = "time"; // what the hands currently aim at: time | dance
+        let tGrid = timeGrid(new Date());
+        let lastKey = timeKey(new Date());
+        let danceIdx = -1,
+          danceT0 = 0;
+        let holdUntil = 0,
+          danceUntil = 0,
+          convergeUntil = 0;
+        const capEl = document.getElementById("cap");
 
-  document.querySelectorAll("[data-shape]").forEach(b => b.addEventListener("click", () => setShape(b.dataset.shape)));
+        const nextMinuteMs = () => {
+          const n = Date.now();
+          return n - (n % 60000) + 60000;
+        };
 
+        function startTween(k, now, delay, dur, dirs, extras) {
+          k.hold = [k.shown[0], k.shown[1]];
+          k.pend = { dirs, extras };
+          k.t0 = now + delay;
+          k.dur = dur;
+        }
 
+        function showGrid(next, dur, fast) {
+          const now = performance.now() / 1000,
+            old = tGrid;
+          view = "time";
+          tGrid = next;
+          for (const k of clocks) {
+            const n = next[k.r][k.c],
+              o = old[k.r][k.c];
+            if (fast && n[0] === o[0] && n[1] === o[1]) continue;
+            const ex = fast ? 0 : Math.random() < 0.5 ? 0 : 1;
+            startTween(
+              k,
+              now,
+              fast
+                ? Math.random() * 0.12
+                : Math.min(1.3, k.c * 0.07 + Math.random() * 0.35),
+              fast ? 0.85 : Math.max(1.5, dur - 1.3),
+              fast ? ["short", "short"] : ["cw", "ccw"],
+              [ex, ex],
+            );
+          }
+        }
+        function enterTime(date, dur) {
+          lastKey = timeKey(date);
+          showGrid(timeGrid(date), dur, false);
+          capEl.textContent = "Time";
+        }
 
-  const bar = document.getElementById("bar");
-  let idleTimer;
-  function wake() { bar.classList.remove("idle"); clearTimeout(idleTimer); idleTimer = setTimeout(() => bar.classList.add("idle"), 4500); }
-  ["pointermove", "pointerdown", "keydown"].forEach(ev => window.addEventListener(ev, wake));
-  wake();
+        function enterDance(idx) {
+          const now = performance.now() / 1000;
+          view = "dance";
+          danceIdx = idx;
+          danceT0 = now;
+          for (const k of clocks)
+            startTween(k, now, k.d * 0.07, 3.2, ["short", "short"], [0, 0]);
+          capEl.textContent =
+            String(idx + 1).padStart(2, "0") + " / 20  " + PATTERNS[idx][0];
+        }
 
-  window.addEventListener("resize", resize);
-  resize();
+        const nextIdx = () =>
+          mode === "original" ? 0 : (danceIdx + 1) % PATTERNS.length;
 
-  // Opening: hands sweep from their resting pose into the current time, hold, then the first choreography.
-  enterTime(new Date(), 5);
-  holdUntil = Date.now() + 8000;
-  if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) setMode("minimal");
-  requestAnimationFrame(frame);
-})();
-</script>
-</body>
+        function checkMinute() {
+          if (view !== "time") return;
+          const d = new Date();
+          if (timeKey(d) !== lastKey) enterTime(d, 4.5);
+        }
+
+        // Minimal: 9 clocks on a diamond lattice. rest lines -> horizontal -> swirl -> diamond with the analog time in the centre.
+        const DIAMOND = {
+          "0,0": [225, 135],
+          "1,0": [135, 315],
+          "2,0": [315, 225],
+          "0,1": [45, 225],
+          "2,1": [45, 225],
+          "0,2": [45, 135],
+          "1,2": [135, 315],
+          "2,2": [315, 45],
+        }; // key = "col,row"
+        function miniGrid(kind, date) {
+          const g = [[], [], []];
+          for (const k of clocks) {
+            let a;
+            if (kind === "rest") a = [45, 225];
+            else if (kind === "horiz") a = [90, 270];
+            else if (kind === "swirl") {
+              const th = k.d ? ang(k.px, -k.py) : 0;
+              a = k.d ? [th + 90, th + 180] : [100, 140];
+            } else if (k.c === 1 && k.r === 1)
+              a = [
+                ((date.getHours() % 12) + date.getMinutes() / 60) * 30,
+                date.getMinutes() * 6,
+              ];
+            else a = DIAMOND[k.c + "," + k.r];
+            g[k.r][k.c] = a.slice();
+          }
+          return g;
+        }
+        const MINI = [
+          { kind: "rest", move: 1.4, hold: 0.8 },
+          { kind: "horiz", move: 1.4, hold: 0.9 },
+          { kind: "swirl", move: 4.8, hold: 0 },
+          { kind: "diamond", move: 2.2, hold: 4 },
+        ];
+        let mi = -1,
+          miAt = 0,
+          miKey = "";
+        function showPose(grid, dur) {
+          const now = performance.now() / 1000;
+          view = "time";
+          tGrid = grid;
+          for (const k of clocks)
+            startTween(k, now, k.d * 0.06, dur, ["short", "short"], [0, 0]);
+        }
+        function tickMini() {
+          const ms = Date.now(),
+            d = new Date();
+          if (ms >= miAt) {
+            mi = (mi + 1) % MINI.length;
+            const st = MINI[mi];
+            showPose(miniGrid(st.kind, d), st.move);
+            miAt = ms + (st.move + st.hold) * 1000;
+            miKey = timeKey(d);
+            capEl.textContent = "Minimal";
+          } else if (MINI[mi].kind === "diamond" && timeKey(d) !== miKey) {
+            // new minute: only the centre clock moves
+            miKey = timeKey(d);
+            tGrid = miniGrid("diamond", d);
+            const c = clocks.find((k) => k.r === 1 && k.c === 1);
+            startTween(
+              c,
+              performance.now() / 1000,
+              0,
+              1.6,
+              ["short", "short"],
+              [0, 0],
+            );
+          }
+        }
+        let baseLayout = "rect",
+          autoFinish = null;
+        function preferFinish(name) {
+          const f = LAYOUTS[name].finish;
+          if (f && finish !== f) {
+            const prev = finish;
+            setFinish(f);
+            autoFinish = prev;
+          }
+        }
+        function restoreFinish() {
+          const af = autoFinish;
+          if (af) setFinish(af);
+        }
+        function updateShapeUI() {
+          document
+            .querySelectorAll("[data-shape]")
+            .forEach((b) =>
+              b.setAttribute(
+                "aria-pressed",
+                String(mode !== "minimal" && b.dataset.shape === baseLayout),
+              ),
+            );
+        }
+        function enterMini() {
+          restoreFinish();
+          applyLayout("mini");
+          resize();
+          preferFinish("mini");
+          tGrid = miniGrid("rest", new Date());
+          view = "time";
+          mi = -1;
+          miAt = 0;
+          updateShapeUI();
+        }
+        function leaveMini() {
+          restoreFinish();
+          applyLayout(baseLayout);
+          resize();
+          preferFinish(baseLayout);
+          tGrid = timeGrid(new Date());
+          enterTime(new Date(), 4);
+          updateShapeUI();
+        }
+        function setShape(name) {
+          if (mode === "minimal") setMode("active");
+          timerLeave();
+          restoreFinish();
+          baseLayout = name;
+          applyLayout(name);
+          resize();
+          preferFinish(name);
+          tGrid = timeGrid(new Date());
+          enterTime(new Date(), 5);
+          phase = "hold";
+          holdUntil = Date.now() + 5000;
+          updateShapeUI();
+        }
+        // Timer on the 9-clock piece: the centre clock counts down (minutes hand + seconds hand), the ring dissolves as time passes.
+        const RING = ["0,0", "1,0", "2,0", "2,1", "2,2", "1,2", "0,2", "0,1"];
+        function miniTimerGrid(n) {
+          const g = miniGrid("diamond", new Date());
+          const gone =
+            tState === "ready"
+              ? 0
+              : Math.min(8, Math.floor((1 - n / tSet) * 8 + 1e-6));
+          RING.forEach((key, i) => {
+            if (i < gone) {
+              const [c, r] = key.split(",").map(Number);
+              g[r][c] = [45, 225];
+            }
+          });
+          g[1][1] = [(n / 10) % 360, (n % 60) * 6];
+          return g;
+        }
+
+        let tState = "idle",
+          tSet = 300,
+          tEnd = 0,
+          tDone = false,
+          tDoneAt = 0,
+          tLast = -1,
+          tSlow = true;
+        const tBtn = document.getElementById("timer"),
+          tAdj = document.getElementById("tadj");
+        const tFmt = (n) =>
+          String(Math.floor(n / 60)).padStart(2, "0") +
+          String(n % 60).padStart(2, "0");
+        function tUI() {
+          tBtn.textContent =
+            tState === "idle" ? "Timer" : tState === "ready" ? "Start" : "Stop";
+          tBtn.setAttribute("aria-pressed", String(tState !== "idle"));
+          tAdj.hidden = tState !== "ready";
+        }
+        function timerLeave() {
+          // back to the plain clock; button says "Timer"
+          if (tState === "idle" && !tDone) return;
+          tState = "idle";
+          tDone = false;
+          tUI();
+          phase = "hold";
+          holdUntil = Date.now() + 3000;
+          if (mode === "minimal") {
+            mi = -1;
+            miAt = 0;
+          }
+          enterTime(new Date(), 4);
+        }
+        function tickTimer() {
+          const ms = Date.now();
+          if (tDone) {
+            capEl.textContent = "Time's up";
+            if (ms >= tDoneAt) timerLeave();
+            return;
+          }
+          const n =
+            tState === "ready"
+              ? tSet
+              : Math.max(0, Math.ceil((tEnd - ms) / 1000));
+          if (tState === "running" && n <= 0) {
+            tState = "idle";
+            tDone = true;
+            tDoneAt = ms + 7000;
+            tUI();
+            enterDance(3);
+            return;
+          }
+          if (n !== tLast) {
+            tLast = n;
+            const fast = !tSlow;
+            tSlow = false;
+            showGrid(
+              L.mini
+                ? miniTimerGrid(n)
+                : timeGrid(null, { digits: tFmt(n), colon: true }),
+              3.5,
+              fast,
+            );
+            capEl.textContent = "Timer " + tFmt(n).replace(/^(..)/, "$1:");
+          }
+        }
+        tBtn.addEventListener("click", () => {
+          if (tState === "idle") {
+            tDone = false;
+            tState = "ready";
+            tLast = -1;
+            tSlow = true;
+          } else if (tState === "ready") {
+            tState = "running";
+            tEnd = Date.now() + tSet * 1000;
+          } else {
+            timerLeave();
+            return;
+          }
+          tUI();
+        });
+        document.getElementById("tm-m").addEventListener("click", () => {
+          tSet = Math.max(10, tSet - 60);
+        });
+        document.getElementById("tm-p").addEventListener("click", () => {
+          tSet = Math.min(5999, tSet + 60);
+        });
+        document.getElementById("tm-s").addEventListener("click", () => {
+          tSet = Math.min(5999, tSet + 10);
+        });
+
+        function tickSchedule() {
+          if (tState !== "idle" || tDone) return tickTimer();
+          const ms = Date.now();
+          if (mode === "minimal") return tickMini();
+          if (phase === "hold") {
+            checkMinute();
+            if (ms >= holdUntil) {
+              const nb = nextMinuteMs();
+              if (nb - ms > 25000) {
+                enterDance(nextIdx());
+                phase = "dance";
+                danceUntil = nb - 7000;
+              } else holdUntil = nb + 5000;
+            }
+          } else if (phase === "dance") {
+            if (ms >= danceUntil) {
+              const nb = nextMinuteMs();
+              const dur = Math.max(3, Math.min(6.2, (nb - ms) / 1000 - 0.3));
+              enterTime(new Date(nb + 500), dur);
+              phase = "converge";
+              convergeUntil = nb;
+            }
+          } else if (phase === "converge") {
+            if (ms >= convergeUntil) {
+              phase = "hold";
+              holdUntil = ms + 5000;
+            }
+          }
+        }
+
+        /* ================= Rendering ================= */
+        const canvas = document.getElementById("wall");
+        const ctx = canvas.getContext("2d");
+        let W = 0,
+          H = 0,
+          DPR = 1,
+          pitch = 40,
+          bx = 0,
+          by = 0,
+          bw = 0,
+          bh = 0,
+          gx = 0,
+          gy = 0;
+        let boardCv = null,
+          sprites = [],
+          handLen = 0,
+          handWid = 0;
+        let finish = "tidal";
+        const NLEV = 9;
+
+        const FIN = {
+          tidal: {
+            board: ["#1d3560", "#102244", "#0a1630"],
+            bands: "rgba(150,185,255,",
+            bandA: 0.07,
+            bandOp: "lighter",
+            ringFaint: "rgba(190,210,245,.10)",
+            ringLit: "rgba(215,230,255,.34)",
+            ringDark: "rgba(0,0,0,.22)",
+            edge: "rgba(0,0,0,.4)",
+            boardShadow: "rgba(10,20,45,.5)",
+            edgeB: [252, 253, 255],
+            edgeD: [128, 142, 165],
+            hiB: [226, 233, 243],
+            hiD: [78, 94, 122],
+            coreB: [136, 152, 178],
+            coreD: [30, 44, 74],
+            hShadow: "rgba(0,0,0,.42)",
+          },
+          white: {
+            board: ["#f7f7f5", "#eeeeec", "#e4e4e1"],
+            bands: "rgba(0,0,0,",
+            bandA: 0.035,
+            bandOp: "source-over",
+            ringFaint: "rgba(0,0,0,.07)",
+            ringLit: "rgba(255,255,255,1)",
+            ringDark: "rgba(0,0,0,.20)",
+            edge: "rgba(0,0,0,.14)",
+            boardShadow: "rgba(30,35,50,.26)",
+            edgeB: [74, 76, 84],
+            edgeD: [20, 20, 24],
+            hiB: [34, 36, 42],
+            hiD: [8, 8, 10],
+            coreB: [16, 16, 20],
+            coreD: [0, 0, 0],
+            hShadow: "rgba(0,0,0,.20)",
+          },
+          green: {
+            board: ["#173a32", "#0e2822", "#08171a"],
+            bands: "rgba(130,210,180,",
+            bandA: 0.06,
+            bandOp: "lighter",
+            ringFaint: "rgba(170,220,200,.12)",
+            ringLit: "rgba(200,240,225,.34)",
+            ringDark: "rgba(0,0,0,.35)",
+            edge: "rgba(0,0,0,.45)",
+            boardShadow: "rgba(4,16,14,.55)",
+            edgeB: [255, 226, 140],
+            edgeD: [150, 96, 24],
+            hiB: [255, 196, 64],
+            hiD: [122, 72, 14],
+            coreB: [214, 148, 28],
+            coreD: [64, 36, 4],
+            hShadow: "rgba(0,0,0,.5)",
+            pin: "#0a0f0e",
+          },
+          black: {
+            board: ["#232428", "#17181b", "#0d0d0f"],
+            bands: "rgba(255,255,255,",
+            bandA: 0.045,
+            bandOp: "lighter",
+            ringFaint: "rgba(255,255,255,.07)",
+            ringLit: "rgba(255,255,255,.34)",
+            ringDark: "rgba(0,0,0,.45)",
+            edge: "rgba(255,255,255,.08)",
+            boardShadow: "rgba(10,10,14,.5)",
+            edgeB: [250, 250, 250],
+            edgeD: [120, 122, 128],
+            hiB: [232, 233, 236],
+            hiD: [84, 86, 92],
+            coreB: [150, 152, 158],
+            coreD: [34, 35, 40],
+            hShadow: "rgba(0,0,0,.55)",
+          },
+        };
+        const mix = (a, b, t) =>
+          `rgb(${Math.round(a[0] + (b[0] - a[0]) * t)},${Math.round(a[1] + (b[1] - a[1]) * t)},${Math.round(a[2] + (b[2] - a[2]) * t)})`;
+
+        function buildSprites() {
+          const F = FIN[finish];
+          sprites = [];
+          const Lp = handLen * DPR,
+            Wp = handWid * DPR,
+            back = Wp / 2,
+            pad = Math.ceil(1.5 * DPR);
+          for (let i = 0; i < NLEV; i++) {
+            const t = i / (NLEV - 1);
+            const cv = document.createElement("canvas");
+            cv.width = Math.ceil(Wp + pad * 2);
+            cv.height = Math.ceil(Lp + back + pad * 2);
+            const g = cv.getContext("2d");
+            const grad = g.createLinearGradient(pad, 0, pad + Wp, 0);
+            grad.addColorStop(0, mix(F.edgeD, F.edgeB, t));
+            grad.addColorStop(0.2, mix(F.hiD, F.hiB, t));
+            grad.addColorStop(0.5, mix(F.coreD, F.coreB, t));
+            grad.addColorStop(0.8, mix(F.hiD, F.hiB, t));
+            grad.addColorStop(1, mix(F.edgeD, F.edgeB, t));
+            g.fillStyle = grad;
+            g.beginPath();
+            g.roundRect(pad, pad, Wp, Lp + back, Wp * 0.1);
+            g.fill();
+            // bright polished tip
+            g.fillStyle = `rgba(255,255,255,${0.12 + 0.28 * t})`;
+            g.fillRect(pad, pad, Wp, Math.max(1, Wp * 0.18));
+            sprites.push({ cv, ox: pad + Wp / 2, oy: pad + Lp });
+          }
+        }
+
+        function buildBoard() {
+          const F = FIN[finish];
+          boardCv = document.createElement("canvas");
+          boardCv.width = Math.ceil(bw * DPR);
+          boardCv.height = Math.ceil(bh * DPR);
+          const g = boardCv.getContext("2d");
+          g.scale(DPR, DPR);
+          const grad = g.createLinearGradient(0, 0, bw, bh * 0.35);
+          grad.addColorStop(0, F.board[0]);
+          grad.addColorStop(0.5, F.board[1]);
+          grad.addColorStop(1, F.board[2]);
+          g.fillStyle = grad;
+          g.fillRect(0, 0, bw, bh);
+          // soft vignette
+          const v = g.createRadialGradient(
+            bw * 0.5,
+            bh * 0.5,
+            bh * 0.2,
+            bw * 0.5,
+            bh * 0.5,
+            bw * 0.65,
+          );
+          v.addColorStop(0, "rgba(0,0,0,0)");
+          v.addColorStop(
+            1,
+            finish === "white" ? "rgba(0,0,0,.05)" : "rgba(0,0,0,.28)",
+          );
+          g.fillStyle = v;
+          g.fillRect(0, 0, bw, bh);
+
+          // milled circular recesses
+          const R = pitch * 0.48,
+            ox = (bw - COLS * pitch) / 2,
+            oy = (bh - ROWS * pitch) / 2;
+          for (const k of L.rings === false ? [] : clocks) {
+            const x = bw / 2 + k.px * pitch,
+              y = bh / 2 + k.py * pitch;
+            g.lineWidth = Math.max(0.8, pitch * 0.012);
+            g.strokeStyle = F.ringFaint;
+            g.beginPath();
+            g.arc(x, y, R, 0, Math.PI * 2);
+            g.stroke();
+            g.lineWidth = Math.max(1, pitch * 0.02);
+            g.strokeStyle = F.ringLit; // lit wall on the right
+            g.beginPath();
+            g.arc(x, y, R, -Math.PI * 0.42, Math.PI * 0.42);
+            g.stroke();
+            g.strokeStyle = F.ringDark; // shaded wall on the left
+            g.beginPath();
+            g.arc(x, y, R * 0.985, Math.PI * 0.62, Math.PI * 1.38);
+            g.stroke();
+          }
+        }
+
+        function bpath(inset) {
+          ctx.beginPath();
+          if (L.round)
+            ctx.arc(bx + bw / 2, by + bh / 2, bw / 2 - inset, 0, Math.PI * 2);
+          else
+            ctx.roundRect(
+              bx + inset,
+              by + inset,
+              bw - 2 * inset,
+              bh - 2 * inset,
+              pitch * 0.05,
+            );
+        }
+        function resize() {
+          DPR = Math.min(window.devicePixelRatio || 1, 2.5);
+          W = window.innerWidth;
+          H = window.innerHeight;
+          canvas.width = Math.round(W * DPR);
+          canvas.height = Math.round(H * DPR);
+          const side = W > 760 ? 240 : 0;
+          const availW = (W - side) * 0.94,
+            availH = H * (side ? 0.88 : L.round ? 0.84 : 0.76);
+          pitch = Math.min(availW / L.bw, availH / L.bh);
+          bw = L.bw * pitch;
+          bh = L.bh * pitch;
+          bx = (W - side - bw) / 2;
+          by = (H - bh) / 2 - H * 0.02;
+          gx = bx + bw / 2;
+          gy = by + bh / 2;
+          handLen = pitch * 0.465;
+          handWid = Math.max(3, pitch * 0.118 * (L.hw || 1));
+          buildBoard();
+          buildSprites();
+        }
+
+        function setFinish(f) {
+          autoFinish = null;
+          finish = f;
+          document.documentElement.dataset.finish = f;
+          document.querySelectorAll("[data-finish]").forEach((b) => {
+            if (b.tagName === "BUTTON")
+              b.setAttribute("aria-pressed", String(b.dataset.finish === f));
+          });
+          buildBoard();
+          buildSprites();
+        }
+
+        function targetOf(k, i, u) {
+          if (view === "time") return tGrid[k.r][k.c][i];
+          return PATTERNS[danceIdx][1](k, u)[i];
+        }
+
+        function frame() {
+          const now = performance.now() / 1000;
+          tickSchedule();
+          const F = FIN[finish];
+          const u = now - danceT0;
+
+          // advance every hand
+          for (const k of clocks) {
+            let tg = null;
+            if (view === "dance") tg = PATTERNS[danceIdx][1](k, u);
+            for (let i = 0; i < 2; i++) {
+              const U = tg ? tg[i] : tGrid[k.r][k.c][i];
+              if (k.pend && now >= k.t0) {
+                if (i === 0) k._init = true;
+                const s = k.hold[i],
+                  dir = k.pend.dirs[i],
+                  ex = k.pend.extras[i];
+                if (dir === "short") k.off[i] = wrap180(s - U);
+                else if (dir === "cw") k.off[i] = -(mod360(U - s) + 360 * ex);
+                else k.off[i] = mod360(s - U) + 360 * ex;
+                if (i === 1) k.pend = null;
+              }
+              if (k.pend) k.shown[i] = k.hold[i];
+              else {
+                const q = (now - k.t0) / k.dur;
+                k.shown[i] =
+                  q >= 1 ? U : U + k.off[i] * (1 - ease(Math.max(0, q)));
+              }
+            }
+          }
+
+          // draw
+          ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+          ctx.clearRect(0, 0, W, H);
+
+          ctx.save();
+          ctx.shadowColor = F.boardShadow;
+          ctx.shadowBlur = pitch * (L.shBlur || 0.9);
+          ctx.shadowOffsetX = pitch * (L.shDx || 0);
+          ctx.shadowOffsetY = pitch * (L.shDy == null ? 0.32 : L.shDy);
+          ctx.fillStyle = F.board[1];
+          bpath(0);
+          ctx.fill();
+          ctx.restore();
+
+          ctx.save();
+          bpath(0);
+          ctx.clip();
+          ctx.drawImage(boardCv, bx, by, bw, bh);
+          ctx.restore();
+
+          // light moving over the surface like sunlight on water
+          ctx.save();
+          bpath(0);
+          ctx.clip();
+          ctx.globalCompositeOperation = F.bandOp;
+          for (let b = 0; b < 4; b++) {
+            const cxp =
+              bx +
+              bw * (0.12 + b * 0.27 + 0.09 * Math.sin(now * 0.11 + b * 1.9));
+            const half = bw * (0.07 + 0.03 * Math.sin(now * 0.17 + b));
+            const a = F.bandA * (0.65 + 0.35 * Math.sin(now * 0.23 + b * 2.3));
+            const gr = ctx.createLinearGradient(
+              cxp - half,
+              by,
+              cxp + half + bh * 0.25,
+              by + bh,
+            );
+            gr.addColorStop(0, F.bands + "0)");
+            gr.addColorStop(0.5, F.bands + a + ")");
+            gr.addColorStop(1, F.bands + "0)");
+            ctx.fillStyle = gr;
+            ctx.fillRect(bx, by, bw, bh);
+          }
+          ctx.restore();
+          ctx.strokeStyle = F.edge;
+          ctx.lineWidth = 1;
+          bpath(0.5);
+          ctx.stroke();
+
+          // hand shadows
+          const sx = pitch * (L.hsx == null ? 0.045 : L.hsx),
+            sy = pitch * (L.hsy == null ? 0.06 : L.hsy);
+          ctx.lineCap = "butt";
+          ctx.lineWidth = handWid;
+          ctx.strokeStyle = F.hShadow;
+          ctx.beginPath();
+          for (const k of clocks) {
+            const x = gx + k.px * pitch + sx,
+              y = gy + k.py * pitch + sy;
+            for (let i = 0; i < 2; i++) {
+              const a = k.shown[i] * D2R;
+              ctx.moveTo(
+                x - Math.sin(a) * handWid * 0.5,
+                y + Math.cos(a) * handWid * 0.5,
+              );
+              ctx.lineTo(x + Math.sin(a) * handLen, y - Math.cos(a) * handLen);
+            }
+          }
+          ctx.stroke();
+
+          // polished hands (brightness follows a light that drifts across the board)
+          for (const k of clocks) {
+            const x = gx + k.px * pitch,
+              y = gy + k.py * pitch;
+            const aL = 28 + 55 * Math.sin(k.xn * 2.6 + k.yn * 1.1 - now * 0.35);
+            for (let j = 1; j >= 0; j--) {
+              const a = k.shown[j];
+              const lum = 0.5 + 0.5 * Math.cos(2 * (a - aL) * D2R);
+              const t = Math.min(1, 0.18 + 0.82 * Math.pow(lum, 0.8));
+              const sp = sprites[Math.round(t * (NLEV - 1))];
+              ctx.save();
+              ctx.translate(x, y);
+              ctx.rotate(a * D2R);
+              ctx.drawImage(
+                sp.cv,
+                -sp.ox / DPR,
+                -sp.oy / DPR,
+                sp.cv.width / DPR,
+                sp.cv.height / DPR,
+              );
+              ctx.restore();
+            }
+          }
+          if (F.pin) {
+            ctx.fillStyle = F.pin;
+            const pr = Math.max(1.6, pitch * 0.026);
+            for (const k of clocks) {
+              ctx.beginPath();
+              ctx.arc(gx + k.px * pitch, gy + k.py * pitch, pr, 0, 6.2832);
+              ctx.fill();
+            }
+          }
+          requestAnimationFrame(frame);
+        }
+
+        /* ================= Controls ================= */
+        function setMode(m) {
+          timerLeave();
+          const was = mode;
+          mode = m;
+          if (m === "minimal" && was !== "minimal") enterMini();
+          if (m !== "minimal" && was === "minimal") leaveMini();
+          document
+            .querySelectorAll("[data-mode]")
+            .forEach((b) =>
+              b.setAttribute("aria-pressed", String(b.dataset.mode === m)),
+            );
+          const ms = Date.now();
+          if (m === "minimal") {
+            phase = "hold";
+            return;
+          }
+          if (view === "dance" && phase === "dance") {
+            if (m === "original") enterDance(0);
+            return;
+          }
+          if (view !== "time") enterTime(new Date(), 3.5);
+          phase = "hold";
+          holdUntil = ms + 3000;
+        }
+        document
+          .querySelectorAll("[data-mode]")
+          .forEach((b) =>
+            b.addEventListener("click", () => setMode(b.dataset.mode)),
+          );
+
+        document.getElementById("next").addEventListener("click", () => {
+          timerLeave();
+          if (mode === "minimal") {
+            miAt = 0;
+            return;
+          } // minimal: next step of its sequence
+          const ms = Date.now(),
+            nb = nextMinuteMs();
+          let end = nb - 7000;
+          if (end - ms < 12000) end += 60000; // always at least ~12 s of choreography
+          phase = "dance";
+          danceUntil = end;
+          enterDance((danceIdx + 1) % PATTERNS.length);
+        });
+
+        document.getElementById("h24").addEventListener("click", (e) => {
+          timerLeave();
+          use24 = !use24;
+          e.currentTarget.setAttribute("aria-pressed", String(use24));
+          e.currentTarget.textContent = use24 ? "24h" : "12h";
+          if (mode !== "minimal" && view === "time") enterTime(new Date(), 3.5);
+          else lastKey = "";
+        });
+        document
+          .querySelectorAll("button[data-finish]")
+          .forEach((b) =>
+            b.addEventListener("click", () => setFinish(b.dataset.finish)),
+          );
+
+        document
+          .querySelectorAll("[data-shape]")
+          .forEach((b) =>
+            b.addEventListener("click", () => setShape(b.dataset.shape)),
+          );
+
+        const bar = document.getElementById("bar");
+        let idleTimer;
+        function wake() {
+          bar.classList.remove("idle");
+          clearTimeout(idleTimer);
+          idleTimer = setTimeout(() => bar.classList.add("idle"), 4500);
+        }
+        ["pointermove", "pointerdown", "keydown"].forEach((ev) =>
+          window.addEventListener(ev, wake),
+        );
+        wake();
+
+        window.addEventListener("resize", resize);
+        resize();
+
+        // Opening: hands sweep from their resting pose into the current time, hold, then the first choreography.
+        enterTime(new Date(), 5);
+        holdUntil = Date.now() + 8000;
+        if (
+          window.matchMedia &&
+          window.matchMedia("(prefers-reduced-motion: reduce)").matches
+        )
+          setMode("minimal");
+        requestAnimationFrame(frame);
+      })();
+    </script>
+  </body>
 </html>

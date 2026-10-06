@@ -31,59 +31,75 @@
   }
   canvas#wall { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
   .bar {
-    position: fixed; left: 50%; transform: translateX(-50%);
-    bottom: calc(16px + env(safe-area-inset-bottom, 0px));
-    max-width: calc(100% - 20px);
-    display: flex; gap: 3px; align-items: center;
-    padding: 5px;
-    background: var(--ui-bg);
-    border: 1px solid var(--ui-line);
-    border-radius: 999px;
-    backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
-    overflow-x: auto; scrollbar-width: none;
-    transition: opacity .5s ease;
+    position: fixed; right: 16px; top: 50%; transform: translateY(-50%);
+    width: 208px; max-height: calc(100% - 32px); overflow-y: auto; scrollbar-width: none;
+    display: flex; flex-direction: column; gap: 16px; padding: 16px;
+    background: var(--ui-bg); border: 1px solid var(--ui-line); border-radius: 20px;
+    backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+    box-shadow: 0 12px 40px rgba(20,28,45,.14);
   }
   .bar::-webkit-scrollbar { display: none; }
-  .bar.idle { opacity: 0; }
-  .bar:hover, .bar:focus-within { opacity: 1; }
-  .bar button {
-    font: inherit; font-size: 13px;
-    color: var(--ui-fg); background: transparent;
-    border: 0; border-radius: 999px; padding: 7px 12px;
-    cursor: pointer; white-space: nowrap;
-    transition: background .2s, color .2s;
-  }
-  .bar button:hover { background: rgba(30,40,60,.08); }
-  .bar button:focus-visible { outline: 2px solid var(--ui-on-bg); outline-offset: 1px; }
-  .bar button[aria-pressed="true"] { background: var(--ui-on-bg); color: var(--ui-on-fg); }
-  .tadj { display: flex; gap: 3px; }
+  .bar h3 { margin: 0 0 7px; font-size: 10.5px; font-weight: 600; letter-spacing: .13em; text-transform: uppercase; color: var(--ui-mute); }
+  .bar .cap { font-size: 13px; font-variant-numeric: tabular-nums; padding: 9px 12px; border-radius: 12px; background: rgba(30,40,60,.07); color: var(--ui-fg); }
+  .seg { display: flex; flex-direction: column; gap: 4px; }
+  .row { display: flex; gap: 4px; }
+  .row > button { flex: 1; }
+  .tadj { display: flex; gap: 4px; margin-top: 4px; }
   .tadj[hidden] { display: none; }
-  .bar .sep { width: 1px; height: 18px; background: var(--ui-line); margin: 0 4px; flex: none; }
-  .bar .cap { font-size: 12px; color: var(--ui-mute); padding: 0 10px 0 8px; white-space: nowrap; min-width: 86px; font-variant-numeric: tabular-nums; }
-  @media (max-width: 560px) { .bar .cap { display: none; } }
+  .tadj button { flex: 1; padding: 7px 4px; }
+  .sw { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
+  .bar button {
+    font: inherit; font-size: 13px; color: var(--ui-fg); text-align: left;
+    background: rgba(255,255,255,.5); border: 1px solid var(--ui-line); border-radius: 11px;
+    padding: 8px 11px; cursor: pointer; white-space: nowrap; transition: background .2s, color .2s, border-color .2s;
+  }
+  .bar button:hover { background: rgba(255,255,255,.9); }
+  .bar button:focus-visible { outline: 2px solid var(--ui-on-bg); outline-offset: 1px; }
+  .bar button[aria-pressed="true"] { background: var(--ui-on-bg); color: var(--ui-on-fg); border-color: transparent; }
+  .sw button { display: flex; align-items: center; gap: 7px; padding: 8px; }
+  .sw i { width: 14px; height: 14px; border-radius: 50%; flex: none; border: 1px solid rgba(128,128,128,.45); }
+  @media (max-width: 760px) {
+    .bar { top: auto; bottom: calc(12px + env(safe-area-inset-bottom, 0px)); right: auto; left: 50%; transform: translateX(-50%);
+           width: auto; max-width: calc(100% - 20px); flex-direction: row; align-items: center; gap: 10px; padding: 7px; border-radius: 999px; overflow-x: auto; transition: opacity .5s; }
+    .bar h3, .bar .cap { display: none; }
+    .bar section { display: flex; gap: 4px; flex: none; }
+    .seg, .row, .sw, .tadj { flex-direction: row; display: flex; margin: 0; }
+    .bar button { border-radius: 999px; padding: 7px 12px; }
+    .tadj[hidden] { display: none; }
+    .bar.idle { opacity: 0; } .bar:hover, .bar:focus-within { opacity: 1; }
+  }
 </style>
 </head>
 <body>
 <canvas id="wall" role="img" aria-label="A wall of 120 small analog clocks whose hands form the current time"></canvas>
 
-<div class="bar" id="bar">
-  <button data-mode="active" aria-pressed="true" title="20 choreographies, one every minute">Active</button>
-  <button data-mode="original" aria-pressed="false" title="The original choreography, every minute">Original</button>
-  <button data-mode="minimal" aria-pressed="false" title="Only the time">Minimal</button>
-  <span class="sep"></span>
-  <button id="next">Next</button>
-  <button id="h24" aria-pressed="true">24h</button>
-  <button id="shape" title="Switch between the rectangular and round piece">Shape: Rectangle</button>
-  <span class="sep"></span>
-  <button id="timer" aria-pressed="false">Timer</button>
-  <span class="tadj" id="tadj" hidden><button id="tm-m">&minus;1m</button><button id="tm-p">+1m</button><button id="tm-s">+10s</button></span>
-  <span class="sep"></span>
-  <button data-finish="tidal" aria-pressed="true">Tidal</button>
-  <button data-finish="white" aria-pressed="false">White</button>
-  <button data-finish="black" aria-pressed="false">Black</button>
-  <button data-finish="green" aria-pressed="false">Green</button>
-  <span class="cap" id="cap">Time</span>
-</div>
+<aside class="bar" id="bar" aria-label="Controls">
+  <div class="cap" id="cap">Time</div>
+  <section><h3>Program</h3><div class="seg">
+    <button data-mode="active" aria-pressed="true" title="20 choreographies, one every minute">Active</button>
+    <button data-mode="original" aria-pressed="false" title="The original choreography, every minute">Original</button>
+    <button data-mode="minimal" aria-pressed="false" title="Nine clocks, time in the centre">Minimal</button>
+  </div></section>
+  <section><h3>Shape</h3><div class="seg">
+    <button data-shape="rect" aria-pressed="true">Rectangle</button>
+    <button data-shape="round" aria-pressed="false">Round</button>
+    <button data-shape="vert" aria-pressed="false">Vertical</button>
+  </div></section>
+  <section><h3>Playback</h3><div class="row">
+    <button id="next" title="Jump to the next choreography">Next</button>
+    <button id="h24" aria-pressed="true">24h</button>
+  </div></section>
+  <section><h3>Timer</h3>
+    <button id="timer" aria-pressed="false" style="width:100%">Timer</button>
+    <div class="tadj" id="tadj" hidden><button id="tm-m">&minus;1m</button><button id="tm-p">+1m</button><button id="tm-s">+10s</button></div>
+  </section>
+  <section><h3>Finish</h3><div class="sw">
+    <button data-finish="tidal" aria-pressed="true"><i style="background:linear-gradient(135deg,#1d3560 55%,#e8eef7 55%)"></i>Tidal</button>
+    <button data-finish="white" aria-pressed="false"><i style="background:linear-gradient(135deg,#f3f3f1 55%,#16161a 55%)"></i>White</button>
+    <button data-finish="black" aria-pressed="false"><i style="background:linear-gradient(135deg,#1b1c1f 55%,#eceef2 55%)"></i>Black</button>
+    <button data-finish="green" aria-pressed="false"><i style="background:linear-gradient(135deg,#173a32 55%,#f2b84b 55%)"></i>Green</button>
+  </div></section>
+</aside>
 
 <script>
 (() => {
@@ -100,7 +116,9 @@
   };
   LAYOUTS.mini = { cols: 3, rows: 3, bw: 4.3, bh: 4.3, round: true, mini: true, mask: null, rings: false, hw: .8,
                    rest: [45, 225], shDx: -.3, shDy: .2, shBlur: .3, hsx: -.04, hsy: .05, digitCols: [], digitRow: 0,
-                   gw: 0, gh: 0, colon: [], label: "Minimal" };
+                   gw: 0, gh: 0, colon: [], label: "Minimal", finish: "white" };
+  LAYOUTS.vert = { cols: 6, rows: 12, bw: 6.72, bh: 12.72, round: false, mask: null, digitCols: [0, 3, 0, 3], digitRow: [0, 0, 6, 6],
+                   gw: 3, gh: 6, colon: [], label: "Vertical", finish: "black" };
   let L = LAYOUTS.rect, COLS = 15, ROWS = 8, cx = 7, cy = 3.5, DIGIT_COLS = [1, 4, 8, 11], DIGIT_ROW = 1;
   const RGLY = { 0: "RD LD|UD UD|RU LU", 1: "II DD|II UD|II UU", 2: "RR LD|RD LU|RU LL", 3: "RR LD|RR UD|RR LU",
                  4: "DD DD|UR UD|II UU", 5: "RD LL|UR LD|RR LU", 6: "RD LL|UD LD|RU LU", 7: "RR LD|II UD|II UU",
@@ -157,7 +175,7 @@
     for (let r = 0; r < ROWS; r++) { grid.push([]); for (let c = 0; c < COLS; c++) grid[r].push(IDLE_OUT.slice()); }
     digits.forEach((d, i) => {
       const a = L.round ? roundGlyph(d) : glyphAngles(d);
-      for (let r = 0; r < L.gh; r++) for (let c = 0; c < L.gw; c++) grid[DIGIT_ROW + r][DIGIT_COLS[i] + c] = a[r][c];
+      for (let r = 0; r < L.gh; r++) for (let c = 0; c < L.gw; c++) grid[(Array.isArray(DIGIT_ROW) ? DIGIT_ROW[i] : DIGIT_ROW) + r][DIGIT_COLS[i] + c] = a[r][c];
     });
     if (forced && forced.colon) for (const [r, c, a] of L.colon) grid[r][c] = a.slice();
     return grid;
@@ -314,17 +332,34 @@
     }
   }
   let baseLayout = "rect", autoFinish = null;
+  function preferFinish(name) { const f = LAYOUTS[name].finish; if (f && finish !== f) { const prev = finish; setFinish(f); autoFinish = prev; } }
+  function restoreFinish() { const af = autoFinish; if (af) setFinish(af); }
+  function updateShapeUI() {
+    document.querySelectorAll("[data-shape]").forEach(b => b.setAttribute("aria-pressed", String(mode !== "minimal" && b.dataset.shape === baseLayout)));
+  }
   function enterMini() {
-    applyLayout("mini"); resize();
-    tGrid = miniGrid("rest", new Date()); view = "time"; mi = -1; miAt = 0;
-    const prev = finish;
-    if (prev !== "white") { setFinish("white"); autoFinish = prev; }
+    restoreFinish(); applyLayout("mini"); resize(); preferFinish("mini");
+    tGrid = miniGrid("rest", new Date()); view = "time"; mi = -1; miAt = 0; updateShapeUI();
   }
   function leaveMini() {
-    applyLayout(baseLayout); resize();
-    const af = autoFinish; if (af) setFinish(af);
-    tGrid = timeGrid(new Date());
-    enterTime(new Date(), 4);
+    restoreFinish(); applyLayout(baseLayout); resize(); preferFinish(baseLayout);
+    tGrid = timeGrid(new Date()); enterTime(new Date(), 4); updateShapeUI();
+  }
+  function setShape(name) {
+    if (mode === "minimal") setMode("active");
+    timerLeave();
+    restoreFinish(); baseLayout = name; applyLayout(name); resize(); preferFinish(name);
+    tGrid = timeGrid(new Date()); enterTime(new Date(), 5);
+    phase = "hold"; holdUntil = Date.now() + 5000; updateShapeUI();
+  }
+  // Timer on the 9-clock piece: the centre clock counts down (minutes hand + seconds hand), the ring dissolves as time passes.
+  const RING = ["0,0", "1,0", "2,0", "2,1", "2,2", "1,2", "0,2", "0,1"];
+  function miniTimerGrid(n) {
+    const g = miniGrid("diamond", new Date());
+    const gone = tState === "ready" ? 0 : Math.min(8, Math.floor((1 - n / tSet) * 8 + 1e-6));
+    RING.forEach((key, i) => { if (i < gone) { const [c, r] = key.split(",").map(Number); g[r][c] = [45, 225]; } });
+    g[1][1] = [(n / 10) % 360, (n % 60) * 6];
+    return g;
   }
 
   let tState = "idle", tSet = 300, tEnd = 0, tDone = false, tDoneAt = 0, tLast = -1, tSlow = true;
@@ -339,6 +374,7 @@
     if (tState === "idle" && !tDone) return;
     tState = "idle"; tDone = false; tUI();
     phase = "hold"; holdUntil = Date.now() + 3000;
+    if (mode === "minimal") { mi = -1; miAt = 0; }
     enterTime(new Date(), 4);
   }
   function tickTimer() {
@@ -350,12 +386,11 @@
     }
     if (n !== tLast) {
       tLast = n; const fast = !tSlow; tSlow = false;
-      showGrid(timeGrid(null, { digits: tFmt(n), colon: true }), 3.5, fast);
+      showGrid(L.mini ? miniTimerGrid(n) : timeGrid(null, { digits: tFmt(n), colon: true }), 3.5, fast);
       capEl.textContent = "Timer " + tFmt(n).replace(/^(..)/, "$1:");
     }
   }
   tBtn.addEventListener("click", () => {
-    if (mode === "minimal") setMode("active");
     if (tState === "idle") { tDone = false; tState = "ready"; tLast = -1; tSlow = true; }
     else if (tState === "ready") { tState = "running"; tEnd = Date.now() + tSet * 1000; }
     else { timerLeave(); return; }
@@ -494,10 +529,11 @@
     DPR = Math.min(window.devicePixelRatio || 1, 2.5);
     W = window.innerWidth; H = window.innerHeight;
     canvas.width = Math.round(W * DPR); canvas.height = Math.round(H * DPR);
-    const availW = W * 0.93, availH = H * (L.round ? 0.84 : 0.76);
+    const side = W > 760 ? 240 : 0;
+    const availW = (W - side) * 0.94, availH = H * (side ? 0.88 : (L.round ? 0.84 : 0.76));
     pitch = Math.min(availW / L.bw, availH / L.bh);
     bw = L.bw * pitch; bh = L.bh * pitch;
-    bx = (W - bw) / 2; by = (H - bh) / 2 - H * 0.025;
+    bx = (W - side - bw) / 2; by = (H - bh) / 2 - H * 0.02;
     gx = bx + bw / 2; gy = by + bh / 2;
     handLen = pitch * 0.465; handWid = Math.max(3, pitch * 0.118 * (L.hw || 1));
     buildBoard(); buildSprites();
@@ -629,12 +665,13 @@
 
   document.getElementById("next").addEventListener("click", () => {
     timerLeave();
+    if (mode === "minimal") { miAt = 0; return; }              // minimal: next step of its sequence
     const ms = Date.now(), nb = nextMinuteMs();
-    if (mode === "minimal") setMode("active");
-    if (phase === "converge") return;
-    if (phase === "hold") { if (nb - ms < 14000) return; phase = "dance"; danceUntil = nb - 7000; enterDance(nextIdx()); }
-    else enterDance((danceIdx + 1) % PATTERNS.length);
+    let end = nb - 7000; if (end - ms < 12000) end += 60000;   // always at least ~12 s of choreography
+    phase = "dance"; danceUntil = end;
+    enterDance((danceIdx + 1) % PATTERNS.length);
   });
+
 
   document.getElementById("h24").addEventListener("click", e => {
     timerLeave();
@@ -646,17 +683,8 @@
   });
   document.querySelectorAll("button[data-finish]").forEach(b => b.addEventListener("click", () => setFinish(b.dataset.finish)));
 
-  document.getElementById("shape").addEventListener("click", e => {
-    if (mode === "minimal") setMode("active");
-    timerLeave();
-    baseLayout = baseLayout === "rect" ? "round" : "rect";
-    applyLayout(baseLayout);
-    e.currentTarget.textContent = "Shape: " + L.label;
-    resize();
-    tGrid = timeGrid(new Date());
-    enterTime(new Date(), 5);
-    phase = "hold"; holdUntil = Date.now() + 5000;
-  });
+  document.querySelectorAll("[data-shape]").forEach(b => b.addEventListener("click", () => setShape(b.dataset.shape)));
+
 
 
   const bar = document.getElementById("bar");

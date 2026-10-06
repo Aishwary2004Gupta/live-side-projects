@@ -25,6 +25,10 @@
         --wall-a: #dcdee2;
         --wall-b: #8d929b;
       }
+      :root[data-finish="dune"] {
+        --wall-a: #ffffff;
+        --wall-b: #e6e3e0;
+      }
       :root[data-finish="green"] {
         --wall-a: #3b4743;
         --wall-b: #0f1816;
@@ -78,8 +82,8 @@
         scrollbar-width: none;
         display: flex;
         flex-direction: column;
-        gap: 16px;
-        padding: 16px;
+        gap: 13px;
+        padding: 14px 16px;
         background: var(--ui-bg);
         border: 1px solid var(--ui-line);
         border-radius: 20px;
@@ -225,6 +229,87 @@
           opacity: 1;
         }
       }
+      .hint {
+        margin: 7px 2px 0;
+        font-size: 11.5px;
+        line-height: 1.4;
+        color: var(--ui-mute);
+      }
+      .hint b {
+        color: var(--ui-fg);
+        font-weight: 600;
+      }
+      .lbar {
+        right: auto;
+        left: 16px;
+      }
+      .lbar .seg {
+        gap: 2px;
+      }
+      .lbar .seg button {
+        padding: 6px 10px;
+        font-size: 12.5px;
+      }
+      .lbar b {
+        display: inline-block;
+        width: 26px;
+        font-weight: 500;
+        opacity: 0.5;
+        font-variant-numeric: tabular-nums;
+      }
+      .lbar .gap {
+        height: 6px;
+      }
+      .sw small {
+        display: block;
+        font-size: 10px;
+        opacity: 0.65;
+        margin-top: 1px;
+      }
+      .uit {
+        position: fixed;
+        top: 12px;
+        right: 16px;
+        z-index: 20;
+        font: inherit;
+        font-size: 12.5px;
+        color: var(--ui-fg);
+        background: var(--ui-bg);
+        border: 1px solid var(--ui-line);
+        border-radius: 999px;
+        padding: 7px 14px;
+        cursor: pointer;
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
+      }
+      .uit:hover {
+        background: rgba(255, 255, 255, 0.95);
+      }
+      .uit:focus-visible {
+        outline: 2px solid var(--ui-on-bg);
+        outline-offset: 1px;
+      }
+      body.ui-hidden .bar {
+        display: none;
+      }
+      @media (min-width: 761px) {
+        .bar {
+          top: 56px;
+          transform: none;
+          max-height: calc(100% - 72px);
+        }
+      }
+      @media (max-width: 1000px) {
+        .lbar {
+          display: none;
+        }
+      }
+      @media (max-width: 760px) {
+        .uit {
+          top: 8px;
+          right: 8px;
+        }
+      }
     </style>
   </head>
   <body>
@@ -234,6 +319,18 @@
       aria-label="A wall of 120 small analog clocks whose hands form the current time"
     ></canvas>
 
+    <button
+      class="uit"
+      id="uitoggle"
+      aria-pressed="false"
+      title="Hide / show all controls (H)"
+    >
+      Hide controls
+    </button>
+    <aside class="bar lbar" id="lbar" aria-label="Animations">
+      <div class="cap" id="lcap">20 animations</div>
+      <div class="seg" id="anims"></div>
+    </aside>
     <aside class="bar" id="bar" aria-label="Controls">
       <div class="cap" id="cap">Time</div>
       <section>
@@ -272,9 +369,19 @@
       </section>
       <section>
         <h3>Playback</h3>
-        <div class="row">
-          <button id="next" title="Jump to the next choreography">Next</button>
-          <button id="h24" aria-pressed="true">24h</button>
+        <button
+          id="next"
+          style="width: 100%"
+          title="Skip to the next animation"
+        >
+          Next &#9656;
+        </button>
+        <p class="hint" id="nexthint"></p>
+        <div class="row" style="margin-top: 8px">
+          <button id="h24" aria-pressed="true">24h</button
+          ><button id="sound" aria-pressed="true" title="Mute / unmute (M)">
+            Sound on
+          </button>
         </div>
       </section>
       <section>
@@ -321,6 +428,21 @@
               "
             ></i
             >Green
+          </button>
+          <button
+            data-finish="dune"
+            aria-pressed="false"
+            style="grid-column: 1/-1"
+            title="Bjarke Ingels"
+          >
+            <i
+              style="
+                background: linear-gradient(135deg, #b4452a 55%, #e3e6ea 55%);
+              "
+            ></i
+            ><span
+              >Sunset Dune<small>Travertine &middot; Bjarke Ingels</small></span
+            >
           </button>
         </div>
       </section>
@@ -1004,9 +1126,12 @@
             tDoneAt = ms + 7000;
             tUI();
             enterDance(3);
+            chime();
             return;
           }
           if (n !== tLast) {
+            if (tState === "running" && actx && !muted && tLast >= 0)
+              tick(0, 0.08, 1.2);
             tLast = n;
             const fast = !tSlow;
             tSlow = false;
@@ -1075,6 +1200,115 @@
           }
         }
 
+        /* ================= Sound: soft stepper ticks + a quiet motor bed, driven by how much the hands move ================= */
+        let actx = null,
+          master = null,
+          humGain = null,
+          clickBuf = null,
+          muted = false,
+          soundLast = performance.now() / 1000;
+        function initAudio() {
+          if (actx) {
+            if (actx.state === "suspended") actx.resume();
+            return;
+          }
+          const AC = window.AudioContext || window.webkitAudioContext;
+          if (!AC) return;
+          actx = new AC();
+          master = actx.createGain();
+          master.gain.value = muted ? 0 : 0.9;
+          master.connect(actx.destination);
+          const n = Math.floor(actx.sampleRate * 0.014);
+          clickBuf = actx.createBuffer(1, n, actx.sampleRate);
+          const d = clickBuf.getChannelData(0);
+          for (let i = 0; i < n; i++)
+            d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / n, 3);
+          humGain = actx.createGain();
+          humGain.gain.value = 0;
+          const lp = actx.createBiquadFilter();
+          lp.type = "lowpass";
+          lp.frequency.value = 520;
+          [96, 144.4].forEach((f, i) => {
+            const o = actx.createOscillator();
+            o.type = "triangle";
+            o.frequency.value = f;
+            o.detune.value = i * 7;
+            o.connect(lp);
+            o.start();
+          });
+          lp.connect(humGain);
+          humGain.connect(master);
+        }
+        function tick(pan, vol, rate) {
+          const src = actx.createBufferSource();
+          src.buffer = clickBuf;
+          src.playbackRate.value = rate;
+          const f = actx.createBiquadFilter();
+          f.type = "bandpass";
+          f.frequency.value = 1800 + Math.random() * 2600;
+          f.Q.value = 1.2;
+          const g = actx.createGain();
+          g.gain.value = vol;
+          src.connect(f);
+          f.connect(g);
+          if (actx.createStereoPanner) {
+            const pn = actx.createStereoPanner();
+            pn.pan.value = pan;
+            g.connect(pn);
+            pn.connect(master);
+          } else g.connect(master);
+          src.start();
+        }
+        function soundStep(act, dt) {
+          if (!actx || muted) return;
+          const dps = act / dt,
+            c = Math.min(
+              10,
+              Math.floor(Math.min(70, dps / 9) * dt + Math.random()),
+            );
+          for (let i = 0; i < c; i++)
+            tick(
+              (Math.random() * 2 - 1) * 0.7,
+              0.035 + Math.random() * 0.05,
+              0.75 + Math.random() * 0.7,
+            );
+          humGain.gain.setTargetAtTime(
+            Math.min(1, dps / 6000) * 0.022,
+            actx.currentTime,
+            0.12,
+          );
+        }
+        function chime() {
+          if (!actx || muted) return;
+          [
+            [784, 0],
+            [1175, 0.18],
+            [1568, 0.36],
+          ].forEach(([fr, dl]) => {
+            const o = actx.createOscillator(),
+              g = actx.createGain(),
+              t0 = actx.currentTime + dl;
+            o.type = "sine";
+            o.frequency.value = fr;
+            g.gain.setValueAtTime(0, t0);
+            g.gain.linearRampToValueAtTime(0.12, t0 + 0.01);
+            g.gain.exponentialRampToValueAtTime(0.0008, t0 + 1.6);
+            o.connect(g);
+            g.connect(master);
+            o.start(t0);
+            o.stop(t0 + 1.7);
+          });
+        }
+        function setMuted(m) {
+          muted = m;
+          const b = document.getElementById("sound");
+          b.textContent = m ? "Sound off" : "Sound on";
+          b.setAttribute("aria-pressed", String(!m));
+          if (!m) initAudio();
+          if (master)
+            master.gain.setTargetAtTime(m ? 0 : 0.9, actx.currentTime, 0.05);
+        }
+
         /* ================= Rendering ================= */
         const canvas = document.getElementById("wall");
         const ctx = canvas.getContext("2d");
@@ -1131,6 +1365,27 @@
             coreB: [16, 16, 20],
             coreD: [0, 0, 0],
             hShadow: "rgba(0,0,0,.20)",
+          },
+          dune: {
+            board: ["#b9492b", "#a73e25", "#8f3320"],
+            tex: true,
+            dimple: true,
+            bands: "rgba(255,225,185,",
+            bandA: 0.05,
+            bandOp: "lighter",
+            ringFaint: "rgba(70,15,5,.35)",
+            ringLit: "rgba(255,226,190,.55)",
+            ringDark: "rgba(50,8,2,.55)",
+            edge: "rgba(60,15,5,.5)",
+            boardShadow: "rgba(60,60,72,.38)",
+            sh: [-0.5, 0.3, 0.9],
+            edgeB: [255, 255, 255],
+            edgeD: [165, 168, 176],
+            hiB: [238, 241, 246],
+            hiD: [120, 124, 134],
+            coreB: [200, 205, 214],
+            coreD: [70, 74, 84],
+            hShadow: "rgba(60,10,0,.5)",
           },
           green: {
             board: ["#173a32", "#0e2822", "#08171a"],
@@ -1203,6 +1458,60 @@
           }
         }
 
+        function drawStone(g) {
+          // layered, wavy travertine veins (seeded, so it never flickers)
+          let a = 7;
+          const rnd = () => {
+            a |= 0;
+            a = (a + 0x6d2b79f5) | 0;
+            let t = Math.imul(a ^ (a >>> 15), 1 | a);
+            t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+            return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+          };
+          for (let i = 0; i < 16; i++) {
+            const y = rnd() * bh,
+              h = bh * (0.04 + rnd() * 0.13),
+              c = rnd() < 0.55 ? "232,122,52" : "110,26,14";
+            const gr = g.createLinearGradient(0, y, 0, y + h);
+            gr.addColorStop(0, `rgba(${c},0)`);
+            gr.addColorStop(0.5, `rgba(${c},${0.12 + rnd() * 0.16})`);
+            gr.addColorStop(1, `rgba(${c},0)`);
+            g.fillStyle = gr;
+            g.fillRect(0, y, bw, h);
+          }
+          const pal = [
+            "255,228,176",
+            "244,178,96",
+            "214,104,48",
+            "120,30,15",
+            "255,242,210",
+          ];
+          g.lineCap = "round";
+          for (let i = 0; i < 380; i++) {
+            const y0 = rnd() * bh,
+              th = 0.4 + rnd() * rnd() * 2.8,
+              x0 = rnd() < 0.5 ? 0 : rnd() * bw * 0.7,
+              len = bw * (0.25 + rnd() * 0.75);
+            const ph = rnd() * 6.28,
+              amp = 1 + rnd() * 5,
+              f = 0.002 + rnd() * 0.006;
+            g.lineWidth = th;
+            g.strokeStyle = `rgba(${pal[Math.floor(rnd() * pal.length)]},${0.1 + rnd() * 0.34})`;
+            g.beginPath();
+            for (let x = x0; x <= Math.min(bw, x0 + len); x += 22) {
+              const y = y0 + Math.sin(x * f + ph) * amp + (rnd() - 0.5) * 0.7;
+              x === x0 ? g.moveTo(x, y) : g.lineTo(x, y);
+            }
+            g.stroke();
+          }
+          for (let i = 0; i < 1800; i++) {
+            g.fillStyle =
+              rnd() < 0.5
+                ? `rgba(255,232,190,${0.08 + rnd() * 0.2})`
+                : `rgba(60,12,4,${0.08 + rnd() * 0.2})`;
+            g.fillRect(rnd() * bw, rnd() * bh, 1 + rnd() * 1.6, 0.8);
+          }
+        }
         function buildBoard() {
           const F = FIN[finish];
           boardCv = document.createElement("canvas");
@@ -1216,6 +1525,7 @@
           grad.addColorStop(1, F.board[2]);
           g.fillStyle = grad;
           g.fillRect(0, 0, bw, bh);
+          if (F.tex) drawStone(g);
           // soft vignette
           const v = g.createRadialGradient(
             bw * 0.5,
@@ -1228,7 +1538,11 @@
           v.addColorStop(0, "rgba(0,0,0,0)");
           v.addColorStop(
             1,
-            finish === "white" ? "rgba(0,0,0,.05)" : "rgba(0,0,0,.28)",
+            finish === "white"
+              ? "rgba(0,0,0,.05)"
+              : finish === "dune"
+                ? "rgba(40,10,0,.12)"
+                : "rgba(0,0,0,.28)",
           );
           g.fillStyle = v;
           g.fillRect(0, 0, bw, bh);
@@ -1240,6 +1554,17 @@
           for (const k of L.rings === false ? [] : clocks) {
             const x = bw / 2 + k.px * pitch,
               y = bh / 2 + k.py * pitch;
+            if (F.dimple) {
+              // carved bowl: shaded top-left, lit bottom-right
+              const dg = g.createLinearGradient(x - R, y - R, x + R, y + R);
+              dg.addColorStop(0, "rgba(50,10,4,.34)");
+              dg.addColorStop(0.55, "rgba(50,10,4,.07)");
+              dg.addColorStop(1, "rgba(255,215,170,.16)");
+              g.fillStyle = dg;
+              g.beginPath();
+              g.arc(x, y, R, 0, 6.2832);
+              g.fill();
+            }
             g.lineWidth = Math.max(0.8, pitch * 0.012);
             g.strokeStyle = F.ringFaint;
             g.beginPath();
@@ -1276,13 +1601,17 @@
           H = window.innerHeight;
           canvas.width = Math.round(W * DPR);
           canvas.height = Math.round(H * DPR);
-          const side = W > 760 ? 240 : 0;
+          const hid = document.body.classList.contains("ui-hidden"),
+            desk = W > 760;
+          const sideR = desk && !hid ? 240 : 0,
+            sideL = W > 1000 && !hid ? 224 : 0,
+            side = sideL + sideR;
           const availW = (W - side) * 0.94,
-            availH = H * (side ? 0.88 : L.round ? 0.84 : 0.76);
+            availH = H * (hid ? 0.92 : desk ? 0.88 : L.round ? 0.84 : 0.76);
           pitch = Math.min(availW / L.bw, availH / L.bh);
           bw = L.bw * pitch;
           bh = L.bh * pitch;
-          bx = (W - side - bw) / 2;
+          bx = sideL + (W - side - bw) / 2;
           by = (H - bh) / 2 - H * 0.02;
           gx = bx + bw / 2;
           gy = by + bh / 2;
@@ -1340,15 +1669,31 @@
             }
           }
 
+          let act = 0; // total hand movement this frame -> sound
+          for (const k of clocks) {
+            for (let i = 0; i < 2; i++)
+              act += k.pv ? Math.abs(wrap180(k.shown[i] - k.pv[i])) : 0;
+            k.pv = [k.shown[0], k.shown[1]];
+          }
+          const sn = performance.now() / 1000;
+          soundStep(act, Math.max(0.008, Math.min(0.1, sn - soundLast)));
+          soundLast = sn;
+          syncUI();
+
           // draw
           ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
           ctx.clearRect(0, 0, W, H);
 
           ctx.save();
+          const SH = F.sh || [
+            L.shDx || 0,
+            L.shDy == null ? 0.32 : L.shDy,
+            L.shBlur || 0.9,
+          ];
           ctx.shadowColor = F.boardShadow;
-          ctx.shadowBlur = pitch * (L.shBlur || 0.9);
-          ctx.shadowOffsetX = pitch * (L.shDx || 0);
-          ctx.shadowOffsetY = pitch * (L.shDy == null ? 0.32 : L.shDy);
+          ctx.shadowBlur = pitch * SH[2];
+          ctx.shadowOffsetX = pitch * SH[0];
+          ctx.shadowOffsetY = pitch * SH[1];
           ctx.fillStyle = F.board[1];
           bpath(0);
           ctx.fill();
@@ -1476,19 +1821,94 @@
             b.addEventListener("click", () => setMode(b.dataset.mode)),
           );
 
-        document.getElementById("next").addEventListener("click", () => {
+        function playPattern(i) {
           timerLeave();
-          if (mode === "minimal") {
-            miAt = 0;
-            return;
-          } // minimal: next step of its sequence
+          if (mode === "minimal") setMode("active");
           const ms = Date.now(),
             nb = nextMinuteMs();
           let end = nb - 7000;
           if (end - ms < 12000) end += 60000; // always at least ~12 s of choreography
           phase = "dance";
           danceUntil = end;
-          enterDance((danceIdx + 1) % PATTERNS.length);
+          enterDance(i);
+        }
+        function showTimeNow() {
+          timerLeave();
+          if (mode === "minimal") {
+            mi = 2;
+            miAt = 0;
+            return;
+          }
+          phase = "hold";
+          holdUntil = Date.now() + 10000;
+          enterTime(new Date(), 4);
+        }
+        document.getElementById("next").addEventListener("click", () => {
+          if (mode === "minimal") {
+            timerLeave();
+            miAt = 0;
+            return;
+          } // minimal: next step of its sequence
+          playPattern((danceIdx + 1) % PATTERNS.length);
+        });
+        const anims = document.getElementById("anims");
+        anims.innerHTML =
+          '<button data-pat="time">Show time</button><div class="gap"></div>' +
+          PATTERNS.map(
+            (pt, i) =>
+              `<button data-pat="${i}" aria-pressed="false"><b>${String(i + 1).padStart(2, "0")}</b>${pt[0]}</button>`,
+          ).join("");
+        anims.addEventListener("click", (e) => {
+          const b = e.target.closest("button");
+          if (!b) return;
+          if (b.dataset.pat === "time") showTimeNow();
+          else playPattern(+b.dataset.pat);
+        });
+        let uiKey = "";
+        function syncUI() {
+          const key = view + ":" + danceIdx + ":" + mode + ":" + tState;
+          if (key === uiKey) return;
+          uiKey = key;
+          anims.querySelectorAll("[data-pat]").forEach((b) => {
+            if (b.dataset.pat !== "time")
+              b.setAttribute(
+                "aria-pressed",
+                String(
+                  view === "dance" &&
+                    mode !== "minimal" &&
+                    +b.dataset.pat === danceIdx,
+                ),
+              );
+          });
+          const nx = PATTERNS[(danceIdx + 1) % PATTERNS.length],
+            nn = String(((danceIdx + 1) % PATTERNS.length) + 1).padStart(
+              2,
+              "0",
+            );
+          document.getElementById("nexthint").innerHTML =
+            mode === "minimal"
+              ? "Skips to the next step of the Minimal sequence: lines, bars, swirl, then the time."
+              : `Skips to animation <b>${nn} ${nx[0]}</b>. Pick any of the 20 from the list on the left.`;
+        }
+        const uit = document.getElementById("uitoggle");
+        function setUiHidden(h) {
+          document.body.classList.toggle("ui-hidden", h);
+          uit.textContent = h ? "Show controls" : "Hide controls";
+          uit.setAttribute("aria-pressed", String(h));
+          resize();
+        }
+        uit.addEventListener("click", () =>
+          setUiHidden(!document.body.classList.contains("ui-hidden")),
+        );
+        document
+          .getElementById("sound")
+          .addEventListener("click", () => setMuted(!muted));
+        window.addEventListener("pointerdown", initAudio, { once: true });
+        window.addEventListener("keydown", (e) => {
+          if (e.ctrlKey || e.metaKey || e.altKey) return;
+          if (e.key === "h" || e.key === "H")
+            setUiHidden(!document.body.classList.contains("ui-hidden"));
+          if (e.key === "m" || e.key === "M") setMuted(!muted);
         });
 
         document.getElementById("h24").addEventListener("click", (e) => {
@@ -1526,6 +1946,7 @@
         window.addEventListener("resize", resize);
         resize();
 
+        // Opening: hands sweep from their resting pose into the current time, hold, then the first choreography.
         enterTime(new Date(), 5);
         holdUntil = Date.now() + 8000;
         if (

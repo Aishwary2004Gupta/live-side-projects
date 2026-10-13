@@ -23,6 +23,11 @@ const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
 controls.enablePan = true;
 controls.enableZoom = true;
+controls.enableRotate = true;
+controls.rotateSpeed = 0.9;
+controls.panSpeed = 0.8;
+controls.zoomSpeed = 0.9;
+controls.dampingFactor = 0.08;
 controls.minDistance = 2.6;
 controls.maxDistance = 9;
 controls.minPolarAngle = 0.6;
@@ -128,19 +133,81 @@ fruitGroup.add(leaf);
 
 fruitGroup.position.y = 0.15;
 
+const presetConfigs = {
+  default: { target: new THREE.Vector3(0, 0.75, 0), position: new THREE.Vector3(0, 1.2, 5.4) },
+  close: { target: new THREE.Vector3(0.15, 0.8, 0), position: new THREE.Vector3(0.9, 1.1, 2.8) },
+  top: { target: new THREE.Vector3(0, 1.2, 0), position: new THREE.Vector3(0, 4.8, 1.2) },
+  wide: { target: new THREE.Vector3(0, 0.6, 0), position: new THREE.Vector3(4.6, 1.4, 4.6) },
+};
+
+let autoSpin = true;
+let activePreset = 'default';
+
+function updateButtonState(selector, value) {
+  document.querySelectorAll(selector).forEach((button) => {
+    button.classList.toggle('active', button.dataset[selector.replace('[data-', '').replace(']', '')] === value);
+  });
+}
+
+function applyPreset(name) {
+  const preset = presetConfigs[name] || presetConfigs.default;
+  activePreset = name;
+  camera.position.copy(preset.position);
+  controls.target.copy(preset.target);
+  controls.update();
+}
+
+const spinButton = document.querySelector('[data-action="spin"]');
+const resetButton = document.querySelector('[data-action="reset"]');
+const presetButtons = document.querySelectorAll('[data-preset]');
+const qualityButtons = document.querySelectorAll('[data-quality]');
+
+spinButton.addEventListener('click', () => {
+  autoSpin = !autoSpin;
+  spinButton.textContent = autoSpin ? 'Pause spin' : 'Resume spin';
+  spinButton.classList.toggle('active', autoSpin);
+});
+
+resetButton.addEventListener('click', () => {
+  applyPreset(activePreset || 'default');
+});
+
+presetButtons.forEach((button) => {
+  button.addEventListener('click', () => {
+    const presetName = button.dataset.preset;
+    applyPreset(presetName);
+    presetButtons.forEach((presetButton) => {
+      presetButton.classList.toggle('active', presetButton === button);
+    });
+  });
+});
+
+qualityButtons.forEach((button) => {
+  button.addEventListener('click', () => {
+    const quality = button.dataset.quality;
+    if (quality === 'low') renderer.setPixelRatio(1);
+    else if (quality === 'high') renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    else renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
+
+    qualityButtons.forEach((qualityButton) => {
+      qualityButton.classList.toggle('active', qualityButton === button);
+    });
+  });
+});
+
 const clock = new THREE.Clock();
 
 function animate() {
   const t = clock.getElapsedTime();
-  orange.rotation.y = t * 0.45;
-  orange.rotation.x = Math.sin(t * 0.8) * 0.18;
+  if (autoSpin) {
+    orange.rotation.y += 0.012;
+  }
+  orange.rotation.x = Math.sin(t * 0.9) * 0.18;
   fruitGroup.position.y = 0.15 + Math.sin(t * 1.2) * 0.08;
   controls.update();
   renderer.render(scene, camera);
   requestAnimationFrame(animate);
 }
-
-animate();
 
 const handleResize = () => {
   camera.aspect = window.innerWidth / window.innerHeight;
@@ -151,6 +218,18 @@ const handleResize = () => {
 
 window.addEventListener('resize', handleResize);
 
+applyPreset('default');
+spinButton.classList.add('active');
+presetButtons.forEach((button) => {
+  button.classList.toggle('active', button.dataset.preset === 'default');
+});
+qualityButtons.forEach((button) => {
+  button.classList.toggle('active', button.dataset.quality === 'medium');
+});
+
 window.addEventListener('load', () => {
   setTimeout(() => loading.classList.add('done'), 220);
+  setTimeout(() => loading.remove(), 700);
 });
+
+animate();

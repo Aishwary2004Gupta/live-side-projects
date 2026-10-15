@@ -1,5 +1,6 @@
 import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.177.0/build/three.module.js";
 import { OrbitControls } from "https://cdn.jsdelivr.net/npm/three@0.177.0/examples/jsm/controls/OrbitControls.js";
+import { RoomEnvironment } from "https://cdn.jsdelivr.net/npm/three@0.177.0/examples/jsm/environments/RoomEnvironment.js";
 import GUI from "https://cdn.jsdelivr.net/npm/lil-gui@0.20.0/dist/lil-gui.esm.js";
 
 const canvas = document.getElementById("app");
@@ -19,6 +20,12 @@ renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.08;
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+const room = new RoomEnvironment(renderer);
+const environmentGenerator = new THREE.PMREMGenerator(renderer);
+scene.environment = environmentGenerator.fromScene(room, 0.04).texture;
+scene.environmentIntensity = 0.65;
+environmentGenerator.dispose();
+room.dispose();
 
 const camera = new THREE.PerspectiveCamera(
   34,
@@ -26,7 +33,7 @@ const camera = new THREE.PerspectiveCamera(
   0.1,
   100,
 );
-camera.position.set(3.15, 2.85, 5.3);
+camera.position.set(2.5, 2.55, 4.4);
 
 const controls = new OrbitControls(camera, canvas);
 controls.target.set(0, 1.05, 0);
@@ -38,9 +45,10 @@ controls.maxPolarAngle = Math.PI * 0.49;
 controls.autoRotate = true;
 controls.autoRotateSpeed = 0.45;
 
-scene.add(new THREE.HemisphereLight("#fff3df", "#69503b", 2.05));
+scene.add(new THREE.HemisphereLight("#fff3df", "#80634b", 2.55));
+scene.add(new THREE.AmbientLight("#fff4e8", 0.35));
 
-const keyLight = new THREE.DirectionalLight("#fff0d7", 4.1);
+const keyLight = new THREE.DirectionalLight("#fff0d7", 3.4);
 keyLight.position.set(-3.8, 6.4, 4.2);
 keyLight.castShadow = true;
 keyLight.shadow.mapSize.set(2048, 2048);
@@ -49,30 +57,30 @@ keyLight.shadow.camera.right = 3.5;
 keyLight.shadow.camera.top = 4;
 keyLight.shadow.camera.bottom = -3;
 keyLight.shadow.bias = -0.00025;
+keyLight.shadow.radius = 7;
 scene.add(keyLight);
 
-const fillLight = new THREE.DirectionalLight("#f5b98a", 1.15);
+const fillLight = new THREE.DirectionalLight("#f5b98a", 1.8);
 fillLight.position.set(4, 2.4, -4);
 scene.add(fillLight);
 
-const rimLight = new THREE.DirectionalLight("#fff8eb", 2.1);
+const rimLight = new THREE.DirectionalLight("#fff8eb", 2.5);
 rimLight.position.set(0.4, 5.2, -4.5);
 scene.add(rimLight);
 
 const ground = new THREE.Mesh(
   new THREE.PlaneGeometry(200, 200),
-  new THREE.MeshStandardMaterial({ color: "#d7d2cc", roughness: 0.92 }),
+  new THREE.MeshBasicMaterial({ color: "#d7d2cc", toneMapped: false }),
 );
 ground.rotation.x = -Math.PI / 2;
 ground.position.y = -0.015;
-ground.receiveShadow = true;
 scene.add(ground);
 
 const shadowTexture = new THREE.CanvasTexture(
   window.pumpkinAssets.makeGroundShadow(),
 );
 const contactShadow = new THREE.Mesh(
-  new THREE.PlaneGeometry(4.2, 2.7),
+  new THREE.PlaneGeometry(3.6, 2.25),
   new THREE.MeshBasicMaterial({
     map: shadowTexture,
     transparent: true,
@@ -148,7 +156,7 @@ function createBodyGeometry() {
       const rib = Math.cos(options.lobes * phi + 0.12 * Math.sin(theta * 2));
       const valley = (1 - rib) * 0.5;
       const radial =
-        1.36 *
+        1.29 *
         Math.pow(Math.max(0, sinTheta), 0.82) *
         (1 - options.ribDepth * valley * (0.62 + 0.38 * sinTheta));
       const uneven =
@@ -160,7 +168,8 @@ function createBodyGeometry() {
         Math.exp(-Math.pow(radial / 0.27, 2)) * (cosTheta > 0 ? 0.17 : -0.08);
       const shoulder = Math.exp(-Math.pow((radial - 0.3) / 0.1, 2));
       const y =
-        0.88 * cosTheta * (0.92 + 0.08 * sinTheta) -
+        0.96 * cosTheta * (0.92 + 0.08 * sinTheta) +
+        0.12 * Math.exp(-Math.pow((theta - Math.PI) / 0.22, 2)) -
         crownDimple +
         shoulder * Math.max(0, cosTheta) * 0.035;
 
@@ -246,13 +255,13 @@ function rebuildPumpkin() {
   }
 
   body = new THREE.Mesh(createBodyGeometry(), rindMaterial);
-  body.position.y = 0.91 * options.height;
+  body.position.y = 0.84 * options.height;
   body.castShadow = true;
   body.receiveShadow = true;
   pumpkin.add(body);
 
   stem = new THREE.Mesh(createStemGeometry(), stemMaterial);
-  stem.position.y = body.position.y + 0.69 * options.height;
+  stem.position.y = body.position.y + 0.76 * options.height;
   stem.castShadow = true;
   pumpkin.add(stem);
   contactShadow.scale.set(options.width, 1, options.width);

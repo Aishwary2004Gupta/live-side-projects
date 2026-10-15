@@ -64,72 +64,179 @@ scene.add(floor);
 const fruitGroup = new THREE.Group();
 scene.add(fruitGroup);
 
-const orangeMaterial = new THREE.MeshPhysicalMaterial({
-  color: '#ff9d1f',
-  emissive: '#3e1900',
-  roughness: 0.7,
-  metalness: 0.08,
-  clearcoat: 0.38,
-  clearcoatRoughness: 0.45,
-  reflectivity: 0.7,
+function createPumpkinSkinTextures() {
+  const width = 1024;
+  const height = 512;
+  const colorCanvas = document.createElement('canvas');
+  const bumpCanvas = document.createElement('canvas');
+  colorCanvas.width = bumpCanvas.width = width;
+  colorCanvas.height = bumpCanvas.height = height;
+
+  const colorContext = colorCanvas.getContext('2d');
+  const bumpContext = bumpCanvas.getContext('2d');
+  const colorPixels = colorContext.createImageData(width, height);
+  const bumpPixels = bumpContext.createImageData(width, height);
+
+  for (let y = 0; y < height; y++) {
+    const v = y / height;
+    for (let x = 0; x < width; x++) {
+      const u = x / width;
+      const angle = u * Math.PI * 2;
+      const broadMottle = Math.sin(angle * 3 + Math.sin(v * 13) * 0.7)
+        + Math.sin(angle * 7 - v * 11) * 0.45
+        + Math.sin(v * 37 + angle * 2) * 0.2;
+      const grain = Math.sin(x * 12.9898 + y * 78.233) * 43758.5453;
+      const noise = (grain - Math.floor(grain) - 0.5) * 12;
+      const ribShade = Math.cos(angle * 10 + Math.sin(v * 8) * 0.12);
+      const pigment = broadMottle * 5 + noise + ribShade * 3;
+      const index = (y * width + x) * 4;
+
+      colorPixels.data[index] = 211 + pigment;
+      colorPixels.data[index + 1] = 76 + broadMottle * 4 + noise * 0.42;
+      colorPixels.data[index + 2] = 17 + broadMottle * 1.3 + noise * 0.12;
+      colorPixels.data[index + 3] = 255;
+
+      const skinGrain = 142 + noise * 3 + broadMottle * 5 + ribShade * 9;
+      bumpPixels.data[index] = skinGrain;
+      bumpPixels.data[index + 1] = skinGrain;
+      bumpPixels.data[index + 2] = skinGrain;
+      bumpPixels.data[index + 3] = 255;
+    }
+  }
+
+  colorContext.putImageData(colorPixels, 0, 0);
+  bumpContext.putImageData(bumpPixels, 0, 0);
+
+  const colorTexture = new THREE.CanvasTexture(colorCanvas);
+  colorTexture.colorSpace = THREE.SRGBColorSpace;
+  colorTexture.wrapS = THREE.RepeatWrapping;
+  colorTexture.anisotropy = renderer.capabilities.getMaxAnisotropy();
+
+  const bumpTexture = new THREE.CanvasTexture(bumpCanvas);
+  bumpTexture.wrapS = THREE.RepeatWrapping;
+  bumpTexture.anisotropy = renderer.capabilities.getMaxAnisotropy();
+
+  return { colorTexture, bumpTexture };
+}
+
+function createPumpkinGeometry() {
+  const radialSegments = 144;
+  const verticalSegments = 112;
+  const positions = [];
+  const uvs = [];
+  const indices = [];
+
+  for (let row = 0; row <= verticalSegments; row++) {
+    const theta = (row / verticalSegments) * Math.PI;
+    const sinTheta = Math.sin(theta);
+    const cosTheta = Math.cos(theta);
+
+    for (let column = 0; column <= radialSegments; column++) {
+      const u = column / radialSegments;
+      const phi = u * Math.PI * 2;
+      const rib = Math.cos(phi * 10 + 0.08 * Math.sin(theta * 5));
+      const poleSoftening = Math.pow(Math.max(sinTheta, 0), 0.55);
+      const fineRib = Math.sin(phi * 20 + theta * 4) * 0.009 * poleSoftening;
+      const radius = sinTheta * (1 + rib * 0.105 * poleSoftening + fineRib);
+      const x = Math.cos(phi) * radius * 1.28;
+      const z = Math.sin(phi) * radius * 1.16;
+      const crownIndent = 0.12 * Math.exp(-Math.pow(radius / 0.23, 2)) * Math.pow(Math.max(cosTheta, 0), 4);
+      const baseIndent = 0.065 * Math.exp(-Math.pow(radius / 0.27, 2)) * Math.pow(Math.max(-cosTheta, 0), 4);
+      const y = cosTheta * 0.86 - crownIndent + baseIndent;
+
+      positions.push(x, y, z);
+      uvs.push(u, 1 - row / verticalSegments);
+    }
+  }
+
+  for (let row = 0; row < verticalSegments; row++) {
+    for (let column = 0; column < radialSegments; column++) {
+      const a = row * (radialSegments + 1) + column;
+      const b = a + radialSegments + 1;
+      indices.push(a, a + 1, b, a + 1, b + 1, b);
+    }
+  }
+
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  geometry.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+  geometry.setIndex(indices);
+  geometry.computeVertexNormals();
+  return geometry;
+}
+
+function createStemGeometry() {
+  const rings = 24;
+  const radialSegments = 16;
+  const positions = [];
+  const indices = [];
+
+  for (let row = 0; row <= rings; row++) {
+    const t = row / rings;
+    const radius = 0.155 * (1 - t * 0.48) * (1 + Math.sin(t * 22) * 0.035);
+    const centerX = 0.18 * t * t;
+    const centerZ = 0.025 * Math.sin(t * Math.PI);
+
+    for (let column = 0; column <= radialSegments; column++) {
+      const angle = (column / radialSegments) * Math.PI * 2;
+      const rib = 1 + Math.cos(angle * 6) * 0.055;
+      positions.push(
+        centerX + Math.cos(angle) * radius * rib,
+        t * 0.62,
+        centerZ + Math.sin(angle) * radius * rib,
+      );
+    }
+  }
+
+  for (let row = 0; row < rings; row++) {
+    for (let column = 0; column < radialSegments; column++) {
+      const a = row * (radialSegments + 1) + column;
+      const b = a + radialSegments + 1;
+      indices.push(a, b, a + 1, a + 1, b, b + 1);
+    }
+  }
+
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  geometry.setIndex(indices);
+  geometry.computeVertexNormals();
+  return geometry;
+}
+
+const { colorTexture, bumpTexture } = createPumpkinSkinTextures();
+const pumpkinMaterial = new THREE.MeshPhysicalMaterial({
+  map: colorTexture,
+  bumpMap: bumpTexture,
+  bumpScale: 0.035,
+  roughness: 0.82,
+  metalness: 0,
+  clearcoat: 0.12,
+  clearcoatRoughness: 0.72,
 });
 
-const orange = new THREE.Mesh(new THREE.SphereGeometry(1.25, 72, 72), orangeMaterial);
-orange.castShadow = true;
-orange.receiveShadow = true;
-orange.scale.set(1.22, 1.08, 1.16);
-fruitGroup.add(orange);
+const pumpkin = new THREE.Mesh(createPumpkinGeometry(), pumpkinMaterial);
+pumpkin.castShadow = true;
+pumpkin.receiveShadow = true;
+fruitGroup.add(pumpkin);
 
-const deformation = orange.geometry.attributes.position;
-for (let i = 0; i < deformation.count; i++) {
-  const x = deformation.getX(i);
-  const y = deformation.getY(i);
-  const z = deformation.getZ(i);
-  const radial = Math.sqrt(x * x + y * y + z * z);
-  const wave = Math.sin((x + y * 1.2) * 4.2) * 0.06;
-  const offset = (1 + wave) * (radial / 1.25);
-  deformation.setXYZ(i, x * offset, y * offset, z * offset);
-}
-deformation.needsUpdate = true;
-orange.geometry.computeVertexNormals();
-
-const top = new THREE.Mesh(
-  new THREE.CylinderGeometry(0.18, 0.28, 0.7, 28),
-  new THREE.MeshStandardMaterial({ color: '#6b3f1c', roughness: 0.8 })
-);
-top.position.set(0, 1.22, 0);
-top.rotation.z = 0.28;
-top.castShadow = true;
-fruitGroup.add(top);
-
-const stem = new THREE.Mesh(
-  new THREE.CylinderGeometry(0.03, 0.055, 0.65, 16),
-  new THREE.MeshStandardMaterial({ color: '#4f2c1a', roughness: 0.9 })
-);
-stem.position.set(0.05, 1.65, 0.05);
-stem.rotation.z = 0.8;
+const stemMaterial = new THREE.MeshStandardMaterial({
+  color: '#594126',
+  roughness: 0.94,
+});
+const stem = new THREE.Mesh(createStemGeometry(), stemMaterial);
+stem.position.set(-0.08, 0.73, 0);
+stem.rotation.z = -0.14;
 stem.castShadow = true;
 fruitGroup.add(stem);
 
-const leafShape = new THREE.Shape();
-leafShape.moveTo(0, 0);
-leafShape.quadraticCurveTo(0.42, 0.32, 0.12, 0.9);
-leafShape.quadraticCurveTo(-0.25, 0.38, 0, 0);
-
-const leaf = new THREE.Mesh(
-  new THREE.ShapeGeometry(leafShape),
-  new THREE.MeshStandardMaterial({
-    color: '#4da64d',
-    roughness: 0.9,
-    side: THREE.DoubleSide,
-  })
+const stemCollar = new THREE.Mesh(
+  new THREE.TorusGeometry(0.19, 0.035, 10, 48),
+  new THREE.MeshStandardMaterial({ color: '#74602d', roughness: 0.9 }),
 );
-leaf.position.set(0.6, 1.72, 0.12);
-leaf.rotation.z = 1.2;
-leaf.rotation.x = 0.6;
-leaf.scale.set(1.1, 1.5, 1);
-leaf.castShadow = true;
-fruitGroup.add(leaf);
+stemCollar.rotation.x = Math.PI / 2;
+stemCollar.position.set(0, 0.82, 0);
+stemCollar.castShadow = true;
+fruitGroup.add(stemCollar);
 
 fruitGroup.position.y = 0.15;
 
@@ -200,9 +307,9 @@ const clock = new THREE.Clock();
 function animate() {
   const t = clock.getElapsedTime();
   if (autoSpin) {
-    orange.rotation.y += 0.012;
+    pumpkin.rotation.y += 0.012;
   }
-  orange.rotation.x = Math.sin(t * 0.9) * 0.18;
+  pumpkin.rotation.x = Math.sin(t * 0.9) * 0.08;
   fruitGroup.position.y = 0.15 + Math.sin(t * 1.2) * 0.08;
   controls.update();
   renderer.render(scene, camera);

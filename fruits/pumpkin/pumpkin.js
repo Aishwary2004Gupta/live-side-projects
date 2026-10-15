@@ -165,11 +165,11 @@ function createBodyGeometry() {
         0.004 * Math.sin(phi * 13 - theta * 7);
       const radius = radial * uneven * options.width;
       const crownDimple =
-        Math.exp(-Math.pow(radial / 0.27, 2)) * (cosTheta > 0 ? 0.17 : -0.08);
+        Math.exp(-Math.pow(radial / 0.27, 2)) * (cosTheta > 0 ? 0.17 : 0);
       const shoulder = Math.exp(-Math.pow((radial - 0.3) / 0.1, 2));
       const y =
         0.96 * cosTheta * (0.92 + 0.08 * sinTheta) +
-        0.12 * Math.exp(-Math.pow((theta - Math.PI) / 0.22, 2)) -
+        0.1 * Math.exp(-Math.pow((theta - Math.PI) / 0.35, 2)) -
         crownDimple +
         shoulder * Math.max(0, cosTheta) * 0.035;
 
@@ -255,7 +255,7 @@ function rebuildPumpkin() {
   }
 
   body = new THREE.Mesh(createBodyGeometry(), rindMaterial);
-  body.position.y = 0.84 * options.height;
+  body.position.y = 0.87 * options.height;
   body.castShadow = true;
   body.receiveShadow = true;
   pumpkin.add(body);

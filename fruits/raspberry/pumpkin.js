@@ -5658,6 +5658,20 @@ function makePumpkinTexture(seed, stalk = false, bump = false) {
   texture.needsUpdate = true;
   return texture;
 }
+const pumpkinFace = [
+  [[-.78, .59], [-.24, .51], [-.43, .13]],
+  [[.24, .51], [.78, .59], [.43, .13]],
+  [[-.18, .08], [.18, .08], [.015, -.25]],
+  [[-.77, -.30], [-.59, -.36], [-.49, -.50], [-.34, -.41], [-.22, -.56], [-.07, -.46], [.08, -.60], [.25, -.44], [.42, -.52], [.54, -.37], [.73, -.28], [.68, -.46], [.57, -.61], [.42, -.65], [.27, -.58], [.12, -.72], [-.04, -.59], [-.22, -.69], [-.38, -.58], [-.53, -.64], [-.67, -.51]]
+];
+function pumpkinPointInPolygon(x, y, polygon) {
+  let inside = false;
+  for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+    const [xi, yi] = polygon[i], [xj, yj] = polygon[j];
+    if ((yi > y) !== (yj > y) && x < (xj - xi) * (y - yi) / (yj - yi) + xi) inside = !inside;
+  }
+  return inside;
+}
 function createPumpkinBody() {
   const radial = 160, vertical = 112, positions = [], uv = [], indices = [];
   for (let j = 0; j <= vertical; j++) {
@@ -5681,7 +5695,13 @@ function createPumpkinBody() {
   }
   for (let j = 0; j < vertical; j++) for (let i = 0; i < radial; i++) {
     const a = j * (radial + 1) + i, b = a + radial + 1;
-    indices.push(a, a + 1, b + 1, a, b + 1, b);
+    for (const tri of [[a, a + 1, b + 1], [a, b + 1, b]]) {
+      const cx = (positions[tri[0] * 3] + positions[tri[1] * 3] + positions[tri[2] * 3]) / 3;
+      const cy = (positions[tri[0] * 3 + 1] + positions[tri[1] * 3 + 1] + positions[tri[2] * 3 + 1]) / 3;
+      const cz = (positions[tri[0] * 3 + 2] + positions[tri[1] * 3 + 2] + positions[tri[2] * 3 + 2]) / 3;
+      if (cz > .72 && pumpkinFace.some(polygon => pumpkinPointInPolygon(cx, cy, polygon))) continue;
+      indices.push(...tri);
+    }
   }
   const geometry = new jr();
   geometry.setAttribute('position', new yr(positions, 3));
@@ -5690,8 +5710,7 @@ function createPumpkinBody() {
   geometry.computeVertexNormals();
   geometry.computeBoundingSphere();
   return geometry;
-}
-function createPumpkinStem() {
+}function createPumpkinStem() {
   const radial = 48, vertical = 28, positions = [], uv = [], indices = [];
   for (let j = 0; j <= vertical; j++) {
     const t = j / vertical;
@@ -5745,12 +5764,21 @@ async function sm() {
   const rind = new Ca({ color: 0xffffff, map: rindMap, roughness: .72, roughnessMap: rindDetail, bumpMap: rindDetail, bumpScale: .024, clearcoat: .075, clearcoatRoughness: .72, envMap: env, envMapIntensity: 1.05 });
   const stalk = new Ca({ color: 0xffffff, map: stalkMap, roughness: .86, roughnessMap: stalkDetail, bumpMap: stalkDetail, bumpScale: .035, envMap: env, envMapIntensity: .72 });
   const fruit = new wn();
+  const cavityMaterial = new Ca({ color: 0x32150a, emissive: 0xff5a12, emissiveIntensity: .34, roughness: .98, envMap: env, envMapIntensity: .12, side: 2 });
+  const cavity = new ii(new da(1, 72, 48), cavityMaterial);
+  cavity.scale.set(1.06, .78, .82);
+  cavity.position.set(0, -.015, .19);
+  cavity.name = 'Warm_Inner_Cavity';
   const body = new ii(createPumpkinBody(), rind);
-  body.name = 'Pumpkin_Ribbed_Rind';
+  body.name = 'Carved_Ribbed_Pumpkin';
   const stem = new ii(createPumpkinStem(), stalk);
   stem.name = 'Pumpkin_Woody_Stem';
-  fruit.add(body, stem, createPumpkinShadow());
+  const innerGlow = new To(0xff7a25, 7, 2.7, 2);
+  innerGlow.position.set(0, -.16, .23);
+  innerGlow.name = 'Candle_Glow';
+  fruit.add(cavity, body, stem, createPumpkinShadow(), innerGlow);
   Kp.add(fruit);
   $.pumpkinMaterials = [rind, stalk]; $.pumpkinDetail = rindDetail;
+  $.pumpkinLight = innerGlow; $.pumpkinCavityMaterial = cavityMaterial;
   $.pumpkin = fruit;
-}function cm(){let e=fm.active?$.reelTurn:Q.lights.followCamera?Math.atan2(qp.position.x,qp.position.z):Jp.lightTurn,t=Yp.update(e);$.pumpkinMaterials?.forEach(e=>{if(e.envMap!==t){e.envMap=t,e.needsUpdate=!0}e.envMapIntensity=Q.environment.reflectionIntensity}),t!==Zp.envMap.value&&(Zp.envMap.value=t,$.skin&&Vf($.skin,t),$.styles&&Vf($.styles,t)),Kp.backgroundRotation.y=Yp.turn,Zp.uEnvRotation.value.copy(Yp.envRotation);for(let e=0;e<9;e++)Zp.uSH.value[e].fromArray(Yp.sh,e*3);Zp.uAmbientRadiance.value.fromArray(Yp.ambient),Zp.uAmbientGradient.value=Yp.gradient,Yp.lights.forEach((e,t)=>{Zp.uLightDir.value[t].fromArray(e.dir),Zp.uLightColor.value[t].fromArray(e.color).multiplyScalar(e.irradiance)}),$.fuzz&&($.fuzz.material.uniforms.uViewportHeight.value=Up.domElement.height);let n=fm.active?$.reelFocus:qp.position.distanceTo(Jp.target);Xp.setFocus(n+Q.post.focusOffset)}var lm=performance.now();function um(e){requestAnimationFrame(um);let t=Math.min((e-lm)/1e3,.1);if(lm=e,$.profiling)return;if(fm.active){let e=fm.update(t,qp.aspect);e.done?vm():($.reelTurn=e.turn,$.reelFocus=e.focus,Xp.setGain(e.gain),pm.recording&&(mm.textContent=`● recording ${fm.time.toFixed(1)} / ${fm.duration.toFixed(1)} s · Esc to cancel`))}else Jp.update(t);cm();let n=Q.debug.gpuTimer;n&&Gp.begin(),Xp.render(e/1e3);let r=n?Gp.end():null;Wp.tick(t,r)}async function dm(e){$.profiling=!0;try{return Mp(await jp({params:Q,renderer:Up,onProgress:e,apply(){$p(),cm()},render:()=>Xp.render(0)}))}finally{$.profiling=!1}}var fm=Tp({params:Q,camera:qp,setLook(e){ff(Q,e.preset),e.bokeh!=null&&(Q.post.bokehScale=e.bokeh),$p()}}),pm={saved:null,recording:null,finish:null,gui:null,clean:!1},mm=document.createElement(`div`);mm.style.cssText=`position:fixed;left:50%;bottom:14px;transform:translateX(-50%);z-index:20;padding:6px 12px;border-radius:999px;background:rgba(18,18,20,.82);color:#eee;font:11px ui-monospace,SFMono-Regular,Menlo,monospace;pointer-events:none;transition:opacity .4s;opacity:0`,document.body.appendChild(mm);var hm=(e,t=0)=>{mm.textContent=e,mm.style.opacity=+!!e,t&&setTimeout(()=>mm.style.opacity=0,t)};function gm(){let e=[`video/mp4;codecs=avc1.640033`,`video/mp4`,`video/webm;codecs=vp9`,`video/webm`].find(e=>window.MediaRecorder?.isTypeSupported(e));if(!e)return null;let t=Vp.captureStream(60),n=new MediaRecorder(t,{mimeType:e,videoBitsPerSecond:12e6}),r=[];n.ondataavailable=e=>e.data.size&&r.push(e.data);let i=new Promise(e=>n.onstop=()=>e(new Blob(r,{type:n.mimeType})));return n.start(),{stop(){return n.stop(),t.getTracks().forEach(e=>e.stop()),i}}}async function _m({record:e=!1}={}){if(fm.active||pm.saved)return null;pm.saved={params:JSON.stringify(Q),position:qp.position.clone(),target:Jp.target.clone()},(Q.reel.hideUI||e)&&(pm.clean=!0,pm.gui?.gui.hide(),Wp.visible=!1),$.profiling=!0,hm(`preparing reel…`),await Promise.all(fm.hdris.map(nm));for(let e of fm.looks)ff(Q,e),$p(),cm(),Xp.render(0);$.profiling=!1,Jp.enabled=!1;let t=new Promise(e=>pm.finish=e);return e&&(pm.recording=gm()),e&&!pm.recording?hm(`this browser cannot record the canvas`,4e3):e||hm(`Esc to stop`,1600),fm.start(Math.atan2(qp.position.x,qp.position.z)*180/Math.PI,e),t}async function vm(){if(!pm.saved)return;fm.stop(),Xp.setGain(1);let e=pm.recording?await pm.recording.stop():null;pm.recording=null,pf(Q,pm.saved.params),qp.position.copy(pm.saved.position),Jp.target.copy(pm.saved.target),Jp.enabled=!0,pm.saved=null,pm.clean=!1,$p(),pm.gui?.gui.show(),pm.gui?.refresh(),hm(``),pm.finish?.(e),pm.finish=null}async function ym(){let e=await _m({record:!0});if(!e||!e.size)return;let t=document.createElement(`a`);t.href=URL.createObjectURL(e),t.download=`pumpkin-reel.${e.type.includes(`mp4`)?`mp4`:`webm`}`,t.click(),setTimeout(()=>URL.revokeObjectURL(t.href),1e4),hm(`saved ${t.download}`,3e3)}window.addEventListener(`keydown`,e=>{e.key===`Escape`&&fm.active&&vm()}),om(),sm().then(()=>{Q.debug.fps=!1,pm.gui=Ep(Q,$p,{profile:dm,playReel:()=>fm.active?vm():_m(),recordReel:ym}),$p(),cm(),Jp.autoRotate=!0,Jp.autoRotateSpeed=.13,Xp.render(0),Hp.classList.add(`done`),Jp.playIntro(),lm=performance.now(),requestAnimationFrame(um)}).catch(e=>{console.error(e),Hp.textContent=`failed to load: `+e.message}),window.pumpkin={params:Q,apply:$p,renderer:Up,scene:Kp,camera:qp,controls:Jp,rig:Yp,state:$,post:Xp,profile:dm,update:cm,reel:fm,playReel:_m,stopReel:vm,preset(e){ff(Q,e),$p()},quality(e){uf(Q,e),$p()}};
+}function cm(){let e=fm.active?$.reelTurn:Q.lights.followCamera?Math.atan2(qp.position.x,qp.position.z):Jp.lightTurn,t=Yp.update(e);$.pumpkinMaterials?.forEach(e=>{if(e.envMap!==t){e.envMap=t,e.needsUpdate=!0}e.envMapIntensity=Q.environment.reflectionIntensity}),t!==Zp.envMap.value&&(Zp.envMap.value=t,$.skin&&Vf($.skin,t),$.styles&&Vf($.styles,t)),Kp.backgroundRotation.y=Yp.turn,Zp.uEnvRotation.value.copy(Yp.envRotation);for(let e=0;e<9;e++)Zp.uSH.value[e].fromArray(Yp.sh,e*3);Zp.uAmbientRadiance.value.fromArray(Yp.ambient),Zp.uAmbientGradient.value=Yp.gradient,Yp.lights.forEach((e,t)=>{Zp.uLightDir.value[t].fromArray(e.dir),Zp.uLightColor.value[t].fromArray(e.color).multiplyScalar(e.irradiance)}),$.fuzz&&($.fuzz.material.uniforms.uViewportHeight.value=Up.domElement.height);let n=fm.active?$.reelFocus:qp.position.distanceTo(Jp.target);Xp.setFocus(n+Q.post.focusOffset)}var lm=performance.now();function um(e){requestAnimationFrame(um);let t=Math.min((e-lm)/1e3,.1);if(lm=e,$.profiling)return;if(fm.active){let e=fm.update(t,qp.aspect);e.done?vm():($.reelTurn=e.turn,$.reelFocus=e.focus,Xp.setGain(e.gain),pm.recording&&(mm.textContent=`● recording ${fm.time.toFixed(1)} / ${fm.duration.toFixed(1)} s · Esc to cancel`))}else Jp.update(t);if($.pumpkinLight){$.pumpkinLight.intensity=6.4+.7*Math.sin(e*.008)+.24*Math.sin(e*.021);if($.pumpkinCavityMaterial)$.pumpkinCavityMaterial.emissiveIntensity=.31+.025*Math.sin(e*.011)}cm();let n=Q.debug.gpuTimer;n&&Gp.begin(),Xp.render(e/1e3);let r=n?Gp.end():null;Wp.tick(t,r)}async function dm(e){$.profiling=!0;try{return Mp(await jp({params:Q,renderer:Up,onProgress:e,apply(){$p(),cm()},render:()=>Xp.render(0)}))}finally{$.profiling=!1}}var fm=Tp({params:Q,camera:qp,setLook(e){ff(Q,e.preset),e.bokeh!=null&&(Q.post.bokehScale=e.bokeh),$p()}}),pm={saved:null,recording:null,finish:null,gui:null,clean:!1},mm=document.createElement(`div`);mm.style.cssText=`position:fixed;left:50%;bottom:14px;transform:translateX(-50%);z-index:20;padding:6px 12px;border-radius:999px;background:rgba(18,18,20,.82);color:#eee;font:11px ui-monospace,SFMono-Regular,Menlo,monospace;pointer-events:none;transition:opacity .4s;opacity:0`,document.body.appendChild(mm);var hm=(e,t=0)=>{mm.textContent=e,mm.style.opacity=+!!e,t&&setTimeout(()=>mm.style.opacity=0,t)};function gm(){let e=[`video/mp4;codecs=avc1.640033`,`video/mp4`,`video/webm;codecs=vp9`,`video/webm`].find(e=>window.MediaRecorder?.isTypeSupported(e));if(!e)return null;let t=Vp.captureStream(60),n=new MediaRecorder(t,{mimeType:e,videoBitsPerSecond:12e6}),r=[];n.ondataavailable=e=>e.data.size&&r.push(e.data);let i=new Promise(e=>n.onstop=()=>e(new Blob(r,{type:n.mimeType})));return n.start(),{stop(){return n.stop(),t.getTracks().forEach(e=>e.stop()),i}}}async function _m({record:e=!1}={}){if(fm.active||pm.saved)return null;pm.saved={params:JSON.stringify(Q),position:qp.position.clone(),target:Jp.target.clone()},(Q.reel.hideUI||e)&&(pm.clean=!0,pm.gui?.gui.hide(),Wp.visible=!1),$.profiling=!0,hm(`preparing reel…`),await Promise.all(fm.hdris.map(nm));for(let e of fm.looks)ff(Q,e),$p(),cm(),Xp.render(0);$.profiling=!1,Jp.enabled=!1;let t=new Promise(e=>pm.finish=e);return e&&(pm.recording=gm()),e&&!pm.recording?hm(`this browser cannot record the canvas`,4e3):e||hm(`Esc to stop`,1600),fm.start(Math.atan2(qp.position.x,qp.position.z)*180/Math.PI,e),t}async function vm(){if(!pm.saved)return;fm.stop(),Xp.setGain(1);let e=pm.recording?await pm.recording.stop():null;pm.recording=null,pf(Q,pm.saved.params),qp.position.copy(pm.saved.position),Jp.target.copy(pm.saved.target),Jp.enabled=!0,pm.saved=null,pm.clean=!1,$p(),pm.gui?.gui.show(),pm.gui?.refresh(),hm(``),pm.finish?.(e),pm.finish=null}async function ym(){let e=await _m({record:!0});if(!e||!e.size)return;let t=document.createElement(`a`);t.href=URL.createObjectURL(e),t.download=`pumpkin-reel.${e.type.includes(`mp4`)?`mp4`:`webm`}`,t.click(),setTimeout(()=>URL.revokeObjectURL(t.href),1e4),hm(`saved ${t.download}`,3e3)}window.addEventListener(`keydown`,e=>{e.key===`Escape`&&fm.active&&vm()}),om(),sm().then(()=>{Q.debug.fps=!1,pm.gui=Ep(Q,$p,{profile:dm,playReel:()=>fm.active?vm():_m(),recordReel:ym}),$p(),cm(),Jp.autoRotate=!0,Jp.autoRotateSpeed=.13,Xp.render(0),Hp.classList.add(`done`),Jp.playIntro(),lm=performance.now(),requestAnimationFrame(um)}).catch(e=>{console.error(e),Hp.textContent=`failed to load: `+e.message}),window.pumpkin={params:Q,apply:$p,renderer:Up,scene:Kp,camera:qp,controls:Jp,rig:Yp,state:$,post:Xp,profile:dm,update:cm,reel:fm,playReel:_m,stopReel:vm,preset(e){ff(Q,e),$p()},quality(e){uf(Q,e),$p()}};

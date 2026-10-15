@@ -17,13 +17,13 @@ renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.08;
+renderer.toneMappingExposure = 0.98;
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 const room = new RoomEnvironment(renderer);
 const environmentGenerator = new THREE.PMREMGenerator(renderer);
 scene.environment = environmentGenerator.fromScene(room, 0.04).texture;
-scene.environmentIntensity = 0.65;
+scene.environmentIntensity = 0.4;
 environmentGenerator.dispose();
 room.dispose();
 
@@ -33,10 +33,10 @@ const camera = new THREE.PerspectiveCamera(
   0.1,
   100,
 );
-camera.position.set(2.5, 2.55, 4.4);
+camera.position.set(4.495, 2.997, 5.709);
 
 const controls = new OrbitControls(camera, canvas);
-controls.target.set(0, 1.05, 0);
+controls.target.set(1.25, 1.05, 0);
 controls.enableDamping = true;
 controls.dampingFactor = 0.055;
 controls.minDistance = 3.2;
@@ -44,11 +44,12 @@ controls.maxDistance = 9;
 controls.maxPolarAngle = Math.PI * 0.49;
 controls.autoRotate = true;
 controls.autoRotateSpeed = 0.45;
+controls.saveState();
 
-scene.add(new THREE.HemisphereLight("#fff3df", "#80634b", 2.55));
-scene.add(new THREE.AmbientLight("#fff4e8", 0.35));
+scene.add(new THREE.HemisphereLight("#fff3df", "#80634b", 2.3));
+scene.add(new THREE.AmbientLight("#fff4e8", 0.25));
 
-const keyLight = new THREE.DirectionalLight("#fff0d7", 3.4);
+const keyLight = new THREE.DirectionalLight("#fff0d7", 3);
 keyLight.position.set(-3.8, 6.4, 4.2);
 keyLight.castShadow = true;
 keyLight.shadow.mapSize.set(2048, 2048);
@@ -60,11 +61,11 @@ keyLight.shadow.bias = -0.00025;
 keyLight.shadow.radius = 7;
 scene.add(keyLight);
 
-const fillLight = new THREE.DirectionalLight("#f5b98a", 1.8);
+const fillLight = new THREE.DirectionalLight("#f5b98a", 1.3);
 fillLight.position.set(4, 2.4, -4);
 scene.add(fillLight);
 
-const rimLight = new THREE.DirectionalLight("#fff8eb", 2.5);
+const rimLight = new THREE.DirectionalLight("#fff8eb", 1.8);
 rimLight.position.set(0.4, 5.2, -4.5);
 scene.add(rimLight);
 
@@ -93,10 +94,9 @@ contactShadow.position.set(0, 0.002, 0);
 scene.add(contactShadow);
 
 const maps = window.pumpkinAssets.makeRindMaps();
-const textureLoader = new THREE.TextureLoader();
-const rindMap = textureLoader.load(maps.color.toDataURL());
-const bumpMap = textureLoader.load(maps.bump.toDataURL());
-const roughnessMap = textureLoader.load(maps.roughness.toDataURL());
+const rindMap = new THREE.CanvasTexture(maps.color);
+const bumpMap = new THREE.CanvasTexture(maps.bump);
+const roughnessMap = new THREE.CanvasTexture(maps.roughness);
 rindMap.colorSpace = THREE.SRGBColorSpace;
 for (const texture of [rindMap, bumpMap, roughnessMap]) {
   texture.anisotropy = Math.min(renderer.capabilities.getMaxAnisotropy(), 8);
@@ -228,6 +228,14 @@ function createStemGeometry() {
         indices.push(a, a + 1, b, a + 1, b + 1, b);
       }
     }
+  }
+
+  const topRing = heightSegments * (radialSegments + 1);
+  const topCenter = positions.length / 3;
+  positions.push(0.075 * Math.sin(1.35), stemHeight, 0.035 * (1 - Math.cos(1.7)));
+  uvs.push(0.5, 1);
+  for (let column = 0; column < radialSegments; column++) {
+    indices.push(topCenter, topRing + column + 1, topRing + column);
   }
 
   const geometry = new THREE.BufferGeometry();

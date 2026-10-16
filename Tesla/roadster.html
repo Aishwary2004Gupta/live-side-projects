@@ -2,573 +2,482 @@
 <html lang="en">
 <head>
 <meta charset="utf-8"/>
-<meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>Tesla Roadster — Flying Stunts</title>
+<title>Tesla Roadster • Stunts</title>
 <style>
-  *{margin:0;padding:0;box-sizing:border-box}
-  html,body{height:100%;overflow:hidden;background:#000;color:#fff;font-family:"SF Pro Text","Helvetica Neue",Inter,system-ui,sans-serif}
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Space+Grotesk:wght@500;600&amp;display=swap');
+  
+  html,body{margin:0;height:100%;overflow:hidden;background:#000;font-family:"Inter",system-ui,sans-serif;color:#fff}
   #c{display:block;width:100%;height:100%}
-  #ui{position:absolute;inset:0;pointer-events:none;display:flex;flex-direction:column;justify-content:space-between;padding:32px;z-index:10}
-  #header{display:flex;justify-content:space-between;align-items:flex-start;pointer-events:auto}
-  #logo{font-size:11px;letter-spacing:.5em;text-transform:uppercase;opacity:.8}
-  #logo b{display:block;font-size:22px;letter-spacing:.14em;margin-top:4px;font-weight:600}
-  #nav{display:flex;gap:12px;pointer-events:auto}
-  #nav button{
-    background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.25);color:#fff;
-    font-size:11px;letter-spacing:.3em;text-transform:uppercase;padding:8px 16px;border-radius:4px;cursor:pointer;backdrop-filter:blur(4px)
-  }
-  #nav button.active{background:rgba(232,33,39,.9);border-color:#e82127;color:#fff;font-weight:600}
-  #nav button:hover:not(.active){background:rgba(255,255,255,.14)}
-  #footer{display:flex;justify-content:space-between;align-items:flex-end;pointer-events:none}
-  #desc{max-width:420px;font-size:13px;line-height:1.55;opacity:0;transition:opacity .8s}
-  #desc h2{margin:0 0 8px;font-size:11px;letter-spacing:.38em;text-transform:uppercase;opacity:.55;font-weight:500}
-  #stats{text-align:right;opacity:0;transition:opacity 1s}
-  #stats .v{font-size:56px;font-weight:300;line-height:1;font-variant-numeric:tabular-nums}
-  #stats .v small{font-size:20px;opacity:.55;margin-left:6px}
-  #stats .l{font-size:11px;letter-spacing:.38em;text-transform:uppercase;opacity:.55;margin-top:6px}
-  #stats .g{font-size:18px;margin-top:10px;font-weight:300;opacity:.9}
-  #hint{position:absolute;right:32px;top:32px;font-size:11px;opacity:.3;letter-spacing:.2em;text-transform:uppercase;pointer-events:auto;cursor:pointer}
-  #vig{position:absolute;inset:0;pointer-events:none;background:radial-gradient(ellipse at 60% 50%,transparent 35%,rgba(0,0,0,.85) 100%)}
-  .fade{opacity:0;transition:opacity .5s}
+  
+  .ui{position:absolute;inset:0;pointer-events:none;z-index:10}
+  .header{position:absolute;top:0;left:0;right:0;display:flex;align-items:center;justify-content:space-between;padding:24px 32px;pointer-events:auto}
+  .logo{font-family:"Space Grotesk",sans-serif;font-size:21px;font-weight:600;letter-spacing:-0.02em}
+  .logo span{color:#ff3b3b}
+  
+  .modes{display:flex;gap:8px;background:rgba(20,20,22,0.85);backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,0.08);border-radius:9999px;padding:4px}
+  .mode-btn{padding:10px 24px;border-radius:9999px;font-size:13px;font-weight:500;letter-spacing:0.3px;border:none;background:transparent;color:#888;cursor:pointer;transition:all .2s ease}
+  .mode-btn.active{background:#fff;color:#000}
+  
+  .info{position:absolute;bottom:32px;left:32px;max-width:380px;pointer-events:auto}
+  .info h2{font-size:13px;letter-spacing:1.5px;text-transform:uppercase;opacity:0.5;margin:0 0 8px;font-weight:500}
+  .info p{margin:0;font-size:14px;line-height:1.5;color:#aaa}
+  
+  .stats{position:absolute;bottom:32px;right:32px;text-align:right;pointer-events:none}
+  .stat{display:flex;align-items:baseline;justify-content:flex-end;gap:6px;margin-bottom:4px}
+  .stat .value{font-size:42px;font-weight:300;line-height:1;font-variant-numeric:tabular-nums}
+  .stat .unit{font-size:13px;opacity:0.6}
+  .stat-label{font-size:10px;letter-spacing:1.2px;text-transform:uppercase;opacity:0.4}
+  
+  #vig{position:absolute;inset:0;pointer-events:none;background:radial-gradient(circle at 50% 40%,transparent 45%,rgba(0,0,0,0.65) 100%)}
 </style>
 </head>
 <body>
 <canvas id="c"></canvas>
 <div id="vig"></div>
-<div id="ui">
-  <div id="header">
-    <div id="logo">Tesla<b>ROADSTER</b></div>
-    <div id="nav">
-      <button id="btnWall" class="active">Wall Climb</button>
-      <button id="btnKick">Kickflip</button>
+
+<div class="ui">
+  <!-- Header -->
+  <div class="header">
+    <div class="logo">TESLA <span>ROADSTER</span></div>
+    
+    <div class="modes">
+      <button class="mode-btn active" id="btn-climb">Wall Climb</button>
+      <button class="mode-btn" id="btn-kickflip">Kickflip</button>
     </div>
   </div>
-  <div id="footer">
-    <div id="desc">
-      <h2 id="sceneLabel">Wall Climb</h2>
-      <div id="sceneText">Multi-mode fan suction pins the car to the inverted wall — 4,700 kg of downforce at rest.</div>
-    </div>
-    <div id="stats">
-      <div class="v"><span id="kg">0</span><small>kg</small></div>
-      <div class="l">Downforce</div>
-      <div class="g"><span id="gg">0.0</span> G · <span id="spd">0</span> km/h</div>
-    </div>
+
+  <!-- Info -->
+  <div class="info">
+    <h2 id="mode-title">WALL CLIMB</h2>
+    <p id="mode-desc">Multi-mode fans create 4,700 kg of downforce, pinning the car to the wall even when inverted.</p>
   </div>
-  <div id="hint" onclick="location.reload()">↻ replay</div>
+
+  <!-- Stats -->
+  <div class="stats">
+    <div class="stat">
+      <div class="value" id="kg">4700</div>
+      <div class="unit">kg</div>
+    </div>
+    <div class="stat-label">DOWNFORCE</div>
+    
+    <div class="stat" style="margin-top:18px">
+      <div class="value" id="g">2.4</div>
+      <div class="unit">G</div>
+    </div>
+    <div class="stat-label">GRIP</div>
+  </div>
 </div>
 
 <script type="importmap">{"imports":{"three":"https://unpkg.com/three@0.160.0/build/three.module.js"}}</script>
 <script type="module">
 import * as THREE from 'three';
 
-/* ───────── config ───────── */
-const SCENE = { WALL: 'wall', KICK: 'kick' };
-let current = SCENE.WALL;
-let transitioning = false;
-
-/* ───────── renderer / scene ───────── */
+// ==================== SETUP ====================
 const canvas = document.getElementById('c');
 const renderer = new THREE.WebGLRenderer({canvas, antialias:true, alpha:false});
 renderer.setPixelRatio(Math.min(devicePixelRatio,2));
-renderer.setSize(innerWidth, innerHeight);
+renderer.setSize(innerWidth,innerHeight);
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.05;
-renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.toneMappingExposure = 1.1;
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x000000);
 scene.fog = new THREE.FogExp2(0x000000, 0.012);
-const camera = new THREE.PerspectiveCamera(36, innerWidth / innerHeight, 0.1, 400);
 
-/* ───────── lights ───────── */
-scene.add(new THREE.AmbientLight(0x8899aa, 0.07));
-const key = new THREE.SpotLight(0xfff5ea, 1700, 160, 0.42, 0.55, 1.5);
-key.position.set(22, 48, 28); key.castShadow = true;
-key.shadow.mapSize.set(2048, 2048); key.shadow.bias = -0.0002;
-scene.add(key); scene.add(key.target);
+const camera = new THREE.PerspectiveCamera(38, innerWidth/innerHeight, 0.1, 400);
 
-const rim = new THREE.SpotLight(0x8eb4ff, 380, 140, 0.55, 0.7, 1.6);
-rim.position.set(-30, 22, -18); scene.add(rim);
-const fill = new THREE.PointLight(0xffd8b0, 40, 60); fill.position.set(-8, 4, 16); scene.add(fill);
+// Lights
+scene.add(new THREE.AmbientLight(0x8899aa, 0.1));
+const key = new THREE.SpotLight(0xfff5ea, 2200, 180, 0.4, 0.6, 1.4);
+key.position.set(22,52,26); key.castShadow=true; scene.add(key); scene.add(key.target);
+const rim = new THREE.SpotLight(0x8eb4ff, 380, 160, 0.5, 0.7, 1.6); rim.position.set(-28,24,-22); scene.add(rim);
 
-/* ───────── floor ───────── */
-const floor = new THREE.Mesh(
-  new THREE.CircleGeometry(100, 64),
-  new THREE.MeshStandardMaterial({color:0x050506, roughness:0.9, metalness:0.05})
-);
+// Ground
+const floor = new THREE.Mesh(new THREE.CircleGeometry(120,64), new THREE.MeshStandardMaterial({color:0x050506, roughness:0.92}));
 floor.rotation.x = -Math.PI/2; floor.receiveShadow = true; scene.add(floor);
-{
-  const streak = new THREE.Mesh(
-    new THREE.PlaneGeometry(30, 0.18),
-    new THREE.MeshBasicMaterial({color:0xff2a2a, transparent:true, opacity:0.5})
-  );
-  streak.rotation.x = -Math.PI/2; streak.position.set(-18, 0.02, 6); scene.add(streak);
-}
 
-/* ───────── ramps ───────── */
-const W = 5.2;
+// Red ground line
+const redLine = new THREE.Mesh(new THREE.PlaneGeometry(32,0.2), new THREE.MeshBasicMaterial({color:0xff2a2a, transparent:true, opacity:0.6}));
+redLine.rotation.x = -Math.PI/2; redLine.position.set(-18,0.03,6); scene.add(redLine);
 
-// Wall curve: tall inverted-C
-const wallCurve = new THREE.CatmullRomCurve3([
-  new THREE.Vector3(-22,0.02,0), new THREE.Vector3(-10,0.02,0),
-  new THREE.Vector3(2,0.6,0), new THREE.Vector3(10,4.2,0),
-  new THREE.Vector3(13.5,11.5,0), new THREE.Vector3(12.2,19.5,0),
-  new THREE.Vector3(8,26,0), new THREE.Vector3(3.2,29.4,0)
-], false, 'catmullrom', 0.15);
-const WALL_TOTAL = wallCurve.getLength();
+// ==================== RAMP ====================
+const W = 5.4;
+const curve = new THREE.CatmullRomCurve3([
+  new THREE.Vector3(-24,0.02,0), new THREE.Vector3(-12,0.02,0), new THREE.Vector3(1,0.8,0),
+  new THREE.Vector3(11,5.2,0), new THREE.Vector3(14.5,13,0), new THREE.Vector3(12.8,21.5,0),
+  new THREE.Vector3(8.5,27.5,0), new THREE.Vector3(3.5,30.8,0)
+], false, 'catmullrom', 0.12);
+const TOTAL = curve.getLength();
 
-// Kick curve: short jump lip
-const kickCurve = new THREE.CatmullRomCurve3([
-  new THREE.Vector3(-14,0.02,0), new THREE.Vector3(-4,0.02,0),
-  new THREE.Vector3(1,1.5,0), new THREE.Vector3(3.5,5.0,0),
-  new THREE.Vector3(4.6,7.2,0)
-], false, 'catmullrom', 0.15);
-const KICK_TOTAL = kickCurve.getLength();
-
-function frameOf(curve, s) {
-  const total = curve.getLength();
-  s = Math.max(0, Math.min(total, s));
-  const u = s / total;
+function frame(s) {
+  s = Math.max(0, Math.min(TOTAL, s));
+  const u = s / TOTAL;
   const p = curve.getPointAt(u);
   const t = curve.getTangentAt(u).normalize();
   const up = new THREE.Vector3(-t.y, t.x, 0).normalize();
   return {p, t, u: up};
 }
 
+// Concrete texture
 function makeConcrete() {
-  const cv = document.createElement('canvas'); cv.width = 512; cv.height = 2048;
+  const cv = document.createElement('canvas'); cv.width=512; cv.height=2048;
   const cx = cv.getContext('2d');
-  cx.fillStyle = '#8a8d92'; cx.fillRect(0,0,512,2048);
+  cx.fillStyle='#8a8d92'; cx.fillRect(0,0,512,2048);
   const img = cx.getImageData(0,0,512,2048);
-  for(let i=0;i<img.data.length;i+=4){ const n=(Math.random()-0.5)*28; img.data[i]+=n; img.data[i+1]+=n; img.data[i+2]+=n; }
+  for(let i=0;i<img.data.length;i+=4){const n=(Math.random()-0.5)*26; img.data[i]+=n;img.data[i+1]+=n;img.data[i+2]+=n;}
   cx.putImageData(img,0,0);
-  cx.strokeStyle='rgba(30,30,32,.28)'; cx.lineWidth=3;
-  for(let y=0;y<2048;y+=96){cx.beginPath();cx.moveTo(0,y);cx.lineTo(512,y);cx.stroke();}
-  cx.lineWidth=2; for(let x of[0,128,256,384,511]){cx.beginPath();cx.moveTo(x,0);cx.lineTo(x,2048);cx.stroke();}
-  cx.fillStyle='rgba(230,230,232,.85)'; cx.fillRect(248,0,14,2048);
-  cx.fillStyle='rgba(200,200,200,.25)'; cx.fillRect(8,0,3,2048); cx.fillRect(501,0,3,2048);
-  const tex = new THREE.CanvasTexture(cv);
-  tex.wrapS=tex.wrapT=THREE.RepeatWrapping; tex.anisotropy=8; tex.colorSpace=THREE.SRGBColorSpace;
-  return tex;
+  cx.strokeStyle='rgba(25,25,28,0.3)'; cx.lineWidth=3;
+  for(let y=0;y<2048;y+=92){cx.beginPath();cx.moveTo(0,y);cx.lineTo(512,y);cx.stroke();}
+  cx.fillStyle='rgba(235,235,238,0.9)'; cx.fillRect(250,0,12,2048);
+  const tex=new THREE.CanvasTexture(cv); tex.wrapS=tex.wrapT=THREE.RepeatWrapping; tex.anisotropy=8; return tex;
 }
 const concTex = makeConcrete();
 
-function buildRamp(curve, total, name) {
-  const N = 260; const v=[], n=[], uv=[], idx=[];
-  const TH=0.45;
+// Build ramp
+(function buildRamp(){
+  const N=300, TH=0.48;
+  const v=[],nrm=[],uv=[],idx=[];
   for(let i=0;i<=N;i++){
-    const {p,t,u} = frameOf(curve, i/N*total);
-    const right = new THREE.Vector3().crossVectors(t,u).normalize();
+    const s=i/N*TOTAL, f=frame(s);
+    const right=new THREE.Vector3().crossVectors(f.t,f.u).normalize();
     for(const k of[-1,1]){
-      v.push(p.x+right.x*k*W/2, p.y+right.y*k*W/2, p.z+right.z*k*W/2);
-      n.push(u.x,u.y,u.z); uv.push(k*.5+.5, i/N);
+      v.push(f.p.x+right.x*k*W/2, f.p.y+right.y*k*W/2, f.p.z+right.z*k*W/2);
+      nrm.push(f.u.x,f.u.y,f.u.z);
+      uv.push(k*0.5+0.5,s/4.2);
     }
-    if(i<N){const a=i*2; idx.push(a,a+2,a+1,a+1,a+2,a+3);}
+    if(i<N){const a=i*2;idx.push(a,a+2,a+1,a+1,a+2,a+3);}
   }
-  const g = new THREE.BufferGeometry();
-  g.setAttribute('position',new THREE.Float32BufferAttribute(v,3));
-  g.setAttribute('normal',new THREE.Float32BufferAttribute(n,3));
-  g.setAttribute('uv',new THREE.Float32BufferAttribute(uv,2)); g.setIndex(idx);
-  const mesh = new THREE.Mesh(g, new THREE.MeshStandardMaterial({map:concTex,roughness:.72,metalness:.08,side:THREE.DoubleSide}));
-  mesh.receiveShadow=true; mesh.castShadow=true; mesh.name=name+'_surf'; scene.add(mesh);
+  const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(v,3));
+  g.setAttribute('normal',new THREE.Float32BufferAttribute(nrm,3));g.setAttribute('uv',new THREE.Float32BufferAttribute(uv,2));g.setIndex(idx);
+  const mesh=new THREE.Mesh(g,new THREE.MeshStandardMaterial({map:concTex,roughness:0.68,metalness:0.1,side:THREE.DoubleSide}));
+  mesh.receiveShadow=true;mesh.castShadow=true;scene.add(mesh);
 
-  // underside
-  const v2=[], n2=[], i2=[];
-  for(let i=0;i<=N;i++){
-    const {p,t,u} = frameOf(curve, i/N*total);
-    const right = new THREE.Vector3().crossVectors(t,u).normalize();
-    for(const k of[-1,1]){
-      v2.push(p.x+right.x*k*W/2-u.x*TH, p.y+right.y*k*W/2-u.y*TH, p.z+right.z*k*W/2-u.z*TH);
-      n2.push(-u.x,-u.y,-u.z);
-    }
-    if(i<N){const a=i*2; i2.push(a,a+1,a+2,a+1,a+3,a+2);}
-  }
-  const g2=new THREE.BufferGeometry(); g2.setAttribute('position',new THREE.Float32BufferAttribute(v2,3));
-  g2.setAttribute('normal',new THREE.Float32BufferAttribute(n2,3)); g2.setIndex(i2);
-  scene.add(new THREE.Mesh(g2,new THREE.MeshStandardMaterial({color:0x2a2c30,roughness:.8,metalness:.2})));
-
-  // red LED edge
-  const ledMat = new THREE.MeshStandardMaterial({color:0xff1a1a,emissive:0xff2200,emissiveIntensity:4.5,roughness:.3,metalness:.4});
+  // Red LED edges
+  const ledMat=new THREE.MeshStandardMaterial({color:0xff1a1a,emissive:0xff2200,emissiveIntensity:5.5,roughness:0.25,metalness:0.5});
   for(const side of[-1,1]){
-    const pts=[]; for(let i=0;i<=80;i++){
-      const {p,t,u}=frameOf(curve,i/80*total);
-      const right=new THREE.Vector3().crossVectors(t,u).normalize();
-      pts.push(p.clone().addScaledVector(right,side*(W/2+0.02)).addScaledVector(u,0.04));
+    const pts=[];
+    for(let i=0;i<=90;i++){
+      const f=frame(i/90*TOTAL);
+      const right=new THREE.Vector3().crossVectors(f.t,f.u).normalize();
+      pts.push(f.p.clone().addScaledVector(right,side*(W/2+0.03)).addScaledVector(f.u,0.05));
     }
-    scene.add(new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts),80,0.045,8,false),ledMat));
+    scene.add(new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts),90,0.05,8,false),ledMat));
   }
-  return mesh;
-}
+})();
 
-const wallRamp = buildRamp(wallCurve, WALL_TOTAL, 'wall');
-const kickRamp = buildRamp(kickCurve, KICK_TOTAL, 'kick');
-wallRamp.visible = true; kickRamp.visible = false;
-
-/* ───────── car ───────── */
+// ==================== CAR ====================
 const car = new THREE.Group(); scene.add(car);
-const paint = new THREE.MeshPhysicalMaterial({color:0xe6e8ec,metalness:.92,roughness:.16,clearcoat:1,clearcoatRoughness:.04});
-const dark = new THREE.MeshStandardMaterial({color:0x0b0c0e,metalness:.6,roughness:.45});
-const glassM = new THREE.MeshPhysicalMaterial({color:0x07090e,metalness:.2,roughness:.02,transmission:.35,transparent:true,opacity:.92,ior:1.45});
 
-const sh = new THREE.Shape();
-sh.moveTo(-2.28,.28); sh.lineTo(-2.32,.58); sh.lineTo(-2.05,.78); sh.lineTo(-1.05,.82);
-sh.quadraticCurveTo(-.45,1.18,.28,1.20); sh.quadraticCurveTo(1.05,1.16,1.62,.84);
-sh.lineTo(2.22,.62); sh.lineTo(2.38,.48); sh.lineTo(2.32,.28); sh.lineTo(-2.28,.28);
-const bg = new THREE.ExtrudeGeometry(sh,{depth:1.92,bevelEnabled:true,bevelThickness:.13,bevelSize:.13,bevelSegments:4});
-bg.center(); bg.translate(0,.72,0);
+const paint = new THREE.MeshPhysicalMaterial({color:0xe8eaee,metalness:0.93,roughness:0.15,clearcoat:1,clearcoatRoughness:0.03});
+const dark = new THREE.MeshStandardMaterial({color:0x0b0c0e,metalness:0.65,roughness:0.4});
+const glass = new THREE.MeshPhysicalMaterial({color:0x06080d,metalness:0.2,roughness:0.02,transmission:0.4,transparent:true,opacity:0.9});
+
+const sh = new THREE.Shape(); sh.moveTo(-2.3,0.26);sh.lineTo(-2.34,0.56);sh.lineTo(-2.08,0.76);sh.lineTo(-1.08,0.8);
+sh.quadraticCurveTo(-0.48,1.16,0.26,1.18);sh.quadraticCurveTo(1.02,1.14,1.6,0.82);sh.lineTo(2.2,0.6);sh.lineTo(2.36,0.46);sh.lineTo(2.3,0.26);sh.lineTo(-2.3,0.26);
+const bg = new THREE.ExtrudeGeometry(sh,{depth:1.9,bevelEnabled:true,bevelThickness:0.12,bevelSize:0.12,bevelSegments:4}); bg.center(); bg.translate(0,0.7,0);
 const body = new THREE.Mesh(bg,paint); body.castShadow=true; car.add(body);
-const cab = new THREE.Mesh(new THREE.SphereGeometry(.92,28,14,0,Math.PI*2,0,Math.PI/2),glassM);
-cab.scale.set(1.42,.52,.9); cab.position.set(-.08,1.05,0); car.add(cab);
-const wing = new THREE.Mesh(new THREE.BoxGeometry(.5,.045,2.05),dark); wing.position.set(-2.08,1.16,0); car.add(wing);
+
+const cab = new THREE.Mesh(new THREE.SphereGeometry(0.9,26,14,0,Math.PI*2,0,Math.PI/2),glass);
+cab.scale.set(1.4,0.5,0.88); cab.position.set(-0.1,1.02,0); car.add(cab);
+
+const wing = new THREE.Mesh(new THREE.BoxGeometry(0.48,0.04,2.0),dark); wing.position.set(-2.05,1.14,0); car.add(wing);
+
 const wheels = [];
-[[1.52,1],[1.52,-1],[-1.48,1],[-1.48,-1]].forEach(([x,z])=>{
+[[1.5,0.98],[1.5,-0.98],[-1.46,0.98],[-1.46,-0.98]].forEach(([x,z])=>{
   const w=new THREE.Group();
-  const t=new THREE.Mesh(new THREE.CylinderGeometry(.36,.36,.3,28),new THREE.MeshStandardMaterial({color:0x08090a,roughness:.9}));
-  t.rotation.x=Math.PI/2; t.castShadow=true;
-  const r=new THREE.Mesh(new THREE.CylinderGeometry(.24,.24,.32,8),new THREE.MeshStandardMaterial({color:0xc4c8ce,metalness:1,roughness:.22}));
-  r.rotation.x=Math.PI/2;
-  w.add(t,r); w.position.set(x,.36,z); car.add(w); wheels.push(w);
+  const t=new THREE.Mesh(new THREE.CylinderGeometry(0.35,0.35,0.28,24),new THREE.MeshStandardMaterial({color:0x08090a,roughness:0.9}));t.rotation.x=Math.PI/2;t.castShadow=true;
+  const r=new THREE.Mesh(new THREE.CylinderGeometry(0.23,0.23,0.3,8),new THREE.MeshStandardMaterial({color:0xc2c6cc,metalness:1,roughness:0.2}));r.rotation.x=Math.PI/2;
+  w.add(t,r);w.position.set(x,0.35,z);car.add(w);wheels.push(w);
 });
+
 [1,-1].forEach(z=>{
-  const h=new THREE.Mesh(new THREE.BoxGeometry(.05,.06,.52),new THREE.MeshStandardMaterial({emissive:0xe8f2ff,emissiveIntensity:5,color:0x222}));
-  h.position.set(2.36,.62,z*.58); car.add(h);
-  const tl=new THREE.Mesh(new THREE.BoxGeometry(.045,.06,.7),new THREE.MeshStandardMaterial({emissive:0xff1818,emissiveIntensity:4,color:0x111}));
-  tl.position.set(-2.34,.62,z*.52); car.add(tl);
+  const h=new THREE.Mesh(new THREE.BoxGeometry(0.05,0.055,0.5),new THREE.MeshStandardMaterial({emissive:0xe6f0ff,emissiveIntensity:6}));h.position.set(2.34,0.6,z*0.56);car.add(h);
+  const tl=new THREE.Mesh(new THREE.BoxGeometry(0.04,0.055,0.68),new THREE.MeshStandardMaterial({emissive:0xff1a1a,emissiveIntensity:5}));tl.position.set(-2.32,0.6,z*0.5);car.add(tl);
 });
-const headL = new THREE.SpotLight(0xeef5ff,40,28,.35,.5);
-headL.position.set(2.3,.62,0); headL.target.position.set(12,.4,0); car.add(headL); car.add(headL.target);
 
-/* underbody fans */
-const skirtMat = new THREE.MeshStandardMaterial({color:0x0c0e12,emissive:0x1a7fff,emissiveIntensity:0,roughness:.55});
-[[0,.88,4.5,.05],[0,-.88,4.5,.05],[2.25,0,.05,1.78],[-2.25,0,.05,1.78]].forEach(([x,z,sx,sz])=>{
-  const s=new THREE.Mesh(new THREE.BoxGeometry(sx,.24,sz),skirtMat); s.position.set(x,.15,z); car.add(s);
+// Underbody fans
+const skirtMat = new THREE.MeshStandardMaterial({color:0x0c0e12,emissive:0x1a7fff,emissiveIntensity:0,roughness:0.5});
+[[0,0.86,4.4,0.05],[0,-0.86,4.4,0.05],[2.2,0,0.05,1.72],[-2.2,0,0.05,1.72]].forEach(([x,z,sx,sz])=>{
+  const s=new THREE.Mesh(new THREE.BoxGeometry(sx,0.22,sz),skirtMat);s.position.set(x,0.14,z);car.add(s);
 });
-const fans=[];
-[-1.15,-.15,.85].forEach(x=>{
-  const g=new THREE.Group(); g.position.set(x,.2,0);
-  const ring=new THREE.Mesh(new THREE.TorusGeometry(.4,.045,8,28),dark); ring.rotation.x=Math.PI/2; g.add(ring);
-  const rot=new THREE.Group(); g.add(rot);
+
+const fans = [];
+[-1.12,-0.12,0.88].forEach(x=>{
+  const g=new THREE.Group();g.position.set(x,0.18,0);
+  const ring=new THREE.Mesh(new THREE.TorusGeometry(0.38,0.04,8,24),dark);ring.rotation.x=Math.PI/2;g.add(ring);
+  const rot=new THREE.Group();g.add(rot);
   for(let i=0;i<9;i++){
-    const b=new THREE.Mesh(new THREE.BoxGeometry(.32,.01,.09),new THREE.MeshStandardMaterial({color:0xd0d4da,metalness:1,roughness:.2,side:THREE.DoubleSide}));
-    b.position.x=.22; b.rotation.x=.5;
-    const pv=new THREE.Group(); pv.rotation.y=i/9*Math.PI*2; pv.add(b); rot.add(pv);
+    const b=new THREE.Mesh(new THREE.BoxGeometry(0.3,0.01,0.08),new THREE.MeshStandardMaterial({color:0xd0d4da,metalness:1,roughness:0.2}));b.position.x=0.2;b.rotation.x=0.5;
+    const pv=new THREE.Group();pv.rotation.y=i/9*Math.PI*2;pv.add(b);rot.add(pv);
   }
-  const glow=new THREE.Mesh(new THREE.CircleGeometry(.42,28),new THREE.MeshBasicMaterial({color:0x3aa8ff,transparent:true,opacity:0,side:THREE.DoubleSide,depthWrite:false}));
-  glow.rotation.x=Math.PI/2; glow.position.y=-.03; g.add(glow);
-  car.add(g); fans.push({rot:rot,glow:glow});
-});
-const cavity = new THREE.Mesh(new THREE.BoxGeometry(4.4,.22,1.72),new THREE.MeshBasicMaterial({color:0x2d9bff,transparent:true,opacity:0,depthWrite:false}));
-cavity.position.y=.12; car.add(cavity);
-const glowLight = new THREE.PointLight(0x3aa6ff,0,7); glowLight.position.y=.08; car.add(glowLight);
-
-/* thruster jets */
-const jets=[];
-[[-.55,0],[.55,0],[0,0]].forEach(([x,z],i)=>{
-  const g=new THREE.Group(); g.position.set(x,.02,z);
-  const core=new THREE.Mesh(new THREE.ConeGeometry(i===2?.07:.1,1.6,10,1,true),new THREE.MeshBasicMaterial({color:0xc4f0ff,transparent:true,opacity:0,side:THREE.DoubleSide,depthWrite:false}));
-  core.rotation.x=Math.PI; core.position.y=-.8; g.add(core);
-  const outer=new THREE.Mesh(new THREE.ConeGeometry(i===2?.14:.2,2.4,10,1,true),new THREE.MeshBasicMaterial({color:0x4aa8ff,transparent:true,opacity:0,side:THREE.DoubleSide,depthWrite:false}));
-  outer.rotation.x=Math.PI; outer.position.y=-1.15; g.add(outer);
-  car.add(g); jets.push({core,outer});
+  const glow=new THREE.Mesh(new THREE.CircleGeometry(0.4,24),new THREE.MeshBasicMaterial({color:0x3aa8ff,transparent:true,opacity:0,side:THREE.DoubleSide}));glow.rotation.x=Math.PI/2;glow.position.y=-0.03;g.add(glow);
+  car.add(g);fans.push({rot,glow});
 });
 
-/* suction particles (car-local) */
-const PN=560; const pp=new Float32Array(PN*3); const ps=[];
-const spawnP=i=>{
-  const r=Math.random(); const p=new THREE.Vector3();
-  if(r<.35) p.set(-2.6-Math.random()*3,.03+Math.random()*.55,(Math.random()-.5)*3.4);
-  else if(r<.7) p.set(2.6+Math.random()*3,.03+Math.random()*.55,(Math.random()-.5)*3.4);
-  else p.set((Math.random()-.5)*5,.03+Math.random()*.35,(Math.random()<.5?1:-1)*(1.05+Math.random()*2));
-  ps[i]={p,f:fans[Math.floor(Math.random()*3)],ex:false,v:1.4+Math.random()*2};
-};
-for(let i=0;i<PN;i++)spawnP(i);
-const pg=new THREE.BufferGeometry(); pg.setAttribute('position',new THREE.BufferAttribute(pp,3));
-const pm=new THREE.PointsMaterial({color:0xbfe6ff,size:.055,transparent:true,opacity:0,depthWrite:false});
-car.add(new THREE.Points(pg,pm));
+const cavity = new THREE.Mesh(new THREE.BoxGeometry(4.3,0.2,1.68),new THREE.MeshBasicMaterial({color:0x2d9bff,transparent:true,opacity:0}));cavity.position.y=0.11;car.add(cavity);
+const glowLight = new THREE.PointLight(0x3aa6ff,0,6);glowLight.position.y=0.07;car.add(glowLight);
 
-/* world smoke */
-const SN=900; const sp=new Float32Array(SN*3); const smokeLife=[];
-for(let i=0;i<SN;i++){sp[i*3]=0;sp[i*3+1]=-20;sp[i*3+2]=0;smokeLife.push({a:0,vx:0,vy:0,vz:0,size:0});}
-const sg=new THREE.BufferGeometry(); sg.setAttribute('position',new THREE.BufferAttribute(sp,3));
-const sm=new THREE.PointsMaterial({color:0xd0dce8,size:.7,transparent:true,opacity:0,depthWrite:false,sizeAttenuation:true});
-scene.add(new THREE.Points(sg,sm));
+// Jets
+const jets = [];
+[[-0.55,-0.68],[0.55,-0.68]].forEach(([x,z])=>{
+  const grp=new THREE.Group();grp.position.set(x,0.04,z);
+  const core=new THREE.Mesh(new THREE.ConeGeometry(0.08,1.3,8,1,true),new THREE.MeshBasicMaterial({color:0xb8e8ff,transparent:true,opacity:0}));core.rotation.x=Math.PI;core.position.y=-0.65;grp.add(core);
+  const outer=new THREE.Mesh(new THREE.ConeGeometry(0.16,1.9,8,1,true),new THREE.MeshBasicMaterial({color:0x4aa8ff,transparent:true,opacity:0}));outer.rotation.x=Math.PI;outer.position.y=-0.9;grp.add(outer);
+  car.add(grp);jets.push({core,outer});
+});
 
-/* blue flip trails */
-const TN=200; const tp_=new Float32Array(TN*3); const tLife=new Float32Array(TN);
-for(let i=0;i<TN;i++){tp_[i*3+1]=-20;tLife[i]=0;}
-const tg=new THREE.BufferGeometry(); tg.setAttribute('position',new THREE.BufferAttribute(tp_,3));
-const tm=new THREE.PointsMaterial({color:0x7ec8ff,size:.18,transparent:true,opacity:0,depthWrite:false});
-scene.add(new THREE.Points(tg,tm));
+// ==================== PARTICLES ====================
+const PN=480, pp=new Float32Array(PN*3), ps=[];
+const spawn=i=>{const r=Math.random();const p=new THREE.Vector3();
+  if(r<0.4)p.set(-2.5-Math.random()*2.8,0.03+Math.random()*0.5,(Math.random()-0.5)*3.3);
+  else if(r<0.75)p.set(2.5+Math.random()*2.8,0.03+Math.random()*0.5,(Math.random()-0.5)*3.3);
+  else p.set((Math.random()-0.5)*4.8,0.03+Math.random()*0.3,(Math.random()<0.5?1:-1)*(1+Math.random()*1.8));
+  ps[i]={p,f:fans[Math.floor(Math.random()*3)],ex:false,v:1.6+Math.random()*1.8};};
+for(let i=0;i<PN;i++)spawn(i);
+const pg=new THREE.BufferGeometry();pg.setAttribute('position',new THREE.BufferAttribute(pp,3));
+const pm=new THREE.PointsMaterial({color:0xbfe6ff,size:0.05,transparent:true,opacity:0});car.add(new THREE.Points(pg,pm));
 
-/* ───────── UI ───────── */
-const ui = {
-  kg:document.getElementById('kg'), gg:document.getElementById('gg'), spd:document.getElementById('spd'),
-  stats:document.getElementById('stats'), desc:document.getElementById('desc'),
-  sceneText:document.getElementById('sceneText'), sceneLabel:document.getElementById('sceneLabel'),
-  btnWall:document.getElementById('btnWall'), btnKick:document.getElementById('btnKick')
-};
+// Landing smoke
+const SN=380,sp=new Float32Array(SN*3),smokeLife=[];
+for(let i=0;i<SN;i++){sp[i*3]=0;sp[i*3+1]=-10;sp[i*3+2]=0;smokeLife.push({a:0,vx:0,vy:0,vz:0});}
+const sg=new THREE.BufferGeometry();sg.setAttribute('position',new THREE.BufferAttribute(sp,3));
+const sm=new THREE.PointsMaterial({color:0xd4e0ee,size:0.6,transparent:true,opacity:0,sizeAttenuation:true});
+const smoke=new THREE.Points(sg,sm);scene.add(smoke);
 
-function setScene(next){
-  if(transitioning || current===next) return;
-  transitioning = true;
-  ui.stats.classList.add('fade'); ui.desc.classList.add('fade');
-  setTimeout(()=>{
-    current = next;
-    wallRamp.visible = (next===SCENE.WALL);
-    kickRamp.visible = (next===SCENE.KICK);
-    resetCar();
-    ui.btnWall.className = next===SCENE.WALL?'active':'';
-    ui.btnKick.className = next===SCENE.KICK?'active':'';
-    ui.sceneLabel.textContent = next===SCENE.WALL?'WALL CLIMB':'KICKFLIP';
-    ui.sceneText.textContent = next===SCENE.WALL
-      ?'Multi-mode fan suction pins the car to the inverted wall — 4,700 kg of downforce at rest.'
-      :'Cold-gas thrusters and fan vectoring launch the Roadster into a front-flip kickflip, then recover before touchdown.';
-    ui.stats.classList.remove('fade'); ui.desc.classList.remove('fade');
-    transitioning = false;
-  },500);
-}
-ui.btnWall.onclick=()=>setScene(SCENE.WALL);
-ui.btnKick.onclick=()=>setScene(SCENE.KICK);
+function emitSmoke(pos,amt){for(let k=0;k<amt;k++){const i=Math.floor(Math.random()*SN);
+  sp[i*3]=pos.x+(Math.random()-0.5)*1.3;sp[i*3+1]=pos.y+Math.random()*0.3;sp[i*3+2]=pos.z+(Math.random()-0.5)*1.3;
+  smokeLife[i].a=1;smokeLife[i].vx=(Math.random()-0.5)*1.4;smokeLife[i].vy=0.9+Math.random()*1.6;smokeLife[i].vz=(Math.random()-0.5)*1.4;}}
 
-/* ───────── state ───────── */
-const st = {s:0,v:0,phase:0,hold:0,fan:0,t:0,fly:0}; // 0 climb 1 hold 2 fly 3 recover 4 landed
-const flyPos = new THREE.Vector3(); const flyVel = new THREE.Vector3(); const flyQ = new THREE.Quaternion(); const flySpin = new THREE.Vector3();
-const _m4=new THREE.Matrix4(), _q=new THREE.Quaternion(), _right=new THREE.Vector3(), _euler=new THREE.Euler();
+// ==================== STATE ====================
+let mode = 'climb'; // 'climb' or 'kickflip'
+let phase = 0, s = 0, v = 0, fan = 0, hold = 0, fly = 0;
+let pitch = 0, yaw = 0, roll = 0;
+let pitchRate = 0, yawRate = 0, rollRate = 0;
+const flyPos = new THREE.Vector3(), flyVel = new THREE.Vector3();
+const camPos = new THREE.Vector3(-26,4,20), camTgt = new THREE.Vector3(-14,2,0);
 const clock = new THREE.Clock();
 
-function resetCar(){
-  st.s=0; st.v=0; st.phase=0; st.hold=0; st.fan=0; st.t=0; st.fly=0;
-  car.position.set(0,0,0); car.quaternion.set(0,0,0,1);
-  flyPos.set(0,0,0); flyVel.set(0,0,0); flyQ.set(0,0,0,1); flySpin.set(0,0,0);
-  wheels.forEach(w=>{w.rotation.set(0,0,0);});
-  if(current===SCENE.WALL){
-    const {p,t,u}=frameOf(wallCurve,0);
-    _right.crossVectors(t,u).normalize(); _m4.makeBasis(t,u,_right); _q.setFromRotationMatrix(_m4);
-    car.quaternion.copy(_q); car.position.copy(p);
+const btnClimb = document.getElementById('btn-climb');
+const btnKick = document.getElementById('btn-kickflip');
+const modeTitle = document.getElementById('mode-title');
+const modeDesc = document.getElementById('mode-desc');
+
+function setMode(newMode){
+  mode = newMode;
+  btnClimb.classList.toggle('active', mode==='climb');
+  btnKick.classList.toggle('active', mode==='kickflip');
+  
+  if(mode==='climb'){
+    modeTitle.textContent = 'WALL CLIMB';
+    modeDesc.textContent = 'Multi-mode fans create 4,700 kg of downforce, pinning the car to the wall even when inverted.';
+    resetClimb();
   }else{
-    const {p,t,u}=frameOf(kickCurve,0);
-    _right.crossVectors(t,u).normalize(); _m4.makeBasis(t,u,_right); _q.setFromRotationMatrix(_m4);
-    car.quaternion.copy(_q); car.position.copy(p);
-  }
-}
-resetCar();
-
-function emitSmoke(origin,amount,spread=1.6,boost=1){
-  for(let k=0;k<amount;k++){
-    const i=Math.floor(Math.random()*SN);
-    sp[i*3]=origin.x+(Math.random()-.5)*spread;
-    sp[i*3+1]=origin.y+Math.random()*.3;
-    sp[i*3+2]=origin.z+(Math.random()-.5)*spread;
-    smokeLife[i].a=.9+Math.random()*.5;
-    smokeLife[i].vx=(Math.random()-.5)*2.4*boost;
-    smokeLife[i].vy=.6+Math.random()*2.2*boost;
-    smokeLife[i].vz=(Math.random()-.5)*2.4*boost;
-    smokeLife[i].size=.4+Math.random()*.8;
-  }
-}
-function emitTrail(origin,amount){
-  for(let k=0;k<amount;k++){
-    const i=Math.floor(Math.random()*TN);
-    tp_[i*3]=origin.x+(Math.random()-.5)*.5;
-    tp_[i*3+1]=origin.y+(Math.random()-.5)*.5;
-    tp_[i*3+2]=origin.z+(Math.random()-.5)*.5;
-    tLife[i]=.6+Math.random()*.5;
+    modeTitle.textContent = 'KICKFLIP';
+    modeDesc.textContent = 'Full-speed launch followed by a 360° backflip. Cold-gas thrusters stabilize the rotation before landing.';
+    resetKickflip();
   }
 }
 
-/* ───────── update ───────── */
-function updateWall(dt){
-  if(st.phase===0){
-    st.fan=Math.min(1,st.fan+dt*.55);
-    const targetV = st.s < WALL_TOTAL*.25 ? 16 : 11;
-    st.v = THREE.MathUtils.lerp(st.v,targetV,dt*1.1);
-    const remain = STOP_S - st.s;
-    if(remain<9) st.v=Math.max(0,Math.min(st.v,remain*1.25+.25));
-    st.s += st.v*dt;
-    if(remain<.04){st.s=STOP_S;st.v=0;st.phase=1;ui.stats.style.opacity=1;ui.desc.style.opacity=1;}
-    if(st.s>WALL_TOTAL*.18)ui.stats.style.opacity=1;
-  }else{st.hold+=dt;}
-  const f = frameOf(wallCurve, st.s);
-  _right.crossVectors(f.t,f.u).normalize(); _m4.makeBasis(f.t,f.u,_right); _q.setFromRotationMatrix(_m4);
-  car.quaternion.copy(_q); car.position.copy(f.p);
-  if(st.phase>0) car.position.addScaledVector(f.u, Math.sin(st.hold*3)*.005*Math.exp(-st.hold*.7));
-  wheels.forEach(w=>w.rotation.z-=st.v*dt/.36);
+btnClimb.onclick = () => setMode('climb');
+btnKick.onclick = () => setMode('kickflip');
 
-  const fan=st.fan;
-  fans.forEach(fn=>{fn.rot.rotation.y+=fan*58*dt; fn.glow.material.opacity=fan*(.28+.1*Math.sin(st.t*22));});
-  skirtMat.emissiveIntensity=fan*1.5; cavity.material.opacity=fan*.2; glowLight.intensity=fan*11; pm.opacity=fan*.75;
-  const pull=3+fan*16;
-  for(let i=0;i<PN;i++){
-    const o=ps[i], p=o.p;
-    if(!o.ex){
-      const d=new THREE.Vector3(o.f.rot.parent.position.x,.2,0).sub(p);
-      if(d.length()<.28){o.ex=true; p.set(o.f.rot.parent.position.x,.28,0);}
-      else{
-        d.normalize(); const inside=Math.abs(p.x)<2.25&&Math.abs(p.z)<.88;
-        if(inside) p.y=Math.min(p.y,.22);
-        p.addScaledVector(d,(o.v+pull*(inside?1:.42))*dt*fan);
-        if(!inside) p.y=Math.max(.03,p.y-.25*dt);
-      }
-    }else{
-      p.x+=(-2.6-p.x)*dt*4-7*fan*dt; p.y+=(.9-p.y)*dt*3;
-      if(p.x<-4-Math.random()*2) spawnP(i);
-    }
-    pp[i*3]=p.x;pp[i*3+1]=p.y;pp[i*3+2]=p.z;
-  }
-  pg.attributes.position.needsUpdate=true;
-
-  const suction=4700*fan; const aero=.55*st.v*st.v/9.81; const upY=f.u.y;
-  const G=Math.max(0,(suction+aero+1900*upY)/1900);
-  ui.kg.textContent=Math.round(suction).toLocaleString();
-  ui.gg.textContent=G.toFixed(1); ui.spd.textContent=Math.round(st.v*3.6);
-  ui.sceneText.textContent = st.phase===1 && upY<-.2 ? 'Holding inverted at the lip — atmospheric pressure keeps it pinned.' : ui.sceneText.textContent;
+function resetClimb(){
+  phase=0; s=0; v=0; fan=0; hold=0; fly=0;
+  car.position.set(0,0,0); car.quaternion.identity();
+  flyPos.set(0,0,0); flyVel.set(0,0,0);
+  pitch=yaw=roll=0;
 }
 
-const STOP_S = WALL_TOTAL*.90;
-
-function updateKick(dt){
-  if(st.phase===0){
-    st.fan=Math.min(1,st.fan+dt*.5);
-    const targetV = st.s < KICK_TOTAL*.3 ? 14 : 10;
-    st.v = THREE.MathUtils.lerp(st.v,targetV,dt*1.1);
-    st.s += st.v*dt;
-    if(st.s>=KICK_TOTAL*.92){
-      st.phase=1; st.fly=0;
-      const f = frameOf(kickCurve, st.s);
-      flyPos.copy(f.p).addScaledVector(f.u,.5);
-      flyVel.copy(f.t).multiplyScalar(10).addScaledVector(f.u,3);
-      flyVel.x-=2;
-      flyQ.copy(car.quaternion);
-      // kickflip spin: front flip around local Z (car width axis) + slight roll
-      const axis = new THREE.Vector3(0,0,1).applyQuaternion(flyQ).normalize();
-      flySpin.copy(axis).multiplyScalar(4.2);
-      ui.stats.style.opacity=1; ui.desc.style.opacity=1;
-    }
-    const f = frameOf(kickCurve, st.s);
-    _right.crossVectors(f.t,f.u).normalize(); _m4.makeBasis(f.t,f.u,_right); _q.setFromRotationMatrix(_m4);
-    car.quaternion.copy(_q); car.position.copy(f.p);
-    wheels.forEach(w=>w.rotation.z-=st.v*dt/.36);
-  }else if(st.phase===1){
-    // ballistic flight + flip
-    st.fly+=dt;
-    flyVel.y-=9.6*dt; flyVel.x-=.3*dt; flyVel.multiplyScalar(1-.03*dt);
-    flyPos.addScaledVector(flyVel,dt);
-    const len=flySpin.length();
-    if(len>.001){
-      _q.setFromAxisAngle(flySpin.clone().normalize(), len*dt);
-      flyQ.premultiply(_q);
-      flySpin.multiplyScalar(1-.12*dt);
-    }
-    car.position.copy(flyPos); car.quaternion.copy(flyQ);
-    if(Math.random()<.9){const under=new THREE.Vector3(0,-.4,0).applyQuaternion(flyQ).add(flyPos);emitTrail(under,2);}
-    if(flyPos.y<10) st.phase=2;
-  }else if(st.phase===2){
-    // thruster recover
-    st.fly+=dt;
-    flyVel.y+=(13-flyVel.y*2.5)*dt;
-    flyVel.x+=(-6-flyPos.x)*.35*dt-flyVel.x*1.5*dt;
-    flyVel.z+=(0-flyPos.z)*.35*dt-flyVel.z*1.5*dt;
-    flyPos.addScaledVector(flyVel,dt);
-    flySpin.multiplyScalar(1-5*dt);
-    const upright=new THREE.Quaternion().setFromEuler(new THREE.Euler(.06,.25,0));
-    flyQ.slerp(upright,1-Math.pow(.04,dt));
-    car.position.copy(flyPos); car.quaternion.copy(flyQ);
-    if(Math.random()<.85){const under=flyPos.clone();under.y-=.5;emitSmoke(under,4,1.2,1.1);emitTrail(under,2);}
-    if(flyPos.y<4.5&&Math.abs(flyVel.y)<5&&st.fly>.9){
-      st.phase=3; st.fly=0;
-      emitSmoke(flyPos.clone().setY(.3),100,4,1.8);
-    }
-  }else{
-    // landed hover
-    st.fly+=dt;
-    flyVel.y+=(2.8-flyPos.y)*2.6*dt-flyVel.y*3.2*dt;
-    flyVel.x+=(-5-flyPos.x)*.6*dt-flyVel.x*2*dt;
-    flyVel.z+=(0-flyPos.z)*.6*dt-flyVel.z*2*dt;
-    flyPos.addScaledVector(flyVel,dt);
-    const upright=new THREE.Quaternion().setFromEuler(new THREE.Euler(.03+Math.sin(st.t*1.7)*.015,.2,Math.sin(st.t*1.3)*.025));
-    flyQ.slerp(upright,1-Math.pow(.06,dt));
-    car.position.copy(flyPos); car.quaternion.copy(flyQ);
-    if(Math.random()<.7) emitSmoke(flyPos.clone().setY(Math.max(.15,flyPos.y-.6)),6,2.2,.9);
-  }
-
-  // jets
-  const jetOn = st.phase>=2 ? 1 : (st.phase===1 ? .4 : 0);
-  jets.forEach(j=>{
-    j.core.material.opacity=jetOn*(.6+.3*Math.sin(st.t*42));
-    j.outer.material.opacity=jetOn*(.2+.1*Math.sin(st.t*27));
-    j.core.scale.y=.75+Math.random()*.55; j.outer.scale.y=.8+Math.random()*.5;
-  });
-  fans.forEach(fn=>{fn.rot.rotation.y+=st.fan*40*dt; fn.glow.material.opacity=st.fan*(.15+.05*Math.sin(st.t*20));});
-  skirtMat.emissiveIntensity=st.fan*1; cavity.material.opacity=st.fan*.1; glowLight.intensity=st.fan*6;
-  pm.opacity = st.phase===0 ? st.fan*.5 : 0;
-
-  // world smoke
-  let alive=0;
-  for(let i=0;i<SN;i++){
-    const L=smokeLife[i]; if(L.a<=0)continue;
-    L.a-=dt*.3; sp[i*3]+=L.vx*dt; sp[i*3+1]+=L.vy*dt; sp[i*3+2]+=L.vz*dt;
-    L.vy+=.55*dt; L.vx*=.985; L.vz*=.985; alive++;
-  }
-  sg.attributes.position.needsUpdate=true; sm.opacity=Math.min(.75,alive/100);
-  let tAlive=0; for(let i=0;i<TN;i++){if(tLife[i]<=0)continue;tLife[i]-=dt*.9;tp_[i*3+1]-=1.5*dt;tAlive++;}
-  tg.attributes.position.needsUpdate=true; tm.opacity=Math.min(.8,tAlive/40);
-
-  const suction=4700*st.fan; const speedShow=st.phase<1?st.v:flyVel.length();
-  const aero=.55*st.v*st.v/9.81; const upY = st.phase<1 ? frameOf(kickCurve,st.s).u.y : (st.phase>=3?1:.2);
-  const G=Math.max(0,(suction+aero+1900*Math.max(-1,upY))/1900);
-  ui.kg.textContent=Math.round(suction).toLocaleString();
-  ui.gg.textContent=G.toFixed(1); ui.spd.textContent=Math.round(speedShow*3.6);
+function resetKickflip(){
+  phase=0; s=0; v=0; fan=0; hold=0; fly=0;
+  car.position.set(0,0,0); car.quaternion.identity();
+  flyPos.set(0,0,0); flyVel.set(0,0,0);
+  pitch=yaw=roll=0;
 }
 
-/* ───────── camera ───────── */
-const camPos=new THREE.Vector3(), camTgt=new THREE.Vector3();
-function updateCamera(dt){
-  let tp,tt;
-  if(current===SCENE.WALL){
-    const f = frameOf(wallCurve, st.s);
-    const k=THREE.MathUtils.smoothstep(st.s,WALL_TOTAL*.12,WALL_TOTAL*.72);
-    tp=new THREE.Vector3().lerpVectors(new THREE.Vector3(-26,3.2,20), new THREE.Vector3(-4,14,32), k);
-    tt=new THREE.Vector3().lerpVectors(car.position.clone().add(new THREE.Vector3(4,.6,0)), new THREE.Vector3(6,16,0), k*.7);
-    if(st.phase===1){
-      const a=-.4+st.hold*.08;
-      tp=new THREE.Vector3(Math.sin(a)*28+4, 22+Math.sin(st.hold*.4)*2, Math.cos(a)*26);
-      tt=car.position.clone().addScaledVector(f.u,.5);
-    }
-  }else{
-    if(st.phase===0){
-      const f=frameOf(kickCurve,st.s);
-      const k=st.s/KICK_TOTAL;
-      tp=new THREE.Vector3().lerpVectors(new THREE.Vector3(-20,3,16), new THREE.Vector3(0,10,20), k);
-      tt=car.position.clone().add(new THREE.Vector3(2,.4,0));
-    }else if(st.phase===1){
-      tp=car.position.clone().add(new THREE.Vector3(-12-st.fly*1.5, 3+st.fly*.8, 14));
-      tt=car.position.clone();
-    }else{
-      tp=car.position.clone().add(new THREE.Vector3(-11,4.5,13));
-      tt=car.position.clone().add(new THREE.Vector3(1,-.4,0));
-    }
-  }
-  camPos.lerp(tp,1-Math.pow(.03,dt)); camTgt.lerp(tt,1-Math.pow(.04,dt));
-  camera.position.copy(camPos); camera.up.set(0,1,0); camera.lookAt(camTgt);
-}
-
-/* ───────── loop ───────── */
+// ==================== MAIN LOOP ====================
 function loop(){
   requestAnimationFrame(loop);
-  const dt=Math.min(clock.getDelta(),.05); st.t+=dt;
-  if(current===SCENE.WALL) updateWall(dt);
-  else updateKick(dt);
-  updateCamera(dt);
-  renderer.render(scene,camera);
+  const dt = Math.min(clock.getDelta(), 0.06);
+
+  // ===== WALL CLIMB MODE =====
+  if(mode === 'climb'){
+    if(phase === 0){
+      fan = Math.min(1, fan + dt*0.6);
+      const targetV = s < TOTAL*0.3 ? 15 : 10.5;
+      v = v*0.92 + targetV*0.08;
+      const remain = TOTAL*0.92 - s;
+      if(remain < 8) v = Math.max(0, Math.min(v, remain*1.3));
+      s += v*dt;
+      if(remain < 0.03){ s = TOTAL*0.92; v=0; phase=1; }
+    }else if(phase===1){
+      hold += dt;
+      fan = 1;
+    }
+
+    const f = frame(s);
+    const right = new THREE.Vector3().crossVectors(f.t, f.u).normalize();
+    const _m = new THREE.Matrix4().makeBasis(f.t, f.u, right);
+    car.quaternion.setFromRotationMatrix(_m);
+    car.position.copy(f.p);
+    if(phase > 0) car.position.addScaledVector(f.u, Math.sin(hold*2.8)*0.004*Math.exp(-hold*0.6));
+
+    wheels.forEach(w => w.rotation.z -= v*dt/0.35);
+  }
+
+  // ===== KICKFLIP MODE =====
+  else {
+    if(phase === 0){
+      fan = Math.min(1, fan + dt*0.5);
+      v = v*0.9 + 17*0.1;
+      s += v*dt;
+      if(s > TOTAL*0.88){ 
+        phase = 1; 
+        const f = frame(s);
+        flyPos.copy(f.p).addScaledVector(f.u, 0.6);
+        flyVel.copy(f.t).multiplyScalar(22).addScaledVector(f.u, 11);
+        flyVel.z += (Math.random()-0.5)*3;
+        pitchRate = -2.35; yawRate = 0.6; rollRate = 0.35;
+        fan = 0.3;
+      }
+    }else if(phase === 1){
+      fly += dt;
+      flyVel.y -= 9.6 * dt;
+      flyPos.addScaledVector(flyVel, dt);
+
+      pitch += pitchRate * dt;
+      yaw += yawRate * dt;
+      roll += rollRate * dt;
+      
+      car.position.copy(flyPos);
+      const _e = new THREE.Euler(pitch, yaw, roll, 'YXZ');
+      car.quaternion.setFromEuler(_e);
+
+      if(flyPos.y < 0.8 && flyVel.y < 0){ 
+        phase = 2; 
+        emitSmoke(flyPos, 120);
+      }
+    }else if(phase === 2){
+      fly += dt;
+      flyVel.y -= 9.6 * dt;
+      flyVel.multiplyScalar(0.98);
+      flyPos.addScaledVector(flyVel, dt);
+
+      pitch = pitch*0.92 + 0.08*dt;
+      yaw = yaw*0.9;
+      roll = roll*0.9;
+
+      car.position.copy(flyPos);
+      const _e = new THREE.Euler(pitch, yaw, roll, 'YXZ');
+      car.quaternion.setFromEuler(_e);
+
+      if(flyPos.y <= 0.4){
+        phase = 3;
+        flyPos.y = 0.35;
+        flyVel.set(0,0,0);
+        emitSmoke(car.position, 180);
+      }
+    }else if(phase === 3){
+      pitch *= 0.85; yaw *= 0.85; roll *= 0.85;
+      const _e = new THREE.Euler(pitch, yaw, roll, 'YXZ');
+      car.quaternion.setFromEuler(_e);
+      car.position.y = 0.35;
+      if(Math.random()<0.4) emitSmoke(car.position.clone().add(new THREE.Vector3(0,-0.1,0)), 3);
+    }
+  }
+
+  // Fan & jet visuals
+  fans.forEach(fn => {
+    fn.rot.rotation.y += fan*62*dt;
+    fn.glow.material.opacity = fan*(0.3 + 0.12*Math.sin(Date.now()*0.012));
+  });
+  skirtMat.emissiveIntensity = fan*1.6;
+  cavity.material.opacity = fan*0.22;
+  glowLight.intensity = fan*13;
+  pm.opacity = fan*0.85;
+
+  const jetOn = (mode==='kickflip' && phase >=1) ? 1 : 0;
+  jets.forEach(j => {
+    j.core.material.opacity = jetOn*(0.6+0.3*Math.sin(Date.now()*0.04));
+    j.outer.material.opacity = jetOn*(0.22+0.1*Math.sin(Date.now()*0.03));
+  });
+
+  // Suction particles (only in climb)
+  if(mode==='climb' && phase < 2){
+    const pull = 4 + fan*18;
+    for(let i=0;i<PN;i++){
+      const o=ps[i], p=o.p;
+      if(!o.ex){
+        const d = new THREE.Vector3(o.f.rot.parent.position.x,0.18,0).sub(p);
+        if(d.length()<0.26){o.ex=true;p.set(o.f.rot.parent.position.x,0.26,0);}
+        else{d.normalize(); p.addScaledVector(d,(o.v+pull)*dt*fan*0.9);}
+      }else{
+        p.x += (-2.5-p.x)*dt*5 - 8*fan*dt;
+        p.y += (0.85-p.y)*dt*3.5;
+        if(p.x < -4.2) spawn(i);
+      }
+      pp[i*3]=p.x;pp[i*3+1]=p.y;pp[i*3+2]=p.z;
+    }
+    pg.attributes.position.needsUpdate=true;
+  }
+
+  // Smoke update
+  let alive=0;
+  for(let i=0;i<SN;i++){
+    const L=smokeLife[i];
+    if(L.a<=0)continue;
+    L.a-=dt*0.5; sp[i*3]+=L.vx*dt; sp[i*3+1]+=L.vy*dt; sp[i*3+2]+=L.vz*dt;
+    L.vy+=0.35*dt; L.vx*=0.985; L.vz*=0.985; alive++;
+  }
+  sg.attributes.position.needsUpdate=true;
+  sm.opacity = Math.min(0.65, alive/70);
+
+  // HUD
+  const suction = 4700 * fan;
+  document.getElementById('kg').textContent = Math.round(suction).toLocaleString();
+  document.getElementById('g').textContent = (suction/1900).toFixed(1);
+
+  // Camera
+  let tp, tt;
+  if(mode==='climb'){
+    if(phase===0){
+      const k = THREE.MathUtils.smoothstep(s, TOTAL*0.15, TOTAL*0.75);
+      tp = new THREE.Vector3().lerpVectors(new THREE.Vector3(-24,3.5,18), new THREE.Vector3(-3,15,30), k);
+      tt = car.position.clone().add(new THREE.Vector3(3,0.8,0));
+    }else{
+      const a = -0.35 + hold*0.07;
+      tp = new THREE.Vector3(Math.sin(a)*26+3, 23+Math.sin(hold*0.4)*1.5, Math.cos(a)*24);
+      tt = car.position.clone().add(new THREE.Vector3(0,1,0));
+    }
+  }else{
+    if(phase < 2){
+      tp = new THREE.Vector3(-18, 8, 22);
+      tt = car.position.clone().add(new THREE.Vector3(2,3,0));
+    }else{
+      const dir = new THREE.Vector3(0,0,1).applyQuaternion(car.quaternion);
+      tp = car.position.clone().add(new THREE.Vector3(-8,4,-9).applyQuaternion(car.quaternion));
+      tt = car.position.clone().addScaledVector(dir, 10);
+    }
+  }
+  camPos.lerp(tp, 1-Math.pow(0.03,dt));
+  camTgt.lerp(tt, 1-Math.pow(0.035,dt));
+  camera.position.copy(camPos);
+  camera.lookAt(camTgt);
+
+  renderer.render(scene, camera);
 }
 loop();
 
-addEventListener('resize',()=>{
-  camera.aspect=innerWidth/innerHeight; camera.updateProjectionMatrix();
+window.addEventListener('resize',()=>{
+  camera.aspect = innerWidth/innerHeight;
+  camera.updateProjectionMatrix();
   renderer.setSize(innerWidth,innerHeight);
 });
+
+// Start in climb mode
+setMode('climb');
 </script>
 </body>
 </html>

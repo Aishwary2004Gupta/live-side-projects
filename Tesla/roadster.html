@@ -48,7 +48,7 @@ renderer.outputColorSpace = THREE.SRGBColorSpace;
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x000000);
-scene.fog = new THREE.FogExp2(0x000000, 0.012);
+scene.fog = new THREE.FogExp2(0x000000, 0.011);
 const pmrem = new THREE.PMREMGenerator(renderer);
 scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
 scene.environmentIntensity = 0.25;
@@ -64,8 +64,7 @@ key.castShadow = true;
 key.shadow.mapSize.set(2048, 2048);
 key.shadow.bias = -0.0002;
 key.shadow.normalBias = 0.02;
-scene.add(key);
-scene.add(key.target);
+scene.add(key); scene.add(key.target);
 
 const rim = new THREE.SpotLight(0x8eb4ff, 420, 140, 0.55, 0.7, 1.6);
 rim.position.set(-30, 22, -18);
@@ -74,20 +73,15 @@ scene.add(rim);
 const uplight = new THREE.SpotLight(0xffffff, 280, 80, 0.5, 0.8, 1.4);
 uplight.position.set(6, 1.5, 18);
 uplight.target.position.set(6, 18, 0);
-scene.add(uplight);
-scene.add(uplight.target);
+scene.add(uplight); scene.add(uplight.target);
 
 const fill = new THREE.PointLight(0xffd8b0, 40, 60);
 fill.position.set(-8, 4, 16);
 scene.add(fill);
 
-/* faint stage beams */
 function addBeam(x, z, rotY) {
   const g = new THREE.ConeGeometry(3.2, 28, 24, 1, true);
-  const m = new THREE.MeshBasicMaterial({
-    color: 0xaac4ff, transparent: true, opacity: 0.035,
-    side: THREE.DoubleSide, depthWrite: false
-  });
+  const m = new THREE.MeshBasicMaterial({ color: 0xaac4ff, transparent: true, opacity: 0.035, side: THREE.DoubleSide, depthWrite: false });
   const mesh = new THREE.Mesh(g, m);
   mesh.position.set(x, 14, z);
   mesh.rotation.z = 0.15;
@@ -106,7 +100,6 @@ floor.rotation.x = -Math.PI / 2;
 floor.receiveShadow = true;
 scene.add(floor);
 
-/* red ground streak (as in the event photos) */
 {
   const g = new THREE.PlaneGeometry(28, 0.18);
   const m = new THREE.MeshBasicMaterial({ color: 0xff2a2a, transparent: true, opacity: 0.55 });
@@ -116,9 +109,7 @@ scene.add(floor);
   scene.add(streak);
 }
 
-/* ───────── ramp path ─────────
-   Ski-jump / inverted-C matching the event photos:
-   short run-up → large-radius curve past vertical → small lip at the top. */
+/* ───────── ramp path ───────── */
 const W = 5.2;
 const curve = new THREE.CatmullRomCurve3([
   new THREE.Vector3(-22, 0.02, 0),
@@ -132,14 +123,12 @@ const curve = new THREE.CatmullRomCurve3([
 ], false, 'catmullrom', 0.15);
 
 const TOTAL = curve.getLength();
-const _t = new THREE.Vector3(), _n = new THREE.Vector3();
 
 function frame(s) {
   s = Math.max(0, Math.min(TOTAL, s));
   const u = s / TOTAL;
   const p = curve.getPointAt(u);
   const t = curve.getTangentAt(u).normalize();
-  // road-up = (0,0,1) × tangent  →  (-ty, tx, 0)
   const up = new THREE.Vector3(-t.y, t.x, 0).normalize();
   return { p, t, u: up };
 }
@@ -157,20 +146,13 @@ function makeConcrete() {
     img.data[i] += n; img.data[i + 1] += n; img.data[i + 2] += n;
   }
   cx.putImageData(img, 0, 0);
-  // panel seams
   cx.strokeStyle = 'rgba(30,30,32,0.28)';
   cx.lineWidth = 3;
-  for (let y = 0; y < 2048; y += 96) {
-    cx.beginPath(); cx.moveTo(0, y); cx.lineTo(512, y); cx.stroke();
-  }
+  for (let y = 0; y < 2048; y += 96) { cx.beginPath(); cx.moveTo(0, y); cx.lineTo(512, y); cx.stroke(); }
   cx.lineWidth = 2;
-  for (let x of [0, 128, 256, 384, 511]) {
-    cx.beginPath(); cx.moveTo(x, 0); cx.lineTo(x, 2048); cx.stroke();
-  }
-  // faded center line
+  for (let x of [0, 128, 256, 384, 511]) { cx.beginPath(); cx.moveTo(x, 0); cx.lineTo(x, 2048); cx.stroke(); }
   cx.fillStyle = 'rgba(230,230,232,0.85)';
   cx.fillRect(248, 0, 14, 2048);
-  // hairline edge marks
   cx.fillStyle = 'rgba(200,200,200,0.25)';
   cx.fillRect(8, 0, 3, 2048);
   cx.fillRect(501, 0, 3, 2048);
@@ -182,68 +164,47 @@ function makeConcrete() {
 }
 const concTex = makeConcrete();
 
-/* ───────── build ramp ribbon ───────── */
+/* ───────── build ramp ───────── */
 (function buildRamp() {
   const N = 280;
   const v = [], nrm = [], uv = [], idx = [];
-  const sideV = [], sideI = [];
-  const TH = 0.45; // slab thickness
+  const TH = 0.45;
   for (let i = 0; i <= N; i++) {
     const s = i / N * TOTAL;
     const f = frame(s);
     const right = new THREE.Vector3().crossVectors(f.t, f.u).normalize();
     for (const k of [-1, 1]) {
-      const px = f.p.x + right.x * k * W / 2;
-      const py = f.p.y + right.y * k * W / 2;
-      const pz = f.p.z + right.z * k * W / 2;
-      v.push(px, py, pz);
+      v.push(f.p.x + right.x * k * W / 2, f.p.y + right.y * k * W / 2, f.p.z + right.z * k * W / 2);
       nrm.push(f.u.x, f.u.y, f.u.z);
       uv.push(k * 0.5 + 0.5, s / 4);
     }
-    if (i < N) {
-      const a = i * 2;
-      idx.push(a, a + 2, a + 1, a + 1, a + 2, a + 3);
-    }
+    if (i < N) { const a = i * 2; idx.push(a, a + 2, a + 1, a + 1, a + 2, a + 3); }
   }
   const g = new THREE.BufferGeometry();
   g.setAttribute('position', new THREE.Float32BufferAttribute(v, 3));
   g.setAttribute('normal', new THREE.Float32BufferAttribute(nrm, 3));
   g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
   g.setIndex(idx);
-  const mat = new THREE.MeshStandardMaterial({
-    map: concTex, roughness: 0.72, metalness: 0.08,
-    side: THREE.DoubleSide
-  });
-  const mesh = new THREE.Mesh(g, mat);
-  mesh.receiveShadow = true;
-  mesh.castShadow = true;
-  scene.add(mesh);
+  const mesh = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ map: concTex, roughness: 0.72, metalness: 0.08, side: THREE.DoubleSide }));
+  mesh.receiveShadow = true; mesh.castShadow = true; scene.add(mesh);
 
-  // underside (darker)
+  // underside
   const v2 = [], n2 = [], i2 = [];
   for (let i = 0; i <= N; i++) {
     const s = i / N * TOTAL;
     const f = frame(s);
     const right = new THREE.Vector3().crossVectors(f.t, f.u).normalize();
     for (const k of [-1, 1]) {
-      const px = f.p.x + right.x * k * W / 2 - f.u.x * TH;
-      const py = f.p.y + right.y * k * W / 2 - f.u.y * TH;
-      const pz = f.p.z + right.z * k * W / 2 - f.u.z * TH;
-      v2.push(px, py, pz);
+      v2.push(f.p.x + right.x * k * W / 2 - f.u.x * TH, f.p.y + right.y * k * W / 2 - f.u.y * TH, f.p.z + right.z * k * W / 2 - f.u.z * TH);
       n2.push(-f.u.x, -f.u.y, -f.u.z);
     }
-    if (i < N) {
-      const a = i * 2;
-      i2.push(a, a + 1, a + 2, a + 1, a + 3, a + 2);
-    }
+    if (i < N) { const a = i * 2; i2.push(a, a + 1, a + 2, a + 1, a + 3, a + 2); }
   }
   const g2 = new THREE.BufferGeometry();
   g2.setAttribute('position', new THREE.Float32BufferAttribute(v2, 3));
   g2.setAttribute('normal', new THREE.Float32BufferAttribute(n2, 3));
   g2.setIndex(i2);
-  const under = new THREE.Mesh(g2, new THREE.MeshStandardMaterial({ color: 0x2a2c30, roughness: 0.8, metalness: 0.2 }));
-  under.castShadow = true;
-  scene.add(under);
+  scene.add(new THREE.Mesh(g2, new THREE.MeshStandardMaterial({ color: 0x2a2c30, roughness: 0.8, metalness: 0.2 })));
 
   // side faces
   const sv = [], sn = [], si = [];
@@ -271,27 +232,17 @@ const concTex = makeConcrete();
   gs.setIndex(si);
   scene.add(new THREE.Mesh(gs, new THREE.MeshStandardMaterial({ color: 0x6e7176, roughness: 0.7, metalness: 0.1 })));
 
-  /* red LED edge strips */
-  const ledMat = new THREE.MeshStandardMaterial({
-    color: 0xff1a1a, emissive: 0xff2200, emissiveIntensity: 4.5,
-    roughness: 0.3, metalness: 0.4
-  });
+  /* red LED edges */
+  const ledMat = new THREE.MeshStandardMaterial({ color: 0xff1a1a, emissive: 0xff2200, emissiveIntensity: 4.5, roughness: 0.3, metalness: 0.4 });
   for (const side of [-1, 1]) {
     const pts = [];
     for (let i = 0; i <= 80; i++) {
       const f = frame(i / 80 * TOTAL);
       const right = new THREE.Vector3().crossVectors(f.t, f.u).normalize();
-      pts.push(f.p.clone()
-        .addScaledVector(right, side * (W / 2 + 0.02))
-        .addScaledVector(f.u, 0.04));
+      pts.push(f.p.clone().addScaledVector(right, side * (W / 2 + 0.02)).addScaledVector(f.u, 0.04));
     }
-    const tube = new THREE.Mesh(
-      new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 80, 0.045, 8, false),
-      ledMat
-    );
-    scene.add(tube);
+    scene.add(new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 80, 0.045, 8, false), ledMat));
   }
-  // extra red point lights along the edge
   for (let i = 0; i < 8; i++) {
     const f = frame((i + 0.5) / 8 * TOTAL);
     const pl = new THREE.PointLight(0xff3311, 8, 12);
@@ -300,13 +251,10 @@ const concTex = makeConcrete();
     scene.add(pl);
   }
 
-  /* top lip / platform */
+  /* top lip */
   const topF = frame(TOTAL);
   const topRight = new THREE.Vector3().crossVectors(topF.t, topF.u).normalize();
-  const lip = new THREE.Mesh(
-    new THREE.BoxGeometry(1.6, 0.12, W + 0.15),
-    new THREE.MeshStandardMaterial({ color: 0x8a8d92, roughness: 0.65, metalness: 0.1 })
-  );
+  const lip = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.12, W + 0.15), new THREE.MeshStandardMaterial({ color: 0x8a8d92, roughness: 0.65, metalness: 0.1 }));
   lip.position.copy(topF.p).addScaledVector(topF.t, 0.7).addScaledVector(topF.u, 0.06);
   const _m = new THREE.Matrix4();
   _m.makeBasis(topF.t, topF.u, topRight);
@@ -314,59 +262,43 @@ const concTex = makeConcrete();
   lip.castShadow = true;
   scene.add(lip);
 
-  /* ──── metal truss tower (right / outside of curve) ──── */
+  /* metal truss */
   const steel = new THREE.MeshStandardMaterial({ color: 0x8a9098, metalness: 0.85, roughness: 0.35 });
   const steelD = new THREE.MeshStandardMaterial({ color: 0x5a6068, metalness: 0.8, roughness: 0.4 });
-  const towerX = 16.5, towerZ = W / 2 + 1.6;
-  const towerH = 31;
-  const tw = 2.4, td = 2.4;
-  const legs = [
-    [towerX - tw / 2, -td / 2],
-    [towerX + tw / 2, -td / 2],
-    [towerX - tw / 2,  td / 2],
-    [towerX + tw / 2,  td / 2]
-  ];
-  // vertical legs
+  const towerX = 16.5, towerZ = W / 2 + 1.6, towerH = 31, tw = 2.4, td = 2.4;
+  const legs = [[towerX - tw / 2, -td / 2], [towerX + tw / 2, -td / 2], [towerX - tw / 2, td / 2], [towerX + tw / 2, td / 2]];
   for (const [lx, lz] of legs) {
     const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.11, towerH, 8), steel);
     leg.position.set(lx, towerH / 2, lz + towerZ - td / 2);
-    leg.castShadow = true;
-    scene.add(leg);
+    leg.castShadow = true; scene.add(leg);
   }
-  // horizontal + diagonal braces every 2.2 m
   const steps = Math.floor(towerH / 2.2);
   for (let i = 0; i <= steps; i++) {
     const y = i * 2.2;
-    const pairs = [[0, 1], [1, 3], [3, 2], [2, 0]];
-    for (const [a, b] of pairs) {
+    for (const [a, b] of [[0, 1], [1, 3], [3, 2], [2, 0]]) {
       const p1 = new THREE.Vector3(legs[a][0], y, legs[a][1] + towerZ - td / 2);
       const p2 = new THREE.Vector3(legs[b][0], y, legs[b][1] + towerZ - td / 2);
       const dir = p2.clone().sub(p1);
-      const len = dir.length();
-      const bar = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, len, 6), steelD);
+      const bar = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, dir.length(), 6), steelD);
       bar.position.copy(p1).add(p2).multiplyScalar(0.5);
       bar.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir.clone().normalize());
       scene.add(bar);
     }
     if (i < steps) {
-      // diagonals on two faces
       for (const [a, b] of [[0, 3], [1, 2]]) {
         const p1 = new THREE.Vector3(legs[a][0], y, legs[a][1] + towerZ - td / 2);
         const p2 = new THREE.Vector3(legs[b][0], y + 2.2, legs[b][1] + towerZ - td / 2);
         const dir = p2.clone().sub(p1);
-        const len = dir.length();
-        const bar = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, len, 5), steelD);
+        const bar = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, dir.length(), 5), steelD);
         bar.position.copy(p1).add(p2).multiplyScalar(0.5);
         bar.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir.clone().normalize());
         scene.add(bar);
       }
     }
   }
-  // struts from tower to ramp (attachments)
   for (let i = 2; i <= 10; i++) {
     const y = i * 2.4;
-    const sGuess = THREE.MathUtils.clamp(y / 30 * TOTAL, 0, TOTAL);
-    const f = frame(sGuess);
+    const f = frame(THREE.MathUtils.clamp(y / 30 * TOTAL, 0, TOTAL));
     const right = new THREE.Vector3().crossVectors(f.t, f.u).normalize();
     const attach = f.p.clone().addScaledVector(right, W / 2 + 0.1).addScaledVector(f.u, -0.2);
     const towerP = new THREE.Vector3(towerX, attach.y, towerZ);
@@ -376,8 +308,7 @@ const concTex = makeConcrete();
     const bar = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, len, 6), steel);
     bar.position.copy(towerP).add(attach).multiplyScalar(0.5);
     bar.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir.clone().normalize());
-    bar.castShadow = true;
-    scene.add(bar);
+    bar.castShadow = true; scene.add(bar);
   }
 })();
 
@@ -385,158 +316,92 @@ const concTex = makeConcrete();
 const car = new THREE.Group();
 scene.add(car);
 
-const paint = new THREE.MeshPhysicalMaterial({
-  color: 0xe6e8ec, metalness: 0.92, roughness: 0.16,
-  clearcoat: 1, clearcoatRoughness: 0.04
-});
+const paint = new THREE.MeshPhysicalMaterial({ color: 0xe6e8ec, metalness: 0.92, roughness: 0.16, clearcoat: 1, clearcoatRoughness: 0.04 });
 const dark = new THREE.MeshStandardMaterial({ color: 0x0b0c0e, metalness: 0.6, roughness: 0.45 });
-const glassM = new THREE.MeshPhysicalMaterial({
-  color: 0x07090e, metalness: 0.2, roughness: 0.02,
-  transmission: 0.35, transparent: true, opacity: 0.92, ior: 1.45
-});
+const glassM = new THREE.MeshPhysicalMaterial({ color: 0x07090e, metalness: 0.2, roughness: 0.02, transmission: 0.35, transparent: true, opacity: 0.92, ior: 1.45 });
 
-// body profile (Roadster-ish)
 const sh = new THREE.Shape();
 sh.moveTo(-2.28, 0.28);
-sh.lineTo(-2.32, 0.58);
-sh.lineTo(-2.05, 0.78);
-sh.lineTo(-1.05, 0.82);
+sh.lineTo(-2.32, 0.58); sh.lineTo(-2.05, 0.78); sh.lineTo(-1.05, 0.82);
 sh.quadraticCurveTo(-0.45, 1.18, 0.28, 1.20);
 sh.quadraticCurveTo(1.05, 1.16, 1.62, 0.84);
-sh.lineTo(2.22, 0.62);
-sh.lineTo(2.38, 0.48);
-sh.lineTo(2.32, 0.28);
-sh.lineTo(-2.28, 0.28);
+sh.lineTo(2.22, 0.62); sh.lineTo(2.38, 0.48); sh.lineTo(2.32, 0.28); sh.lineTo(-2.28, 0.28);
 const bg = new THREE.ExtrudeGeometry(sh, { depth: 1.92, bevelEnabled: true, bevelThickness: 0.13, bevelSize: 0.13, bevelSegments: 4 });
-bg.center();
-bg.translate(0, 0.72, 0);
-const body = new THREE.Mesh(bg, paint);
-body.castShadow = true;
-car.add(body);
+bg.center(); bg.translate(0, 0.72, 0);
+const body = new THREE.Mesh(bg, paint); body.castShadow = true; car.add(body);
 
 const cab = new THREE.Mesh(new THREE.SphereGeometry(0.92, 28, 14, 0, Math.PI * 2, 0, Math.PI / 2), glassM);
-cab.scale.set(1.42, 0.52, 0.9);
-cab.position.set(-0.08, 1.05, 0);
-car.add(cab);
+cab.scale.set(1.42, 0.52, 0.9); cab.position.set(-0.08, 1.05, 0); car.add(cab);
 
 const wing = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.045, 2.05), dark);
-wing.position.set(-2.08, 1.16, 0);
-car.add(wing);
+wing.position.set(-2.08, 1.16, 0); car.add(wing);
 
 const wheels = [];
 [[1.52, 1.00], [1.52, -1.00], [-1.48, 1.00], [-1.48, -1.00]].forEach(([x, z]) => {
   const w = new THREE.Group();
-  const t = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.36, 0.36, 0.3, 28),
-    new THREE.MeshStandardMaterial({ color: 0x08090a, roughness: 0.9 })
-  );
-  t.rotation.x = Math.PI / 2;
-  t.castShadow = true;
-  const r = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.24, 0.24, 0.32, 8),
-    new THREE.MeshStandardMaterial({ color: 0xc4c8ce, metalness: 1, roughness: 0.22 })
-  );
+  const t = new THREE.Mesh(new THREE.CylinderGeometry(0.36, 0.36, 0.3, 28), new THREE.MeshStandardMaterial({ color: 0x08090a, roughness: 0.9 }));
+  t.rotation.x = Math.PI / 2; t.castShadow = true;
+  const r = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.24, 0.32, 8), new THREE.MeshStandardMaterial({ color: 0xc4c8ce, metalness: 1, roughness: 0.22 }));
   r.rotation.x = Math.PI / 2;
-  w.add(t, r);
-  w.position.set(x, 0.36, z);
-  car.add(w);
-  wheels.push(w);
+  w.add(t, r); w.position.set(x, 0.36, z); car.add(w); wheels.push(w);
 });
 
-// headlights + tails
 [1, -1].forEach(z => {
-  const h = new THREE.Mesh(
-    new THREE.BoxGeometry(0.05, 0.06, 0.52),
-    new THREE.MeshStandardMaterial({ emissive: 0xe8f2ff, emissiveIntensity: 5, color: 0x222 })
-  );
-  h.position.set(2.36, 0.62, z * 0.58);
-  car.add(h);
-  const tl = new THREE.Mesh(
-    new THREE.BoxGeometry(0.045, 0.06, 0.7),
-    new THREE.MeshStandardMaterial({ emissive: 0xff1818, emissiveIntensity: 4, color: 0x111 })
-  );
-  tl.position.set(-2.34, 0.62, z * 0.52);
-  car.add(tl);
+  const h = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.06, 0.52), new THREE.MeshStandardMaterial({ emissive: 0xe8f2ff, emissiveIntensity: 5, color: 0x222 }));
+  h.position.set(2.36, 0.62, z * 0.58); car.add(h);
+  const tl = new THREE.Mesh(new THREE.BoxGeometry(0.045, 0.06, 0.7), new THREE.MeshStandardMaterial({ emissive: 0xff1818, emissiveIntensity: 4, color: 0x111 }));
+  tl.position.set(-2.34, 0.62, z * 0.52); car.add(tl);
 });
 const headL = new THREE.SpotLight(0xeef5ff, 40, 28, 0.35, 0.5);
-headL.position.set(2.3, 0.62, 0);
-headL.target.position.set(12, 0.4, 0);
-car.add(headL);
-car.add(headL.target);
+headL.position.set(2.3, 0.62, 0); headL.target.position.set(12, 0.4, 0);
+car.add(headL); car.add(headL.target);
 
-/* underbody skirts + fans */
+/* underbody */
 const skirtMat = new THREE.MeshStandardMaterial({ color: 0x0c0e12, emissive: 0x1a7fff, emissiveIntensity: 0, roughness: 0.55 });
 [[0, 0.88, 4.5, 0.05], [0, -0.88, 4.5, 0.05], [2.25, 0, 0.05, 1.78], [-2.25, 0, 0.05, 1.78]].forEach(([x, z, sx, sz]) => {
   const s = new THREE.Mesh(new THREE.BoxGeometry(sx, 0.24, sz), skirtMat);
-  s.position.set(x, 0.15, z);
-  car.add(s);
+  s.position.set(x, 0.15, z); car.add(s);
 });
 
 const fans = [];
 [-1.15, -0.15, 0.85].forEach(x => {
-  const g = new THREE.Group();
-  g.position.set(x, 0.2, 0);
+  const g = new THREE.Group(); g.position.set(x, 0.2, 0);
   const ring = new THREE.Mesh(new THREE.TorusGeometry(0.4, 0.045, 8, 28), dark);
-  ring.rotation.x = Math.PI / 2;
-  g.add(ring);
-  const rot = new THREE.Group();
-  g.add(rot);
+  ring.rotation.x = Math.PI / 2; g.add(ring);
+  const rot = new THREE.Group(); g.add(rot);
   for (let i = 0; i < 9; i++) {
-    const b = new THREE.Mesh(
-      new THREE.BoxGeometry(0.32, 0.01, 0.09),
-      new THREE.MeshStandardMaterial({ color: 0xd0d4da, metalness: 1, roughness: 0.2, side: THREE.DoubleSide })
-    );
-    b.position.x = 0.22;
-    b.rotation.x = 0.5;
-    const pv = new THREE.Group();
-    pv.rotation.y = i / 9 * Math.PI * 2;
-    pv.add(b);
-    rot.add(pv);
+    const b = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.01, 0.09), new THREE.MeshStandardMaterial({ color: 0xd0d4da, metalness: 1, roughness: 0.2, side: THREE.DoubleSide }));
+    b.position.x = 0.22; b.rotation.x = 0.5;
+    const pv = new THREE.Group(); pv.rotation.y = i / 9 * Math.PI * 2; pv.add(b); rot.add(pv);
   }
-  const glow = new THREE.Mesh(
-    new THREE.CircleGeometry(0.42, 28),
-    new THREE.MeshBasicMaterial({ color: 0x3aa8ff, transparent: true, opacity: 0, side: THREE.DoubleSide, depthWrite: false })
-  );
-  glow.rotation.x = Math.PI / 2;
-  glow.position.y = -0.03;
-  g.add(glow);
-  car.add(g);
-  fans.push({ rot, glow });
+  const glow = new THREE.Mesh(new THREE.CircleGeometry(0.42, 28), new THREE.MeshBasicMaterial({ color: 0x3aa8ff, transparent: true, opacity: 0, side: THREE.DoubleSide, depthWrite: false }));
+  glow.rotation.x = Math.PI / 2; glow.position.y = -0.03; g.add(glow);
+  car.add(g); fans.push({ rot, glow });
 });
-const cavity = new THREE.Mesh(
-  new THREE.BoxGeometry(4.4, 0.22, 1.72),
-  new THREE.MeshBasicMaterial({ color: 0x2d9bff, transparent: true, opacity: 0, depthWrite: false })
-);
-cavity.position.y = 0.12;
-car.add(cavity);
-const glowLight = new THREE.PointLight(0x3aa6ff, 0, 7);
-glowLight.position.y = 0.08;
-car.add(glowLight);
+const cavity = new THREE.Mesh(new THREE.BoxGeometry(4.4, 0.22, 1.72), new THREE.MeshBasicMaterial({ color: 0x2d9bff, transparent: true, opacity: 0, depthWrite: false }));
+cavity.position.y = 0.12; car.add(cavity);
+const glowLight = new THREE.PointLight(0x3aa6ff, 0, 7); glowLight.position.y = 0.08; car.add(glowLight);
 
-/* jet exhaust (used after launch) */
+/* thruster jets (blue exhaust under car) */
 const jets = [];
-[[-0.6, -0.7], [0.6, -0.7]].forEach(([x, z]) => {
+[[-0.55, 0], [0.55, 0], [0, 0]].forEach(([x, z], idx) => {
   const group = new THREE.Group();
-  group.position.set(x, 0.05, z);
+  group.position.set(x, 0.02, z);
   const core = new THREE.Mesh(
-    new THREE.ConeGeometry(0.09, 1.4, 10, 1, true),
-    new THREE.MeshBasicMaterial({ color: 0xb8e8ff, transparent: true, opacity: 0, side: THREE.DoubleSide, depthWrite: false })
+    new THREE.ConeGeometry(idx === 2 ? 0.07 : 0.1, 1.6, 10, 1, true),
+    new THREE.MeshBasicMaterial({ color: 0xc4f0ff, transparent: true, opacity: 0, side: THREE.DoubleSide, depthWrite: false })
   );
-  core.rotation.x = Math.PI;
-  core.position.y = -0.7;
-  group.add(core);
+  core.rotation.x = Math.PI; core.position.y = -0.8; group.add(core);
   const outer = new THREE.Mesh(
-    new THREE.ConeGeometry(0.18, 2.1, 10, 1, true),
+    new THREE.ConeGeometry(idx === 2 ? 0.14 : 0.2, 2.4, 10, 1, true),
     new THREE.MeshBasicMaterial({ color: 0x4aa8ff, transparent: true, opacity: 0, side: THREE.DoubleSide, depthWrite: false })
   );
-  outer.rotation.x = Math.PI;
-  outer.position.y = -1.0;
-  group.add(outer);
+  outer.rotation.x = Math.PI; outer.position.y = -1.15; group.add(outer);
   car.add(group);
-  jets.push({ core, outer });
+  jets.push({ core, outer, group });
 });
 
-/* suction particles */
+/* suction particles (on ramp) */
 const PN = 560;
 const pp = new Float32Array(PN * 3);
 const ps = [];
@@ -554,49 +419,78 @@ pg.setAttribute('position', new THREE.BufferAttribute(pp, 3));
 const pm = new THREE.PointsMaterial({ color: 0xbfe6ff, size: 0.055, transparent: true, opacity: 0, depthWrite: false });
 car.add(new THREE.Points(pg, pm));
 
-/* hover / landing smoke (world-space) */
-const SN = 420;
+/* world-space smoke / vapor cloud */
+const SN = 900;
 const sp = new Float32Array(SN * 3);
 const smokeLife = [];
 for (let i = 0; i < SN; i++) {
-  sp[i * 3] = 0; sp[i * 3 + 1] = -10; sp[i * 3 + 2] = 0;
-  smokeLife.push({ a: 0, vx: 0, vy: 0, vz: 0 });
+  sp[i * 3] = 0; sp[i * 3 + 1] = -20; sp[i * 3 + 2] = 0;
+  smokeLife.push({ a: 0, vx: 0, vy: 0, vz: 0, size: 0.5 });
 }
 const sg = new THREE.BufferGeometry();
 sg.setAttribute('position', new THREE.BufferAttribute(sp, 3));
 const sm = new THREE.PointsMaterial({
-  color: 0xd8e4f0, size: 0.55, transparent: true, opacity: 0.0,
+  color: 0xd0dce8, size: 0.7, transparent: true, opacity: 0.0,
   depthWrite: false, sizeAttenuation: true
 });
 const smokePts = new THREE.Points(sg, sm);
 scene.add(smokePts);
 
+/* trail particles while flipping (blue exhaust streaks) */
+const TN = 200;
+const tp_ = new Float32Array(TN * 3);
+const tLife = new Float32Array(TN);
+for (let i = 0; i < TN; i++) { tp_[i * 3 + 1] = -20; tLife[i] = 0; }
+const tg = new THREE.BufferGeometry();
+tg.setAttribute('position', new THREE.BufferAttribute(tp_, 3));
+const tm = new THREE.PointsMaterial({ color: 0x7ec8ff, size: 0.18, transparent: true, opacity: 0.0, depthWrite: false });
+scene.add(new THREE.Points(tg, tm));
+
 /* ───────── sequence ─────────
-   0 drive up, 1 hold inverted, 2 launch, 3 hover */
+   0 drive up ramp
+   1 hold inverted at top
+   2 launch + free flip (full rotation)
+   3 thruster recover / right-side-up
+   4 hover just above ground with big smoke cloud
+*/
 const STOP_S = TOTAL * 0.90;
 const st = { s: 0, v: 0, phase: 0, hold: 0, fan: 0, t: 0, fly: 0 };
 const flyPos = new THREE.Vector3();
 const flyVel = new THREE.Vector3();
 const flyQ = new THREE.Quaternion();
+const flySpin = new THREE.Vector3(); // angular velocity (local-ish)
 const ui = { kg, gg, spd, num, cap, stat };
 const lerp = (a, b, k) => a + (b - a) * k;
 const camPos = new THREE.Vector3(-28, 4.5, 22);
 const camTgt = new THREE.Vector3(-16, 1.2, 0);
 const _m4 = new THREE.Matrix4();
 const _q = new THREE.Quaternion();
+const _q2 = new THREE.Quaternion();
 const _right = new THREE.Vector3();
+const _euler = new THREE.Euler();
 const clock = new THREE.Clock();
 
-function emitSmoke(origin, amount) {
+function emitSmoke(origin, amount, spread = 1.6, boost = 1) {
   for (let k = 0; k < amount; k++) {
     const i = Math.floor(Math.random() * SN);
-    sp[i * 3]     = origin.x + (Math.random() - 0.5) * 1.4;
-    sp[i * 3 + 1] = origin.y + Math.random() * 0.4;
-    sp[i * 3 + 2] = origin.z + (Math.random() - 0.5) * 1.4;
-    smokeLife[i].a = 1;
-    smokeLife[i].vx = (Math.random() - 0.5) * 1.6;
-    smokeLife[i].vy = 0.8 + Math.random() * 1.8;
-    smokeLife[i].vz = (Math.random() - 0.5) * 1.6;
+    sp[i * 3]     = origin.x + (Math.random() - 0.5) * spread;
+    sp[i * 3 + 1] = origin.y + Math.random() * 0.3;
+    sp[i * 3 + 2] = origin.z + (Math.random() - 0.5) * spread;
+    smokeLife[i].a = 0.9 + Math.random() * 0.5;
+    smokeLife[i].vx = (Math.random() - 0.5) * 2.4 * boost;
+    smokeLife[i].vy = 0.6 + Math.random() * 2.2 * boost;
+    smokeLife[i].vz = (Math.random() - 0.5) * 2.4 * boost;
+    smokeLife[i].size = 0.4 + Math.random() * 0.8;
+  }
+}
+
+function emitTrail(origin, amount) {
+  for (let k = 0; k < amount; k++) {
+    const i = Math.floor(Math.random() * TN);
+    tp_[i * 3]     = origin.x + (Math.random() - 0.5) * 0.5;
+    tp_[i * 3 + 1] = origin.y + (Math.random() - 0.5) * 0.5;
+    tp_[i * 3 + 2] = origin.z + (Math.random() - 0.5) * 0.5;
+    tLife[i] = 0.6 + Math.random() * 0.5;
   }
 }
 
@@ -605,8 +499,9 @@ function loop() {
   const dt = Math.min(clock.getDelta(), 0.05);
   st.t += dt;
 
-  /* motion */
+  /* ─── motion state machine ─── */
   if (st.phase === 0) {
+    // climb
     st.fan = Math.min(1, st.fan + dt * 0.55);
     const targetV = st.s < TOTAL * 0.25 ? 16 : 11;
     st.v = lerp(st.v, targetV, dt * 1.1);
@@ -618,38 +513,107 @@ function loop() {
       ui.num.style.opacity = 1; ui.cap.style.opacity = 1;
     }
     if (st.s > TOTAL * 0.18) ui.stat.style.opacity = 1;
+
   } else if (st.phase === 1) {
+    // hold inverted
     st.hold += dt;
-    if (st.hold > 3.6) {
+    if (st.hold > 3.2) {
       st.phase = 2; st.fly = 0;
       const f = frame(st.s);
-      flyPos.copy(f.p).addScaledVector(f.u, 0.4);
-      flyVel.copy(f.t).multiplyScalar(7).addScaledVector(f.u, 4);
+      // peel off the lip: push out along ramp tangent + a bit of up
+      flyPos.copy(f.p).addScaledVector(f.u, 0.5);
+      // launch velocity — forward (tangent) + outward kick so it clears the ramp
+      flyVel.copy(f.t).multiplyScalar(9.5).addScaledVector(f.u, 3.5);
+      flyVel.x -= 2.5; // pull toward open air (away from tower)
       flyQ.copy(car.quaternion);
+      // spin: pitch forward hard so it does a full front flip while falling
+      // local X is car-forward-ish after basis; we apply world-ish pitch
+      flySpin.set(0, 0, 0);
+      // build a spin axis ≈ car right (so it tumbles nose-down / front flip)
+      const right = new THREE.Vector3(0, 0, 1).applyQuaternion(flyQ).normalize();
+      // store spin as axis * speed in a simple vector we'll integrate via quaternion
+      flySpin.copy(right).multiplyScalar(3.8); // rad/s — ~3/4 turn over the fall
     }
+
   } else if (st.phase === 2) {
+    // free flight + flip
     st.fly += dt;
-    // ballistic + thrusters
-    flyVel.y += (-9.2 + 11.5) * dt;          // hover-ish thrust
-    flyVel.x += -1.8 * dt;
-    flyVel.multiplyScalar(1 - 0.18 * dt);
+    flyVel.y -= 9.5 * dt;            // gravity
+    flyVel.x -= 0.35 * dt;           // slight drift
+    flyVel.multiplyScalar(1 - 0.04 * dt);
     flyPos.addScaledVector(flyVel, dt);
-    // level out
-    const level = new THREE.Quaternion().setFromEuler(new THREE.Euler(0.08, 0.4, 0));
-    flyQ.slerp(level, 1 - Math.pow(0.12, dt));
-    if (st.fly > 2.8) st.phase = 3;
+
+    // integrate spin (front flip)
+    const spinLen = flySpin.length();
+    if (spinLen > 0.001) {
+      _q2.setFromAxisAngle(flySpin.clone().normalize(), spinLen * dt);
+      flyQ.premultiply(_q2);
+      // bleed spin slowly so it doesn't keep tumbling forever
+      flySpin.multiplyScalar(1 - 0.15 * dt);
+    }
+
+    // blue trails from fans while tumbling
+    if (Math.random() < 0.9) {
+      const under = new THREE.Vector3(0, -0.4, 0).applyQuaternion(flyQ).add(flyPos);
+      emitTrail(under, 2);
+    }
+
+    // when low enough, start recovery
+    if (flyPos.y < 9.5 || st.fly > 2.6) {
+      st.phase = 3;
+      st.fly = 0;
+    }
+
+  } else if (st.phase === 3) {
+    // thruster recovery — kill spin, level out, cushion fall
+    st.fly += dt;
+    // strong upward thrust + braking
+    const targetY = 3.4;
+    flyVel.y += (14 - flyVel.y * 2.5) * dt;
+    flyVel.x += (-8 - flyPos.x) * 0.35 * dt - flyVel.x * 1.5 * dt;
+    flyVel.z += (0 - flyPos.z) * 0.35 * dt - flyVel.z * 1.5 * dt;
+    flyPos.addScaledVector(flyVel, dt);
+
+    // damp spin fast
+    flySpin.multiplyScalar(1 - 4 * dt);
+
+    // slerp toward upright (slight nose-up)
+    const upright = new THREE.Quaternion().setFromEuler(new THREE.Euler(0.06, 0.25, 0));
+    flyQ.slerp(upright, 1 - Math.pow(0.04, dt));
+
+    // thruster exhaust + smoke building
+    if (Math.random() < 0.85) {
+      const under = flyPos.clone(); under.y -= 0.5;
+      emitSmoke(under, 4, 1.2, 1.1);
+      emitTrail(under, 2);
+    }
+
+    if (flyPos.y < 4.2 && Math.abs(flyVel.y) < 4.5 && st.fly > 0.9) {
+      st.phase = 4;
+      st.fly = 0;
+      // big landing smoke bloom
+      emitSmoke(flyPos.clone().setY(0.3), 80, 3.5, 1.6);
+    }
+
   } else {
+    // hover
     st.fly += dt;
-    // settle into a hover ~3 m up
-    flyVel.y += (3.2 - flyPos.y) * 1.6 * dt - flyVel.y * 2.2 * dt;
-    flyVel.x += (-6 - flyPos.x) * 0.4 * dt - flyVel.x * 1.4 * dt;
-    flyVel.z += (0 - flyPos.z) * 0.4 * dt - flyVel.z * 1.4 * dt;
+    flyVel.y += (3.1 - flyPos.y) * 2.4 * dt - flyVel.y * 3.0 * dt;
+    flyVel.x += (-7 - flyPos.x) * 0.5 * dt - flyVel.x * 1.8 * dt;
+    flyVel.z += (0 - flyPos.z) * 0.5 * dt - flyVel.z * 1.8 * dt;
     flyPos.addScaledVector(flyVel, dt);
-    const level = new THREE.Quaternion().setFromEuler(new THREE.Euler(0.02, 0.15, Math.sin(st.t * 1.4) * 0.03));
-    flyQ.slerp(level, 1 - Math.pow(0.08, dt));
-    if (Math.random() < 0.55) emitSmoke(flyPos.clone().setY(flyPos.y - 0.3), 3);
+
+    const upright = new THREE.Quaternion().setFromEuler(
+      new THREE.Euler(0.03 + Math.sin(st.t * 1.7) * 0.015, 0.2, Math.sin(st.t * 1.3) * 0.025)
+    );
+    flyQ.slerp(upright, 1 - Math.pow(0.06, dt));
+
+    if (Math.random() < 0.7) {
+      emitSmoke(flyPos.clone().setY(Math.max(0.15, flyPos.y - 0.6)), 5, 2.2, 0.9);
+    }
   }
 
+  /* ─── apply transform ─── */
   const f = frame(st.s);
   if (st.phase < 2) {
     _right.crossVectors(f.t, f.u).normalize();
@@ -657,41 +621,46 @@ function loop() {
     _q.setFromRotationMatrix(_m4);
     car.quaternion.copy(_q);
     car.position.copy(f.p);
-    if (st.phase > 0) car.position.addScaledVector(f.u, Math.sin(st.hold * 3) * 0.005 * Math.exp(-st.hold * 0.7));
+    if (st.phase === 1) car.position.addScaledVector(f.u, Math.sin(st.hold * 3) * 0.005 * Math.exp(-st.hold * 0.7));
   } else {
     car.position.copy(flyPos);
     car.quaternion.copy(flyQ);
   }
   wheels.forEach(w => { w.rotation.z -= st.v * dt / 0.36; });
 
-  /* fans / jets */
+  /* ─── fans / jets visual ─── */
   const fan = st.fan;
   fans.forEach(fn => {
     fn.rot.rotation.y += fan * 58 * dt;
     fn.glow.material.opacity = fan * (0.28 + 0.1 * Math.sin(st.t * 22));
   });
   skirtMat.emissiveIntensity = fan * 1.5;
-  cavity.material.opacity = fan * 0.2;
+  cavity.material.opacity = st.phase < 2 ? fan * 0.2 : fan * 0.12;
   glowLight.intensity = fan * 11;
   pm.opacity = st.phase < 2 ? fan * 0.75 : 0;
 
-  const jetOn = st.phase >= 2 ? 1 : 0;
+  // jets on during flight recovery + hover
+  const jetOn = st.phase >= 3 ? 1 : (st.phase === 2 ? 0.35 : 0);
   jets.forEach(j => {
-    j.core.material.opacity = jetOn * (0.55 + 0.25 * Math.sin(st.t * 40));
-    j.outer.material.opacity = jetOn * (0.18 + 0.08 * Math.sin(st.t * 23));
-    j.core.scale.y = 0.8 + Math.random() * 0.5;
-    j.outer.scale.y = 0.85 + Math.random() * 0.4;
+    j.core.material.opacity = jetOn * (0.6 + 0.3 * Math.sin(st.t * 42));
+    j.outer.material.opacity = jetOn * (0.2 + 0.1 * Math.sin(st.t * 27));
+    j.core.scale.y = 0.75 + Math.random() * 0.55;
+    j.outer.scale.y = 0.8 + Math.random() * 0.5;
+    // point jets "down" in world space approximately
+    if (st.phase >= 2) {
+      // keep cones aligned with car down
+      j.group.rotation.set(0, 0, 0);
+    }
   });
 
-  /* suction particles */
+  /* suction particles (ramp only) */
   if (st.phase < 2) {
     const pull = 3 + fan * 16;
     for (let i = 0; i < PN; i++) {
       const o = ps[i], p = o.p;
       if (!o.ex) {
         const d = new THREE.Vector3(o.f.rot.parent.position.x, 0.2, 0).sub(p);
-        const dist = d.length();
-        if (dist < 0.28) { o.ex = true; p.set(o.f.rot.parent.position.x, 0.28, 0); }
+        if (d.length() < 0.28) { o.ex = true; p.set(o.f.rot.parent.position.x, 0.28, 0); }
         else {
           d.normalize();
           const inside = Math.abs(p.x) < 2.25 && Math.abs(p.z) < 0.88;
@@ -714,59 +683,69 @@ function loop() {
   for (let i = 0; i < SN; i++) {
     const L = smokeLife[i];
     if (L.a <= 0) continue;
-    L.a -= dt * 0.45;
+    L.a -= dt * 0.32;
     sp[i * 3]     += L.vx * dt;
     sp[i * 3 + 1] += L.vy * dt;
     sp[i * 3 + 2] += L.vz * dt;
-    L.vy += 0.4 * dt;
-    L.vx *= 0.99; L.vz *= 0.99;
+    L.vy += 0.55 * dt;
+    L.vx *= 0.985; L.vz *= 0.985;
     alive++;
   }
   sg.attributes.position.needsUpdate = true;
-  sm.opacity = Math.min(0.7, alive / 80);
+  sm.opacity = Math.min(0.75, alive / 100);
+  sm.size = st.phase >= 4 ? 0.95 : 0.65;
+
+  /* blue trails */
+  let tAlive = 0;
+  for (let i = 0; i < TN; i++) {
+    if (tLife[i] <= 0) continue;
+    tLife[i] -= dt * 0.9;
+    tp_[i * 3 + 1] -= 1.5 * dt;
+    tAlive++;
+  }
+  tg.attributes.position.needsUpdate = true;
+  tm.opacity = Math.min(0.8, tAlive / 40);
 
   /* HUD */
   const suction = 4700 * fan;
+  const speedShow = st.phase < 2 ? st.v : flyVel.length();
   const aero = 0.55 * st.v * st.v / 9.81;
-  const upY = st.phase < 2 ? f.u.y : 1;
-  const G = Math.max(0, (suction + aero + 1900 * upY) / 1900);
+  const upY = st.phase < 2 ? f.u.y : (st.phase >= 4 ? 1 : 0.2);
+  const G = Math.max(0, (suction + aero + 1900 * Math.max(-1, upY)) / 1900);
   ui.kg.textContent = Math.round(suction).toLocaleString();
   ui.gg.textContent = G.toFixed(1);
-  ui.spd.textContent = Math.round((st.phase < 2 ? st.v : flyVel.length()) * 3.6);
+  ui.spd.textContent = Math.round(speedShow * 3.6);
   ui.stat.textContent =
     st.phase === 0 ? 'Fan suction engaged' :
-    st.phase === 1 ? (upY < -0.2 ? 'Stationary · Inverted · Held by atmospheric pressure' : 'Stationary · Held by atmospheric pressure') :
-    st.phase === 2 ? 'Cold-gas thrusters · Launch' :
+    st.phase === 1 ? (f.u.y < -0.2 ? 'Stationary · Inverted · Held by atmospheric pressure' : 'Stationary · Held by atmospheric pressure') :
+    st.phase === 2 ? 'Launch · Ballistic flip' :
+    st.phase === 3 ? 'Cold-gas thrusters · Attitude recover' :
                      'Hover · Multi-mode fans';
 
-  /* camera — cinematic, matching the reference stills */
-  let tp, tt;
+  /* camera */
+  let tpCam, ttCam;
   if (st.phase === 0) {
     const k = THREE.MathUtils.smoothstep(st.s, TOTAL * 0.12, TOTAL * 0.72);
-    tp = new THREE.Vector3().lerpVectors(
-      new THREE.Vector3(-26, 3.2, 20),
-      new THREE.Vector3(-4, 14, 32),
-      k
-    );
-    tt = new THREE.Vector3().lerpVectors(
-      car.position.clone().add(new THREE.Vector3(4, 0.6, 0)),
-      new THREE.Vector3(6, 16, 0),
-      k * 0.7
-    );
+    tpCam = new THREE.Vector3().lerpVectors(new THREE.Vector3(-26, 3.2, 20), new THREE.Vector3(-4, 14, 32), k);
+    ttCam = new THREE.Vector3().lerpVectors(car.position.clone().add(new THREE.Vector3(4, 0.6, 0)), new THREE.Vector3(6, 16, 0), k * 0.7);
   } else if (st.phase === 1) {
     const a = -0.4 + st.hold * 0.08;
-    tp = new THREE.Vector3(Math.sin(a) * 28 + 4, 22 + Math.sin(st.hold * 0.4) * 2, Math.cos(a) * 26);
-    tt = car.position.clone().addScaledVector(f.u, 0.5);
+    tpCam = new THREE.Vector3(Math.sin(a) * 28 + 4, 22 + Math.sin(st.hold * 0.4) * 2, Math.cos(a) * 26);
+    ttCam = car.position.clone().addScaledVector(f.u, 0.5);
   } else if (st.phase === 2) {
-    tp = car.position.clone().add(new THREE.Vector3(-10, 6, 16));
-    tt = car.position.clone().add(new THREE.Vector3(2, 0, 0));
+    // dramatic side view of the flip
+    tpCam = car.position.clone().add(new THREE.Vector3(-12 - st.fly * 1.5, 3 + st.fly * 0.8, 14));
+    ttCam = car.position.clone();
+  } else if (st.phase === 3) {
+    tpCam = car.position.clone().add(new THREE.Vector3(-11, 4.5, 13));
+    ttCam = car.position.clone().add(new THREE.Vector3(1, -0.4, 0));
   } else {
-    const a = st.fly * 0.12;
-    tp = new THREE.Vector3(car.position.x - 14 + Math.sin(a) * 4, 5.5, 16 + Math.cos(a) * 3);
-    tt = car.position.clone().add(new THREE.Vector3(1, 0.2, 0));
+    const a = st.fly * 0.1;
+    tpCam = new THREE.Vector3(car.position.x - 13 + Math.sin(a) * 3, 4.8, 15 + Math.cos(a) * 2);
+    ttCam = car.position.clone().add(new THREE.Vector3(1, 0.1, 0));
   }
-  camPos.lerp(tp, 1 - Math.pow(0.025, dt));
-  camTgt.lerp(tt, 1 - Math.pow(0.03, dt));
+  camPos.lerp(tpCam, 1 - Math.pow(0.03, dt));
+  camTgt.lerp(ttCam, 1 - Math.pow(0.04, dt));
   camera.position.copy(camPos);
   camera.up.set(0, 1, 0);
   camera.lookAt(camTgt);

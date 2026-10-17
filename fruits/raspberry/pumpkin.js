@@ -5627,7 +5627,7 @@ rind.bumpMap=fuzz.visible&&detailEnabled?detail:base.bumpMap;
 rind.bumpScale=fuzz.visible&&detailEnabled ? .0008*(fuzz.width/defaults.fuzzWidth)*(fuzz.density/defaults.fuzzDensity)*(fuzz.opacity/defaults.fuzzOpacity)*(skin.detailStrength/defaults.detailStrength)*(fuzz.minPixels/defaults.fuzzMinPixels):base.bumpScale;
 uniforms.tint.value.copy(tintRatio).multiplyScalar(1+(fuzz.skinBounce-defaults.fuzzSkinBounce)*.025);
 uniforms.saturation.value=skin.saturation;
-uniforms.aoPower.value=skin.aoPower;
+uniforms.aoPower.value=1+(skin.aoPower-defaults.aoPower);
 uniforms.beadGlow.value=skin.beadGlow/defaults.beadGlow;
 uniforms.fuzzGlow.value.copy(fuzzColor).multiplyScalar(fuzzGlow);
 rind.needsUpdate=true;
@@ -5738,7 +5738,7 @@ function createPumpkinShadow() {
 }
 function makePumpkinPbrMaterial(source) {
   const material = new Ca();
-  material.copy(source);
+  if (source.isMeshPhysicalMaterial) material.copy(source); else Sa.prototype.copy.call(material, source); material.type = 'MeshPhysicalMaterial'; material.isMeshPhysicalMaterial = true;
   const uniforms = {
     tint: { value: new J(1, 1, 1) },
     saturation: { value: 1 },

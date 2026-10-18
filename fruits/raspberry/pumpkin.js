@@ -5917,28 +5917,52 @@ async function sm() {
   $.pumpkin = fruit;
   $p();
   frameLoadedPumpkin();
-}function cm(){let e=fm.active?$.reelTurn:Q.lights.followCamera?Math.atan2(qp.position.x,qp.position.z):Jp.lightTurn,t=Yp.update(e);$.pumpkinMaterials?.forEach(e=>{if(e.envMap!==t){e.envMap=t,e.needsUpdate=!0}e.envMapIntensity=Q.environment.reflectionIntensity}),t!==Zp.envMap.value&&(Zp.envMap.value=t,$.skin&&Vf($.skin,t),$.styles&&Vf($.styles,t)),Kp.backgroundRotation.y=Yp.turn,Zp.uEnvRotation.value.copy(Yp.envRotation);for(let e=0;e<9;e++)Zp.uSH.value[e].fromArray(Yp.sh,e*3);Zp.uAmbientRadiance.value.fromArray(Yp.ambient),Zp.uAmbientGradient.value=Yp.gradient,Yp.lights.forEach((e,t)=>{Zp.uLightDir.value[t].fromArray(e.dir),Zp.uLightColor.value[t].fromArray(e.color).multiplyScalar(e.irradiance)}),$.fuzz&&($.fuzz.material.uniforms.uViewportHeight.value=Up.domElement.height);let n=fm.active?$.reelFocus:qp.position.distanceTo(Jp.target);Xp.setFocus(n+Q.post.focusOffset)}var lm=performance.now();function um(e){requestAnimationFrame(um);let t=Math.min((e-lm)/1e3,.1);if(lm=e,$.profiling)return;if(fm.active){let e=fm.update(t,qp.aspect);e.done?vm():($.reelTurn=e.turn,$.reelFocus=e.focus,Xp.setGain(e.gain),pm.recording&&(mm.textContent=`● recording ${fm.time.toFixed(1)} / ${fm.duration.toFixed(1)} s · Esc to cancel`))}else Jp.update(t);if($.pumpkinLight){const settings=Q.lights.inner,flicker=.94+.045*Math.sin(e*.008)+.02*Math.sin(e*.021);$.pumpkinLight.intensity=(settings.intensity||0)*.45*(.6/Math.max(settings.wall,.05))*flicker;$.pumpkinLight.position.y=(settings.height-1.1)*.25;$.pumpkinLight.color.set(settings.color);$.pumpkinMaterials?.forEach(material=>{const uniforms=material.userData.pumpkinUniforms;if(!uniforms)return;uniforms.innerColor.value.set(settings.color);uniforms.innerIntensity.value=settings.intensity;uniforms.innerPosition.value.copy($.pumpkinLight.position);uniforms.shellDepth.value=settings.wall})}cm();let n=Q.debug.gpuTimer;n&&Gp.begin(),Xp.render(e/1e3);let r=n?Gp.end():null;Wp.tick(t,r)}async function dm(e){$.profiling=!0;try{return Mp(await jp({params:Q,renderer:Up,onProgress:e,apply(){$p(),cm()},render:()=>Xp.render(0)}))}finally{$.profiling=!1}}var fm=Tp({params:Q,camera:qp,setLook(e){ff(Q,e.preset),e.bokeh!=null&&(Q.post.bokehScale=e.bokeh),$p()}}),pm={saved:null,recording:null,finish:null,gui:null,clean:!1,escapeStop:!1,soundMuted:!1,soundtrack:null,audioContext:null},mm=document.createElement(`div`);mm.style.cssText=`position:fixed;left:50%;bottom:14px;transform:translateX(-50%);z-index:20;padding:6px 12px;border-radius:999px;background:rgba(18,18,20,.82);color:#eee;font:11px ui-monospace,SFMono-Regular,Menlo,monospace;pointer-events:none;transition:opacity .4s;opacity:0`,document.body.appendChild(mm);var hmTimer=0,hm=(e,t=0)=>{clearTimeout(hmTimer),mm.textContent=e,mm.style.opacity=+!!e,t&&(hmTimer=setTimeout(()=>mm.style.opacity=0,t))};var reelSoundToggle=document.createElement('button');
+}function cm(){let e=fm.active?$.reelTurn:Q.lights.followCamera?Math.atan2(qp.position.x,qp.position.z):Jp.lightTurn,t=Yp.update(e);$.pumpkinMaterials?.forEach(e=>{if(e.envMap!==t){e.envMap=t,e.needsUpdate=!0}e.envMapIntensity=Q.environment.reflectionIntensity}),t!==Zp.envMap.value&&(Zp.envMap.value=t,$.skin&&Vf($.skin,t),$.styles&&Vf($.styles,t)),Kp.backgroundRotation.y=Yp.turn,Zp.uEnvRotation.value.copy(Yp.envRotation);for(let e=0;e<9;e++)Zp.uSH.value[e].fromArray(Yp.sh,e*3);Zp.uAmbientRadiance.value.fromArray(Yp.ambient),Zp.uAmbientGradient.value=Yp.gradient,Yp.lights.forEach((e,t)=>{Zp.uLightDir.value[t].fromArray(e.dir),Zp.uLightColor.value[t].fromArray(e.color).multiplyScalar(e.irradiance)}),$.fuzz&&($.fuzz.material.uniforms.uViewportHeight.value=Up.domElement.height);let n=fm.active?$.reelFocus:qp.position.distanceTo(Jp.target);Xp.setFocus(n+Q.post.focusOffset)}var lm=performance.now();function um(e){requestAnimationFrame(um);let t=Math.min((e-lm)/1e3,.1);if(lm=e,$.profiling)return;if(fm.active){let e=fm.update(t,qp.aspect);e.done?vm():($.reelTurn=e.turn,$.reelFocus=e.focus,Xp.setGain(e.gain),pm.recording&&(mm.textContent=`● recording ${fm.time.toFixed(1)} / ${fm.duration.toFixed(1)} s · Esc to cancel`))}else Jp.update(t);if($.pumpkinLight){const settings=Q.lights.inner,flicker=.94+.045*Math.sin(e*.008)+.02*Math.sin(e*.021);$.pumpkinLight.intensity=(settings.intensity||0)*.45*(.6/Math.max(settings.wall,.05))*flicker;$.pumpkinLight.position.y=(settings.height-1.1)*.25;$.pumpkinLight.color.set(settings.color);$.pumpkinMaterials?.forEach(material=>{const uniforms=material.userData.pumpkinUniforms;if(!uniforms)return;uniforms.innerColor.value.set(settings.color);uniforms.innerIntensity.value=settings.intensity;uniforms.innerPosition.value.copy($.pumpkinLight.position);uniforms.shellDepth.value=settings.wall})}cm();let n=Q.debug.gpuTimer;n&&Gp.begin(),Xp.render(e/1e3);let r=n?Gp.end():null;Wp.tick(t,r)}async function dm(e){$.profiling=!0;try{return Mp(await jp({params:Q,renderer:Up,onProgress:e,apply(){$p(),cm()},render:()=>Xp.render(0)}))}finally{$.profiling=!1}}var fm=Tp({params:Q,camera:qp,setLook(e){ff(Q,e.preset),e.bokeh!=null&&(Q.post.bokehScale=e.bokeh),$p()}}),pm={saved:null,recording:null,finish:null,gui:null,clean:!1,escapeStop:!1,soundMuted:!1,soundtrack:null,audioContext:null,audioElement:null,audioSource:null},mm=document.createElement(`div`);mm.style.cssText=`position:fixed;left:50%;bottom:14px;transform:translateX(-50%);z-index:20;padding:6px 12px;border-radius:999px;background:rgba(18,18,20,.82);color:#eee;font:11px ui-monospace,SFMono-Regular,Menlo,monospace;pointer-events:none;transition:opacity .4s;opacity:0`,document.body.appendChild(mm);var hmTimer=0,hm=(e,t=0)=>{clearTimeout(hmTimer),mm.textContent=e,mm.style.opacity=+!!e,t&&(hmTimer=setTimeout(()=>mm.style.opacity=0,t))};var reelSoundToggle=document.createElement('button');
 reelSoundToggle.type='button';
 reelSoundToggle.style.cssText='position:fixed;right:16px;bottom:14px;z-index:25;display:none;padding:8px 12px;border:1px solid rgba(255,255,255,.2);border-radius:999px;background:rgba(18,18,20,.9);color:#fff;font:12px ui-monospace,SFMono-Regular,Menlo,monospace;cursor:pointer;backdrop-filter:blur(6px)';
 document.body.appendChild(reelSoundToggle);
 function updateReelSoundToggle(){reelSoundToggle.textContent=pm.soundMuted?'🔇 unmute soundtrack':'🔊 mute soundtrack';reelSoundToggle.setAttribute('aria-label',pm.soundMuted?'Unmute reel soundtrack':'Mute reel soundtrack');reelSoundToggle.setAttribute('aria-pressed',String(pm.soundMuted))}
-function primeReelAudio(){const AudioContextType=window.AudioContext||window.webkitAudioContext;if(!AudioContextType)return;try{pm.audioContext||(pm.audioContext=new AudioContextType());pm.audioContext.resume().catch(()=>{})}catch(error){console.warn('Could not initialize reel audio',error)}}
-function startReelSoundtrack(){
-if(pm.soundMuted||pm.soundtrack)return;
-primeReelAudio();const context=pm.audioContext;if(!context)return;
+function primeReelAudio(){
+const AudioContextType=window.AudioContext||window.webkitAudioContext;
 try{
-const master=context.createGain(),destination=context.createMediaStreamDestination(),now=context.currentTime;
-master.gain.setValueAtTime(0,now);master.gain.linearRampToValueAtTime(.24,now+.8);master.connect(context.destination);master.connect(destination);
-const pads=[];
-for(const [frequency,volume] of [[110,.09],[164.81,.025]]){const oscillator=context.createOscillator(),gain=context.createGain();oscillator.type='sine';oscillator.frequency.value=frequency;gain.gain.value=volume;oscillator.connect(gain);gain.connect(master);oscillator.start();pads.push(oscillator)}
-const track={context,master,destination,pads,timer:0,next:now+.05,index:0};pm.soundtrack=track;
-const notes=[196,233.08,261.63,293.66,349.23,293.66,261.63,220];
-const schedule=()=>{while(track.next<context.currentTime+1.15){const at=track.next,index=track.index++,frequency=notes[index%notes.length];const oscillator=context.createOscillator(),filter=context.createBiquadFilter(),gain=context.createGain();oscillator.type=index%4===0?'triangle':'sine';oscillator.frequency.setValueAtTime(frequency,at);filter.type='lowpass';filter.frequency.setValueAtTime(1500,at);gain.gain.setValueAtTime(.0001,at);gain.gain.exponentialRampToValueAtTime(index%4===0?.06:.04,at+.045);gain.gain.exponentialRampToValueAtTime(.0001,at+.78);oscillator.connect(filter);filter.connect(gain);gain.connect(master);oscillator.start(at);oscillator.stop(at+.82);if(index%4===0){const pulse=context.createOscillator(),pulseGain=context.createGain();pulse.type='sine';pulse.frequency.setValueAtTime(82,at);pulse.frequency.exponentialRampToValueAtTime(48,at+.2);pulseGain.gain.setValueAtTime(.0001,at);pulseGain.gain.exponentialRampToValueAtTime(.025,at+.012);pulseGain.gain.exponentialRampToValueAtTime(.0001,at+.28);pulse.connect(pulseGain);pulseGain.connect(master);pulse.start(at);pulse.stop(at+.3)}track.next+=.72}};
-schedule();track.timer=setInterval(schedule,180)
-}catch(error){console.warn('Could not start reel soundtrack',error)}
+if(!pm.audioElement){pm.audioElement=new Audio("./pumpkin-halloween-music.mp3");pm.audioElement.preload="auto";pm.audioElement.loop=true;pm.audioElement.muted=true;pm.audioElement.setAttribute("aria-hidden","true")}
+if(AudioContextType){pm.audioContext||(pm.audioContext=new AudioContextType());pm.audioContext.resume().catch(()=>{});pm.audioSource||(pm.audioSource=pm.audioContext.createMediaElementSource(pm.audioElement))}
+const pending=pm.audioElement.play();pending?.catch(error=>console.warn("Could not prime reel soundtrack",error))
+}catch(error){console.warn("Could not initialize reel soundtrack",error)}
 }
-function stopReelSoundtrack(){const track=pm.soundtrack;if(!track)return;pm.soundtrack=null;clearInterval(track.timer);const now=track.context.currentTime;track.master.gain.cancelScheduledValues(now);track.master.gain.setTargetAtTime(0,now,.08);track.pads.forEach(node=>{try{node.stop(now+.7)}catch{}});setTimeout(()=>{try{track.pads.forEach(node=>node.disconnect());track.master.disconnect();track.destination.disconnect()}catch{}},850)}
-function toggleReelSound(){pm.soundMuted=!pm.soundMuted;if(pm.soundtrack){const track=pm.soundtrack,now=track.context.currentTime;track.master.gain.cancelScheduledValues(now);track.master.gain.setTargetAtTime(pm.soundMuted?0:.24,now,.045)}else if(!pm.soundMuted&&pm.saved)startReelSoundtrack();updateReelSoundToggle();pm.gui?.refresh()}
+function startReelSoundtrack(){
+if(pm.soundtrack)return;
+if(!pm.audioElement)primeReelAudio();
+const audio=pm.audioElement;if(!audio)return;
+try{
+audio.muted=false;audio.volume=1;try{audio.currentTime=0}catch{}
+const context=pm.audioContext;
+if(context&&pm.audioSource){
+const master=context.createGain(),destination=context.createMediaStreamDestination(),now=context.currentTime;
+master.gain.setValueAtTime(0,now);pm.audioSource.connect(master);master.connect(context.destination);master.connect(destination);
+pm.soundtrack={context,master,destination,audio,source:pm.audioSource};
+if(!pm.soundMuted)master.gain.linearRampToValueAtTime(.22,now+.55)
+}else{
+audio.muted=pm.soundMuted;audio.volume=.42;
+const stream=audio.captureStream?.()||audio.mozCaptureStream?.();
+pm.soundtrack={audio,destination:stream?{stream}:null}
+}
+const pending=audio.play();pending?.catch(error=>console.warn("Could not play reel soundtrack",error))
+}catch(error){console.warn("Could not start reel soundtrack",error)}
+}
+function stopReelSoundtrack(){
+const track=pm.soundtrack;if(!track)return;pm.soundtrack=null;
+if(track.master){const now=track.context.currentTime;track.master.gain.cancelScheduledValues(now);track.master.gain.setTargetAtTime(0,now,.035);try{track.source.disconnect(track.master)}catch{}try{track.master.disconnect();track.destination.disconnect()}catch{}}
+track.destination?.stream?.getTracks().forEach(streamTrack=>streamTrack.stop());
+const audio=track.audio||pm.audioElement;if(audio){audio.pause();audio.muted=true;try{audio.currentTime=0}catch{}}
+}
+function toggleReelSound(){
+pm.soundMuted=!pm.soundMuted;
+if(pm.soundtrack?.master){const track=pm.soundtrack,now=track.context.currentTime;track.master.gain.cancelScheduledValues(now);track.master.gain.setTargetAtTime(pm.soundMuted?0:.22,now,.045)}
+else if(pm.soundtrack?.audio)pm.soundtrack.audio.muted=pm.soundMuted;
+else if(!pm.soundMuted&&pm.saved&&fm.active)startReelSoundtrack();
+updateReelSoundToggle();pm.gui?.refresh()
+}
 reelSoundToggle.addEventListener('click',toggleReelSound);updateReelSoundToggle();function gm(){let e=[`video/mp4;codecs=avc1.640033,mp4a.40.2`,`video/mp4`,`video/webm;codecs=vp9,opus`,`video/webm;codecs=vp8,opus`,`video/webm`].find(e=>window.MediaRecorder?.isTypeSupported(e));if(!e)return null;let t=Vp.captureStream(60);pm.soundtrack?.destination?.stream.getAudioTracks().forEach(track=>t.addTrack(track));let n=new MediaRecorder(t,{mimeType:e,videoBitsPerSecond:12e6}),r=[];n.ondataavailable=e=>e.data.size&&r.push(e.data);let i=new Promise(e=>n.onstop=()=>e(new Blob(r,{type:n.mimeType})));return n.start(),{stop(){return n.stop(),t.getTracks().forEach(e=>e.stop()),i}}}async function _m({record:e=!1}={}){
 if(fm.active||pm.saved)return null;
 const saved=pm.saved={params:JSON.stringify(Q),position:qp.position.clone(),target:Jp.target.clone()};

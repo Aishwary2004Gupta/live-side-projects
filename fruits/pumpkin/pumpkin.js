@@ -5738,7 +5738,22 @@ function createPumpkinShadow() {
 }
 function makePumpkinPbrMaterial(source) {
   const material = new Ca();
-  if (source.isMeshPhysicalMaterial) material.copy(source); else Sa.prototype.copy.call(material, source); material.type = 'MeshPhysicalMaterial'; material.isMeshPhysicalMaterial = true;
+  if (source.isMeshPhysicalMaterial) {
+    material.copy(source);
+  } else if (source.isMeshStandardMaterial) {
+    Sa.prototype.copy.call(material, source);
+  } else {
+    material.color.copy(source.color ?? new J(1, 1, 1));
+    material.map = source.map ?? null;
+    material.alphaMap = source.alphaMap ?? null;
+    material.opacity = source.opacity ?? 1;
+    material.transparent = source.transparent ?? false;
+    material.alphaTest = source.alphaTest ?? 0;
+    material.side = source.side ?? 0;
+    material.depthWrite = source.depthWrite ?? true;
+    material.name = source.name;
+  }
+  material.type = 'MeshPhysicalMaterial'; material.isMeshPhysicalMaterial = true;
   const uniforms = {
     tint: { value: new J(1, 1, 1) },
     saturation: { value: 1 },
@@ -5796,13 +5811,16 @@ function frameLoadedPumpkin() {
 async function sm() {
   Yp.set(Q);
   Yp.update(0);
-  const gltf = await new vu().loadAsync(new URL('./halloween_pumpkin.glb', import.meta.url).href);
+  const modelFile = new URL(import.meta.url).searchParams.get('model') === 'dragon-fruit'
+    ? 'dragon_fruit.glb'
+    : 'halloween_pumpkin.glb';
+  const gltf = await new vu().loadAsync(new URL(`./${modelFile}`, import.meta.url).href);
   const fruit = new wn();
   const pumpkinRoot = gltf.scene;
   pumpkinRoot.position.set(0, 0, 0);
   pumpkinRoot.rotation.set(0, 0, 0);
   pumpkinRoot.scale.setScalar(1);
-  pumpkinRoot.name = 'Sketchfab_Halloween_Pumpkin';
+  pumpkinRoot.name = modelFile === 'dragon_fruit.glb' ? 'Dragon_Fruit' : 'Sketchfab_Halloween_Pumpkin';
   const materials = [];
   const sourceMaterials = new Map();
   const bounds = { minX: Infinity, minY: Infinity, minZ: Infinity, maxX: -Infinity, maxY: -Infinity, maxZ: -Infinity };
@@ -5848,12 +5866,15 @@ async function sm() {
   $.pumpkinBounds = { width: sourceWidth * scale, height: sourceHeight * scale, depth: sourceDepth * scale };
 
   const detail = makePumpkinTexture(8137, false, true);
-  const innerGlow = new To(0xffaa24, 0, 3.1, 2);
-  innerGlow.position.set(0, 0, .06);
-  innerGlow.name = 'Panel_Controlled_Inner_Glow';
+  const innerGlow = modelFile === 'dragon_fruit.glb' ? null : new To(0xffaa24, 0, 3.1, 2);
+  if (innerGlow) {
+    innerGlow.position.set(0, 0, .06);
+    innerGlow.name = 'Panel_Controlled_Inner_Glow';
+  }
   const shadow = createPumpkinShadow();
   shadow.position.y = groundY - .003;
-  fruit.add(pumpkinRoot, shadow, innerGlow);
+  fruit.add(pumpkinRoot, shadow);
+  if (innerGlow) fruit.add(innerGlow);
   Kp.add(fruit);
 
   $.pumpkinMaterials = materials;

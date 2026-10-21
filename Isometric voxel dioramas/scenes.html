@@ -5,28 +5,34 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Beach Volleyball Diorama</title>
 <style>
-  :root{--bg:#ffffff}
-  @media (prefers-color-scheme: dark){:root{--bg:#ffffff}}
-  html,body{margin:0;height:100%;background:var(--bg);overflow:hidden}
-  canvas{display:block;width:100%;height:100%}
+  html,body{margin:0;height:100%;overflow:hidden}
+  body{background:#fff;transition:background .6s}
+  body.dark{background:#0d1530}
+  canvas{display:block;width:100%;height:100%;image-rendering:pixelated;image-rendering:crisp-edges;image-rendering:pixelated}
+  #mode{position:fixed;top:calc(14px + env(safe-area-inset-top,0px));right:14px;width:44px;height:44px;display:grid;place-items:center;
+    border:3px solid #1b2433;border-radius:6px;background:#fff;color:#1b2433;box-shadow:3px 3px 0 #1b2433;cursor:pointer;z-index:2;padding:0}
+  #mode:active{transform:translate(2px,2px);box-shadow:1px 1px 0 #1b2433}
+  #mode:focus-visible{outline:3px solid #3a86ff;outline-offset:3px}
+  body.dark #mode{background:#1a2550;color:#ffe9a8;border-color:#ffe9a8;box-shadow:3px 3px 0 #ffe9a8}
 </style>
 </head>
 <body>
+<button id="mode" type="button" aria-label="Toggle dark mode"></button>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script>
 (function(){
 const T=6, PI=Math.PI;
-const renderer=new THREE.WebGLRenderer({antialias:true});
-renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+const renderer=new THREE.WebGLRenderer({antialias:false,alpha:true});
+renderer.setPixelRatio(1);
 renderer.shadowMap.enabled=true; renderer.shadowMap.type=THREE.PCFSoftShadowMap;
-renderer.setClearColor(0xffffff,1);
+renderer.setClearColor(0x000000,0);
 document.body.appendChild(renderer.domElement);
 const scene=new THREE.Scene();
 const cam=new THREE.OrthographicCamera(-1,1,1,-1,-100,200);
 cam.position.set(22,19,22); cam.lookAt(0,0.6,0);
 
 // lights
-scene.add(new THREE.HemisphereLight(0xffffff,0xe8d4a8,0.75));
+const hemi=new THREE.HemisphereLight(0xffffff,0xe8d4a8,0.75);scene.add(hemi);
 const sun=new THREE.DirectionalLight(0xfff1d6,0.85);
 sun.position.set(-12,22,10); sun.castShadow=true;
 sun.shadow.mapSize.set(2048,2048);
@@ -44,20 +50,33 @@ function blob(r,x,z,o,p){ // fake ambient occlusion
   const m=new THREE.Mesh(new THREE.CircleGeometry(r,20),new THREE.MeshBasicMaterial({color:0x6b4a1e,transparent:true,opacity:o||.28,depthWrite:false}));
   m.rotation.x=-PI/2;m.position.set(x,.075,z);(p||scene).add(m);return m}
 
-// ---------- platform ----------
+// ---------- island, shoreline & sea ----------
 const PX=13,PZ=9;
-box(PX*2+.4,.5,PZ*2+.4,0xc99a5b,0,-1.35,0);
-box(PX*2,1.1,PZ*2,0xdcb97c,0,-.55,0);
-box(PX*2+.3,.12,PZ*2+.3,0xb9824a,0,-.06,0);
+const rr=(hw,hd,r)=>{const s=new THREE.Shape();s.moveTo(-hw+r,-hd);s.lineTo(hw-r,-hd);s.quadraticCurveTo(hw,-hd,hw,-hd+r);s.lineTo(hw,hd-r);s.quadraticCurveTo(hw,hd,hw-r,hd);s.lineTo(-hw+r,hd);s.quadraticCurveTo(-hw,hd,-hw,hd-r);s.lineTo(-hw,-hd+r);s.quadraticCurveTo(-hw,-hd,-hw+r,-hd);return s};
+function slab(shape,depth,top,c){
+  const m=new THREE.Mesh(new THREE.ExtrudeGeometry(shape,{depth,bevelEnabled:false}),typeof c==='number'?M(c):c);
+  m.rotation.x=-PI/2;m.position.y=top-depth;m.receiveShadow=true;scene.add(m);return m}
+slab(rr(21,16,7),1.2,-.95,0xd9c58c);
+slab(rr(18.6,13.6,5.5),1.2,-.45,0xc9a56c);
+slab(rr(17.5,12.5,5),1.2,-.22,0xe3c78b);
+slab(rr(16.5,11.5,4.5),1.5,0,0xf0d79b).castShadow=true;
+const foam=slab(rr(18.9,13.9,5.7),.1,-.66,new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:.6,depthWrite:false}));
 for(let i=0;i<12;i++){
   const d=PZ*2/12;
-  box(PX*2,.06,d,i%2?0xf2dca3:0xeccf92,0,.03,-PZ+d*(i+.5)).castShadow=false;
+  box(PX*2,.06,d,i%2?0xf3dca3:0xecd297,0,.03,-PZ+d*(i+.5)).castShadow=false;
 }
 box(16,.05,8,0xf8e9bd,0,.085,0).castShadow=false;
-[[16.2,.14,0,-4],[16.2,.14,0,4]].forEach(a=>box(a[0],.04,a[1],0xffffff,a[2],.12,a[3]).castShadow=false);
+[-4,4].forEach(z=>box(16.2,.04,.14,0xffffff,0,.12,z).castShadow=false);
 [-8,0,8].forEach(x=>box(.14,.04,8.2,x?0xffffff:0xfff7e0,x,.12,0).castShadow=false);
-// sand footprints & small details
-for(let i=0;i<14;i++){const s=sph(.12+Math.random()*.1,0xe0c07f,(Math.random()-.5)*24,.0,(Math.random()-.5)*16);s.scale.y=.25;s.castShadow=false}
+for(let i=0;i<14;i++){const q=sph(.12+Math.random()*.1,0xe0c07f,(Math.random()-.5)*24,.0,(Math.random()-.5)*16);q.scale.y=.25;q.castShadow=false}
+// sea
+const sg=new THREE.PlaneGeometry(96,96,48,48);sg.rotateX(-PI/2);
+const sbx=Float32Array.from(sg.attributes.position.array.filter((_,i)=>i%3==0)),sbz=Float32Array.from(sg.attributes.position.array.filter((_,i)=>i%3==2));
+const cols=new Float32Array(sbx.length*3),c1=new THREE.Color(0x86ead9),c2=new THREE.Color(0x1f78b8),cc=new THREE.Color();
+for(let i=0;i<sbx.length;i++){const k=Math.min(1,Math.max(0,Math.max(Math.abs(sbx[i])-18.5,Math.abs(sbz[i])*1.2-14)/11));cc.lerpColors(c1,c2,Math.pow(k,.7));cc.toArray(cols,i*3)}
+sg.setAttribute('color',new THREE.BufferAttribute(cols,3));
+const sea=new THREE.Mesh(sg,new THREE.MeshLambertMaterial({vertexColors:true,flatShading:true,transparent:true,opacity:.9}));
+sea.position.y=-.7;scene.add(sea);
 
 // ---------- chain-link ----------
 const cv=document.createElement('canvas');cv.width=cv.height=64;
@@ -184,6 +203,38 @@ const lampMat=new THREE.MeshBasicMaterial({color:0xfff3b0});
   blob(.7,x,z,.25);
 });
 
+// ---------- extras: palms, rocks, tufts, boat, buoys ----------
+palm(15.2,-9,1,.4);palm(-15,3,1.1,-.4);
+[[16.4,-10.6,1.1],[17.2,6,.8],[-16.8,-4,.9],[-15.2,10.4,.7],[3,11.6,.6]].forEach(([x,z,r],i)=>{
+  const k=new THREE.Mesh(new THREE.DodecahedronGeometry(r,0),M(i%2?0x8c8f98:0x7a7f8a));k.scale.y=.7;k.rotation.set(i,i*2,0);add(k,x,r*.2-.1,z)});
+for(let n=0;n<26;n++){const x=(Math.random()-.5)*33,z=(Math.random()-.5)*23,ax=Math.abs(x),az=Math.abs(z);
+  if((ax<13.6&&az<9.6)||ax>16||az>11||(ax>12.5&&az>7.5&&Math.hypot(ax-12.5,az-7.5)>4))continue;
+  for(let j=0;j<3;j++){const b=new THREE.Mesh(new THREE.ConeGeometry(.1,.6+Math.random()*.4,4),M(j%2?0x4cae5a:0x6fcc6f));add(b,x+j*.12,.3,z+(j-1)*.08);b.rotation.z=(j-1)*.35;b.castShadow=false}}
+const boat=new THREE.Group();scene.add(boat);
+box(2,.4,.8,0xffffff,0,.2,0,boat);box(2.1,.12,.9,0xff6b4a,0,.44,0,boat);cyl(.04,.04,2.6,0x6b3f1c,.2,1.6,0,boat,6);
+const sh=new THREE.Shape();sh.moveTo(0,0);sh.lineTo(1.5,0);sh.lineTo(0,2.3);
+const sail=new THREE.Mesh(new THREE.ShapeGeometry(sh),new THREE.MeshLambertMaterial({color:0xfff4e0,side:THREE.DoubleSide}));sail.position.set(.25,.5,0);sail.castShadow=true;boat.add(sail);
+boat.scale.setScalar(1.3);
+const buoys=[[-23,10],[24,-8],[20,15],[-21,-13]].map(([x,z])=>{const g=new THREE.Group();g.position.set(x,-.6,z);scene.add(g);sph(.4,0xff4d3d,0,.1,0,g);cyl(.42,.42,.14,0xffffff,0,.15,0,g,10);return g});
+
+// ---------- day / night ----------
+const lampPts=[[-12,7.5,-8],[12,7.5,-8],[-12,7.5,8]].map(p=>{const l=new THREE.PointLight(0xffe2a0,0,28,1.6);l.position.set(...p);scene.add(l);return l});
+const btn=document.getElementById('mode');
+const SUNI='<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="square"><circle cx="12" cy="12" r="4"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M19 5l-2 2M7 17l-2 2"/></svg>';
+const MOONI='<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linejoin="round"><path d="M20 14.5A8 8 0 0 1 9.5 4 8 8 0 1 0 20 14.5z"/></svg>';
+function setMode(d){
+  document.body.classList.toggle('dark',d);
+  hemi.color.set(d?0x7f94d9:0xffffff);hemi.groundColor.set(d?0x2a3558:0xe8d4a8);hemi.intensity=d?.42:.75;
+  sun.color.set(d?0x9fb4ff:0xfff1d6);sun.intensity=d?.3:.85;
+  lampPts.forEach(l=>l.intensity=d?1.4:0);lampMat.color.set(d?0xfffbd0:0xe6dfb4);
+  sea.material.color.set(d?0x56709f:0xffffff);
+  btn.innerHTML=d?SUNI:MOONI;btn.setAttribute('aria-pressed',d);
+  try{localStorage.setItem('bv-dark',d?1:0)}catch(e){}
+}
+let dark=false;
+try{const v=localStorage.getItem('bv-dark');dark=v===null?matchMedia('(prefers-color-scheme: dark)').matches:v==='1'}catch(e){}
+btn.onclick=()=>{dark=!dark;setMode(dark)};setMode(dark);
+
 // ---------- animation ----------
 function ease(x){return x*x*(3-2*x)}
 function frame(ms){
@@ -215,13 +266,20 @@ function frame(ms){
   spec.arms[1].rotation.x=-2.6+Math.sin(ms/220)*.35;spec.arms[0].rotation.x=-.2;
   sway.forEach(o=>{o.top.rotation.z=Math.sin(ms/1100+o.ph)*.05;o.top.rotation.x=Math.cos(ms/1300+o.ph)*.04});
   nt.offset.x=Math.sin(ms/900)*.01;
+  const tt=ms/1000,sp=sg.attributes.position;
+  for(let i=0;i<sp.count;i++)sp.setY(i,Math.sin(sbx[i]*.35+tt*1.3)*.07+Math.cos(sbz[i]*.3+tt)*.06);
+  sp.needsUpdate=true;
+  const fk=1+Math.sin(tt*1.1)*.012;foam.scale.set(fk,fk,1);foam.material.opacity=.45+.25*Math.sin(tt*1.1+1);
+  const ba=ms/14000%(PI*2)*1;boat.position.set(Math.cos(ba)*27,-.62+Math.sin(tt*1.5)*.08,Math.sin(ba)*21);
+  boat.rotation.y=Math.atan2(-Math.cos(ba),-Math.sin(ba));boat.rotation.x=Math.sin(tt*1.2)*.05;
+  buoys.forEach((b,i)=>{b.position.y=-.6+Math.sin(tt*1.4+i*2)*.08;b.rotation.z=Math.sin(tt+i)*.12});
   renderer.render(scene,cam);
   requestAnimationFrame(frame);
 }
 function resize(){
-  const w=innerWidth,h=innerHeight,asp=w/h;
-  renderer.setSize(w,h,false);
-  let vh=17; if(vh*asp<24) vh=24/asp;
+  const w=innerWidth,h=innerHeight,asp=w/h,px=Math.max(2,Math.round(Math.min(w,h)/260));
+  renderer.setSize(Math.ceil(w/px),Math.ceil(h/px),false);
+  let vh=20; if(vh*asp<30) vh=30/asp;
   cam.left=-vh*asp;cam.right=vh*asp;cam.top=vh;cam.bottom=-vh;
   cam.position.set(22,19,22);cam.lookAt(0,1,0);cam.updateProjectionMatrix();
 }

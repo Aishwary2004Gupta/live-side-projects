@@ -86,7 +86,8 @@ const titles=['The Stone Serpent','Poolside','Sweet Stop','After School','Open W
 const buttons=[...document.querySelectorAll('.scene-button')];
 const titleEl=document.getElementById('title'),counter=document.getElementById('counter');
 let animators=[],active=0,sceneClock=0,last=0;
-function resetScene(index){active=(index+titles.length)%titles.length;scene.remove(root);root=new THREE.Group();scene.add(root);animators=[];sceneClock=0;titleEl.textContent=titles[active];counter.textContent=String(active+1).padStart(2,'0')+' / 05';buttons.forEach((b,i)=>b.setAttribute('aria-current',i===active?'true':'false'));[buildStoneArena,buildPool,buildSweetStop,buildCourt,buildOpenWater][active](root)}
+function disposeRoot(group){const shared=new Set(matCache.values());group.traverse(o=>{if(o.geometry)o.geometry.dispose();if(o.material){(Array.isArray(o.material)?o.material:[o.material]).forEach(m=>{if(!shared.has(m))m.dispose()})}})}
+function resetScene(index){active=(index+titles.length)%titles.length;disposeRoot(root);scene.remove(root);root=new THREE.Group();scene.add(root);animators=[];sceneClock=0;titleEl.textContent=titles[active];counter.textContent=String(active+1).padStart(2,'0')+' / 05';buttons.forEach((b,i)=>b.setAttribute('aria-current',i===active?'true':'false'));[buildStoneArena,buildPool,buildSweetStop,buildCourt,buildOpenWater][active](root)}
 
 function buildStoneArena(g){makeBase(g,{edge:0x594537,top:0x5b754d,grass:true});floorTile(g,17.2,10.7,0x766a61,.04);const rand=rngFactory(17);const palette=[0x85796e,0x93867a,0x70655e,0x9c8c7d,0x756c65,0x887e75];
  for(let x=-7.7;x<=7.7;x+=1.65)for(let z=-4.65;z<=4.65;z+=1.3){const xx=x+(rand()-.5)*.22,zz=z+(rand()-.5)*.2;const tile=box(1.56,.045,1.21,palette[Math.floor(rand()*palette.length)],xx,.1,zz,g);tile.rotation.y=(rand()-.5)*.07;}

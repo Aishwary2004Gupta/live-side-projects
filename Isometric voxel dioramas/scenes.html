@@ -16,7 +16,7 @@ button{font:inherit;color:var(--fg);background:var(--btn);border:0;border-radius
 button.on{background:var(--on);color:var(--onfg)}
 </style></head><body>
 <div id="stage"><canvas id="c"></canvas></div>
-<div class="row"><button id="b1" class="on">Fishing pier</button><button id="b2">Basketball court</button><button id="b3">Ice cream truck</button><button id="b4">Koi pond</button><button id="b5">Lemonade stand</button><button id="b6">High dive</button><button id="snd">🔇 Sound off</button></div>
+<div class="row"><button id="b1" class="on">Fishing pier</button><button id="b2">Basketball court</button><button id="b3">Ice cream truck</button><button id="b4">Koi pond</button><button id="b5">Lemonade stand</button><button id="b6">High dive</button><button id="b7">Police chase</button><button id="snd">🔇 Sound off</button></div>
 <small style="opacity:.6">Tap “Sound” to hear each scene</small>
 <script>
 let W=288,H=196,CX=144,CY=56,NZ=44;const NX=128,NY=128,C=1.2247,DZ=.8165,LV=[-.55,-.25,.8],FM=[1,.86,.72];
@@ -231,6 +231,12 @@ else if(k=='dus'){loopN('bandpass',650,.8,.07,.25,.03);loopN('lowpass',200,.6,.0
 else if(k=='lemonade'){loopN('lowpass',620,.7,.055,.14,.025);loopN('highpass',3200,.5,.006,.11,.004);oscL(659,'sine',.008)}
 else if(k=='icecream'){loopN('highpass',2600,.6,.006,.12,.005);loopN('bandpass',850,.7,.018,.08,.01);oscL(659,'sine',.006)}
 else if(k=='koi'){loopN('lowpass',520,.8,.075,.11,.03);loopN('bandpass',2400,.6,.01,.16,.006)}
+else if(k=='police'){
+  loopN('lowpass',150,.7,.075,.12,.022);
+  const x=AU.x,o=x.createOscillator(),lfo=x.createOscillator(),depth=x.createGain(),ga=x.createGain();
+  o.type='triangle';o.frequency.value=680;lfo.type='sine';lfo.frequency.value=.42;depth.gain.value=210;
+  lfo.connect(depth);depth.connect(o.frequency);ga.gain.value=.022;o.connect(ga);ga.connect(AU.m);o.start();lfo.start();AU.amb.push(o,lfo);
+}
 else{loopN('bandpass',450,1.8,.14,.09,.09);loopN('highpass',3000,.5,.008,.12,.006);oscL(55,'triangle',.05);oscL(82.5,'sine',.03)}}
 const SFX={dhol(){tn(95,.28,'sine',.55,55)},tak(){nz('bandpass',2200,3,.16,.07)},conch(){tn(233,2.4,'sawtooth',.07,240);tn(466,2.4,'sine',.05,470)},
 twang(){tn(220,.5,'triangle',.25,110);nz('bandpass',2500,2,.08,.2)},whomp(){nz('lowpass',500,1,.7,1.4,60);tn(70,1.2,'sine',.5,30)},
@@ -543,6 +549,144 @@ for(let i=0;i<96;i++){const t=hash(i,113)*Math.PI*2,x=cx+Math.cos(t)*(65+hash(i,
 }
 koi.draw2D=drawKoi2D;
 
+// =============== SCENE 9: BANK ROBBERY AFTERMATH ===============
+// A bright isometric city block inspired by the supplied voxel bank scene.
+// The loop shows the getaway, the police catch-up, then holds on the aftermath.
+const policeChase={amb:'police',cycle:22,view:[440,300,220,0],
+  build(){G.fill(0);CVG.fill(1);this.lt=[];},
+  init(){},
+  update(dt,T){
+    const p=T%this.cycle,prev=(T-dt+this.cycle)%this.cycle;
+    if(p>=7.2&&prev<7.2)S('squeak');
+    if(p>=10.2&&prev<10.2)S('clank');
+    if(p<dt&&T>dt)S('whoosh');
+  },
+  draw2D(g,T,w,h){
+    const t=T%this.cycle,after=t>=10.2,settle=Math.max(0,Math.min(1,(t-7.2)/3));
+    const ease=u=>{u=Math.max(0,Math.min(1,u));return u*u*(3-2*u)};
+    const chase=ease(Math.min(1,t/7.2));
+    const P=(x,y,z=0)=>({x:w*.5+(x-y)*1.62,y:145+(x+y-128)*.72-z*2.05});
+    const path=(pts)=>pts.map(a=>P(a[0],a[1],a[2]||0));
+    const poly=(pts,color,stroke=null,lw=1)=>{g.beginPath();pts.forEach((p,i)=>i?g.lineTo(p.x,p.y):g.moveTo(p.x,p.y));g.closePath();g.fillStyle=color;g.fill();if(stroke){g.strokeStyle=stroke;g.lineWidth=lw;g.stroke()}};
+    const line=(pts,color,lw=1)=>{g.beginPath();pts.forEach((p,i)=>i?g.lineTo(p.x,p.y):g.moveTo(p.x,p.y));g.strokeStyle=color;g.lineWidth=lw;g.lineCap='round';g.lineJoin='round';g.stroke()};
+    const face=(x,y,z,ww,hh,color)=>poly(path([[x,y,z],[x+ww,y,z],[x+ww,y,z+hh],[x,y,z+hh]]),color);
+    const box=(x,y,z,ww,dd,hh,c)=>{
+      const p000=P(x,y,z),p100=P(x+ww,y,z),p110=P(x+ww,y+dd,z),p010=P(x,y+dd,z),
+        p001=P(x,y,z+hh),p101=P(x+ww,y,z+hh),p111=P(x+ww,y+dd,z+hh),p011=P(x,y+dd,z+hh);
+      poly([p010,p110,p111,p011],c[1],c[4]||null);
+      poly([p100,p110,p111,p101],c[2],c[4]||null);
+      poly([p001,p101,p111,p011],c[0],c[4]||null);
+      return{p000,p100,p110,p010,p001,p101,p111,p011};
+    };
+    const shadow=(x,y,rx,ry,a=.16)=>{const c=P(x,y,0);g.save();g.translate(c.x+2,c.y+2);g.rotate(.37);g.beginPath();g.ellipse(0,0,rx,ry,0,0,Math.PI*2);g.fillStyle=`rgba(35,39,39,${a})`;g.fill();g.restore()};
+    const frontText=(x,y,z,text,size,color,weight='700')=>{const p=P(x,y,z);g.save();g.translate(p.x,p.y);g.rotate(.42);g.font=`${weight} ${size}px system-ui,sans-serif`;g.textAlign='center';g.textBaseline='middle';g.fillStyle='rgba(20,27,31,.35)';g.fillText(text,.8,.8);g.fillStyle=color;g.fillText(text,0,0);g.restore()};
+
+    g.clearRect(0,0,w,h);g.fillStyle='#fff';g.fillRect(0,0,w,h);
+    // Sunlit raised plinth and its dark beveled edge.
+    poly(path([[12,12,-2],[114,12,-2],[114,110,-2],[12,110,-2]]),'#292b2e');
+    poly(path([[12,12,0],[114,12,0],[114,110,0],[12,110,0]]),'#d9d7cf','#77766f',1.2);
+    // Pale plaza and long asphalt street.
+    poly(path([[13,14,.2],[113,14,.2],[113,81,.2],[13,81,.2]]),'#e7e2d5');
+    poly(path([[13,81,.2],[113,81,.2],[113,109,.2],[13,109,.2]]),'#777872');
+    for(let x=18;x<110;x+=17){poly(path([[x,94,1],[x+8,94,1],[x+8,95,1],[x,95,1]]),'#f5f0df');}
+    for(let x=18;x<110;x+=12){line(path([[x,68,1],[x,80,1]]),'rgba(157,151,138,.42)',.7)}
+    // A street-side office tower and the bank sit behind the chase route.
+    shadow(28,47,29,13,.13);box(13,34,0,25,28,29,['#c6b99d','#ad9c7f','#8f806b']);
+    box(13,34,29,25,28,2,['#dfd4be','#bcad94','#9b8d77']);
+    for(let x=16;x<35;x+=6){face(x,62,7,3,8,'#3f777d');face(x+.5,62,7,2,8,'#79afb1');line(path([[x+2,62,7],[x+2,62,15]]),'#e7ddc7',.75)}
+    for(let x=16;x<35;x+=6){face(x,62,18,3,6,'#3f777d');line(path([[x+1.5,62,18],[x+1.5,62,24]]),'#e7ddc7',.7)}
+    box(36,32,0,55,34,21,['#dfd3ba','#c9b99a','#aa9b81','#f1e8d4']);
+    box(34,30,21,59,38,2,['#d8ccb2','#c9b995','#ab9f87']);
+    box(36,32,23,55,34,2,['#777a78','#676a69','#555958']);
+    // Roof coping, vents and the mint dollar sign echo the source scene.
+    box(34,30,25,59,2,2,['#d9cbb0','#c5b89d','#a99b81']);
+    box(34,66,25,59,2,2,['#d9cbb0','#c5b89d','#a99b81']);
+    box(34,30,25,2,38,2,['#d9cbb0','#c5b89d','#a99b81']);
+    box(91,30,25,2,38,2,['#d9cbb0','#c5b89d','#a99b81']);
+    box(57,39,25,3,4,5,['#d0c5af','#b7aa94','#998e7c']);
+    box(72,45,25,9,5,7,['#3d494a','#323b3e','#242c30']);
+    face(72,50,27,9,5,'#164c4b');frontText(76.5,50,30,'$',8,'#74f6b8','800');
+    // Bank facade: cream stone, teal windows, an open entry and front steps.
+    box(36,32,0,55,34,21,['#ddcfb5','#cab99a','#af9d80']);
+    for(const x of[39,51,75,87])box(x,64,1,2,2,18,['#e8ddc7','#d7c8aa','#b5a486']);
+    for(const x of[41,73]){
+      face(x,66,6,9,9,'#25636c');face(x+1,66,7,7,7,'#75b5b3');
+      line(path([[x+4.5,66,6],[x+4.5,66,15]]),'#e1d5bc',1);
+      line(path([[x,66,10.5],[x+9,66,10.5]]),'#e1d5bc',1);
+    }
+    face(56,66,1,11,13,'#173842');face(57,66,2,4.7,11,'#36777b');face(62,66,2,4,'#285d65');
+    line(path([[61.5,66,2],[61.5,66,12]]),'#d7c8aa',.9);
+    box(54,66,14,15,2,6,['#25364d','#192638','#101b2a']);frontText(61.5,68,16,'BANK',4,'#f5efdf');
+    for(let i=0;i<3;i++)box(56,68+i*2.2,0,12,2,1.6,['#f0e8d5','#d8d0c0','#bcb7aa']);
+    // Small brick storefront and striped canopy continue the reference block.
+    box(91,40,0,21,26,15,['#a95743','#914836','#713c35']);
+    box(91,40,15,21,26,2,['#686c6b','#5c605f','#4c5251']);
+    face(92,66,5,18,7,'#155a64');face(93,66,6,16,5,'#79b8b5');
+    box(89,65,12,22,7,1,['#f1eee1','#d6cfbd','#bbb4a4']);
+    for(let x=90;x<110;x+=4)face(x,72,12,2,1,'#b65245');
+    face(105,66,0,5,12,'#233d4b');
+    // Sidewalk furniture, street lamps, hydrant, mailbox and scattered evidence.
+    const lamp=(x,y)=>{shadow(x,y,3,2,.14);box(x,y,1,1.3,1.3,25,['#444848','#303638','#25292c']);box(x-2,y-1,26,5,4,2,['#e8dfc8','#d0c6ad','#aaa38f']);g.save();const q=P(x,y,27);g.globalAlpha=.22;g.fillStyle='#fff0b1';g.beginPath();g.ellipse(q.x,q.y,8,3,.2,0,Math.PI*2);g.fill();g.restore()};
+    lamp(18,70);lamp(111,75);
+    shadow(102,77,2,1.6,.12);box(101,76,0,2,2,5,['#b34b36','#8d382c','#71332e']);
+    box(31,76,0,3,3,7,['#2e6695','#25517c','#203d61']);
+    for(const [x,y]of[[46,74],[50,75],[84,73],[88,74],[94,77]]){box(x,y,0,2,2,1.5,['#e8e5d7','#c9c5b9','#aaa79d']);}
+
+    // Patrol cars and the getaway sedan are made from shaded blocky panels.
+    const car=(x,y,kind,flash=0)=>{
+      const police=kind==='police',paint=police?['#f4f1e7','#d8d7d0','#b9bdbe']:['#aaa9a2','#878a89','#666b6c'];
+      const darkglass='#26383c',glass='#73aeb4',tire=['#313438','#25282b','#191b1e'],rim='#b9bfbd';
+      shadow(x+7,y+3,12,5,.19);
+      // tires and silver hubs
+      for(const wx of[2,11])for(const wy of[-.7,7.1]){box(x+wx,y+wy,1,2.5,1.1,2.6,tire);box(x+wx+.5,y+wy-.05,2,1.4,1.2,1.1,[rim,'#9ba3a3','#7c8585']);}
+      box(x,y,2,15,7,3,paint);box(x+1,y+.6,4,13.5,5.8,1.3,police?['#f8f5eb','#e4e2dc','#c8cbd0']:['#c3c3bb','#a4a6a4','#7a7e7e']);
+      box(x+3,y+1,5,7,5,4,police?['#e9e8df','#d2d1ca','#afb4b6']:['#8e9695','#727a7c','#5c6568']);
+      face(x+3,y+6,5,3.2,3.4,glass);face(x+6.5,y+6,5,3.2,3.4,darkglass);
+      face(x+10,y+6,5,3.1,3.4,police?'#4289ab':'#53666a');
+      box(x+4,y+2,9,5,4,1.5,police?['#f7f3e9','#d8d8d3','#bcbfc1']:['#8f918d','#747876','#555b5d']);
+      face(x+14.7,y+1,4.5,1,2,'#e6d6a2');face(x,y+1,4.5,1,2,'#d84b3b');
+      if(police){
+        box(x+5.2,y+2.5,11,1.8,1.6,1.5,[flash?'#ef5548':'#c73f3b','#aa3534','#792e31']);
+        box(x+7.2,y+2.5,11,1.8,1.6,1.5,[flash?'#385eea':'#69c9ed','#3152ba','#263e7f']);
+        face(x+5,y+7,4,7,1.5,'#2769a0');
+        frontText(x+8.5,y+7,4.7,'POLICE',2.6,'#fffdf4','700');
+      }
+    };
+    const robberX=after?72:12+chase*63;
+    const copX=after?56:-15+chase*69;
+    const cop2X=after?34:-38+chase*68;
+    // Render roadside shadows first so they sit beneath each moving car.
+    car(robberX,93,'getaway');car(copX,94,'police',Math.sin(T*8)>0);car(cop2X,87,'police',Math.sin(T*8+Math.PI)>0);
+    // Driver silhouettes and the fleeing suspect, then the officers who stop them.
+    const figure=(x,y,z,coat,hat='#303a42',sitting=false)=>{
+      shadow(x,y,2.7,1.8,.16);box(x-.6,y-.4,z,1.2,1,2.5,['#2b3031','#23282a','#1b1e20']);
+      box(x-.9,y-.8,z+2.5,1.8,1.8,sitting?3.8:5.2,[coat,coat,'#313638']);
+      box(x-.7,y-.5,z+(sitting?6.3:8),1.4,1.5,2.2,['#d7ae8c','#b98667','#8a5d4c']);
+      box(x-.9,y-.6,z+(sitting?8.4:10.2),1.8,1.8,1.2,[hat,hat,'#23272b']);
+      if(!sitting){line(path([[x-.7,y-.6,z+6],[x-1.5,y-.7,z+3.4]]),coat,2);line(path([[x+.7,y-.6,z+6],[x+1.5,y-.5,z+3.4]]),coat,2);}
+    };
+    if(t<10.2){
+      figure(robberX+7,94,0,'#24272a','#171a1c');
+      figure(copX+8,93,0,'#354b62','#29394b');
+    }else{
+      // A subdued evidence scene: suspect seated beside the stopped car, officers at the bank.
+      figure(78,78,0,'#24272a','#171a1c',true);
+      figure(74,76,0,'#354b62','#29394b');figure(82,76,0,'#354b62','#29394b');
+      figure(58,72,0,'#354b62','#29394b');
+      box(84,87,0,3.5,2.5,2.2,['#e3d5b7','#c9b58e','#a89577']);
+      for(let i=0;i<5;i++)box(86+i*1.3,84,2,1,1,1,['#88b47b','#659a68','#4e7d55']);
+      // Yellow scene tape closes the bank steps in the final held frame.
+      for(let x=47;x<89;x+=4){const z=4+((x/4|0)%2)*.7;line(path([[x,75,z],[x+4,75,z+.5]]),'#f1c84b',1.7);line(path([[x+1,75,z+.5],[x+2,75,z+.5]]),'#38352d',.8);}
+      for(const [x,y]of[[43,70],[51,72],[87,72],[92,76]]){const q=P(x,y,1.5);g.fillStyle='#9bd0cc';g.beginPath();g.moveTo(q.x,q.y);g.lineTo(q.x+2.5,q.y-1);g.lineTo(q.x+4,q.y+1);g.lineTo(q.x+1.3,q.y+2);g.closePath();g.fill();}
+    }
+    // Red and blue flashes spill softly over the pavement during the chase.
+    if(t<11.5){for(const [x,y,col]of[[copX+7,92,'#3f7dff'],[cop2X+7,86,'#f34a47']]){const q=P(x,y,1);g.save();g.globalAlpha=.20+.12*Math.sin(T*8);g.fillStyle=col;g.beginPath();g.ellipse(q.x,q.y+3,10,4,.2,0,Math.PI*2);g.fill();g.restore();}}
+    // Warm daylight, crisp cast shadows and restrained roof highlights.
+    const badge=P(106,18,0);g.fillStyle='rgba(243,199,95,.13)';g.beginPath();g.arc(badge.x,badge.y,17,0,Math.PI*2);g.fill();
+  }
+};
+policeChase.view=[440,300,220,0];
+
 // =============== SCENE 8: HIGH DIVE ===============
 // A tiled public pool with a steel tower and a small sprite that arcs from
 // the high board into the water, then raises a ring of ripples and spray.
@@ -628,11 +772,11 @@ pond.view=[270,164,135,-2];court.view=[270,170,135,14];icecream.view=[270,164,13
 let sc,T=0,acc=0,last=0;
 function fit(){const st=document.getElementById('stage'),dpr=window.devicePixelRatio||1,k=Math.max(1,Math.floor(Math.min(innerWidth*.96,940)*dpr/W)),w=W*k/dpr;cv.style.width=w+'px';st.style.width=w+'px'}
 addEventListener('resize',()=>fit());
-function go(s){NZ=s.nz||44;[W,H,CX,CY]=s.view;cv.width=W;cv.height=H;fit();img=ctx.createImageData(W,H);buf=new Uint32Array(img.data.buffer);sc=s;s.build();s.init&&s.init();if(!s.draw2D)bake(s);T=0;bubs.forEach(b=>b.el.remove());bubs.length=0;if(AU.x)ambient(s.amb)}
+function go(s){NZ=s.nz||44;[W,H,CX,CY]=s.view;cv.width=W;cv.height=H;cv.style.imageRendering=s.draw2D?'auto':'pixelated';fit();img=ctx.createImageData(W,H);buf=new Uint32Array(img.data.buffer);sc=s;s.build();s.init&&s.init();if(!s.draw2D)bake(s);T=0;bubs.forEach(b=>b.el.remove());bubs.length=0;if(AU.x)ambient(s.amb)}
 function render(){if(sc.draw2D){sc.draw2D(ctx,T,W,H);return}buf.set(sbuf.subarray(0,W*H));dz.set(sz.subarray(0,W*H));if(sc.shade)for(const i of waterIdx)buf[i]=sc.shade(i,T);
 if(sc.post)sc.post(T);D=[];LN=[];LS=[];sc.dyn(T);shadows();for(const v of D)if(!v[5])vox(v[0],v[1],v[2],v[3]);for(const l of LN)drawLN(l[0],l[1],l[2]);for(const l of LS)drawLS(l);outline();ctx.putImageData(img,0,0);placeBubs()}
 function frame(ts){requestAnimationFrame(frame);acc+=Math.min(.1,(ts-last)/1000);last=ts;if(acc<1/30)return;const dt=acc;acc=0;T+=dt;sc.update&&sc.update(dt,T);render()}
-const tabs=[['b1',pond],['b2',court],['b3',icecream],['b4',koi],['b5',lemonade],['b6',pool]];
+const tabs=[['b1',pond],['b2',court],['b3',icecream],['b4',koi],['b5',lemonade],['b6',pool],['b7',policeChase]];
 for(const[id,s]of tabs)document.getElementById(id).onclick=()=>{go(s);for(const[i2,s2]of tabs)document.getElementById(i2).className=s2==sc?'on':''};
 go(pond);requestAnimationFrame(frame);
 </script></body></html>

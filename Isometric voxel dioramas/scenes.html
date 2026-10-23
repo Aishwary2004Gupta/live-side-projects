@@ -848,17 +848,192 @@ const pool={amb:'pond',lt:[],ripples:[],cycle:-1,nextSplash:4,
   for(let i=0;i<6;i++){const a=T*1.2+i*1.04;V(53+Math.cos(a)*9,74+Math.sin(a)*6,2,hx('#d7f0e7'),1)}
  }};
 
+// ---- hand-drawn isometric additions, matched to the supplied scene studies ----
+function isoTools(g,w,h){
+ const s=Math.min(w/440,h/300),P=(x,y,z=0)=>({x:w*.5+(x-y)*1.62*s,y:h*.515+(x+y-128)*.72*s-z*2.05*s});
+ const poly=(pts,color,stroke=null,lw=1)=>{g.beginPath();pts.forEach((v,i)=>{const p=P(v[0],v[1],v[2]||0);i?g.lineTo(p.x,p.y):g.moveTo(p.x,p.y)});g.closePath();g.fillStyle=color;g.fill();if(stroke){g.strokeStyle=stroke;g.lineWidth=lw*s;g.stroke()}};
+ const line=(pts,color,lw=1)=>{g.beginPath();pts.forEach((v,i)=>{const p=P(v[0],v[1],v[2]||0);i?g.lineTo(p.x,p.y):g.moveTo(p.x,p.y)});g.strokeStyle=color;g.lineWidth=lw*s;g.lineCap='round';g.lineJoin='round';g.stroke()};
+ const box=(x,y,z,ww,dd,hh,c)=>{const shades=Array.isArray(c)?c:[c,c,c];const a=P(x,y,z),b=P(x+ww,y,z),d=P(x,y+dd,z),e=P(x+ww,y+dd,z),A=P(x,y,z+hh),B=P(x+ww,y,z+hh),D=P(x,y+dd,z+hh),E=P(x+ww,y+dd,z+hh);poly([[x,y+dd,z],[x+ww,y+dd,z],[x+ww,y+dd,z+hh],[x,y+dd,z+hh]],shades[1]||shades[0]);poly([[x+ww,y,z],[x+ww,y+dd,z],[x+ww,y+dd,z+hh],[x+ww,y,z+hh]],shades[2]||shades[1]||shades[0]);poly([[x,y,z+hh],[x+ww,y,z+hh],[x+ww,y+dd,z+hh],[x,y+dd,z+hh]],shades[0]);return{a,b,d,e,A,B,D,E}};
+ const oval=(x,y,rx,ry,z,color,stroke=null,lw=1)=>{const p=P(x,y,z);g.beginPath();g.ellipse(p.x,p.y,rx*s,ry*s,.36,0,Math.PI*2);g.fillStyle=color;g.fill();if(stroke){g.strokeStyle=stroke;g.lineWidth=lw*s;g.stroke()}};
+ const face=(x,y,z,ww,hh,c)=>poly([[x,y,z],[x+ww,y,z],[x+ww,y,z+hh],[x,y,z+hh]],c);
+ const base=(color='#deded8')=>{g.clearRect(0,0,w,h);g.fillStyle='#fff';g.fillRect(0,0,w,h);poly([[9,10,-2],[119,10,-2],[119,118,-2],[9,118,-2]],'#343632');poly([[9,10,0],[119,10,0],[119,118,0],[9,118,0]],color,'#aaa99f',.7)};
+ const person=(x,y,z,shirt='#f0b83c',pants='#344151',phase=0,cap='#d95745')=>{const bob=Math.sin(phase)*.7;oval(x+.6,y+1.6,2.6,1.4,z+.15,'rgba(25,31,31,.16)');box(x-.9,y-.5,z,1,1,2.8,[pants,'#293746','#202b38']);box(x+.1,y-.4,z,1,1,2.8,['#40536a','#33465d','#26374a']);box(x-.8,y-.5,z+2.6,2,1.2,3.8+bob,[shirt,'#c58448','#ab6840']);box(x-.55,y-.35,z+6.4+bob,1.35,1.1,1.5,['#d9a27d','#c38966','#a76e54']);box(x-.7,y-.45,z+7.8+bob,1.6,1.2,.8,[cap,'#473a32','#2d2928']);line([[x-.7,y-.3,z+5.5+bob],[x-1.6,y-.1,z+3.6]],'#c38966',1);line([[x+1,y-.25,z+5.6+bob],[x+1.8,y-.1,z+4]],'#c38966',1)};
+ const tree=(x,y,r=7)=>{oval(x,y,7,3,0,'rgba(32,40,30,.12)');box(x,y,1,2,2,11,['#805b3d','#684b35','#4d3b2d']);const p=P(x+1,y,18);const gr=g.createRadialGradient(p.x-r*.25,p.y-r*.35,1,p.x,p.y,r*1.4);gr.addColorStop(0,'#a3bd76');gr.addColorStop(.65,'#659052');gr.addColorStop(1,'#426e46');g.fillStyle=gr;g.beginPath();g.arc(p.x,p.y,r*s,0,Math.PI*2);g.fill();g.fillStyle='#7b9f5a';g.beginPath();g.arc(p.x-r*.55,p.y+2*s,r*.48*s,0,Math.PI*2);g.fill()};
+ return{P,poly,line,box,oval,face,base,person,tree,s};
+}
+
+function drawSkatepark2D(g,T,w,h){
+ const{P,poly,line,box,oval,base,person,tree,s}=isoTools(g,w,h);base('#767873');
+ poly([[14,14,1],[113,14,1],[113,111,1],[14,111,1]],'#4e504f');
+ // Concrete run-up, hairline expansion joints and a deep kidney-shaped bowl.
+ poly([[19,20,1.2],[108,20,1.2],[108,106,1.2],[19,106,1.2]],'#737571');
+ for(let i=0;i<12;i++){const x=23+i*7.3;line([[x,22,1.4],[x,105,1.4]],i%2?'rgba(220,219,206,.14)':'rgba(39,41,40,.12)',.5)}
+ const ellipse=(cx,cy,rx,ry,z,c)=>{const pts=[];for(let i=0;i<48;i++){const a=i/48*Math.PI*2;pts.push([cx+Math.cos(a)*rx,cy+Math.sin(a)*ry,z])}poly(pts,c)};
+ ellipse(67,68,34,24,1.5,'#b7b5ad');ellipse(67,68,31,21,1.6,'#494d4d');
+ for(let k=0;k<7;k++)ellipse(67,68,28-k*3.1,19-k*2.15,1.7-k*.5,['#565a59','#555958','#525655','#4c5050','#444949','#404646','#3a4040'][k]);
+ ellipse(67,68,5,3,0,'#343a3a');
+ // Smooth quarter pipes and a broad funbox with painted coping.
+ for(let i=0;i<5;i++){const z=2+i*1.35;poly([[25+i*1.1,29+i*.4,z],[48-i*.4,29+i*.4,z],[48-i*.4,39+i*1.2,z],[25+i*1.1,39+i*1.2,z]],['#b0a99b','#a49d90','#958f85','#857f77','#6f706c'][i]);}
+ line([[25,29,8],[47,29,8]],'#d3d0c6',1.7);line([[25,40,8],[47,40,8]],'#d3d0c6',1.5);
+ box(80,25,1,20,14,5,['#868780','#686b68','#575b5a']);box(78,24,6,24,3,1,['#c6c2b7','#a9a79f','#92928a']);
+ for(let i=0;i<4;i++)box(83+i*4,28,6+i*.4,1,9,1,['#a6a397','#7b7d78','#646765']);
+ // Rail, stair set, benches, lamps and sparse perimeter trees.
+ line([[42,48,8],[57,48,8]],'#d8d8ce',1.5);line([[42,48,9],[57,48,9]],'#b6b8b2',.8);
+ for(let i=0;i<5;i++)box(91+i*2.7,78+i*.1,1,2.2,8,1.6+i*.85,['#b0aea5','#8b8e89','#747875']);
+ line([[89,77,9],[104,77,9]],'#d4d2c8',1.1);line([[90,78,3],[90,78,9]],'#a4a49b',.7);line([[104,78,3],[104,78,9]],'#a4a49b',.7);
+ for(const[x,y]of[[16,28],[107,35],[17,92],[108,100]])tree(x,y,6);
+ for(const[x,y]of[[22,78],[101,53]]){box(x,y,1,8,2,1.2,['#9e7049','#80583e','#604a39']);box(x,y,2.5,1,2,5,'#444849');box(x+7,y,2.5,1,2,5,'#444849')}
+ for(const[x,y]of[[12,61],[116,67]]){box(x,y,1,1,1,28,['#3c4142','#303637','#252a2d']);box(x-2,y-1,29,5,3,1.5,['#eee5c9','#d1c8ae','#b7b09c']);oval(x,y,7,3,28,'rgba(255,232,171,.17)')}
+ // Two skaters and boards move through the bowl across a short loop.
+ const u=(T*.16)%1,x=43+u*47,y=62+Math.sin(u*Math.PI*2)*13;
+ oval(x+1,y+2,5,2,1,'rgba(20,23,23,.2)');line([[x-3,y,3],[x+2,y,3]],'#262c30',1.3);line([[x-2,y,1],[x-1,y,2]],'#d9ddda',.7);line([[x+2,y,1],[x+3,y,2]],'#d9ddda',.7);
+ person(x,y,3,'#e4b13c','#29364a',T*5,'#d64c3e');person(72,87,1,'#d96649','#38485d',T*3,'#314e75');
+ const p=P(x,y,5);g.fillStyle='#e8e5d5';g.fillRect(p.x+3*s,p.y-1*s,2*s,2*s);
+}
+
+function drawRocket2D(g,T,w,h){
+ const{P,poly,line,box,oval,base,tree,s}=isoTools(g,w,h);base('#c7b89b');
+ poly([[14,14,1],[113,14,1],[113,111,1],[14,111,1]],'#c9bd9e');
+ // Dry gravel field, launch apron, and service road.
+ for(let i=0;i<150;i++){const x=16+(i*37%96),y=17+(i*61%91),p=P(x,y,1);g.fillStyle=i%3?'rgba(115,98,67,.16)':'rgba(239,226,187,.55)';g.fillRect(p.x,p.y,1.4*s,1.2*s)}
+ poly([[28,42,1],[83,42,1],[83,91,1],[28,91,1]],'#817f75');poly([[31,45,1.1],[80,45,1.1],[80,88,1.1],[31,88,1.1]],'#9a9991');
+ for(let x=36;x<78;x+=11)line([[x,48,1.3],[x,85,1.3]],'rgba(238,232,211,.25)',.7);
+ // Blast deflector and launch pad glows.
+ poly([[39,59,2],[68,59,2],[68,81,2],[39,81,2]],'#555c5b');poly([[43,62,2.2],[64,62,2.2],[64,78,2.2],[43,78,2.2]],'#4a5151');
+ const lift=T%15,launch=lift>6?Math.min(1,(lift-6)/2):0,rocketZ=13+launch*10+Math.max(0,Math.sin(T*.75))*1.2;
+ // Rocket body and tapered nose, with dark fins and a small window.
+ oval(52,69,13,6,1,'rgba(35,37,34,.25)');
+ const bx=49,by=64,bw=7,rZ=rocketZ;
+ poly([[bx,by,rZ+8],[bx+bw,by,rZ+8],[bx+bw,by,rZ+43],[bx,by,rZ+43]],'#d7d8d3','#8e9693',.5);
+ poly([[bx+bw,by,rZ+8],[bx+bw+2,by+3,rZ+8],[bx+bw+2,by+3,rZ+43],[bx+bw,by,rZ+43]],'#aeb8b8','#858d8d',.5);
+ poly([[bx,by,rZ+43],[bx+3.5,by,rZ+52],[bx+bw,by,rZ+43]],'#b84f43','#773e36',.6);
+ line([[bx+1,by,rZ+13],[bx+1,by,rZ+40]],'#f1f0e7',1.2);line([[bx+bw-1,by,rZ+17],[bx+bw-1,by,rZ+38]],'#a0a8a7',.8);
+ const win=P(bx+bw,by-1,rZ+28);g.fillStyle='#457c8b';g.beginPath();g.arc(win.x,win.y,1.8*s,0,Math.PI*2);g.fill();
+ for(const side of[-1,1])poly([[bx+(side<0?0:bw-1),by,rZ+12],[bx+(side<0?-5:bw+5),by,rZ+2],[bx+(side<0?1:bw-2),by,rZ+5]],'#8e4038');
+ // Steel launch gantry rises beside the rocket, joined by cross braces.
+ const tx=65,ty=61;for(const x of[tx,tx+9])line([[x,ty,3],[x,ty,63]],'#555e60',1.8);for(let z=4;z<=63;z+=9){line([[tx,ty,z],[tx+9,ty,z]],'#758183',1);line([[tx,ty,z],[tx+9,ty,z+9]],'#647174',.8);line([[tx+9,ty,z],[tx,ty,z+9]],'#858d8b',.8)}
+ box(tx-2,ty-2,60,13,6,2,['#555d5e','#41494a','#333a3b']);
+ for(const z of[18,32,47]){line([[tx-2,ty-1,z],[bx+bw+1,by-1,z]],'#a7a9a3',1.3);line([[bx+bw+1,by-1,z],[bx+bw+1,by-1,z+4]],'#858c89',.9)}
+ // Rectangular equipment block and small access road.
+ box(84,34,1,20,25,22,['#bcb7a9','#9d9b92','#85867f']);box(82,32,23,24,29,2,['#d0c9b6','#b4ae9f','#99968d']);
+ for(let x=87;x<100;x+=6){const p=P(x,34,7);g.fillStyle='#657d7f';g.fillRect(p.x,p.y,2*s,12*s)}
+ poly([[24,99,1],[106,99,1],[106,105,1],[24,105,1]],'#666762');for(let x=30;x<101;x+=13)poly([[x,101,1.1],[x+6,101,1.1],[x+6,101.6,1.1],[x,101.6,1.1]],'#d9d2ba');
+ tree(22,29,7);tree(105,24,5);tree(103,95,5);
+ // Exhaust plume breathes at the pad and the rising launch leaves a soft trail.
+ const flame=launch>0||lift<6,alpha=flame?.26+.12*Math.sin(T*9):.07;const root=P(52,66,3);
+ g.save();g.globalAlpha=alpha;g.fillStyle='#efb45b';g.beginPath();g.ellipse(root.x+3*s,root.y+6*s,(7+3*Math.sin(T*5))*s,(12+4*Math.sin(T*4))*s,.2,0,Math.PI*2);g.fill();g.fillStyle='#e7e3d8';g.beginPath();g.ellipse(root.x+10*s,root.y-15*s,7*s,18*s,.1,0,Math.PI*2);g.fill();g.restore();
+}
+
+function drawCarrier2D(g,T,w,h){
+ const{P,poly,line,box,oval,base,person,tree,s}=isoTools(g,w,h);g.clearRect(0,0,w,h);g.fillStyle='#fff';g.fillRect(0,0,w,h);
+ // Blue-green ocean with slow, broken wave bands.
+ for(let i=0;i<20;i++){const y=27+i*11,off=Math.sin(T*.32+i*.63)*3;g.beginPath();for(let x=10;x<w-10;x+=10){const yy=y+Math.sin(x*.025+i)*2+off;x===10?g.moveTo(x,yy):g.lineTo(x,yy)}g.strokeStyle=i%3?'rgba(91,157,160,.08)':'rgba(91,157,160,.14)';g.lineWidth=2*s;g.stroke()}
+ poly([[8,25,-2],[114,25,-2],[114,104,-2],[8,104,-2]],'#22282b');poly([[8,25,0],[114,25,0],[114,104,0],[8,104,0]],'#505657','#a7a8a0',.8);
+ poly([[13,28,1],[110,28,1],[110,101,1],[13,101,1]],'#555c5c');
+ // Bow taper, deck safety edges and broken runway / launch markings.
+ poly([[13,28,1],[110,28,1],[105,35,1],[18,35,1]],'#636968');
+ line([[17,35,1.4],[106,35,1.4]],'#eadb75',1.5);line([[16,95,1.3],[108,95,1.3]],'#eadb75',1.5);
+ line([[25,40,1.4],[95,40,1.4]],'#e8e8d8',1.4);line([[27,90,1.4],[97,90,1.4]],'#e8e8d8',1.4);
+ for(let y=47;y<87;y+=9)line([[57,y,1.5],[73,y,1.5]],'#e8e5d7',1.1);
+ for(const[x,y]of[[26,48],[91,45],[35,83],[82,76]]){line([[x,y,1.6],[x+9,y,1.6]],'#d8d7cc',.8);line([[x+1,y-2,1.6],[x+1,y+2,1.6]],'#d8d7cc',.8)}
+ // Carrier island with bridge windows, mast and radar.
+ box(83,33,2,13,17,25,['#b7b7af','#989b97','#777e7e']);box(81,31,27,17,21,2,['#d0d0c7','#b5b8b1','#929894']);
+ for(let x=85;x<94;x+=3){const p=P(x,33,13);g.fillStyle='#4b7379';g.fillRect(p.x,p.y,2*s,5*s)}
+ box(87,35,29,1.5,1.5,9,['#565c5b','#454a4a','#343a3a']);line([[88,36,39],[88,36,45]],'#505554',.8);oval(88,36,4,1.2,44,'#7e8480');
+ // Blocky jet silhouettes: fuselage, swept wings, tail planes and tail flash.
+ const jet=(x,y,ang,paint,light)=>{const c=Math.cos(ang),d=Math.sin(ang),pt=(u,v,z)=>[x+u*c-v*d,y+u*d+v*c,z];oval(x,y,10,4,1.3,'rgba(20,25,26,.24)');poly([pt(-12,-2,2),pt(-5,-2.5,3),pt(3,-9,3),pt(6,-8,3),pt(2,-1.5,4),pt(11,0,4),pt(2,1.5,4),pt(6,8,3),pt(3,9,3),pt(-5,2.5,3),pt(-12,2,2)],paint,'#353a39',.45);poly([pt(-10,-1.4,2),pt(8,0,3),pt(-10,1.4,2)],light);poly([pt(-10,-1.6,2),pt(-13,-4,2),pt(-8,-1.6,2),pt(-8,1.6,2),pt(-13,4,2)],'#bfc1ba');};
+ const route=T*.045;jet(41,55,Math.PI*.08,'#747b79','#bec5c1');jet(66,76,Math.PI*.98+Math.sin(route)*.05,'#6c7779','#c7cbc4');jet(34+Math.sin(route)*4,76,Math.PI*.2,'#747b79','#d3d2c9');
+ // Tiny deck crew in colored safety vests and equipment carts.
+ person(54,52,1,'#e8b949','#263238',T*2,'#f0eee1');person(75,61,1,'#c94c43','#303b40',T*1.6,'#e8d9c5');person(100,82,1,'#4e83a0','#313941',T*1.8,'#eee7d7');
+ for(const[x,y]of[[50,86],[101,60],[29,71]]){box(x,y,1,4,3,2,['#a3a39a','#858987','#686f70']);oval(x+1,y,1.1,.9,1,'#272d30');oval(x+4,y,1.1,.9,1,'#272d30')}
+}
+
+function drawTennis2D(g,T,w,h){
+ const{P,poly,line,box,oval,base,person,tree,s}=isoTools(g,w,h);base('#60784f');
+ poly([[14,16,1],[113,16,1],[113,112,1],[14,112,1]],'#4b754e');
+ // Clay court inset into clipped grass with rough edges and pebble flecks.
+ poly([[23,22,1.2],[104,22,1.2],[104,106,1.2],[23,106,1.2]],'#a56f54','#594d40',1);
+ for(let i=0;i<160;i++){const x=24+i*47%78,y=23+i*73%81,p=P(x,y,1.35);g.fillStyle=i%2?'rgba(75,45,35,.13)':'rgba(235,193,151,.16)';g.fillRect(p.x,p.y,1.3*s,1*s)}
+ // White court boundaries, singles lines, service boxes, center mark and net.
+ line([[27,27,1.8],[100,27,1.8],[100,101,1.8],[27,101,1.8],[27,27,1.8]],'#eee8d4',1.15);
+ line([[32,32,1.8],[95,32,1.8],[95,96,1.8],[32,96,1.8],[32,32,1.8]],'#eee8d4',.9);
+ line([[63.5,27,1.8],[63.5,101,1.8]],'#f4edda',.9);line([[32,64,1.8],[95,64,1.8]],'#f4edda',.9);
+ line([[32,47,1.8],[95,47,1.8]],'#eee8d4',.85);line([[32,81,1.8],[95,81,1.8]],'#eee8d4',.85);
+ line([[63.5,47,1.8],[63.5,81,1.8]],'#eee8d4',.8);line([[62,64,1.9],[65,64,1.9]],'#eee8d4',1.1);
+ // Low net with top tape and posts.
+ line([[63.5,48,4.4],[63.5,80,4.4]],'#414646',1);line([[63.5,48,5],[63.5,80,5]],'#e4e1d3',.7);
+ for(let y=49;y<80;y+=2)line([[63.5,y,1.9],[63.5,y,4.8]],'rgba(41,47,46,.5)',.35);
+ for(const y of[47,80]){box(62.6,y,1.8,1.5,1.5,6,['#565d5a','#424947','#313a38']);box(62.2,y,7.5,2.3,2,1,['#eeeadd','#d0cdbf','#aaa99d'])}
+ // Low fence, gate, surrounding stones and grass tufts.
+ for(const y of[24,104]){line([[25,y,4],[102,y,4]],'#777c72',.7);for(let x=28;x<102;x+=8)line([[x,y,1],[x,y,4]],'#747a70',.55)}
+ for(let i=0;i<48;i++){const x=16+i*73%97,y=17+i*37%99;if(x>24&&x<104&&y>22&&y<106)continue;const p=P(x,y,1);g.strokeStyle=i%3?'#70935d':'#93a75e';g.lineWidth=.7*s;g.beginPath();g.moveTo(p.x,p.y);g.lineTo(p.x+(i%2?2:-2)*s,p.y-3*s);g.stroke()}
+ for(const[x,y]of[[17,32],[109,90]])tree(x,y,5);
+ // Players trade sides of the court with compact pixel-like rackets.
+ const u=(T%8)/8,px=42+Math.sin(u*Math.PI*2)*8,py=53+Math.sin(u*Math.PI*4)*3;
+ person(px,py,2,'#e2bb47','#344957',T*5,'#d34b41');person(83,77,2,'#5e91a2','#303c4b',T*4,'#eee6d3');
+ line([[px+1,py-1,11],[px+4,py-3,13],[px+7,py-1,11],[px+4,py+1,9],[px+1,py-1,11]],'#4d3930',.8);line([[px+4,py-1,11],[px+6,py,9]],'#9d744d',.65);
+ const ballX=42+(u<.5?u*2:2-u*2)*42,ballY=62+(u<.5?u:1-u)*11,ball=P(ballX,ballY,4);g.fillStyle='#dfdfaf';g.beginPath();g.arc(ball.x,ball.y,1.4*s,0,Math.PI*2);g.fill();
+}
+
+function drawNightChase2D(g,T,w,h){
+ const{P,poly,line,box,oval,s}=isoTools(g,w,h);g.clearRect(0,0,w,h);
+ const bg=g.createRadialGradient(w*.5,h*.45,12,w*.5,h*.5,w*.72);bg.addColorStop(0,'#243537');bg.addColorStop(.62,'#0b171a');bg.addColorStop(1,'#05090d');g.fillStyle=bg;g.fillRect(0,0,w,h);
+ // Small raised road slice ringed by dark pines and reflective wet gravel.
+ poly([[12,24,-2],[114,24,-2],[114,103,-2],[12,103,-2]],'#11191a');poly([[12,24,0],[114,24,0],[114,103,0],[12,103,0]],'#37413d','#58605b',.7);
+ poly([[17,27,1],[109,27,1],[109,99,1],[17,99,1]],'#283435');
+ poly([[27,28,1.1],[98,28,1.1],[98,99,1.1],[27,99,1.1]],'#303b3d');
+ line([[31,32,1.5],[94,32,1.5]],'rgba(164,188,176,.18)',.8);line([[31,95,1.5],[94,95,1.5]],'rgba(164,188,176,.2)',.8);
+ for(let y=39;y<91;y+=18)line([[63,y,1.6],[63,y+8,1.6]],'rgba(216,205,143,.62)',.85);
+ // Shadowy tree silhouettes and two amber street lamps close the scene in.
+ for(let i=0;i<10;i++){const x=18+i*10.5,y=i%2?29:94,p=P(x,y,20);g.fillStyle=i%2?'#101d1b':'#13201e';g.beginPath();g.arc(p.x,p.y,(7+i%3)*s,0,Math.PI*2);g.fill();g.fillStyle='rgba(35,59,46,.46)';g.beginPath();g.arc(p.x-2*s,p.y-2*s,(4+i%2)*s,0,Math.PI*2);g.fill()}
+ for(const[x,y]of[[22,38],[103,82]]){box(x,y,1,1.2,1.2,26,['#424847','#303736','#242a2b']);box(x-2,y-1,27,5,3,1.3,['#f4c96f','#d1a34d','#aa7d38']);const p=P(x,y,27),gl=g.createRadialGradient(p.x,p.y,1,p.x,p.y,20*s);gl.addColorStop(0,'rgba(255,202,93,.24)');gl.addColorStop(1,'rgba(255,202,93,0)');g.fillStyle=gl;g.beginPath();g.ellipse(p.x,p.y+10*s,19*s,14*s,0,0,Math.PI*2);g.fill()}
+ // Wet patches catch the lamps while light rain passes through the frame.
+ for(let i=0;i<65;i++){const x=23+i*29%79,y=31+i*43%64,p=P(x,y,1.5);g.fillStyle=i%3?'rgba(173,195,186,.08)':'rgba(218,205,142,.13)';g.beginPath();g.ellipse(p.x,p.y,2.5*s,.65*s,.3,0,Math.PI*2);g.fill()}
+ const phase=(T%11)/11,runner=35+phase*48,patrol=22+Math.max(0,phase-.07)*48;
+ const car=(x,y,paint,police=false)=>{oval(x+7,y+4,12,5,1.6,'rgba(0,0,0,.55)');box(x,y,2,15,7,3,[paint,police?'#d8dedc':'#454d4a',police?'#78817f':'#333a39']);box(x+2,y+1,5,10,5,4,police?['#e7e8df','#c8d0cf','#adb8b7']:['#697373','#515b5a','#384342']);poly([[x+3,y+1,8],[x+10,y+1,8],[x+12,y+2,7],[x+2,y+2,7]],police?'#d5d8d1':'#565e5c');
+  for(const wx of[3,11])for(const wy of[0,6]){box(x+wx,y+wy,1,2,1.3,2.2,'#101416');oval(x+wx+1,y+wy, .75,.65,2.4,'#adb6b2')}
+  if(police){box(x+6,y+2,9,1.5,1.3,1.2,T%1<.5?'#ec4442':'#4a71ed');box(x+8,y+2,9,1.5,1.3,1.2,T%1<.5?'#4c72f0':'#eb4543')}
+  const head=P(x+15,y+2,5);g.save();const glow=g.createRadialGradient(head.x,head.y,1,head.x+11*s,head.y+5*s,29*s);glow.addColorStop(0,police?'rgba(211,235,220,.4)':'rgba(255,220,139,.5)');glow.addColorStop(1,'rgba(255,215,130,0)');g.fillStyle=glow;g.beginPath();g.ellipse(head.x+13*s,head.y+5*s,29*s,13*s,.2,0,Math.PI*2);g.fill();g.restore();oval(x+14,y+2,2.1,1,5,police?'#e1f0d3':'#fff0b0')};
+ // A muted red getaway coupe pulls ahead of the alternating red-blue cruiser.
+ car(runner,52,'#9e443b');car(patrol,78,'#b9c0bb',true);
+ for(let i=0;i<12;i++){const x=(i*37+T*31)%w,y=23+(i*53%h);g.strokeStyle='rgba(198,212,204,.22)';g.lineWidth=.6;g.beginPath();g.moveTo(x,y);g.lineTo(x-2*s,y+5*s);g.stroke()}
+}
+
+const skatepark={amb:'street',view:[440,300,220,0],build(){},draw2D:drawSkatepark2D};
+const rocket={amb:'launch',view:[440,300,220,0],build(){},draw2D:drawRocket2D};
+const carrier={amb:'sea',view:[440,300,220,0],build(){},draw2D:drawCarrier2D};
+const nightChase={amb:'police',view:[440,300,220,0],build(){},draw2D:drawNightChase2D};
+const tennis={amb:'court',view:[440,300,220,0],build(){},draw2D:drawTennis2D};
+
 // =============== engine loop ===============
-document.getElementById('snd').onclick=()=>{aInit();AU.on=!AU.on;if(AU.on)AU.x.resume();ambient(sc.amb);const b=document.getElementById('snd');b.textContent=AU.on?'🔊 Sound on':'🔇 Sound off';b.className=AU.on?'on':''};
 pond.view=[270,164,135,-2];court.view=[270,170,135,14];icecream.view=[270,164,135,0];koi.view=[270,170,135,-4];lemonade.view=[270,164,135,-4];pool.view=[270,190,135,18];pool.nz=48;
 let sc,T=0,acc=0,last=0;
-function fit(){const st=document.getElementById('stage'),dpr=window.devicePixelRatio||1,k=Math.max(1,Math.floor(Math.min(innerWidth*.96,940)*dpr/W)),w=W*k/dpr;cv.style.width=w+'px';st.style.width=w+'px'}
+function fit(){const st=document.getElementById('stage'),maxW=Math.min(st.clientWidth||940,940);cv.style.width=maxW+'px';cv.style.height='auto';st.style.width='100%'}
 addEventListener('resize',()=>fit());
 function go(s){NZ=s.nz||44;[W,H,CX,CY]=s.view;cv.width=W;cv.height=H;cv.style.imageRendering=s.draw2D?'auto':'pixelated';fit();img=ctx.createImageData(W,H);buf=new Uint32Array(img.data.buffer);sc=s;s.build();s.init&&s.init();if(!s.draw2D)bake(s);T=0;bubs.forEach(b=>b.el.remove());bubs.length=0;if(AU.x)ambient(s.amb)}
 function render(){if(sc.draw2D){sc.draw2D(ctx,T,W,H);return}buf.set(sbuf.subarray(0,W*H));dz.set(sz.subarray(0,W*H));if(sc.shade)for(const i of waterIdx)buf[i]=sc.shade(i,T);
 if(sc.post)sc.post(T);D=[];LN=[];LS=[];sc.dyn(T);shadows();for(const v of D)if(!v[5])vox(v[0],v[1],v[2],v[3]);for(const l of LN)drawLN(l[0],l[1],l[2]);for(const l of LS)drawLS(l);outline();ctx.putImageData(img,0,0);placeBubs()}
 function frame(ts){requestAnimationFrame(frame);acc+=Math.min(.1,(ts-last)/1000);last=ts;if(acc<1/30)return;const dt=acc;acc=0;T+=dt;sc.update&&sc.update(dt,T);render()}
-const tabs=[['b1',pond],['b2',court],['b3',icecream],['b4',koi],['b5',lemonade],['b6',pool],['b7',policeChase]];
-for(const[id,s]of tabs)document.getElementById(id).onclick=()=>{go(s);for(const[i2,s2]of tabs)document.getElementById(i2).className=s2==sc?'on':''};
-go(pond);requestAnimationFrame(frame);
+const catalog=[
+ {id:'skatepark',scene:skatepark,title:'Skatepark',category:'Sport',icon:'🛹',description:'A concrete neighborhood skatepark with a deep bowl, quarter pipes, rails and skaters cutting through the evening light.',meta:['Concrete & motion','Golden-hour glow']},
+ {id:'rocket',scene:rocket,title:'Rocket launch',category:'Industry',icon:'🚀',description:'A white launch vehicle waits beside its steel service tower on a quiet, sun-washed launch pad.',meta:['Launch complex','Lift-off loop']},
+ {id:'carrier',scene:carrier,title:'Aircraft carrier',category:'Industry',icon:'✈️',description:'A working flight deck sits low over the water, with fighter jets, deck crew and crisp runway markings.',meta:['Flight deck','Ocean setting']},
+ {id:'nightChase',scene:nightChase,title:'Night pursuit',category:'Street',icon:'🚔',description:'Headlights sweep a wet road as a patrol car closes in beneath the lamps and dark tree line.',meta:['After dark','Red & blue lights']},
+ {id:'bank',scene:policeChase,title:'Bank aftermath',category:'Street',icon:'🏦',description:'A daylight city block shifts from getaway chase to a taped-off bank entrance and a quiet police scene.',meta:['Chase to aftermath','City block']},
+ {id:'highDive',scene:pool,title:'High dive',category:'Sport',icon:'🏊',description:'Swimmers circle a clear rectangular pool while a diver climbs, leaps and lands in a bright ring of spray.',meta:['Poolside detail','Splash animation']},
+ {id:'tennis',scene:tennis,title:'Tennis court',category:'Sport',icon:'🎾',description:'A clay court is framed by grass and low fencing as two players rally across the net.',meta:['Clay court','Rally in motion']},
+ {id:'koi',scene:koi,title:'Koi pond',category:'Nature',icon:'🐟',description:'A stone-rimmed garden pond holds drifting koi, small ripples and a soft ring of grass.',meta:['Water & wildlife','Overhead view']},
+ {id:'icecream',scene:icecream,title:'Ice cream truck',category:'Street',icon:'🍦',description:'A pastel truck pauses at the curb beneath a leafy tree while neighbors gather for a treat.',meta:['Neighborhood stop','Pastel details']},
+ {id:'basketball',scene:court,title:'Basketball court',category:'Sport',icon:'🏀',description:'A lively outdoor court with a bouncing ball, moving players and a clean painted key.',meta:['Street sport','Team play']},
+ {id:'fishing',scene:pond,title:'Fishing pier',category:'Nature',icon:'🎣',description:'A quiet timber dock reaches into clear water as anglers wait for a bite.',meta:['Water & wildlife','Looping animation']},
+ {id:'lemonade',scene:lemonade,title:'Lemonade stand',category:'Street',icon:'🍋',description:'A striped roadside stand serves fresh lemonade beneath fruit trees and warm string lights.',meta:['Summer afternoon','Small-town scene']}
+];
+const cards=document.getElementById('cards'),filters=[...document.querySelectorAll('.filter')];let active=catalog[10],filter='All';
+cards.innerHTML=catalog.map((item,i)=>`<button class="scene-card${item===active?' on':''}" type="button" data-id="${item.id}" data-category="${item.category}" aria-pressed="${item===active}"><span class="card-index">${String(i+1).padStart(2,'0')}</span><span class="card-icon" aria-hidden="true">${item.icon}</span><span class="card-text"><span class="card-title">${item.title}</span><span class="card-kind">${item.category}</span></span></button>`).join('');
+function selectScene(item){active=item;go(item.scene);document.getElementById('scene-category').textContent=item.category;document.getElementById('scene-icon').textContent=item.icon;document.getElementById('scene-title').textContent=item.title;document.getElementById('scene-description').textContent=item.description;document.getElementById('scene-meta').innerHTML=item.meta.map(tag=>`<span class="meta-pill">${tag}</span>`).join('');document.querySelectorAll('.scene-card').forEach(card=>{const on=card.dataset.id===item.id;card.classList.toggle('on',on);card.setAttribute('aria-pressed',String(on))})}
+cards.addEventListener('click',e=>{const card=e.target.closest('.scene-card');if(card){const item=catalog.find(scene=>scene.id===card.dataset.id);if(item){selectScene(item);document.getElementById('showcase').scrollIntoView({behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth',block:'start'})}}});
+function setFilter(value){filter=value;filters.forEach(btn=>{const on=btn.dataset.filter===filter;btn.classList.toggle('on',on);btn.setAttribute('aria-pressed',String(on))});let count=0;document.querySelectorAll('.scene-card').forEach(card=>{const show=filter==='All'||card.dataset.category===filter;card.hidden=!show;if(show)count++});document.getElementById('scene-count').textContent=`${count} ${count===1?'scene':'scenes'}`}
+filters.forEach(btn=>btn.addEventListener('click',()=>setFilter(btn.dataset.filter)));
+const sound=document.getElementById('sound');sound.addEventListener('click',()=>{aInit();AU.on=!AU.on;if(AU.on)AU.x.resume();ambient(sc.amb);sound.setAttribute('aria-pressed',String(AU.on));sound.textContent=AU.on?'🔊  Turn scene sound off':'🔇  Enable scene sound'});
+go(active.scene);requestAnimationFrame(frame);
 </script></body></html>

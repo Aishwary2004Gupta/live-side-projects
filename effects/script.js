@@ -992,7 +992,7 @@ const MODELS = {
         rotation: { x: -0.1, y: Math.PI + 0.6, z: 0 },
         position: { x: 0, y: -1.2, z: 0 },
     },
-    try: {
+    boat: {
         url: "https://raw.githubusercontent.com/Aishwary2004Gupta/models/cloud/fishing_boat.glb",
         scale: 0.0035,
         rotation: { x: -0.1, y: Math.PI + 0.6, z: 0 },

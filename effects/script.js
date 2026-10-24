@@ -1004,7 +1004,7 @@ const MODELS = {
         rotation: { x: -0.1, y: Math.PI + 0.6, z: 0 },
         position: { x: 0, y: -0.5, z: 0 },
     },
-};
+}; 
 
 function disposeModel(root) {
     if (!root) return;

@@ -1,0 +1,719 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Letter Curtain — Clean White Sparkle</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background: #000;
+    font-family: "Courier New", monospace;
+  }
+
+  video {
+    position: fixed;
+    inset: 0;
+    width: 100vw;
+    height: 100vh;
+    object-fit: cover;
+    image-rendering: auto;
+    transform: scaleX(-1); /* flip กล้องให้ซ้าย-ขวาตรงกับมุมมองบนจอ */
+    opacity: 1;
+    z-index: 0;
+    pointer-events: none;
+    background: #000;
+  }
+
+  canvas#c {
+    position: fixed;
+    inset: 0;
+    width: 100vw;
+    height: 100vh;
+    background: transparent;
+    cursor: none;
+    z-index: 2;
+  }
+
+  #status {
+    position: fixed;
+    top: 18px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 10;
+    color: rgba(255,255,255,0.45);
+    font-size: 11px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    pointer-events: none;
+  }
+
+  #status.active {
+    color: rgba(255,255,255,0.82);
+  }
+</style>
+</head>
+<body>
+<video id="vid" playsinline autoplay muted></video>
+<canvas id="c"></canvas>
+<div id="status">starting camera…</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1646424915/hands.min.js" crossorigin="anonymous"></script>
+
+<script>
+const canvas = document.getElementById("c");
+const ctx = canvas.getContext("2d");
+const vid = document.getElementById("vid");
+const statusEl = document.getElementById("status");
+
+// ===== Look / performance =====
+const FONT_SIZE = 16;
+const FONT_WEIGHT = 800; // หนาขึ้น แต่ไม่หนักเครื่องเท่า 900 + วาดซ้ำหลายรอบ
+const FONT = `${FONT_WEIGHT} ${FONT_SIZE}px "Courier New", monospace`;
+
+// ===== Performance tuning =====
+// ลด DPR ช่วยมากบนจอ Retina / 4K เพราะ canvas จะไม่ต้อง render pixel เยอะเกินไป
+const MAX_DPR = 1.35;
+const TARGET_FPS = 60;
+const HAND_TRACKING_FPS = 18; // ส่งภาพให้ MediaPipe แค่ ~18 fps เพื่อไม่ให้หน่วง
+
+// ===== Camera quality =====
+// แสดงภาพกล้องแบบ HD/Full HD แต่ลดขนาดเฉพาะภาพที่ส่งเข้า MediaPipe
+// ทำให้ภาพบนจอชัดขึ้น โดยยังไม่หนักเครื่องเกินไป
+const CAMERA_WIDTH = 1920;
+const CAMERA_HEIGHT = 1080;
+const CAMERA_FPS = 30;
+const TRACKING_WIDTH = 640;
+const TRACKING_HEIGHT = 360;
+
+// เปลี่ยนอักษรแบบกระจายเฟรม ไม่เปลี่ยนทุกตัวทุกเฟรม ลดงานสุ่มและวาด
+const RANDOM_CHANGE_SPEED = 0.055;
+const ACTIVE_RANDOM_BOOST = 0.018;
+const STRAND_SPACING = 42;      // เพิ่มระยะเส้น ลดจำนวนเส้นลงเล็กน้อย
+const MIN_SEGMENTS = 9;
+const MAX_SEGMENTS = 13;
+const TOP_GAP = 0;
+
+// ===== Verlet curtain physics =====
+const GRAVITY = 0.125;
+const AIR_DRAG = 0.912;         // เพิ่ม inertia นิด ๆ ให้แหวกแล้วพริ้วค้างสั้น ๆ
+const BASE_STIFFNESS = 0.82;    // ลดความแข็งลง ให้ไหลตาม cursor มากขึ้น
+const TIP_STIFFNESS = 0.46;     // ปลายตามแรงปัดมากขึ้น
+const CONSTRAINT_ITERS = 3;     // ลดรอบ constraint เพื่อให้ลื่นขึ้น
+const WIND_NOISE = 0.0008;      // ลดลม เพื่อไม่ให้ปลายเหินขึ้นเอง
+
+// ===== Finger swipe force =====
+const SWIPE_RADIUS_X = 126;     // กว้างขึ้น เพื่อให้เหมือนแหวกม่าน ไม่ใช่โดนแค่จุดเดียว
+const SWIPE_RADIUS_Y = 66;
+const SWIPE_FORCE = 0.43;
+const IDLE_PUSH = 0.002;        // อยู่เฉย ๆ แทบไม่ผลัก
+const RETURN_FORCE = 0.026;     // ลดแรงดึงกลับ ให้แหวกค้างหลังนิ้วผ่านนิดหนึ่ง
+const TIP_RETURN_FACTOR = 0.62; // ปลายล่างโดนดึงกลับน้อยกว่าเดิม
+const MAX_FINGER_SPEED = 20;
+const MAX_UP_SPEED = 2.15;       // จำกัดความเร็วที่ปลายเส้นสะบัดขึ้น
+const TIP_DOWN_BIAS = 0.115;     // น้ำหนักถ่วงปลายล่างให้ตกลงเหมือนผ้าม่าน
+const MAX_SEGMENT_ANGLE = 0.95;  // จำกัดมุมจากแนวดิ่ง ประมาณ 54 องศา
+
+// ===== Curtain wake / leave-open effect =====
+const WAKE_FORCE = 0.085;       // จำแรงปัดไว้เล็กน้อย ให้แหวกทิ้งไว้หลังนิ้วผ่าน
+const WAKE_DECAY = 0.915;       // ยิ่งใกล้ 1 ยิ่งค้างนาน
+const WAKE_MAX = 10.5;          // กันแหวกแรงเกินจนดูยุ่ง
+
+const POOL = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789.,;:{}()=+-*/&%$#@!?";
+const TIP_INDEXES = [4, 8, 12, 16, 20];
+
+// ===== Clean subtle sparkle effect =====
+const SPARKLE_MAX = 16;
+const SPARKLE_CHANCE = 0.008;
+const SPARKLE_SPEED_THRESHOLD = 1.65;
+let sparkles = [];
+let frameId = 0;
+let lastHandsSendTime = 0;
+let lastFrameTime = 0;
+
+let W = 0, H = 0, DPR = 1;
+let strands = [];
+
+let usingCamera = false;
+let handsInstance = null;
+let trackingCanvas = document.createElement("canvas");
+let trackingCtx = trackingCanvas.getContext("2d", { willReadFrequently: true });
+let isSendingHandsFrame = false;
+
+let fingerTips = [];
+let previousFingerTips = [];
+
+let mousePoint = null;
+let previousMousePoint = null;
+
+function randomChar() {
+  return POOL[Math.floor(Math.random() * POOL.length)];
+}
+
+function rand(min, max) {
+  return min + Math.random() * (max - min);
+}
+
+class Point {
+  constructor(x, y, pinned = false) {
+    this.x = x;
+    this.y = y;
+    this.oldX = x;
+    this.oldY = y;
+    this.baseX = x;
+    this.baseY = y;
+    this.pinned = pinned;
+
+    // rotation inertia ของตัวอักษร
+    this.rotation = 0;
+    // เก็บแรงปัดค้างไว้ชั่วคราว เพื่อให้เกิดฟีลแหวกผ้าม่าน
+    this.wakeX = 0;
+    this.wakeY = 0;
+  }
+}
+
+class Strand {
+  constructor(anchorX, anchorY, segmentCount, segmentLength) {
+    this.segmentCount = segmentCount;
+    this.segmentLength = segmentLength;
+    this.phase = Math.random() * Math.PI * 2;
+    this.points = [];
+    this.chars = [];
+
+    for (let i = 0; i <= segmentCount; i++) {
+      const y = anchorY + i * segmentLength;
+      const x = anchorX + rand(-1.5, 1.5) * Math.min(i, 3);
+      this.points.push(new Point(x, y, i === 0)); // ยึดเฉพาะจุดบนสุด
+      this.chars.push(randomChar());
+    }
+  }
+}
+
+function init() {
+  DPR = Math.min(window.devicePixelRatio || 1, MAX_DPR);
+  W = canvas.width = window.innerWidth * DPR;
+  H = canvas.height = window.innerHeight * DPR;
+
+  const w = W / DPR;
+  const h = H / DPR;
+  strands = [];
+
+  const count = Math.floor(w / STRAND_SPACING);
+  const startX = (w - count * STRAND_SPACING) / 2 + STRAND_SPACING * 0.5;
+
+  for (let i = 0; i <= count; i++) {
+    const x = startX + i * STRAND_SPACING + rand(-4, 4);
+    const segs = Math.floor(rand(MIN_SEGMENTS, MAX_SEGMENTS + 1));
+
+    // เส้นยาวไม่เท่ากัน ปลายล่างจะไม่เรียงเป็นขอบแข็ง
+    const targetLength = h * rand(0.7, 0.9);
+    const segLen = targetLength / segs;
+
+    strands.push(new Strand(x, TOP_GAP, segs, segLen));
+  }
+}
+
+function getActiveInfluencers() {
+  if (usingCamera && fingerTips.length) return fingerTips;
+  if (mousePoint) return [mousePoint];
+  return [];
+}
+
+function applySwipeForce(point, influencer) {
+  const dx = point.x - influencer.x;
+  const dy = point.y - influencer.y;
+
+  // วงรีแทนวงกลม เพื่อให้รู้สึกเป็นการปัดผ่านมากกว่า bubble
+  const nx = dx / SWIPE_RADIUS_X;
+  const ny = dy / SWIPE_RADIUS_Y;
+  const dist = nx * nx + ny * ny;
+
+  if (dist >= 1) return;
+
+  const falloff = (1 - dist) ** 2;
+
+  const speed = Math.min(MAX_FINGER_SPEED, Math.hypot(influencer.vx || 0, influencer.vy || 0));
+  const hasSwipe = speed > 0.45;
+
+  if (hasSwipe) {
+    // แรงหลัก = ทิศทางนิ้วลากผ่าน เหมือนลมปัดผ้าม่าน
+    const swipeX = (influencer.vx || 0) * falloff;
+    point.x += swipeX * SWIPE_FORCE;
+
+    // เก็บแรงปัดไว้เล็กน้อย ทำให้หลังนิ้วผ่าน เส้นยังแหวกค้างก่อนค่อยคืน
+    point.wakeX += swipeX * WAKE_FORCE;
+    point.wakeX = Math.max(-WAKE_MAX, Math.min(WAKE_MAX, point.wakeX));
+
+    // ให้ตามนิ้วในแนวนอนได้ดี แต่แนวขึ้นไม่แรงจนปลายชี้ฟ้า
+    const swipeY = Math.max(influencer.vy || 0, (influencer.vy || 0) * 0.32);
+    point.y += swipeY * falloff * SWIPE_FORCE * 0.16;
+    point.wakeY += Math.max(0, swipeY) * falloff * WAKE_FORCE * 0.035;
+  } else {
+    // อยู่เฉย ๆ ไม่ต้องผลักแรง เพื่อให้ภาพนิ่งกว่า
+    point.x += dx * falloff * IDLE_PUSH;
+  }
+}
+
+function simulate() {
+  const w = W / DPR;
+  const h = H / DPR;
+  const influencers = getActiveInfluencers();
+  const time = performance.now() * 0.001;
+
+  for (const strand of strands) {
+    const pts = strand.points;
+
+    // Verlet integration
+    for (let i = 0; i < pts.length; i++) {
+      const p = pts[i];
+
+      if (p.pinned) {
+        // จุดบนสุดขยับนิด ๆ เหมือนรางผ้าม่านมีชีวิต
+        p.x = p.baseX; // ยึดรางบนให้นิ่ง ไม่ส่ายเอง
+        p.y = p.baseY;
+        p.oldX = p.x;
+        p.oldY = p.y;
+        continue;
+      }
+
+      const depth = i / (pts.length - 1);
+      const vx = (p.x - p.oldX) * AIR_DRAG;
+      let vy = (p.y - p.oldY) * AIR_DRAG;
+
+      // กันปลายล่างสะบัด/ชี้ขึ้นแรงเกินไป แต่ยังยอมให้พริ้วได้
+      const upLimit = MAX_UP_SPEED * (1 - depth * 0.34);
+      if (vy < -upLimit) vy = -upLimit;
+
+      p.oldX = p.x;
+      p.oldY = p.y;
+
+      p.x += vx;
+      p.y += vy + GRAVITY + TIP_DOWN_BIAS * depth * depth;
+
+      // ดึงกลับเข้าแนวรางเดิมให้เร็วขึ้นหลังนิ้วผ่าน
+      // ด้านบนคืนไวกว่า ด้านล่างยังปล่อยให้พริ้วอยู่
+      const returnStrength = RETURN_FORCE * (1 - depth * TIP_RETURN_FACTOR);
+      p.x += (p.baseX - p.x) * returnStrength;
+
+      // ลมเบา ๆ เฉพาะช่วงปลาย เพิ่มความพริ้วเล็กน้อย
+      p.x += Math.sin(time * 1.05 + strand.phase + i * 0.37) * WIND_NOISE * depth * depth * 4;
+
+      // แรงค้างจากการปัด ให้เหมือนม่านถูกแหวกแล้วค่อย ๆ คืนตัว
+      p.x += p.wakeX * (0.35 + depth * 0.75);
+      p.y += p.wakeY * depth * 0.18;
+      p.wakeX *= WAKE_DECAY;
+      p.wakeY *= WAKE_DECAY;
+      if (Math.abs(p.wakeX) < 0.015) p.wakeX = 0;
+      if (Math.abs(p.wakeY) < 0.015) p.wakeY = 0;
+
+      for (const inf of influencers) {
+        applySwipeForce(p, inf);
+      }
+
+      // กันหลุดจอแบบนุ่ม ๆ
+      if (p.x < -80) p.x = -80;
+      if (p.x > w + 80) p.x = w + 80;
+      if (p.y > h + 140) p.y = h + 140;
+    }
+
+    // Distance constraints
+    for (let iter = 0; iter < CONSTRAINT_ITERS; iter++) {
+      for (let i = 0; i < pts.length - 1; i++) {
+        const a = pts[i];
+        const b = pts[i + 1];
+
+        const dx = b.x - a.x;
+        const dy = b.y - a.y;
+        const dist = Math.hypot(dx, dy) || 0.0001;
+        const diff = (dist - strand.segmentLength) / dist;
+
+        // ด้านล่างหลวมกว่า ไม่ถูกยึดแข็ง
+        const depth = i / (pts.length - 2);
+        const stiffness = BASE_STIFFNESS + (TIP_STIFFNESS - BASE_STIFFNESS) * depth;
+
+        const offsetX = dx * diff * 0.5 * stiffness;
+        const offsetY = dy * diff * 0.5 * stiffness;
+
+        if (!a.pinned) {
+          a.x += offsetX;
+          a.y += offsetY;
+        }
+
+        if (!b.pinned) {
+          b.x -= offsetX;
+          b.y -= offsetY;
+        }
+      }
+
+      // Angular constraint: กันปลายเส้นพับขึ้น/ชี้ขึ้นเกินจริง
+      for (let i = 1; i < pts.length; i++) {
+        const a = pts[i - 1];
+        const b = pts[i];
+        if (b.pinned) continue;
+
+        const dx = b.x - a.x;
+        const dy = b.y - a.y;
+        const len = Math.hypot(dx, dy) || 0.0001;
+        const angleFromDown = Math.atan2(dx, dy); // 0 = ชี้ลงตรง ๆ
+        const clamped = Math.max(-MAX_SEGMENT_ANGLE, Math.min(MAX_SEGMENT_ANGLE, angleFromDown));
+
+        // ถ้า segment กำลังชี้ขึ้น ให้บังคับกลับลงมากขึ้น
+        if (dy < len * 0.18 || clamped !== angleFromDown) {
+          const depth = i / (pts.length - 1);
+          const keep = 0.42 + depth * 0.28;
+          const targetX = a.x + Math.sin(clamped) * len;
+          const targetY = a.y + Math.cos(clamped) * len;
+
+          b.x += (targetX - b.x) * keep;
+          b.y += (targetY - b.y) * keep;
+        }
+      }
+    }
+  }
+}
+
+function drawStrand(strand) {
+  const pts = strand.points;
+
+  // เส้นโค้งผ้าม่าน
+  ctx.beginPath();
+  ctx.moveTo(pts[0].x, pts[0].y);
+
+  for (let i = 0; i < pts.length - 1; i++) {
+    const p0 = pts[Math.max(0, i - 1)];
+    const p1 = pts[i];
+    const p2 = pts[i + 1];
+    const p3 = pts[Math.min(pts.length - 1, i + 2)];
+
+    const cp1x = p1.x + (p2.x - p0.x) / 6;
+    const cp1y = p1.y + (p2.y - p0.y) / 6;
+    const cp2x = p2.x - (p3.x - p1.x) / 6;
+    const cp2y = p2.y - (p3.y - p1.y) / 6;
+
+    ctx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, p2.x, p2.y);
+  }
+
+  ctx.strokeStyle = "rgba(255,255,255,0.5)";
+  ctx.lineWidth = 1.7;
+  ctx.stroke();
+
+  // ตัวอักษร
+  ctx.font = FONT;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+
+  for (let i = 0; i < pts.length; i++) {
+    const p = pts[i];
+    const next = pts[Math.min(pts.length - 1, i + 1)];
+    const prev = pts[Math.max(0, i - 1)];
+
+    const targetAngle = Math.atan2(next.y - prev.y, next.x - prev.x) - Math.PI / 2;
+
+    // rotation lag ทำให้บิดพริ้วเหมือนผ้า
+    let delta = targetAngle - p.rotation;
+    while (delta > Math.PI) delta -= Math.PI * 2;
+    while (delta < -Math.PI) delta += Math.PI * 2;
+    p.rotation += delta * 0.08;
+
+    const speed = Math.hypot(p.x - p.oldX, p.y - p.oldY);
+    const glow = Math.min(1, speed / 24);
+    const depth = i / (pts.length - 1);
+
+    // วิบวับเบา ๆ เฉพาะตอนเส้นขยับ เพื่อให้ดู clean ไม่รก
+    if (
+      sparkles.length < SPARKLE_MAX &&
+      speed > SPARKLE_SPEED_THRESHOLD &&
+      Math.random() < SPARKLE_CHANCE * glow
+    ) {
+      sparkles.push({
+        x: p.x + rand(-4, 4),
+        y: p.y + rand(-4, 4),
+        life: 1,
+        size: rand(1.2, 2.6),
+        driftX: rand(-0.16, 0.16),
+        driftY: rand(-0.22, -0.04)
+      });
+    }
+
+    // เปลี่ยนอักษรแบบไม่ต้องสุ่มทุกตัวทุกเฟรม: ยังดู random ตลอด แต่เบากว่าเยอะ
+    const randomRate = Math.min(0.42, RANDOM_CHANGE_SPEED + speed * ACTIVE_RANDOM_BOOST);
+    const stagger = (frameId + i + Math.floor(p.baseX)) % 2 === 0;
+    if (stagger && Math.random() < randomRate) {
+      strand.chars[i] = randomChar();
+    }
+
+    ctx.save();
+    ctx.translate(p.x, p.y);
+    ctx.rotate(p.rotation);
+
+    ctx.fillStyle = `rgba(255,255,255,${0.42 + glow * 0.34 - depth * 0.08})`;
+
+    // shadowBlur ต่อ text ทุกตัวกินเครื่องมาก จึงเปิดเฉพาะจุดที่กำลังขยับแรงจริง ๆ
+    if (speed > 6) {
+      ctx.shadowBlur = 5;
+      ctx.shadowColor = "rgba(255,255,255,0.38)";
+    }
+
+    ctx.fillText(strand.chars[i], 0, 0);
+
+    // วาดซ้ำเฉพาะตอนขยับ เพื่อให้หนาแบบประหยัดกว่าเดิม
+    if (speed > 3) {
+      ctx.fillText(strand.chars[i], 0.28, 0);
+    }
+
+    ctx.restore();
+  }
+
+  // จุดยึดด้านบนเล็กมาก
+  ctx.beginPath();
+  ctx.arc(pts[0].x, pts[0].y, 1.4, 0, Math.PI * 2);
+  ctx.fillStyle = "rgba(255,255,255,0.42)";
+  ctx.fill();
+}
+
+
+function drawSparkles() {
+  if (!sparkles.length) return;
+
+  ctx.save();
+  ctx.lineCap = "round";
+
+  for (let i = sparkles.length - 1; i >= 0; i--) {
+    const s = sparkles[i];
+
+    s.life -= 0.035;
+    s.x += s.driftX;
+    s.y += s.driftY;
+
+    if (s.life <= 0) {
+      sparkles.splice(i, 1);
+      continue;
+    }
+
+    const alpha = Math.sin(s.life * Math.PI) * 0.42;
+    const size = s.size * (0.65 + s.life * 0.35);
+
+    // จุดกลาง
+    ctx.beginPath();
+    ctx.arc(s.x, s.y, size * 0.42, 0, Math.PI * 2);
+    ctx.fillStyle = `rgba(255,255,255,${alpha})`;
+    ctx.fill();
+
+    // กากบาทเล็ก ๆ แบบ premium sparkle
+    ctx.strokeStyle = `rgba(255,255,255,${alpha * 0.7})`;
+    ctx.lineWidth = 0.55;
+    ctx.beginPath();
+    ctx.moveTo(s.x - size, s.y);
+    ctx.lineTo(s.x + size, s.y);
+    ctx.moveTo(s.x, s.y - size);
+    ctx.lineTo(s.x, s.y + size);
+    ctx.stroke();
+  }
+
+  ctx.restore();
+}
+
+function drawFingerDebug() {
+  // ซ่อนวงกลม force แล้ว เหลือแค่จุดนิ้วเล็ก ๆ
+  if (!usingCamera || fingerTips.length === 0) return;
+
+  for (const f of fingerTips) {
+    ctx.beginPath();
+    ctx.arc(f.x, f.y, 3.5, 0, Math.PI * 2);
+    ctx.fillStyle = "rgba(255,255,255,0.62)";
+    ctx.fill();
+  }
+}
+
+function draw() {
+  const w = W / DPR;
+  const h = H / DPR;
+
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  ctx.clearRect(0, 0, w, h); // ไม่มีพื้นหลัง ให้เห็นวิดีโอกล้องจริง
+
+  for (const strand of strands) {
+    drawStrand(strand);
+  }
+
+  drawSparkles();
+  drawFingerDebug();
+}
+
+function loop(now = 0) {
+  // กันบาง browser ยิงเฟรมถี่ผิดปกติ และใช้ frameId กระจายงาน random
+  if (!lastFrameTime || now - lastFrameTime >= 1000 / TARGET_FPS) {
+    frameId++;
+    lastFrameTime = now;
+    simulate();
+    draw();
+  }
+  requestAnimationFrame(loop);
+}
+
+async function startCamera() {
+  statusEl.textContent = "starting camera…";
+
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: {
+        // ขอภาพกล้องคอมให้ชัดขึ้นก่อน ถ้ากล้องไม่รองรับ browser จะลดลงให้อัตโนมัติ
+        facingMode: { ideal: "user" },
+        width: { ideal: CAMERA_WIDTH },
+        height: { ideal: CAMERA_HEIGHT },
+        frameRate: { ideal: CAMERA_FPS, max: CAMERA_FPS }
+      },
+      audio: false
+    });
+
+    vid.srcObject = stream;
+    await vid.play();
+
+    // เตรียม canvas เล็กไว้ให้ MediaPipe ประมวลผล เพื่อให้วิดีโอจริงยังคมแต่ tracking ไม่หนัก
+    trackingCanvas.width = TRACKING_WIDTH;
+    trackingCanvas.height = TRACKING_HEIGHT;
+
+    const videoTrack = stream.getVideoTracks()[0];
+    const cameraSettings = videoTrack?.getSettings?.() || {};
+
+    // บังคับ flip ภาพกล้องให้ถูกฝั่งบนจอ
+    vid.style.transform = "scaleX(-1)";
+
+    usingCamera = true;
+    statusEl.textContent = "show your hand";
+    statusEl.classList.add("active");
+
+    handsInstance = new Hands({
+      locateFile: file => `https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1646424915/${file}`
+    });
+
+    handsInstance.setOptions({
+      maxNumHands: 2,
+      modelComplexity: 1,
+      minDetectionConfidence: 0.66,
+      minTrackingConfidence: 0.6
+    });
+
+    handsInstance.onResults(results => {
+      const hands = results.multiHandLandmarks || [];
+
+      if (hands.length === 0) {
+        fingerTips = [];
+        previousFingerTips = [];
+        statusEl.textContent = "show your hand";
+        return;
+      }
+
+      const allTips = [];
+
+      hands.forEach((landmarks, handIndex) => {
+        TIP_INDEXES.forEach((tipIndex, fingerIndex) => {
+          const x = (1 - landmarks[tipIndex].x) * window.innerWidth;
+          const y = landmarks[tipIndex].y * window.innerHeight;
+          const prev = previousFingerTips[handIndex * TIP_INDEXES.length + fingerIndex];
+
+          allTips.push({
+            x,
+            y,
+            vx: prev ? x - prev.x : 0,
+            vy: prev ? y - prev.y : 0
+          });
+        });
+      });
+
+      previousFingerTips = allTips.map(p => ({ ...p }));
+      fingerTips = allTips;
+      statusEl.textContent = `tracking ${hands.length} hand${hands.length > 1 ? "s" : ""} ✦`;
+    });
+
+    // ส่งภาพย่อเข้า MediaPipe เอง ไม่ต้องใช้ Camera Utils
+    // ใช้ stream HD ที่เปิดไว้ แล้วส่งภาพย่อเข้า MediaPipe เอง
+    const processHandsFrame = async () => {
+      if (!usingCamera || !handsInstance) return;
+
+      const now = performance.now();
+      if (!isSendingHandsFrame && now - lastHandsSendTime >= 1000 / HAND_TRACKING_FPS) {
+        lastHandsSendTime = now;
+        isSendingHandsFrame = true;
+
+        try {
+          trackingCtx.drawImage(vid, 0, 0, TRACKING_WIDTH, TRACKING_HEIGHT);
+          await handsInstance.send({ image: trackingCanvas });
+        } catch (sendErr) {
+          console.warn(sendErr);
+        } finally {
+          isSendingHandsFrame = false;
+        }
+      }
+
+      requestAnimationFrame(processHandsFrame);
+    };
+
+    statusEl.textContent = cameraSettings.width && cameraSettings.height
+      ? `camera ${cameraSettings.width}×${cameraSettings.height}`
+      : "show your hand";
+
+    processHandsFrame();
+  } catch (err) {
+    usingCamera = false;
+    fingerTips = [];
+    statusEl.textContent = "camera blocked — use mouse";
+    statusEl.classList.remove("active");
+    console.error(err);
+  }
+}
+
+// Mouse fallback
+canvas.addEventListener("mousemove", e => {
+  if (usingCamera) return;
+
+  const x = e.clientX;
+  const y = e.clientY;
+
+  const vx = previousMousePoint ? x - previousMousePoint.x : 0;
+  const vy = previousMousePoint ? y - previousMousePoint.y : 0;
+
+  mousePoint = { x, y, vx, vy };
+  previousMousePoint = { x, y };
+});
+
+canvas.addEventListener("mouseleave", () => {
+  if (usingCamera) return;
+  mousePoint = null;
+  previousMousePoint = null;
+});
+
+canvas.addEventListener("touchmove", e => {
+  if (usingCamera) return;
+
+  e.preventDefault();
+
+  const t = e.touches[0];
+  const x = t.clientX;
+  const y = t.clientY;
+
+  const vx = previousMousePoint ? x - previousMousePoint.x : 0;
+  const vy = previousMousePoint ? y - previousMousePoint.y : 0;
+
+  mousePoint = { x, y, vx, vy };
+  previousMousePoint = { x, y };
+}, { passive: false });
+
+canvas.addEventListener("touchend", () => {
+  if (usingCamera) return;
+  mousePoint = null;
+  previousMousePoint = null;
+});
+
+window.addEventListener("resize", init);
+
+init();
+loop();
+startCamera();
+</script>
+</body>
+</html>

@@ -2663,104 +2663,57 @@ FIGS3D.push({ id: 'rp', name: 'Record player', mod: (() => {
       s.push([[r * c, r * sn, PZ + 2], [r * c, r * sn, PZ + (k % 2 ? 4.5 : 6.5)]]); } seg(s, pg); }
   cyl(2, 8, 16, bodyMat, pg, W(0, 0, RT + 4));
 
-  // ── two records (the one on the deck, the one coming out of its sleeve) and the sleeve ──
-  const wrap = (x, text, maxW, maxLines) => {
-    const words = text.split(/\s+/), lines = []; let cur_ = '';
-    for (const w of words) { const t = cur_ ? cur_ + ' ' + w : w; if (x.measureText(t).width > maxW && cur_) { lines.push(cur_); cur_ = w; } else cur_ = t; }
-    if (cur_) lines.push(cur_);
+  // ── the record: its own group so it can fly on and off the platter ──
+  const rec = new THREE.Group(); g0.add(rec);
+  { const m = new THREE.Mesh(new THREE.CylinderGeometry(RR * TS, RR * TS, 1.6 * TS, 128), recessMat); m.position.copy(W(0, 0, 0.8)); addOutline(m); twMeshes.push(m); rec.add(m); }
+  { const ring = (r, mat) => rec.add(loopL(circ(0, 0, r, 1.66, 128), mat));
+    ring(RR - 1.5, lineMat); for (let r = 72; r >= 32; r -= 3.2) ring(r, lineMat); [60.8, 48, 38.4].forEach(r => ring(r, majorMat)); }
+  const lab = document.createElement('canvas'); lab.width = lab.height = 512;
+  const labTex = new THREE.CanvasTexture(lab); labTex.colorSpace = THREE.SRGBColorSpace; labTex.anisotropy = 8;
+  { const m = new THREE.Mesh(new THREE.CircleGeometry(24 * TS, 64), new THREE.MeshBasicMaterial({ map: labTex, toneMapped: false, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -12 }));
+    m.rotation.x = -Math.PI / 2; m.position.copy(W(0, 0, 1.75)); rec.add(m); }
+  let track = null, artImg = null;
+  function wrap(x, text, maxW, maxLines) {
+    const words = text.split(/\s+/), lines = []; let cur = '';
+    for (const w of words) { const t = cur ? cur + ' ' + w : w; if (x.measureText(t).width > maxW && cur) { lines.push(cur); cur = w; } else cur = t; }
+    if (cur) lines.push(cur);
     if (lines.length > maxLines) { lines.length = maxLines; lines[maxLines - 1] = lines[maxLines - 1].replace(/.{0,2}$/, '…'); }
     return lines;
-  };
-  function makeRecord() {
-    const g = new THREE.Group(); g0.add(g);
-    { const m = new THREE.Mesh(new THREE.CylinderGeometry(RR * TS, RR * TS, 1.6 * TS, 128), recessMat); m.position.copy(W(0, 0, 0.8)); addOutline(m); twMeshes.push(m); g.add(m); }
-    { const ring = (r, mat) => g.add(loopL(circ(0, 0, r, 1.66, 128), mat));
-      ring(RR - 1.5, lineMat); for (let r = 72; r >= 32; r -= 3.2) ring(r, lineMat); [60.8, 48, 38.4].forEach(r => ring(r, majorMat)); }
-    const lab = document.createElement('canvas'); lab.width = lab.height = 512;
-    const tex = new THREE.CanvasTexture(lab); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 8;
-    { const m = new THREE.Mesh(new THREE.CircleGeometry(24 * TS, 64), new THREE.MeshBasicMaterial({ map: tex, toneMapped: false, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -12 }));
-      m.rotation.x = -Math.PI / 2; m.position.copy(W(0, 0, 1.75)); g.add(m); }
-    return { g, lab, tex, track: null, img: null };
   }
-  function drawLabel(r) {
-    const x = r.lab.getContext('2d'), Cc = pal3(), A_ = '#' + accent.getHexString(), k = 512 / 48;
+  function drawLabel() {
+    const x = lab.getContext('2d'), Cc = pal3(), A_ = '#' + accent.getHexString(), k = 512 / 48;
     x.clearRect(0, 0, 512, 512); x.save(); x.beginPath(); x.arc(256, 256, 256, 0, Math.PI * 2); x.clip();
     x.fillStyle = Cc.glassOff; x.fillRect(0, 0, 512, 512);
     let art = false;
-    if (r.img) { try {
-      x.drawImage(r.img, 0, 0, 512, 512);
-      const d = x.getImageData(0, 0, 512, 512), p = d.data;
+    if (artImg) { try {
+      x.drawImage(artImg, 0, 0, 512, 512);
+      const d = x.getImageData(0, 0, 512, 512), p = d.data;                          // monochrome: no hue except the accent
       for (let i = 0; i < p.length; i += 4) { const l = p[i] * 0.3 + p[i + 1] * 0.59 + p[i + 2] * 0.11; p[i] = p[i + 1] = p[i + 2] = l * 0.85 + 20; }
       x.putImageData(d, 0, 0); art = true; } catch (e) { art = false; } }
     x.restore();
-    x.strokeStyle = Cc.line; x.lineWidth = 0.4 * k; [23, 17].forEach(rad => { x.beginPath(); x.arc(256, 256, rad * k, 0, Math.PI * 2); x.stroke(); });
+    x.strokeStyle = Cc.line; x.lineWidth = 0.4 * k; [23, 17].forEach(r => { x.beginPath(); x.arc(256, 256, r * k, 0, Math.PI * 2); x.stroke(); });
     x.textAlign = 'center';
     if (!art) {
       x.fillStyle = Cc.inkHi; x.font = `${3.4 * k}px ${MONO3}`;
-      if (r.track) {
-        wrap(x, r.track.title.toUpperCase(), 30 * k, 2).forEach((l, i) => x.fillText(l, 256, 256 - 12 * k + i * 4.2 * k));
-        x.fillStyle = Cc.ink; x.font = `${2.6 * k}px ${MONO3}`; wrap(x, r.track.artist, 30 * k, 1).forEach(l => x.fillText(l, 256, 256 + 14 * k));
+      if (track) {
+        const t = wrap(x, track.title.toUpperCase(), 30 * k, 2); t.forEach((l, i) => x.fillText(l, 256, 256 - 12 * k + i * 4.2 * k));
+        x.fillStyle = Cc.ink; x.font = `${2.6 * k}px ${MONO3}`; wrap(x, track.artist, 30 * k, 1).forEach(l => x.fillText(l, 256, 256 + 14 * k));
       } else {
         x.fillText('ISO-GLOW RECORDS', 256, 256 - 9 * k); x.fillStyle = Cc.ink; x.font = `${2.6 * k}px ${MONO3}`;
         x.fillText('SIDE A · 33⅓', 256, 256 + 10 * k); x.fillText('SEARCH A SONG', 256, 256 + 14 * k);
       }
     }
     x.fillStyle = A_; x.beginPath(); x.arc(256, 256, 3.4 * k, 0, Math.PI * 2); x.fill();
-    r.tex.needsUpdate = true;
+    labTex.needsUpdate = true;
   }
-  const recs = [makeRecord(), makeRecord()]; let cur = recs[0], nxt = recs[1]; nxt.g.visible = false;
-  let track = null;
-
-  // the paper sleeve: two cards with the new record between them, open on the side facing the deck
-  const SLW = 164, sl = new THREE.Group(); sl.visible = false; g0.add(sl);
-  const slc = document.createElement('canvas'); slc.width = slc.height = 512;
-  const slTex = new THREE.CanvasTexture(slc); slTex.colorSpace = THREE.SRGBColorSpace; slTex.anisotropy = 8;
-  { const geo = () => new THREE.BoxGeometry(SLW * TS, 0.8 * TS, SLW * TS);
-    const back = new THREE.Mesh(geo(), bodyMat); back.position.y = 0.4 * TS; addOutline(back); twMeshes.push(back); sl.add(back);
-    const front = new THREE.Mesh(geo(), [bodyMat, bodyMat, new THREE.MeshBasicMaterial({ map: slTex, toneMapped: false }), bodyMat, bodyMat, bodyMat]);
-    front.position.y = 3.2 * TS; addOutline(front); twMeshes.push(front); sl.add(front); }
-  function drawSleeve() {
-    const x = slc.getContext('2d'), Cc = pal3(), A_ = '#' + accent.getHexString(), t = nxt.track;
-    x.fillStyle = Cc.glassOff; x.fillRect(0, 0, 512, 512);
-    if (nxt.img) { try { x.drawImage(nxt.img, 0, 0, 512, 512); } catch (e) {} }
-    else { x.strokeStyle = Cc.line; x.lineWidth = 2; for (let r = 40; r < 260; r += 28) { x.beginPath(); x.arc(256, 230, r, 0, Math.PI * 2); x.stroke(); } }
-    x.fillStyle = 'rgba(12,13,14,0.74)'; x.fillRect(0, 380, 512, 132);
-    x.fillStyle = A_; x.fillRect(0, 380, 512, 4);
-    x.textAlign = 'left'; x.fillStyle = '#f1f1ee'; x.font = `600 34px ${MONO3}`;
-    if (t) { wrap(x, t.title, 460, 2).forEach((l, i) => x.fillText(l, 26, 420 + i * 38));
-      x.fillStyle = '#b9bbb8'; x.font = `24px ${MONO3}`; wrap(x, t.artist, 460, 1).forEach(l => x.fillText(l, 26, 490)); }
-    slTex.needsUpdate = true;
-  }
-
-  // swap choreography: old disk lifts off and flies away · sleeve slides in with the new disk peeking out ·
-  // the new disk is pulled out · it is carried over and lowered onto the spindle · the sleeve slides away
-  const S = W(C[0], C[1], RZ), SLB = W(-190, 125, RZ - 1), PSI = -0.2, DIR = new THREE.Vector3(Math.cos(PSI), 0, -Math.sin(PSI));
-  const OLD_AWAY = W(-180, 330, 100), SL_AWAY = W(-420, 0, 30);
-  const T = { oldEnd: 1.0, slIn: [0.4, 1.3], pull: [1.6, 2.7], deck: [3.1, 4.4], slOut: [3.1, 4.1] }, T_END = 4.4;
-  const sw = { on: false, t: 0 };
+  const S = W(C[0], C[1], RZ), AW = W(-300, 30, 70);                                // seated position and the "away" offset
+  const rs = { phase: 'seated', u: 0 };                                            // u: 0 seated … 1 away
   const ss = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
-  const sg = (t, a, b) => Math.min(1, Math.max(0, (t - a) / (b - a)));
-  const ang = (a, b) => { const d = a - b; return d - 2 * Math.PI * Math.round(d / (2 * Math.PI)); };
   let rotA = 0;
-  function layout() {
-    if (!sw.on) { cur.g.visible = true; cur.g.scale.setScalar(1); cur.g.position.copy(S); cur.g.rotation.set(0, rotA, 0); nxt.g.visible = false; sl.visible = false; return; }
-    const t = sw.t;
-    const uo = sg(t, 0, T.oldEnd), ho = ss(0.2, 1, uo);                              // old disk
-    cur.g.visible = uo < 1;
-    cur.g.position.set(S.x + OLD_AWAY.x * ho, S.y + ss(0, 0.28, uo) * 26 * TS + OLD_AWAY.y * ho, S.z + OLD_AWAY.z * ho);
-    cur.g.rotation.set(0, rotA + 0.6 * ho, 0.22 * Math.sin(Math.PI * ho)); cur.g.scale.setScalar(1 - 0.7 * ho);
-    const si = ss(0, 1, sg(t, T.slIn[0], T.slIn[1])), so = ss(0, 1, sg(t, T.slOut[0], T.slOut[1]));   // sleeve
-    sl.visible = t >= T.slIn[0] && so < 1;
-    sl.position.copy(SLB).addScaledVector(SL_AWAY, (1 - si) + so); sl.rotation.y = PSI;
-    nxt.g.visible = sl.visible || t >= T.deck[0]; nxt.g.scale.setScalar(1);          // new disk
-    if (t < T.deck[0]) {
-      const dx = 48 + 120 * ss(0, 1, sg(t, T.pull[0], T.pull[1]));
-      nxt.g.position.copy(sl.position).addScaledVector(DIR, dx * TS); nxt.g.position.y += TS; nxt.g.rotation.set(0, PSI, 0);
-    } else {
-      const v = sg(t, T.deck[0], T.deck[1]), hx = ss(0, 0.8, v), h = (v < 0.15 ? ss(0, 0.15, v) : 1 - ss(0.8, 1, v)) * 26 * TS;
-      const P1 = SLB.clone().addScaledVector(DIR, 168 * TS); P1.y += TS;
-      nxt.g.position.copy(P1).lerp(S, hx); nxt.g.position.y += h; nxt.g.rotation.set(0, rotA + ang(PSI, rotA) * (1 - hx), 0);
-    }
+  function placeRec() {
+    const hx = ss(0.22, 1, rs.u), h = ss(0, 0.28, rs.u) * 26 * TS;
+    rec.position.set(S.x + AW.x * hx, S.y + h + AW.y * hx, S.z + AW.z * hx);
+    rec.rotation.y = rotA + 0.6 * hx; rec.rotation.z = 0.22 * Math.sin(Math.PI * hx);
   }
 
   // ── controls: start/stop, 33 / 45, pilot lamp, pitch slider ──
@@ -2819,12 +2772,12 @@ FIGS3D.push({ id: 'rp', name: 'Record player', mod: (() => {
   const pos = () => track ? au.currentTime : vt;
   const fmt = s => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
   const clip = (s, n) => s.length > n ? s.slice(0, n - 1) + '…' : s;
-  const busy = () => sw.on || !!pending;
+  const busy = () => rs.phase !== 'seated' || !!pending;
   function readout() { if (active !== ID) return;
     const el = document.getElementById('read'), nm = track ? clip(`${track.title} — ${track.artist}`, 44) : 'blank record';
     if (audioErr && track) el.textContent = 'could not load this preview · search another song';
     else if (blocked && wantPlay) el.textContent = 'click anywhere to allow audio';
-    else if (busy()) el.textContent = pending ? (sw.on ? `swapping disks · ${clip(pending.title, 36)}` : `stopping the deck · ${clip(pending.title, 30)}`) : 'changing record';
+    else if (busy()) el.textContent = pending ? `pressing · ${clip(pending.title, 40)}` : 'changing record';
     else if (!st.on && st.rpm < 0.5) el.textContent = `stopped · ${nm}`;
     else el.textContent = `${playing() ? 'playing' : st.mode === 'cue' ? 'cueing' : st.on ? 'spinning' : 'stopping'} · ${nm} · ${fmt(pos())} / ${fmt(dur())}`; }
   function render() {
@@ -2841,13 +2794,11 @@ FIGS3D.push({ id: 'rp', name: 'Record player', mod: (() => {
 
   // pick a song: stop the deck, lift the old record off, slide the new one on, then cue and play
   function pick(t) {
-    if (sw.on) return;
-    pending = t; status = ''; audioErr = false; nxt.track = t; nxt.img = null; drawLabel(nxt); drawSleeve();
+    pending = t; status = ''; artImg = null; audioErr = false;
     if (st.on || st.mode !== 'rest') { st.on = false; if (st.mode !== 'rest') st.mode = 'return'; }
     au.src = t.src; au.muted = true;                                               // prime audio inside the user's gesture
     au.play().then(() => { if (!wantPlay) { au.pause(); try { au.currentTime = 0; } catch (e) {} } au.muted = false; }).catch(() => { au.muted = false; });
-    if (t.art) { const im = new Image(); im.crossOrigin = 'anonymous'; im.onload = () => {
-      if (nxt.track === t) { nxt.img = im; drawLabel(nxt); drawSleeve(); } else if (cur.track === t) { cur.img = im; drawLabel(cur); } }; im.src = t.art; }
+    if (t.art) { const im = new Image(); im.crossOrigin = 'anonymous'; im.onload = () => { if (pending === t || track === t) { artImg = im; drawLabel(); } }; im.src = t.art; }
     SFX.button(); render();
   }
 
@@ -2869,16 +2820,13 @@ FIGS3D.push({ id: 'rp', name: 'Record player', mod: (() => {
   function tick(now, dt) {
     UI.show(active === ID);
     // record swap sequence
-    if (pending && !sw.on && st.mode === 'rest' && st.rpm < 1.5) { sw.on = true; sw.t = 0; tap(500, 0.25, 2); }
-    if (sw.on) {
-      const t0 = sw.t; sw.t += dt;
-      [T.slIn[0], T.pull[0], T.deck[0]].forEach(m => { if (t0 < m && sw.t >= m) tap(m === T.pull[0] ? 700 : 420, 0.22, 2); });
-      if (sw.t >= T_END) { [cur, nxt] = [nxt, cur]; nxt.g.visible = false; track = cur.track; pending = null; sw.on = false; layout(); SFX.thunk(); beginCue(); render(); }
-    }
+    if (pending && rs.phase === 'seated' && st.mode === 'rest' && st.rpm < 1.5) { rs.phase = 'out'; rs.u = 0; tap(500, 0.25, 2); }
+    if (rs.phase === 'out') { rs.u = Math.min(1, rs.u + dt / 0.9); if (rs.u >= 1) { track = pending; drawLabel(); rs.phase = 'in'; } }
+    else if (rs.phase === 'in') { rs.u = Math.max(0, rs.u - dt / 1.25); if (rs.u <= 0) { rs.phase = 'seated'; pending = null; SFX.thunk(); beginCue(); render(); } }
     // platter
     const tg = target(), k = pending ? 3.6 : (tg > st.rpm ? 2.4 : 1.1);
     st.rpm += (tg - st.rpm) * Math.min(1, dt * k); if (Math.abs(tg - st.rpm) < 0.01) st.rpm = tg;
-    rotA -= st.rpm / 60 * Math.PI * 2 * dt; pg.rotation.y = rotA; layout();
+    rotA -= st.rpm / 60 * Math.PI * 2 * dt; pg.rotation.y = rotA; placeRec();
     // arm: swing toward its goal, lower, then track the groove inward with the music
     const goalA = st.mode === 'rest' || st.mode === 'return' ? A_REST : angleFor(st.r);
     const da = goalA - st.a, liftGoal = st.mode === 'play' || (st.mode === 'rest' && Math.abs(da) < 0.002) ? 0 : 6;
@@ -2981,7 +2929,7 @@ FIGS3D.push({ id: 'rp', name: 'Record player', mod: (() => {
       try { const r = await query(q); if (my !== seq) return []; results = r; sel = 0; if (r.length) paint(); else msg('no records found for “' + q + '”'); return r; }
       catch (e) { if (my === seq) msg('can’t reach the music catalog — check your connection'); return []; }
     }
-    function choose(i) { const t = results[i]; if (!t || sw.on) return; close(); input.value = ''; input.placeholder = `Now pressing · ${clip(t.title, 24)} — ${clip(t.artist, 18)}`; input.blur(); pick(t); }
+    function choose(i) { const t = results[i]; if (!t) return; close(); input.value = ''; input.placeholder = `Now pressing · ${clip(t.title, 24)} — ${clip(t.artist, 18)}`; input.blur(); pick(t); }
     input.addEventListener('input', () => { clearTimeout(timer); const q = input.value.trim(); if (!q) { seq++; close(); return; } timer = setTimeout(() => search(q), 280); });
     input.addEventListener('keydown', async e => {
       e.stopPropagation();
@@ -2997,14 +2945,14 @@ FIGS3D.push({ id: 'rp', name: 'Record player', mod: (() => {
     return { focus: () => { input.focus(); input.select(); }, show: on => { root.hidden = !on; }, root };
   })();
 
-  themeHooks.push(t => { pilotMat.color.set(t === 'light' ? 0xc3c6c8 : 0x2b2e30); drawLabel(cur); drawLabel(nxt); drawSleeve(); render(); });
-  drawLabel(cur); drawLabel(nxt); drawSleeve(); layout(); render();
+  themeHooks.push(t => { pilotMat.color.set(t === 'light' ? 0xc3c6c8 : 0x2b2e30); drawLabel(); render(); });
+  drawLabel(); placeRec(); render();
   return { group: g0, key, click, tick, readout,
     stop: () => { st.on = false; if (st.mode !== 'rest') st.mode = 'return'; render(); },
     demo: () => { if (!busy() && !st.on) startStop(); },
     panel: [['Search a song', '/', () => UI.focus()], ['Start / stop', 'space', startStop], ['33⅓ rpm', '3', () => setSpeed(33.333)], ['45 rpm', '4', () => setSpeed(45)], ['Cue arm', 'C', cue], ['Pitch +', '↑', () => setPitch(st.pitch + 1)], ['Pitch −', '↓', () => setPitch(st.pitch - 1)]],
-    view: { target: W(40, 150, 40), dist: 11.5 },
-    info: '<h2>Record player</h2><p>Type any song or artist in the search bar and pick a result: the platter stops, the old record lifts off and flies away, a sleeve with the album cover slides in, the new record is pulled out of it, carried over and lowered onto the spindle, then the platter spins up, the arm cues itself and the music plays. You hear a real 30-second preview, and the arm tracks across the groove as it plays. 33 / 45 and the pitch slider change the speed and pitch of the music. Needs an internet connection for search and audio.</p>',
+    view: { target: W(165, 150, 40), dist: 8.2 },
+    info: '<h2>Record player</h2><p>Type any song or artist in the search bar and pick a result: the platter stops, the old record lifts off, the new one (with its cover art on the label) slides on, the platter spins up, the arm cues itself and the music plays. You hear a real 30-second preview, and the arm tracks across the groove as it plays. 33 / 45 and the pitch slider change the speed and pitch of the music. Needs an internet connection for search and audio.</p>',
     hint: '/ search · space start · 3 / 4 speed · ↑↓ pitch · c cue' };
 })() });
 
@@ -3344,4 +3292,4 @@ addEventListener('storage', e => { if (e.key === 'iso-accent' && e.newValue) pic
 requestAnimationFrame(frame);
 </script>
 </body>
-</html>
+</html> 

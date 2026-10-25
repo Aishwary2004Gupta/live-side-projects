@@ -2658,62 +2658,126 @@ FIGS3D.push({ id: 'rp', name: 'Record player', mod: (() => {
   const C = [124, 124], PR = 92, PZ = BT + 2, PH = 9, RR = 78, RZ = PZ + PH, RT = RZ + 1.6;
   { const d = new THREE.Mesh(new THREE.CircleGeometry(97 * TS, 96), recessMat); d.rotation.x = -Math.PI / 2; d.position.copy(W(C[0], C[1], BT + 0.05)); g0.add(d); g0.add(loopL(circ(C[0], C[1], 97, BT + 0.07), lineMat)); }
   const pg = new THREE.Group(); pg.position.copy(W(C[0], C[1], 0)); pg.userData = { platter: true }; g0.add(pg);
-  cyl(PR, PH, 128, bodyMat, pg, W(0, 0, PZ + PH / 2));
+  const rimMat = new THREE.MeshStandardMaterial({ color: 0xc4c7c9, roughness: 0.3, metalness: 0.25 });
+  cyl(PR, PH, 128, rimMat, pg, W(0, 0, PZ + PH / 2));
   { const s = []; for (let k = 0; k < 90; k++) { const a = k / 90 * Math.PI * 2, c = Math.cos(a), sn = Math.sin(a), r = PR + 0.1;
       s.push([[r * c, r * sn, PZ + 2], [r * c, r * sn, PZ + (k % 2 ? 4.5 : 6.5)]]); } seg(s, pg); }
   cyl(2, 8, 16, bodyMat, pg, W(0, 0, RT + 4));
 
-  // ── the record: its own group so it can fly on and off the platter ──
-  const rec = new THREE.Group(); g0.add(rec);
-  { const m = new THREE.Mesh(new THREE.CylinderGeometry(RR * TS, RR * TS, 1.6 * TS, 128), recessMat); m.position.copy(W(0, 0, 0.8)); addOutline(m); twMeshes.push(m); rec.add(m); }
-  { const ring = (r, mat) => rec.add(loopL(circ(0, 0, r, 1.66, 128), mat));
-    ring(RR - 1.5, lineMat); for (let r = 72; r >= 32; r -= 3.2) ring(r, lineMat); [60.8, 48, 38.4].forEach(r => ring(r, majorMat)); }
-  const lab = document.createElement('canvas'); lab.width = lab.height = 512;
-  const labTex = new THREE.CanvasTexture(lab); labTex.colorSpace = THREE.SRGBColorSpace; labTex.anisotropy = 8;
-  { const m = new THREE.Mesh(new THREE.CircleGeometry(24 * TS, 64), new THREE.MeshBasicMaterial({ map: labTex, toneMapped: false, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -12 }));
-    m.rotation.x = -Math.PI / 2; m.position.copy(W(0, 0, 1.75)); rec.add(m); }
-  let track = null, artImg = null;
-  function wrap(x, text, maxW, maxLines) {
-    const words = text.split(/\s+/), lines = []; let cur = '';
-    for (const w of words) { const t = cur ? cur + ' ' + w : w; if (x.measureText(t).width > maxW && cur) { lines.push(cur); cur = w; } else cur = t; }
-    if (cur) lines.push(cur);
+  // ── two records (the one on the deck, the one coming out of its sleeve) and the sleeve ──
+  const wrap = (x, text, maxW, maxLines) => {
+    const words = text.split(/\s+/), lines = []; let cur_ = '';
+    for (const w of words) { const t = cur_ ? cur_ + ' ' + w : w; if (x.measureText(t).width > maxW && cur_) { lines.push(cur_); cur_ = w; } else cur_ = t; }
+    if (cur_) lines.push(cur_);
     if (lines.length > maxLines) { lines.length = maxLines; lines[maxLines - 1] = lines[maxLines - 1].replace(/.{0,2}$/, '…'); }
     return lines;
+  };
+  const vinylMat = new THREE.MeshStandardMaterial({ color: 0x131415, roughness: 0.3, metalness: 0.1, side: THREE.DoubleSide });
+  const sheenCv = document.createElement('canvas'); sheenCv.width = sheenCv.height = 512;
+  { const x = sheenCv.getContext('2d'); x.fillStyle = '#000'; x.fillRect(0, 0, 512, 512);
+    if (x.createConicGradient) { const g = x.createConicGradient(0.7, 256, 256);
+      [[0, '#000'], [0.04, '#000'], [0.095, '#8d9093'], [0.15, '#000'], [0.5, '#000'], [0.545, '#000'], [0.6, '#74777a'], [0.655, '#000'], [1, '#000']].forEach(([p, c]) => g.addColorStop(p, c));
+      x.fillStyle = g; x.fillRect(0, 0, 512, 512); } }
+  const sheenTex = new THREE.CanvasTexture(sheenCv); sheenTex.colorSpace = THREE.SRGBColorSpace;
+  const vinylGeo = new THREE.LatheGeometry([[2, 0], [RR - 1.2, 0], [RR - 0.3, 0.25], [RR, 0.8], [RR - 0.3, 1.45], [RR - 1.2, 1.7], [RR - 4.5, 1.7], [RR - 6, 1.5], [27.5, 1.5], [26.5, 1.66], [2, 1.66]]
+    .map(([r, y]) => new THREE.Vector2(r * TS, y * TS)), 160);
+  function makeRecord() {
+    const g = new THREE.Group(); g.userData = { rec: true }; g0.add(g);
+    g.add(new THREE.Mesh(vinylGeo, vinylMat));
+    { const ring = (r, mat, z = 1.56) => g.add(loopL(circ(0, 0, r, z, 128), mat));
+      for (let r = 70; r >= 31; r -= 2.6) ring(r, lineMat); [60.8, 48, 38.4].forEach(r => ring(r, majorMat));
+      ring(RR - 1.2, majorMat, 1.72); ring(RR - 4.5, lineMat, 1.72); ring(27.5, lineMat, 1.67); }
+    const sh = new THREE.Group(); g.add(sh);                                          // the highlight stays put while the disk turns
+    { const m = new THREE.Mesh(new THREE.RingGeometry(26 * TS, (RR - 5) * TS, 160), new THREE.MeshBasicMaterial({ map: sheenTex, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false, opacity: 0.85 }));
+      m.rotation.x = -Math.PI / 2; m.position.copy(W(0, 0, 1.6)); sh.add(m); }
+    const lab = document.createElement('canvas'); lab.width = lab.height = 512;
+    const tex = new THREE.CanvasTexture(lab); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 8;
+    { const m = new THREE.Mesh(new THREE.CircleGeometry(24 * TS, 64), new THREE.MeshBasicMaterial({ map: tex, toneMapped: false, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -12 }));
+      m.rotation.x = -Math.PI / 2; m.position.copy(W(0, 0, 1.74)); g.add(m); }
+    return { g, sh, lab, tex, track: null, img: null };
   }
-  function drawLabel() {
-    const x = lab.getContext('2d'), Cc = pal3(), A_ = '#' + accent.getHexString(), k = 512 / 48;
+  function drawLabel(r) {
+    const x = r.lab.getContext('2d'), Cc = pal3(), A_ = '#' + accent.getHexString(), k = 512 / 48;
     x.clearRect(0, 0, 512, 512); x.save(); x.beginPath(); x.arc(256, 256, 256, 0, Math.PI * 2); x.clip();
     x.fillStyle = Cc.glassOff; x.fillRect(0, 0, 512, 512);
     let art = false;
-    if (artImg) { try {
-      x.drawImage(artImg, 0, 0, 512, 512);
-      const d = x.getImageData(0, 0, 512, 512), p = d.data;                          // monochrome: no hue except the accent
+    if (r.img) { try {
+      x.drawImage(r.img, 0, 0, 512, 512);
+      const d = x.getImageData(0, 0, 512, 512), p = d.data;
       for (let i = 0; i < p.length; i += 4) { const l = p[i] * 0.3 + p[i + 1] * 0.59 + p[i + 2] * 0.11; p[i] = p[i + 1] = p[i + 2] = l * 0.85 + 20; }
       x.putImageData(d, 0, 0); art = true; } catch (e) { art = false; } }
     x.restore();
-    x.strokeStyle = Cc.line; x.lineWidth = 0.4 * k; [23, 17].forEach(r => { x.beginPath(); x.arc(256, 256, r * k, 0, Math.PI * 2); x.stroke(); });
+    x.strokeStyle = Cc.line; x.lineWidth = 0.4 * k; [23, 17].forEach(rad => { x.beginPath(); x.arc(256, 256, rad * k, 0, Math.PI * 2); x.stroke(); });
     x.textAlign = 'center';
     if (!art) {
       x.fillStyle = Cc.inkHi; x.font = `${3.4 * k}px ${MONO3}`;
-      if (track) {
-        const t = wrap(x, track.title.toUpperCase(), 30 * k, 2); t.forEach((l, i) => x.fillText(l, 256, 256 - 12 * k + i * 4.2 * k));
-        x.fillStyle = Cc.ink; x.font = `${2.6 * k}px ${MONO3}`; wrap(x, track.artist, 30 * k, 1).forEach(l => x.fillText(l, 256, 256 + 14 * k));
+      if (r.track) {
+        wrap(x, r.track.title.toUpperCase(), 30 * k, 2).forEach((l, i) => x.fillText(l, 256, 256 - 12 * k + i * 4.2 * k));
+        x.fillStyle = Cc.ink; x.font = `${2.6 * k}px ${MONO3}`; wrap(x, r.track.artist, 30 * k, 1).forEach(l => x.fillText(l, 256, 256 + 14 * k));
       } else {
         x.fillText('ISO-GLOW RECORDS', 256, 256 - 9 * k); x.fillStyle = Cc.ink; x.font = `${2.6 * k}px ${MONO3}`;
         x.fillText('SIDE A · 33⅓', 256, 256 + 10 * k); x.fillText('SEARCH A SONG', 256, 256 + 14 * k);
       }
     }
     x.fillStyle = A_; x.beginPath(); x.arc(256, 256, 3.4 * k, 0, Math.PI * 2); x.fill();
-    labTex.needsUpdate = true;
+    r.tex.needsUpdate = true;
   }
-  const S = W(C[0], C[1], RZ), AW = W(-300, 30, 70);                                // seated position and the "away" offset
-  const rs = { phase: 'seated', u: 0 };                                            // u: 0 seated … 1 away
+  const recs = [makeRecord(), makeRecord()]; let cur = recs[0], nxt = recs[1]; nxt.g.visible = false;
+  let track = null;
+
+  // the paper sleeve: two cards with the new record between them, open on the side facing the deck
+  const SLW = 164, sl = new THREE.Group(); sl.visible = false; g0.add(sl);
+  const slc = document.createElement('canvas'); slc.width = slc.height = 512;
+  const slTex = new THREE.CanvasTexture(slc); slTex.colorSpace = THREE.SRGBColorSpace; slTex.anisotropy = 8;
+  { const geo = () => new THREE.BoxGeometry(SLW * TS, 0.8 * TS, SLW * TS);
+    const back = new THREE.Mesh(geo(), bodyMat); back.position.y = 0.4 * TS; addOutline(back); twMeshes.push(back); sl.add(back);
+    const front = new THREE.Mesh(geo(), [bodyMat, bodyMat, new THREE.MeshBasicMaterial({ map: slTex, toneMapped: false }), bodyMat, bodyMat, bodyMat]);
+    front.position.y = 3.2 * TS; addOutline(front); twMeshes.push(front); sl.add(front); }
+  function drawSleeve() {
+    const x = slc.getContext('2d'), Cc = pal3(), A_ = '#' + accent.getHexString(), t = nxt.track;
+    x.fillStyle = Cc.glassOff; x.fillRect(0, 0, 512, 512);
+    if (nxt.img) { try { x.drawImage(nxt.img, 0, 0, 512, 512); } catch (e) {} }
+    else { x.strokeStyle = Cc.line; x.lineWidth = 2; for (let r = 40; r < 260; r += 28) { x.beginPath(); x.arc(256, 230, r, 0, Math.PI * 2); x.stroke(); } }
+    x.fillStyle = 'rgba(12,13,14,0.74)'; x.fillRect(0, 380, 512, 132);
+    x.fillStyle = A_; x.fillRect(0, 380, 512, 4);
+    x.textAlign = 'left'; x.fillStyle = '#f1f1ee'; x.font = `600 34px ${MONO3}`;
+    if (t) { wrap(x, t.title, 460, 2).forEach((l, i) => x.fillText(l, 26, 420 + i * 38));
+      x.fillStyle = '#b9bbb8'; x.font = `24px ${MONO3}`; wrap(x, t.artist, 460, 1).forEach(l => x.fillText(l, 26, 490)); }
+    slTex.needsUpdate = true;
+  }
+
+  // swap choreography: old disk lifts off and flies away · sleeve slides in with the new disk peeking out ·
+  // the new disk is pulled out · it is carried over and lowered onto the spindle · the sleeve slides away
+  const S = W(C[0], C[1], RZ), SLB = W(-130, 125, RZ + 5), PSI = -0.2, DIR = new THREE.Vector3(Math.cos(PSI), 0, -Math.sin(PSI));
+  const OLD_AWAY = W(-180, 330, 100), SL_AWAY = W(-420, 0, 30);
+  const T = { oldEnd: 1.0, slIn: [0.4, 1.3], pull: [1.6, 2.7], deck: [3.1, 4.4], slOut: [3.1, 4.1] }, T_END = 4.4;
+  const sw = { on: false, t: 0 };
   const ss = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
+  const sg = (t, a, b) => Math.min(1, Math.max(0, (t - a) / (b - a)));
+  const ang = (a, b) => { const d = a - b; return d - 2 * Math.PI * Math.round(d / (2 * Math.PI)); };
   let rotA = 0;
-  function placeRec() {
-    const hx = ss(0.22, 1, rs.u), h = ss(0, 0.28, rs.u) * 26 * TS;
-    rec.position.set(S.x + AW.x * hx, S.y + h + AW.y * hx, S.z + AW.z * hx);
-    rec.rotation.y = rotA + 0.6 * hx; rec.rotation.z = 0.22 * Math.sin(Math.PI * hx);
+  function sheen() { recs.forEach(r => { r.sh.rotation.y = -r.g.rotation.y; }); }
+  function layout() {
+    sheen();
+    if (!sw.on) { cur.g.visible = true; cur.g.scale.setScalar(1); cur.g.position.copy(S); cur.g.rotation.set(0, rotA, 0); nxt.g.visible = false; nxt.g.position.set(0, -99, 0); sl.visible = false; sheen(); return; }
+    const t = sw.t;
+    const uo = sg(t, 0, T.oldEnd), ho = ss(0.2, 1, uo);                              // old disk
+    cur.g.visible = uo < 1;
+    cur.g.position.set(S.x + OLD_AWAY.x * ho, S.y + ss(0, 0.28, uo) * 26 * TS + OLD_AWAY.y * ho, S.z + OLD_AWAY.z * ho);
+    cur.g.rotation.set(0, rotA + 0.6 * ho, 0.22 * Math.sin(Math.PI * ho)); cur.g.scale.setScalar(1 - 0.7 * ho);
+    const si = ss(0, 1, sg(t, T.slIn[0], T.slIn[1])), so = ss(0, 1, sg(t, T.slOut[0], T.slOut[1]));   // sleeve
+    sl.visible = t >= T.slIn[0] && so < 1;
+    sl.position.copy(SLB).addScaledVector(SL_AWAY, (1 - si) + so); sl.rotation.y = PSI;
+    nxt.g.visible = sl.visible || t >= T.deck[0]; nxt.g.scale.setScalar(1);          // new disk
+    if (t < T.deck[0]) {
+      const dx = 48 + 102 * ss(0, 1, sg(t, T.pull[0], T.pull[1]));
+      nxt.g.position.copy(sl.position).addScaledVector(DIR, dx * TS); nxt.g.position.y += TS; nxt.g.rotation.set(0, PSI, 0);
+    } else {
+      const v = sg(t, T.deck[0], T.deck[1]), hx = ss(0, 0.8, v), h = (v < 0.15 ? ss(0, 0.15, v) : 1 - ss(0.8, 1, v)) * 26 * TS;
+      const P1 = SLB.clone().addScaledVector(DIR, 150 * TS); P1.y += TS;
+      nxt.g.position.copy(P1).lerp(S, hx); nxt.g.position.y += h; nxt.g.rotation.set(0, rotA + ang(PSI, rotA) * (1 - hx), 0);
+    }
+    sheen();
   }
 
   // ── controls: start/stop, 33 / 45, pilot lamp, pitch slider ──
@@ -2724,6 +2788,10 @@ FIGS3D.push({ id: 'rp', name: 'Record player', mod: (() => {
   const pilotMat = new THREE.MeshStandardMaterial({ color: 0x2b2e30, emissive: accent.clone(), emissiveIntensity: 0, roughness: 0.4 });
   { const m = new THREE.Mesh(new THREE.SphereGeometry(3 * TS, 16, 12), pilotMat); m.position.copy(W(166, 250, BT + 8)); g0.add(m); }
   const pilotGlow = glowPoints([W(166, 250, BT + 9)], 0.26); g0.add(pilotGlow);
+  const KX = 268, KY = 240, knob = new THREE.Group(); knob.position.copy(W(KX, KY, 0)); knob.userData = { vol: true }; g0.add(knob);
+  cyl(12, 3, 48, bodyMat, knob, W(0, 0, BT + 1.5)); cyl(9, 10, 40, bodyMat, knob, W(0, 0, BT + 7));
+  seg([[[0, -3, BT + 12.1], [0, -8.5, BT + 12.1]]], knob, majorMat);
+  label('VOL', 14, 6, 4.4, onTop(KX, KY + 20, BT), g0);
   const SLX = 284, SLY0 = 136, SLY1 = 222;
   inset(SLX - 3, SLY0, BT, 6, SLY1 - SLY0, 3, g0);
   { const s = []; for (let k = 0; k <= 16; k++) { const y = SLY0 + 6 + k * (SLY1 - SLY0 - 12) / 16; s.push([[SLX - 9, y, BT + 0.08], [SLX - (k % 4 ? 6 : 4), y, BT + 0.08]]); } seg(s, g0); }
@@ -2740,6 +2808,8 @@ FIGS3D.push({ id: 'rp', name: 'Record player', mod: (() => {
   { const r = [P[0] + 128 * Math.cos(A_REST), P[1] + 128 * Math.sin(A_REST)]; rbox(r[0] - 4, r[1] - 4, BT, 8, 8, 17, 3, bodyMat, g0); rbox(r[0] - 6, r[1] - 2, BT + 17, 12, 4, 2, 1, bodyMat, g0); }
   const arm = new THREE.Group(); arm.position.copy(W(P[0], P[1], AZ)); arm.userData = { arm: true }; g0.add(arm);
   const lift = new THREE.Group(); arm.add(lift);
+  { const m = new THREE.Mesh(new THREE.BoxGeometry(LS * TS, 14 * TS, 16 * TS), new THREE.MeshBasicMaterial({ visible: false }));
+    m.position.copy(W(LS / 2, 0, -2)); m.userData = { arm: true }; arm.add(m); }
   cyl(5, 8, 24, bodyMat, lift, W(0, 0, 0));
   cyl(1.8, 150, 16, bodyMat, lift, W(61, 0, 0), 'x');
   cyl(6.5, 12, 32, bodyMat, lift, W(-26, 0, 0), 'x');
@@ -2753,33 +2823,37 @@ FIGS3D.push({ id: 'rp', name: 'Record player', mod: (() => {
   // ── audio: a real 30-second preview; its speed (and pitch) follows the platter ──
   const au = new Audio(); au.preload = 'auto';
   au.preservesPitch = au.mozPreservesPitch = au.webkitPreservesPitch = false;
-  let blocked = false, wantPlay = false, audioErr = false;
+  let blocked = false, wantPlay = false, audioErr = false, seekTo = null, vol = 0.8, fade = 0;
   au.addEventListener('error', () => { audioErr = true; });
   const unlock = () => { if (blocked && wantPlay) au.play().then(() => { blocked = false; }).catch(() => {}); };
   addEventListener('pointerdown', unlock);
+  au.addEventListener('loadedmetadata', () => { if (seekTo != null && isFinite(au.duration)) { try { au.currentTime = seekTo * au.duration; } catch (e) {} seekTo = null; } });
   au.addEventListener('ended', () => { if (st.mode === 'play') { st.mode = 'return'; st.on = false; render(); } });
 
   // ── state and behaviour ──
   const R0 = 75, R1 = 33, FAKE = 30;                                               // lead-in / run-out radii; length of the blank record
   const st = { on: false, speed: 33.333, pitch: 0, rpm: 0, mode: 'rest', a: A_REST, lift: 0, r: R0 };
+  let drag = null, scratchT = 0;
   let vt = 0, pending = null, status = '';
   const tipAt = a => [P[0] + LS * Math.cos(a), P[1] + LS * Math.sin(a)];
   const radAt = a => { const t = tipAt(a); return Math.hypot(t[0] - C[0], t[1] - C[1]); };
   const angleFor = r => { let lo = A_REST, hi = 155 * Math.PI / 180; for (let i = 0; i < 30; i++) { const m = (lo + hi) / 2; if (radAt(m) > r) lo = m; else hi = m; } return (lo + hi) / 2; };
   const target = () => st.on ? st.speed * (1 + st.pitch / 100) : 0;
-  const playing = () => st.mode === 'play' && st.lift < 0.3 && st.rpm > target() * 0.9 && target() > 0;
+  const needle = () => st.mode === 'play' && st.lift < 0.3;
+  const playing = () => needle() && target() > 0 && st.rpm > (scratchT > 0 ? 1.5 : st.speed * 0.4);
   const dur = () => track && isFinite(au.duration) && au.duration > 1 ? au.duration : FAKE;
   const pos = () => track ? au.currentTime : vt;
   const fmt = s => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
   const clip = (s, n) => s.length > n ? s.slice(0, n - 1) + '…' : s;
-  const busy = () => rs.phase !== 'seated' || !!pending;
+  const busy = () => sw.on || !!pending;
   function readout() { if (active !== ID) return;
     const el = document.getElementById('read'), nm = track ? clip(`${track.title} — ${track.artist}`, 44) : 'blank record';
     if (audioErr && track) el.textContent = 'could not load this preview · search another song';
     else if (blocked && wantPlay) el.textContent = 'click anywhere to allow audio';
-    else if (busy()) el.textContent = pending ? `pressing · ${clip(pending.title, 40)}` : 'changing record';
+    else if (busy()) el.textContent = pending ? (sw.on ? `swapping disks · ${clip(pending.title, 36)}` : `stopping the deck · ${clip(pending.title, 30)}`) : 'changing record';
     else if (!st.on && st.rpm < 0.5) el.textContent = `stopped · ${nm}`;
-    else el.textContent = `${playing() ? 'playing' : st.mode === 'cue' ? 'cueing' : st.on ? 'spinning' : 'stopping'} · ${nm} · ${fmt(pos())} / ${fmt(dur())}`; }
+    else el.textContent = `${st.mode === 'held' ? 'arm lifted' : playing() ? 'playing' : st.mode === 'cue' ? 'cueing' : st.on ? 'spinning' : 'stopping'} · ${nm} · ${fmt(pos())} / ${fmt(dur())}${st.pitch ? ` · ${st.pitch > 0 ? '+' : ''}${st.pitch.toFixed(1)}%` : ''}`;
+    updateNow(); }
   function render() {
     [[bStart, st.on], [b33, st.speed < 40], [b45, st.speed > 40]].forEach(([b, on]) => { b.mat.userData.base = on ? 0.55 : 0; if (!twFlashes.some(f => f.mats.includes(b.mat))) b.mat.emissiveIntensity = b.mat.userData.base; });
     readout();
@@ -2790,54 +2864,124 @@ FIGS3D.push({ id: 'rp', name: 'Record player', mod: (() => {
     if (!st.on) beginCue(); else { st.on = false; if (st.mode !== 'rest') st.mode = 'return'; }
     render(); return true; }
   function setSpeed(s) { flash(s > 40 ? b45.g : b33.g, 120); SFX.button(); st.speed = s; render(); return true; }
-  function setPitch(p) { st.pitch = Math.max(-8, Math.min(8, Math.round(p))); SFX.detent(); render(); return true; }
+  function setPitch(p, fine) { const o = Math.round(st.pitch); st.pitch = Math.max(-8, Math.min(8, fine ? p : Math.round(p))); if (!fine || Math.round(st.pitch) !== o) SFX.detent(); render(); return true; }
 
   // pick a song: stop the deck, lift the old record off, slide the new one on, then cue and play
-  function pick(t) {
-    pending = t; status = ''; artImg = null; audioErr = false;
+  function loadTrack(t) {
+    if (sw.on) return;
+    pending = t; status = ''; audioErr = false; nxt.track = t; nxt.img = null; drawLabel(nxt); drawSleeve();
     if (st.on || st.mode !== 'rest') { st.on = false; if (st.mode !== 'rest') st.mode = 'return'; }
     au.src = t.src; au.muted = true;                                               // prime audio inside the user's gesture
     au.play().then(() => { if (!wantPlay) { au.pause(); try { au.currentTime = 0; } catch (e) {} } au.muted = false; }).catch(() => { au.muted = false; });
-    if (t.art) { const im = new Image(); im.crossOrigin = 'anonymous'; im.onload = () => { if (pending === t || track === t) { artImg = im; drawLabel(); } }; im.src = t.art; }
+    if (t.art) { const im = new Image(); im.crossOrigin = 'anonymous'; im.onload = () => {
+      if (nxt.track === t) { nxt.img = im; drawLabel(nxt); drawSleeve(); } else if (cur.track === t) { cur.img = im; drawLabel(cur); } }; im.src = t.art; }
     SFX.button(); render();
   }
 
   function key(e) {
-    if (e.key === '/') { UI.focus(); return true; }
+    if (e.key === 'h' || e.key === 'H') { setFocus(!document.body.classList.contains('rp-focus')); return true; }
+    if (e.key === '/') { setFocus(false); UI.focus(); return true; }
     if (e.key === ' ') { if (!e.repeat) startStop(); return true; }
     if (e.key === '3') return setSpeed(33.333); if (e.key === '4') return setSpeed(45);
     if (e.key === 'c' || e.key === 'C') { if (!e.repeat) cue(); return true; }
     if (e.key === 'ArrowUp') return setPitch(st.pitch + 1); if (e.key === 'ArrowDown') return setPitch(st.pitch - 1); if (e.key === '0') return setPitch(0);
     return false;
   }
-  function click(hit) {
-    let o = hit?.object; while (o && !o.userData.ttBtn && !o.userData.platter && !o.userData.arm && !o.userData.pitch) o = o.parent; if (!o) return;
-    const u = o.userData;
-    if (u.ttBtn === 'start' || u.platter) startStop(); else if (u.ttBtn === '33') setSpeed(33.333); else if (u.ttBtn === '45') setSpeed(45); else if (u.arm) cue();
-    else if (u.pitch) { const y = hit.point.z / TS; setPitch((y - (SLY0 + SLY1) / 2) / ((SLY1 - SLY0) / 2 - 6) * 8); }
+  const vis = o => { for (; o; o = o.parent) if (!o.visible) return false; return true; };
+  const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0), ptv = new THREE.Vector3();
+  const aim = e => { ndc.set(e.clientX / innerWidth * 2 - 1, -(e.clientY / innerHeight) * 2 + 1); ray.setFromCamera(ndc, camera); };
+  const onPlane = (e, z) => { aim(e); plane.constant = -z * TS; return ray.ray.intersectPlane(plane, ptv) ? ptv : null; };   // point on a horizontal plane z (model units) above the base
+  function grab(e) {                                                                // what is under the pointer?
+    aim(e);
+    for (const h of ray.intersectObject(g0, true)) {
+      if (!h.object.isMesh || h.object.isLineSegments2 || h.object.userData.outline || !vis(h.object)) continue;
+      for (let o = h.object; o && o !== g0; o = o.parent) { const u = o.userData;
+        if (u.pitch) return 'pitch'; if (u.vol) return 'vol'; if (u.arm) return 'arm'; if (u.ttBtn) return 'btn:' + u.ttBtn; if (u.rec || u.platter) return 'spin'; }
+      return null;
+    }
+    return null;
   }
+  function click(hit, e) {
+    const k = e ? grab(e) : null; if (!k) return;
+    if (k === 'btn:start' || k === 'spin') startStop(); else if (k === 'btn:33') setSpeed(33.333); else if (k === 'btn:45') setSpeed(45);
+  }
+  const SLMID = (SLY0 + SLY1) / 2, SLHALF = (SLY1 - SLY0) / 2 - 6, canvasEl = renderer.domElement;
+  const pitchAt = e => { const p = onPlane(e, BT + 1); return p ? (p.z / TS - SLMID) / SLHALF * 8 : null; };
+  const armAt = e => { const p = onPlane(e, AZ); return p ? Math.max(A_REST, Math.min(155 * Math.PI / 180, Math.atan2(p.z - P[1] * TS, p.x - P[0] * TS))) : null; };
+  const spinAt = e => { const p = onPlane(e, RZ + 1.7); if (!p) return null; const dx = p.x - S.x, dz = p.z - S.z; return Math.hypot(dx, dz) < 8 * TS ? null : Math.atan2(dz, dx); };
+  canvasEl.addEventListener('pointerdown', e => {
+    if (active !== ID || e.button !== 0) return;
+    const k = grab(e); if (!k || k.startsWith('btn')) return;
+    if ((k === 'spin' || k === 'arm') && busy()) return;
+    controls.enabled = false;
+    drag = { kind: k, x: e.clientX, y: e.clientY, moved: false, dAng: 0 };
+    if (k === 'pitch') { const p = pitchAt(e); drag.off = p == null ? 0 : p - st.pitch; }
+    else if (k === 'vol') drag.v0 = vol;
+    else if (k === 'spin') { drag.a = spinAt(e); drag.moved = true; canvasEl.style.cursor = 'grabbing'; }
+    else if (k === 'arm') { drag.prev = st.mode; }
+  });
+  canvasEl.addEventListener('pointermove', e => {
+    if (active !== ID) return;
+    if (!drag) { const k = grab(e); canvasEl.style.cursor = !k ? '' : k === 'pitch' || k === 'vol' ? 'ns-resize' : k === 'spin' || k === 'arm' ? (busy() ? '' : 'grab') : 'pointer'; return; }
+    if (Math.hypot(e.clientX - drag.x, e.clientY - drag.y) > 4) drag.moved = true;
+    if (drag.kind === 'pitch') { const p = pitchAt(e); if (p != null) setPitch(p - drag.off, true); }
+    else if (drag.kind === 'vol') { vol = Math.max(0, Math.min(1, drag.v0 + (drag.y - e.clientY) / 140)); }
+    else if (drag.kind === 'spin') { const a = spinAt(e); if (a != null && drag.a != null) { const d = -((a - drag.a) - 2 * Math.PI * Math.round((a - drag.a) / (2 * Math.PI))); rotA += d; drag.dAng += d; } drag.a = a; }
+    else if (drag.kind === 'arm' && drag.moved) { const a = armAt(e); if (a != null) { if (st.mode !== 'held') { st.mode = 'held'; canvasEl.style.cursor = 'grabbing'; } st.a = a; } }
+  });
+  function release() {
+    controls.enabled = true; canvasEl.style.cursor = '';
+    const d = drag; drag = null; if (!d) return;
+    if (d.kind === 'arm') {
+      if (!d.moved) { st.mode = d.prev; cue(); return; }                              // a plain click on the arm cues / lifts it
+      if (st.mode !== 'held') return;
+      const r = radAt(st.a);
+      if (r <= RR + 3 && r >= R1 - 4) {                                              // dropped on the record: play from there
+        const p = Math.max(0, Math.min(1, (R0 - r) / (R0 - R1)));
+        if (track) { if (isFinite(au.duration)) { try { au.currentTime = p * au.duration; } catch (e) {} } else seekTo = p; } vt = p * FAKE;
+        st.on = true; st.mode = 'play'; SFX.thunk();
+      } else st.mode = 'return';
+      render();
+    }
+  }
+  addEventListener('pointerup', release); addEventListener('pointercancel', release);
 
   function tick(now, dt) {
     UI.show(active === ID);
     // record swap sequence
-    if (pending && rs.phase === 'seated' && st.mode === 'rest' && st.rpm < 1.5) { rs.phase = 'out'; rs.u = 0; tap(500, 0.25, 2); }
-    if (rs.phase === 'out') { rs.u = Math.min(1, rs.u + dt / 0.9); if (rs.u >= 1) { track = pending; drawLabel(); rs.phase = 'in'; } }
-    else if (rs.phase === 'in') { rs.u = Math.max(0, rs.u - dt / 1.25); if (rs.u <= 0) { rs.phase = 'seated'; pending = null; SFX.thunk(); beginCue(); render(); } }
+    if (pending && !sw.on && st.mode === 'rest' && st.rpm < 1.5) { sw.on = true; sw.t = 0; tap(500, 0.25, 2); }
+    if (sw.on) {
+      const t0 = sw.t; sw.t += dt;
+      [T.slIn[0], T.pull[0], T.deck[0]].forEach(m => { if (t0 < m && sw.t >= m) tap(m === T.pull[0] ? 700 : 420, 0.22, 2); });
+      if (sw.t >= T_END) { [cur, nxt] = [nxt, cur]; nxt.g.visible = false; track = cur.track; pending = null; sw.on = false; layout(); SFX.thunk(); beginCue(); render(); }
+    }
     // platter
-    const tg = target(), k = pending ? 3.6 : (tg > st.rpm ? 2.4 : 1.1);
-    st.rpm += (tg - st.rpm) * Math.min(1, dt * k); if (Math.abs(tg - st.rpm) < 0.01) st.rpm = tg;
-    rotA -= st.rpm / 60 * Math.PI * 2 * dt; pg.rotation.y = rotA; placeRec();
+    if (drag && drag.kind === 'spin') {                                               // held by hand: the platter follows the pointer
+      const w = drag.dAng / Math.max(dt, 1e-3); drag.dAng = 0;
+      st.rpm += (Math.max(-240, Math.min(240, -w * 60 / (2 * Math.PI))) - st.rpm) * Math.min(1, dt * 18); scratchT = 1.5;
+    } else {
+      scratchT = Math.max(0, scratchT - dt);
+      const tg = target(), k = pending ? 3.6 : (tg > st.rpm ? 2.4 : 1.1);              // let go: it keeps its momentum, then settles
+      st.rpm += (tg - st.rpm) * Math.min(1, dt * k); if (Math.abs(tg - st.rpm) < 0.01) st.rpm = tg;
+      rotA -= st.rpm / 60 * Math.PI * 2 * dt;
+    }
+    pg.rotation.y = rotA; layout();
     // arm: swing toward its goal, lower, then track the groove inward with the music
-    const goalA = st.mode === 'rest' || st.mode === 'return' ? A_REST : angleFor(st.r);
-    const da = goalA - st.a, liftGoal = st.mode === 'play' || (st.mode === 'rest' && Math.abs(da) < 0.002) ? 0 : 6;
-    if (st.mode === 'cue' && Math.abs(da) < 0.002 && st.lift > 5.9) st.mode = 'play';
-    if (st.mode === 'return' && Math.abs(da) < 0.002) st.mode = 'rest';
-    const canSwing = st.mode === 'play' || st.lift > 5.9;
-    if (canSwing) st.a += Math.sign(da) * Math.min(Math.abs(da), (st.mode === 'play' ? 3 : 0.9) * dt);
+    let liftGoal = 6;
+    if (st.mode !== 'held') {
+      const goalA = st.mode === 'rest' || st.mode === 'return' ? A_REST : angleFor(st.r);
+      const da = goalA - st.a; liftGoal = st.mode === 'play' || (st.mode === 'rest' && Math.abs(da) < 0.002) ? 0 : 6;
+      if (st.mode === 'cue' && Math.abs(da) < 0.002 && st.lift > 5.9) st.mode = 'play';
+      if (st.mode === 'return' && Math.abs(da) < 0.002) st.mode = 'rest';
+      const canSwing = st.mode === 'play' || st.lift > 5.9;
+      if (canSwing) st.a += Math.sign(da) * Math.min(Math.abs(da), (st.mode === 'play' ? 3 : 0.9) * dt);
+    }
     st.lift += Math.sign(liftGoal - st.lift) * Math.min(Math.abs(liftGoal - st.lift), (liftGoal ? 14 : 7) * dt);
     const p = playing();
-    if (p) {
-      if (!track) vt += dt * st.rpm / 33.333;
+    if (needle() && scratchT > 0 && st.rpm < -1.5) {                                  // spun backwards by hand: wind the position back
+      if (track) { try { au.currentTime = Math.max(0, au.currentTime + dt * st.rpm / 33.333); } catch (e) {} } else vt = Math.max(0, vt + dt * st.rpm / 33.333);
+    } else if (p && !track) vt += dt * st.rpm / 33.333;
+    if (st.mode === 'play') {
       st.r = R0 - (R0 - R1) * Math.min(1, pos() / dur());
       if (!track && vt >= FAKE) { st.mode = 'return'; st.on = false; render(); }
     }
@@ -2846,12 +2990,14 @@ FIGS3D.push({ id: 'rp', name: 'Record player', mod: (() => {
     wantPlay = p && !!track;
     if (wantPlay) {
       if (au.paused && !blocked) au.play().catch(() => { blocked = true; });
-      const rate = Math.min(3, Math.max(0.25, st.rpm / 33.333)); if (Math.abs(au.playbackRate - rate) > 0.004) au.playbackRate = rate;
-      au.volume = Math.min(1, au.volume + dt * 4);
-    } else if (!au.paused) { au.volume = Math.max(0, au.volume - dt * 8); if (au.volume < 0.03) au.pause(); }
+      const rate = Math.min(4, Math.max(0.1, st.rpm / 33.333)); if (Math.abs(au.playbackRate - rate) > 0.004) au.playbackRate = rate;
+      fade = Math.min(1, fade + dt * 4);
+    } else if (!au.paused) { fade = Math.max(0, fade - dt * 8); if (fade < 0.03) au.pause(); }
+    au.volume = Math.max(0, Math.min(1, fade * vol));
+    knob.rotation.y = -(vol - 0.5) * 270 * Math.PI / 180;
     tipGlow.material.uniforms.intensity.value = p ? 0.5 : 0;
     const spin = Math.min(1, st.rpm / 33.333); pilotMat.emissiveIntensity = st.on ? 1.4 : 0.6 * spin; pilotGlow.material.uniforms.intensity.value = st.on ? 0.8 : 0.4 * spin;
-    slider.position.z = st.pitch / 8 * ((SLY1 - SLY0) / 2 - 6) * TS;
+    slider.position.z = st.pitch / 8 * SLHALF * TS;
     haze.uniforms.opacity.value += ((p ? 0.12 : 0) - haze.uniforms.opacity.value) * Math.min(1, dt * 3);
     if ((tick.n = (tick.n || 0) + 1) % 10 === 0) readout();
     tickFlashes(now);
@@ -2876,11 +3022,34 @@ FIGS3D.push({ id: 'rp', name: 'Record player', mod: (() => {
 #rp-ui .it b { display:block; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 #rp-ui .it span { display:block; color:var(--dim); font-size:11px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 #rp-ui .it div { min-width:0; }
-#rp-ui .msg { padding:11px 12px; color:var(--dim); }`;
+#rp-ui .msg { padding:11px 12px; color:var(--dim); }
+body.rp-focus .ui, body.rp-focus #rp-ui { display:none !important; }
+#rp-eye { position:fixed; z-index:7; left:50%; bottom:14px; transform:translateX(-50%); display:flex; align-items:center; gap:7px; height:30px; padding:0 12px; border:1px solid var(--line); border-radius:15px; background:var(--panel); color:var(--dim); font:11px ui-monospace,"SF Mono",Menlo,Consolas,monospace; cursor:pointer; backdrop-filter:blur(8px); }
+#rp-eye:hover { color:var(--ink); border-color:var(--accent); }
+#rp-eye[hidden], #rp-now[hidden] { display:none; }
+#rp-eye svg { width:14px; height:14px; stroke:currentColor; fill:none; stroke-width:1.5; stroke-linecap:round; stroke-linejoin:round; }
+body.rp-focus #rp-eye { opacity:.35; } body.rp-focus #rp-eye:hover { opacity:1; }
+#rp-now { position:fixed; z-index:6; left:50%; bottom:58px; transform:translateX(-50%); width:min(340px, calc(100vw - 40px)); text-align:center; font:12px/1.5 ui-monospace,"SF Mono",Menlo,Consolas,monospace; color:var(--ink); pointer-events:none; display:none; }
+body.rp-focus #rp-now { display:block; }
+#rp-now b { display:block; font-size:14px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+#rp-now span { display:block; color:var(--dim); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+#rp-now i { display:block; height:2px; margin:9px auto 0; background:var(--line); border-radius:1px; overflow:hidden; }
+#rp-now i u { display:block; height:100%; width:0; background:var(--accent); text-decoration:none; }`;
     document.head.appendChild(css);
     const root = document.createElement('div'); root.id = 'rp-ui';
     root.innerHTML = '<label class="bar"><svg viewBox="0 0 16 16"><circle cx="7" cy="7" r="5"/><path d="M11 11l3.5 3.5"/></svg><input type="text" placeholder="Type anything to press a record" autocomplete="off" spellcheck="false" aria-label="Search for a song or artist"><kbd>/</kbd></label><div class="list" hidden></div>';
     document.body.appendChild(root);
+    const eye = document.createElement('button'); eye.id = 'rp-eye'; eye.type = 'button'; eye.title = 'Hide or show all controls (H)';
+    const now = document.createElement('div'); now.id = 'rp-now'; now.innerHTML = '<b></b><span></span><i><u></u></i>';
+    document.body.append(eye, now);
+    const EYE_OFF = '<svg viewBox="0 0 16 16"><path d="M1 8s2.4-4.5 7-4.5S15 8 15 8s-2.4 4.5-7 4.5S1 8 1 8z"/><circle cx="8" cy="8" r="2"/></svg>Hide controls';
+    const EYE_ON = '<svg viewBox="0 0 16 16"><path d="M2 2l12 12M6.3 4c.5-.1 1.1-.2 1.7-.2 4.600 0 7 4.200 7 4.200s-.800 1.500-2.300 2.700M3.600 5.600C2.200 6.800 1 8 1 8s2.400 4.500 7 4.500c1 0 1.900-.2 2.700-.6"/></svg>Show controls';
+    eye.innerHTML = EYE_OFF;
+    eye.addEventListener('click', () => { setFocus(!document.body.classList.contains('rp-focus')); eye.blur(); });
+    function setFocus(on) { document.body.classList.toggle('rp-focus', on); eye.innerHTML = on ? EYE_ON : EYE_OFF; if (on) input.blur(); }
+    window.__rpSetFocus = setFocus;
+    window.__rpNow = (t, a, p) => { const b = now.querySelector('b'), sp = now.querySelector('span'), u = now.querySelector('u'); b.textContent = t; sp.textContent = a; u.style.width = (p * 100).toFixed(1) + '%'; };
+    window.__rpEye = on => { eye.hidden = !on; if (!on) now.hidden = true; else now.hidden = false; };
     const input = root.querySelector('input'), list = root.querySelector('.list');
     let results = [], sel = 0, seq = 0, timer = 0;
     const msg = t => { list.innerHTML = ''; const d = document.createElement('div'); d.className = 'msg'; d.textContent = t; list.appendChild(d); list.hidden = false; };
@@ -2929,7 +3098,7 @@ FIGS3D.push({ id: 'rp', name: 'Record player', mod: (() => {
       try { const r = await query(q); if (my !== seq) return []; results = r; sel = 0; if (r.length) paint(); else msg('no records found for “' + q + '”'); return r; }
       catch (e) { if (my === seq) msg('can’t reach the music catalog — check your connection'); return []; }
     }
-    function choose(i) { const t = results[i]; if (!t) return; close(); input.value = ''; input.placeholder = `Now pressing · ${clip(t.title, 24)} — ${clip(t.artist, 18)}`; input.blur(); pick(t); }
+    function choose(i) { const t = results[i]; if (!t || sw.on) return; close(); input.value = ''; input.placeholder = `Now pressing · ${clip(t.title, 24)} — ${clip(t.artist, 18)}`; input.blur(); loadTrack(t); }
     input.addEventListener('input', () => { clearTimeout(timer); const q = input.value.trim(); if (!q) { seq++; close(); return; } timer = setTimeout(() => search(q), 280); });
     input.addEventListener('keydown', async e => {
       e.stopPropagation();
@@ -2942,18 +3111,20 @@ FIGS3D.push({ id: 'rp', name: 'Record player', mod: (() => {
     input.addEventListener('keyup', e => e.stopPropagation());
     input.addEventListener('blur', () => setTimeout(() => { if (document.activeElement !== input) list.hidden = true; }, 120));
     input.addEventListener('focus', () => { if (results.length) paint(); });
-    return { focus: () => { input.focus(); input.select(); }, show: on => { root.hidden = !on; }, root };
+    return { focus: () => { input.focus(); input.select(); }, show: on => { root.hidden = !on; window.__rpEye(on); }, root };
   })();
 
-  themeHooks.push(t => { pilotMat.color.set(t === 'light' ? 0xc3c6c8 : 0x2b2e30); drawLabel(); render(); });
-  drawLabel(); placeRec(); render();
+  function setFocus(on) { if (window.__rpSetFocus) window.__rpSetFocus(on); }
+  function updateNow() { if (!window.__rpNow) return; window.__rpNow(track ? track.title : 'Blank record', track ? `${track.artist} · ${fmt(pos())} / ${fmt(dur())}` : 'press / to search for a song', Math.min(1, pos() / dur())); }
+  themeHooks.push(t => { pilotMat.color.set(t === 'light' ? 0xc3c6c8 : 0x2b2e30); rimMat.color.set(t === 'light' ? 0x9fa4a7 : 0xc4c7c9); drawLabel(cur); drawLabel(nxt); drawSleeve(); render(); });
+  drawLabel(cur); drawLabel(nxt); drawSleeve(); layout(); render();
   return { group: g0, key, click, tick, readout,
     stop: () => { st.on = false; if (st.mode !== 'rest') st.mode = 'return'; render(); },
     demo: () => { if (!busy() && !st.on) startStop(); },
-    panel: [['Search a song', '/', () => UI.focus()], ['Start / stop', 'space', startStop], ['33⅓ rpm', '3', () => setSpeed(33.333)], ['45 rpm', '4', () => setSpeed(45)], ['Cue arm', 'C', cue], ['Pitch +', '↑', () => setPitch(st.pitch + 1)], ['Pitch −', '↓', () => setPitch(st.pitch - 1)]],
-    view: { target: W(165, 150, 40), dist: 8.2 },
-    info: '<h2>Record player</h2><p>Type any song or artist in the search bar and pick a result: the platter stops, the old record lifts off, the new one (with its cover art on the label) slides on, the platter spins up, the arm cues itself and the music plays. You hear a real 30-second preview, and the arm tracks across the groove as it plays. 33 / 45 and the pitch slider change the speed and pitch of the music. Needs an internet connection for search and audio.</p>',
-    hint: '/ search · space start · 3 / 4 speed · ↑↓ pitch · c cue' };
+    panel: [['Hide controls', 'H', () => setFocus(true)], ['Search a song', '/', () => UI.focus()], ['Start / stop', 'space', startStop], ['33⅓ rpm', '3', () => setSpeed(33.333)], ['45 rpm', '4', () => setSpeed(45)], ['Cue arm', 'C', cue], ['Pitch +', '↑', () => setPitch(st.pitch + 1)], ['Pitch −', '↓', () => setPitch(st.pitch - 1)]],
+    view: { target: W(75, 150, 30), dist: 8.4 },
+    info: '<h2>Record player</h2><p>Type any song or artist in the search bar and pick a result: the platter stops, the old record lifts off and flies away, a sleeve with the album cover slides in, the new record is pulled out of it, carried over and lowered onto the spindle, then the platter spins up, the arm cues itself and the music plays. You hear a real 30-second preview, and the arm tracks across the groove as it plays. Drag the record to spin or scratch it, drag the pitch slider or the volume knob, or drag the tonearm and drop it anywhere on the record to play from there. 33 / 45 change the speed. H hides every control and leaves just the player and the music. Needs an internet connection for search and audio.</p>',
+    hint: '/ search · space start · drag record, arm, pitch, knob · H hide controls' };
 })() });
 
 
@@ -3292,4 +3463,4 @@ addEventListener('storage', e => { if (e.key === 'iso-accent' && e.newValue) pic
 requestAnimationFrame(frame);
 </script>
 </body>
-</html> 
+</html>0

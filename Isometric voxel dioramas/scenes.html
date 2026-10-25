@@ -21,10 +21,10 @@ h1{margin:0;font-size:clamp(34px,5vw,58px);line-height:1.02;letter-spacing:-.06e
 #showcase{display:grid;grid-template-columns:minmax(0,1.55fr) minmax(270px,.72fr);gap:16px;align-items:stretch}
 .art-panel,.info-panel,.gallery{border:1px solid var(--line);background:var(--paper);border-radius:18px;box-shadow:var(--shadow)}
 .art-panel{overflow:hidden;min-width:0;padding:20px 20px 15px;background:linear-gradient(145deg,#fff,#f7f7f2)}
-#stage{position:relative;width:100%;height:430px;overflow:hidden;border-radius:13px;background:linear-gradient(#e9f0f0,#fbfaf4)}
-#scene3d{display:block;width:100%;height:100%;image-rendering:auto;touch-action:none;outline:none;cursor:grab}
-#scene3d:active{cursor:grabbing}
-#stage-help{position:absolute;left:12px;bottom:11px;border:1px solid #ffffff70;border-radius:999px;padding:5px 9px;background:#172120a8;color:#f2f2e9;font-size:10px;letter-spacing:.02em;pointer-events:none;backdrop-filter:blur(8px)}
+#stage{position:relative;width:100%;height:430px;overflow:hidden;border-radius:13px;background:#fff}
+#scene-video{display:block;width:100%;height:100%;object-fit:contain;background:#fff;pointer-events:none}
+#scene3d{display:none}
+#stage-help{display:none}
 .webgl-error{position:absolute;inset:0;display:grid;place-items:center;padding:28px;color:#53615b;text-align:center}
 #c{display:none}
 canvas{max-width:100%;height:auto;display:block;image-rendering:pixelated;image-rendering:crisp-edges}
@@ -50,27 +50,29 @@ canvas{max-width:100%;height:auto;display:block;image-rendering:pixelated;image-
 .filter:hover{border-color:#b9cabc;color:var(--accent)}
 .filter.on{border-color:var(--accent);background:var(--accent);color:#fff}
 #cards{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
-.scene-card{position:relative;display:flex;min-width:0;align-items:center;gap:12px;text-align:left;border:1px solid var(--line);border-radius:12px;padding:12px;background:#fff;transition:transform .18s,border-color .18s,box-shadow .18s}
+.scene-card{position:relative;display:flex;min-width:0;flex-direction:column;align-items:stretch;gap:9px;text-align:left;border:1px solid var(--line);border-radius:12px;padding:10px;background:#fff;transition:transform .18s,border-color .18s,box-shadow .18s}
 .scene-card:hover{transform:translateY(-2px);border-color:#c8d7ca;box-shadow:0 7px 18px #263a2810}
 .scene-card.on{border-color:#73907a;background:#f5f8f4;box-shadow:inset 0 0 0 1px #73907a44}
-.card-icon{display:grid;flex:0 0 42px;place-items:center;width:42px;height:42px;border-radius:11px;background:#f3f4ef;font-size:21px}
+.card-icon{display:none}
+.scene-preview{display:grid;width:100%;aspect-ratio:4/3;place-items:center;overflow:hidden;border-radius:9px;background:#fff}
+.scene-preview-video{display:block;width:100%;height:100%;object-fit:contain;background:#fff;pointer-events:none}
 .card-text{min-width:0}
 .card-title{display:block;overflow:hidden;color:#30332e;font-size:13px;font-weight:740;text-overflow:ellipsis;white-space:nowrap}
 .card-kind{display:block;margin-top:2px;color:#82857d;font-size:11px}
 .card-index{position:absolute;top:7px;right:9px;color:#b1b4ac;font-size:9px;font-weight:750;letter-spacing:.06em}
 .scene-card[hidden]{display:none}
 @media(max-width:900px){#showcase{grid-template-columns:minmax(0,1fr)}.info-panel{min-height:230px}.info-bottom{padding-top:18px}#cards{grid-template-columns:repeat(3,minmax(0,1fr))}}
-@media(max-width:620px){#site{width:min(100% - 28px,1320px);padding-top:17px}.topbar{padding-bottom:16px}.edition{font-size:10px;padding:6px 9px}.intro{padding:30px 0 20px}.intro-copy{font-size:14px}.art-panel{padding:10px 10px 12px}.art-caption{font-size:10px}.info-panel{padding:20px}.gallery{padding:17px 13px}.gallery-head{align-items:start}.gallery-head h2{font-size:18px}.gallery-head p{font-size:11px}#cards{grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}.scene-card{gap:9px;padding:10px 8px}.card-icon{flex-basis:35px;width:35px;height:35px;font-size:18px}.card-title{font-size:12px}.card-kind{font-size:10px}#stage{height:320px}}
+@media(max-width:620px){#site{width:min(100% - 28px,1320px);padding-top:17px}.topbar{padding-bottom:16px}.edition{font-size:10px;padding:6px 9px}.intro{padding:30px 0 20px}.intro-copy{font-size:14px}.art-panel{padding:10px 10px 12px}.info-panel{padding:20px}.gallery{padding:17px 13px}.gallery-head{align-items:start}.gallery-head h2{font-size:18px}.gallery-head p{font-size:11px}#cards{grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}.scene-card{gap:9px;padding:8px 7px}.card-title{font-size:12px}.card-kind{font-size:10px}#stage{height:320px}}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;transition:none!important}}
 </style></head><body>
 <main id="site">
 <header class="topbar"><div class="brand"><span class="brand-mark" aria-hidden="true">▧</span><span>Voxel Worlds</span></div><span class="edition">INTERACTIVE 3D SCENE GALLERY</span></header>
-<section class="intro"><p class="eyebrow">Little places, big stories</p><h1>Worlds in miniature.</h1><p class="intro-copy">Explore hand-built 3D worlds inspired by your scenes. Drag to orbit the camera, then choose a new world from the collection.</p></section>
+<section class="intro"><p class="eyebrow">Little places, big stories</p><h1>Worlds in miniature.</h1><p class="intro-copy">Eleven always-on animated dioramas, framed in the original low-poly voxel style.</p></section>
 <section id="showcase" aria-label="Selected animated scene">
- <div class="art-panel"><div id="stage"><canvas id="scene3d" aria-label="Interactive 3D scene" tabindex="0"></canvas><canvas id="c" hidden></canvas><span id="stage-help">Drag to orbit · scroll to zoom</span></div><div class="art-caption"><span><i class="live-dot"></i>3D scene in motion</span><span>Drag to orbit · wheel to zoom</span></div></div>
- <aside class="info-panel"><div><div class="scene-kicker"><span id="scene-category">Nature</span><span id="scene-icon" class="scene-icon" aria-hidden="true">🎣</span></div><h2 id="scene-title">Fishing pier</h2><p id="scene-description">A quiet timber dock reaches into clear water as anglers wait for a bite.</p></div><div class="info-bottom"><div id="scene-meta" class="scene-meta"><span class="meta-pill">Water & wildlife</span><span class="meta-pill">Looping animation</span></div><button id="sound" type="button" aria-pressed="false">🔇 &nbsp;Enable scene sound</button></div></aside>
+ <div class="art-panel"><div id="stage"><video id="scene-video" muted autoplay loop playsinline disablepictureinpicture disableremoteplayback aria-label="Continuously playing 3D scene"></video><canvas id="scene3d" aria-hidden="true"></canvas><canvas id="c" hidden></canvas></div></div>
+ <aside class="info-panel"><div><div class="scene-kicker"><span id="scene-category">Nature</span><span id="scene-icon" class="scene-icon" aria-hidden="true">🎣</span></div><h2 id="scene-title">Fishing pier</h2><p id="scene-description">Anglers stand on a timber pier above open water, with rods, pilings and reflections below.</p></div><div class="info-bottom"><div id="scene-meta" class="scene-meta"><span class="meta-pill">Water & wildlife</span><span class="meta-pill">Looping animation</span></div></div></aside>
 </section>
-<section class="gallery" aria-label="Scene collection"><div class="gallery-head"><div><h2>Explore the collection</h2><p>Pick a miniature world to bring it to life.</p></div><span id="scene-count">11 scenes</span></div><nav class="filters" aria-label="Filter scenes"><button class="filter on" data-filter="All" aria-pressed="true">All scenes</button><button class="filter" data-filter="Nature" aria-pressed="false">Nature</button><button class="filter" data-filter="Sport" aria-pressed="false">Sport</button><button class="filter" data-filter="Street" aria-pressed="false">Street life</button><button class="filter" data-filter="Industry" aria-pressed="false">Industry</button></nav><div id="cards"></div></section>
+<section class="gallery" aria-label="Scene collection"><div class="gallery-head"><div><h2>All scenes</h2><p>Each diorama runs continuously, without playback controls.</p></div><span id="scene-count">11 scenes</span></div><div id="cards"></div></section>
 </main>
 <script>
 let W=288,H=196,CX=144,CY=56,NZ=44;const NX=128,NY=128,C=1.2247,DZ=.8165,LV=[-.55,-.25,.8],FM=[1,.86,.72];

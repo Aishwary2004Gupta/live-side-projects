@@ -2682,7 +2682,7 @@ FIGS3D.push({ id: 'rp', name: 'Record player', mod: (() => {
   const vinylGeo = new THREE.LatheGeometry([[2, 0], [RR - 1.2, 0], [RR - 0.3, 0.25], [RR, 0.8], [RR - 0.3, 1.45], [RR - 1.2, 1.7], [RR - 4.5, 1.7], [RR - 6, 1.5], [27.5, 1.5], [26.5, 1.66], [2, 1.66]]
     .map(([r, y]) => new THREE.Vector2(r * TS, y * TS)), 160);
   function makeRecord() {
-    const g = new THREE.Group(); g.userData = { rec: true }; g0.add(g);
+    const g = new THREE.Group(); g.userData = { rec: true }; g.rotation.order = 'YXZ'; g0.add(g);
     g.add(new THREE.Mesh(vinylGeo, vinylMat));
     { const ring = (r, mat, z = 1.56) => g.add(loopL(circ(0, 0, r, z, 128), mat));
       for (let r = 70; r >= 31; r -= 2.6) ring(r, lineMat); [60.8, 48, 38.4].forEach(r => ring(r, majorMat));
@@ -2725,79 +2725,116 @@ FIGS3D.push({ id: 'rp', name: 'Record player', mod: (() => {
   const recs = [makeRecord(), makeRecord()]; let cur = recs[0], nxt = recs[1]; nxt.g.visible = false;
   let track = null;
 
-  // the paper sleeve: two cards with the new record between them, open on the side facing the deck
-  const SLW = 164, sl = new THREE.Group(); sl.visible = false; g0.add(sl);
+  // ── a crate of records to the left of the deck, and the sleeve that pops out of it ──
+  const KS = 0.62, SLW = 164, TILT = 78 * Math.PI / 180;                           // crate sleeves are miniatures; the chosen one grows as it pops out
+  const CRX = -190, CRY = -20, CRW = 134, CRD = 74, CRH = 46, CRZ = PLZ, WT = 4;
+  { const pad = new THREE.Group(); pad.position.copy(W(CRX - 14, CRY - 12, 0)); g0.add(pad);
+    plateWith(pad, CRW + 28, CRD + 24, [[12, 12], [CRW + 16, 12], [12, CRD + 12], [CRW + 16, CRD + 12]]); }
+  rbox(CRX, CRY, CRZ, CRW, WT, CRH, 2, bodyMat, g0);                                // back
+  rbox(CRX, CRY + CRD - WT, CRZ, CRW, WT, CRH - 10, 2, bodyMat, g0);                // front, lower so the covers show
+  rbox(CRX, CRY, CRZ, WT, CRD, CRH, 2, bodyMat, g0); rbox(CRX + CRW - WT, CRY, CRZ, WT, CRD, CRH, 2, bodyMat, g0);
+  rbox(CRX + WT, CRY + WT, CRZ, CRW - 2 * WT, CRD - 2 * WT, 3, 0, bodyMat, g0);
+  label('VINYL', 40, 7, 6, onFront(CRX + CRW / 2, CRY + CRD, CRZ + 12), g0);
+  const CXM = CRX + CRW / 2, SLOTY = CRY + CRD - WT - 9, HALF = SLW * KS / 2;
+  { const mats = [0x2a2c2e, 0x393c3f, 0x202224, 0x34383b].map(c => new THREE.MeshStandardMaterial({ color: c, roughness: 0.8 }));
+    for (let i = 0; i < 5; i++) {                                                   // the other records, leaning back in the crate
+      const m = new THREE.Mesh(new THREE.BoxGeometry(HALF * 2 * TS, 1.6 * TS, HALF * 2 * TS), mats[i % 4]);
+      m.rotation.order = 'YXZ'; m.rotation.x = TILT; m.position.copy(W(CXM, SLOTY - 8 * (i + 1) - HALF * Math.cos(TILT), CRZ + 3 + HALF * Math.sin(TILT)));
+      addOutline(m); twMeshes.push(m); g0.add(m); } }
+  const SLOT = W(CXM, SLOTY - HALF * Math.cos(TILT), CRZ + 3 + HALF * Math.sin(TILT));
+
+  // the chosen sleeve: two cards with the new record between them (open edge on its +x side)
+  const sl = new THREE.Group(); sl.rotation.order = 'YXZ'; g0.add(sl);
   const slc = document.createElement('canvas'); slc.width = slc.height = 512;
   const slTex = new THREE.CanvasTexture(slc); slTex.colorSpace = THREE.SRGBColorSpace; slTex.anisotropy = 8;
   { const geo = () => new THREE.BoxGeometry(SLW * TS, 0.8 * TS, SLW * TS);
     const back = new THREE.Mesh(geo(), bodyMat); back.position.y = 0.4 * TS; addOutline(back); twMeshes.push(back); sl.add(back);
     const front = new THREE.Mesh(geo(), [bodyMat, bodyMat, new THREE.MeshBasicMaterial({ map: slTex, toneMapped: false }), bodyMat, bodyMat, bodyMat]);
     front.position.y = 3.2 * TS; addOutline(front); twMeshes.push(front); sl.add(front); }
+  let slTrack = null, slImg = null;
   function drawSleeve() {
-    const x = slc.getContext('2d'), Cc = pal3(), A_ = '#' + accent.getHexString(), t = nxt.track;
+    const x = slc.getContext('2d'), Cc = pal3(), A_ = '#' + accent.getHexString(), t = slTrack;
     x.fillStyle = Cc.glassOff; x.fillRect(0, 0, 512, 512);
-    if (nxt.img) { try { x.drawImage(nxt.img, 0, 0, 512, 512); } catch (e) {} }
+    if (slImg) { try { x.drawImage(slImg, 0, 0, 512, 512); } catch (e) {} }
     else { x.strokeStyle = Cc.line; x.lineWidth = 2; for (let r = 40; r < 260; r += 28) { x.beginPath(); x.arc(256, 230, r, 0, Math.PI * 2); x.stroke(); } }
     x.fillStyle = 'rgba(12,13,14,0.74)'; x.fillRect(0, 380, 512, 132);
     x.fillStyle = A_; x.fillRect(0, 380, 512, 4);
     x.textAlign = 'left'; x.fillStyle = '#f1f1ee'; x.font = `600 34px ${MONO3}`;
     if (t) { wrap(x, t.title, 460, 2).forEach((l, i) => x.fillText(l, 26, 420 + i * 38));
       x.fillStyle = '#b9bbb8'; x.font = `24px ${MONO3}`; wrap(x, t.artist, 460, 1).forEach(l => x.fillText(l, 26, 490)); }
+    else { x.fillText('ISO-GLOW RECORDS', 26, 430); x.fillStyle = '#b9bbb8'; x.font = `24px ${MONO3}`; x.fillText('search for a song', 26, 478); }
     slTex.needsUpdate = true;
   }
 
-  // swap choreography: old disk lifts off and flies away · sleeve slides in with the new disk peeking out ·
-  // the new disk is pulled out · it is carried over and lowered onto the spindle · the sleeve slides away
-  const S = W(C[0], C[1], RZ), SLB = W(-130, 125, RZ + 5), PSI = -0.2, DIR = new THREE.Vector3(Math.cos(PSI), 0, -Math.sin(PSI));
-  const OLD_AWAY = W(-180, 330, 100), SL_AWAY = W(-420, 0, 30);
-  const T = { oldEnd: 1.0, slIn: [0.4, 1.3], pull: [1.6, 2.7], deck: [3.1, 4.4], slOut: [3.1, 4.1] }, T_END = 4.4;
+  // swap choreography: the old disk lifts off and flies away · the sleeve pops out of the crate, grows and tilts flat ·
+  // the new disk slides out of it · it is carried over and lowered onto the spindle · the sleeve goes back into the crate
+  const S = W(C[0], C[1], RZ), STG = W(-118, 158, RZ + 5), PSI = -0.2, OLD_AWAY = W(-180, 330, 100);
+  const T = { oldEnd: 1.0, pop: [0.5, 1.8], pull: [2.0, 3.1], deck: [3.5, 4.8], back: [3.5, 4.7] }, T_END = 4.8;
   const sw = { on: false, t: 0 };
   const ss = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
   const sg = (t, a, b) => Math.min(1, Math.max(0, (t - a) / (b - a)));
-  const ang = (a, b) => { const d = a - b; return d - 2 * Math.PI * Math.round(d / (2 * Math.PI)); };
   let rotA = 0;
+  function sleeveAt(u) {                                                           // u: 0 in the crate … 1 laid out beside the deck
+    const e = ss(0, 1, u), hx = ss(0.35, 1, u);
+    sl.position.set(SLOT.x + (STG.x - SLOT.x) * hx, SLOT.y + (STG.y - SLOT.y) * e + 70 * TS * Math.sin(Math.PI * ss(0, 0.8, u)), SLOT.z + (STG.z - SLOT.z) * hx);
+    sl.rotation.set(TILT * (1 - e), PSI * e, 0); sl.scale.setScalar(KS + (1 - KS) * e); sl.updateMatrixWorld(true);
+  }
+  const lp = new THREE.Vector3(), qa = new THREE.Quaternion(), qb = new THREE.Quaternion(), eu = new THREE.Euler(0, 0, 0, 'YXZ');
+  const onSleeve = (dx, outPos, outQuat) => { lp.set(dx * TS, TS, 0); sl.localToWorld(lp); outPos.copy(lp); outQuat.copy(sl.quaternion); };
   function sheen() { recs.forEach(r => { r.sh.rotation.y = -r.g.rotation.y; }); }
   function layout() {
-    sheen();
-    if (!sw.on) { cur.g.visible = true; cur.g.scale.setScalar(1); cur.g.position.copy(S); cur.g.rotation.set(0, rotA, 0); nxt.g.visible = false; nxt.g.position.set(0, -99, 0); sl.visible = false; sheen(); return; }
+    if (!sw.on) {
+      sleeveAt(0); cur.g.visible = true; cur.g.scale.setScalar(1); cur.g.position.copy(S); cur.g.rotation.set(0, rotA, 0);
+      nxt.g.visible = false; nxt.g.position.set(0, -99, 0); sheen(); return;
+    }
     const t = sw.t;
     const uo = sg(t, 0, T.oldEnd), ho = ss(0.2, 1, uo);                              // old disk
     cur.g.visible = uo < 1;
     cur.g.position.set(S.x + OLD_AWAY.x * ho, S.y + ss(0, 0.28, uo) * 26 * TS + OLD_AWAY.y * ho, S.z + OLD_AWAY.z * ho);
     cur.g.rotation.set(0, rotA + 0.6 * ho, 0.22 * Math.sin(Math.PI * ho)); cur.g.scale.setScalar(1 - 0.7 * ho);
-    const si = ss(0, 1, sg(t, T.slIn[0], T.slIn[1])), so = ss(0, 1, sg(t, T.slOut[0], T.slOut[1]));   // sleeve
-    sl.visible = t >= T.slIn[0] && so < 1;
-    sl.position.copy(SLB).addScaledVector(SL_AWAY, (1 - si) + so); sl.rotation.y = PSI;
-    nxt.g.visible = sl.visible || t >= T.deck[0]; nxt.g.scale.setScalar(1);          // new disk
+    const popU = sg(t, T.pop[0], T.pop[1]), backU = sg(t, T.back[0], T.back[1]);       // sleeve
+    sleeveAt(Math.max(0, popU - backU));
+    nxt.g.visible = true;                                                             // new disk
     if (t < T.deck[0]) {
-      const dx = 48 + 102 * ss(0, 1, sg(t, T.pull[0], T.pull[1]));
-      nxt.g.position.copy(sl.position).addScaledVector(DIR, dx * TS); nxt.g.position.y += TS; nxt.g.rotation.set(0, PSI, 0);
+      const dx = 48 * ss(0, 1, popU) + 102 * ss(0, 1, sg(t, T.pull[0], T.pull[1]));
+      onSleeve(dx, nxt.g.position, qa); nxt.g.quaternion.copy(qa); nxt.g.scale.copy(sl.scale);
     } else {
       const v = sg(t, T.deck[0], T.deck[1]), hx = ss(0, 0.8, v), h = (v < 0.15 ? ss(0, 0.15, v) : 1 - ss(0.8, 1, v)) * 26 * TS;
-      const P1 = SLB.clone().addScaledVector(DIR, 150 * TS); P1.y += TS;
-      nxt.g.position.copy(P1).lerp(S, hx); nxt.g.position.y += h; nxt.g.rotation.set(0, rotA + ang(PSI, rotA) * (1 - hx), 0);
+      sleeveAt(1); const P1 = new THREE.Vector3(); onSleeve(150, P1, qa); sleeveAt(Math.max(0, popU - backU));
+      eu.set(0, rotA, 0); qb.setFromEuler(eu);
+      nxt.g.position.copy(P1).lerp(S, hx); nxt.g.position.y += h; nxt.g.quaternion.copy(qa).slerp(qb, hx); nxt.g.scale.setScalar(1);
     }
     sheen();
   }
 
   // ── controls: start/stop, 33 / 45, pilot lamp, pitch slider ──
-  const btn = (x, y, w, d, name, text) => { const g = new THREE.Group(); g.userData = { ttBtn: name }; g0.add(g); const mat = capMat(); twCaps.push(mat);
-    rbox(x, y, BT, w, d, 4, 3, mat, g); label(text, w, 6, 4.6, onTop(x + w / 2, y + d / 2, BT + 4), g); return { g, mat }; };
-  const bStart = btn(40, 238, 34, 30, 'start', 'START·STOP'), b33 = btn(88, 244, 22, 18, '33', '33'), b45 = btn(114, 244, 22, 18, '45', '45');
-  rbox(160, 244, BT, 12, 12, 7, 3, bodyMat, g0);
+  const btn = (x, y, w, d, name, text, h = 5) => { const g = new THREE.Group(); g.userData = { ttBtn: name }; g0.add(g); const mat = capMat(); twCaps.push(mat);
+    inset(x - 3, y - 3, BT, w + 6, d + 6, 5, g0);
+    rbox(x, y, BT, w, d, h, 4, mat, g); label(text, w, 6, 4.6, onTop(x + w / 2, y + d / 2, BT + h), g); return { g, mat }; };
+  const bStart = btn(38, 234, 42, 34, 'start', 'START·STOP', 6), b33 = btn(96, 244, 24, 20, '33', '33'), b45 = btn(128, 244, 24, 20, '45', '45');
+  const ledMats = [108, 140].map(x => { const m = new THREE.MeshStandardMaterial({ color: 0x2b2e30, emissive: accent.clone(), emissiveIntensity: 0, roughness: 0.4 });
+    const d = new THREE.Mesh(new THREE.SphereGeometry(1.9 * TS, 14, 10), m); d.position.copy(W(x, 237.5, BT + 1.2)); g0.add(d); return m; });
+  label('SPEED', 44, 6, 4, onTop(124, 274, BT), g0);
+  rbox(176, 244, BT, 12, 12, 7, 3, bodyMat, g0); label('POWER', 26, 6, 4, onTop(182, 274, BT), g0);
   const pilotMat = new THREE.MeshStandardMaterial({ color: 0x2b2e30, emissive: accent.clone(), emissiveIntensity: 0, roughness: 0.4 });
-  { const m = new THREE.Mesh(new THREE.SphereGeometry(3 * TS, 16, 12), pilotMat); m.position.copy(W(166, 250, BT + 8)); g0.add(m); }
-  const pilotGlow = glowPoints([W(166, 250, BT + 9)], 0.26); g0.add(pilotGlow);
+  { const m = new THREE.Mesh(new THREE.SphereGeometry(3 * TS, 16, 12), pilotMat); m.position.copy(W(182, 250, BT + 8)); g0.add(m); }
+  const pilotGlow = glowPoints([W(182, 250, BT + 9)], 0.26); g0.add(pilotGlow);
   const KX = 268, KY = 240, knob = new THREE.Group(); knob.position.copy(W(KX, KY, 0)); knob.userData = { vol: true }; g0.add(knob);
   cyl(12, 3, 48, bodyMat, knob, W(0, 0, BT + 1.5)); cyl(9, 10, 40, bodyMat, knob, W(0, 0, BT + 7));
   seg([[[0, -3, BT + 12.1], [0, -8.5, BT + 12.1]]], knob, majorMat);
-  label('VOL', 14, 6, 4.4, onTop(KX, KY + 20, BT), g0);
+  label('VOL', 14, 6, 4.4, onTop(KX, KY + 22, BT), g0);
+  { const tk = []; for (let i = 0; i <= 10; i++) { const th = -(i / 10 - 0.5) * 270 * Math.PI / 180, sn = -Math.sin(th), cs = -Math.cos(th), r0 = 15, r1 = i % 5 ? 17 : 18.5;
+      tk.push([[KX + r0 * sn, KY + r0 * cs, BT + 0.1], [KX + r1 * sn, KY + r1 * cs, BT + 0.1]]); } seg(tk, g0, majorMat); }
+  { const gr = []; for (let i = 0; i < 24; i++) { const a = i / 24 * Math.PI * 2, c = Math.cos(a), sn = Math.sin(a); gr.push([[9.05 * c, 9.05 * sn, BT + 3], [9.05 * c, 9.05 * sn, BT + 10.5]]); } seg(gr, knob); }
   const SLX = 284, SLY0 = 136, SLY1 = 222;
   inset(SLX - 3, SLY0, BT, 6, SLY1 - SLY0, 3, g0);
   { const s = []; for (let k = 0; k <= 16; k++) { const y = SLY0 + 6 + k * (SLY1 - SLY0 - 12) / 16; s.push([[SLX - 9, y, BT + 0.08], [SLX - (k % 4 ? 6 : 4), y, BT + 0.08]]); } seg(s, g0); }
   label('PITCH', 20, 6, 4.4, onTop(SLX, SLY0 - 6, BT), g0);
   const slider = new THREE.Group(); slider.userData = { pitch: true }; g0.add(slider);
   const sMat = capMat(); twCaps.push(sMat); rbox(SLX - 7, (SLY0 + SLY1) / 2 - 5, BT, 14, 10, 7, 2, sMat, slider);
+  { const m0 = (SLY0 + SLY1) / 2; seg([-3, -1, 1, 3].map(k => [[SLX - 5, m0 + k, BT + 7.1], [SLX + 5, m0 + k, BT + 7.1]]), slider);
+    seg([[[SLX - 5, m0, BT + 7.15], [SLX + 5, m0, BT + 7.15]]], slider, majorMat); }
+  seg([[[SLX - 11, (SLY0 + SLY1) / 2, BT + 0.1], [SLX - 3.5, (SLY0 + SLY1) / 2, BT + 0.1]]], g0, majorMat);
   const sliderHit = new THREE.Mesh(new THREE.PlaneGeometry(18 * TS, (SLY1 - SLY0) * TS), new THREE.MeshBasicMaterial({ visible: false }));
   sliderHit.rotation.x = -Math.PI / 2; sliderHit.position.copy(W(SLX, (SLY0 + SLY1) / 2, BT + 1)); sliderHit.userData = { pitch: true }; g0.add(sliderHit);
 
@@ -2856,6 +2893,7 @@ FIGS3D.push({ id: 'rp', name: 'Record player', mod: (() => {
     updateNow(); }
   function render() {
     [[bStart, st.on], [b33, st.speed < 40], [b45, st.speed > 40]].forEach(([b, on]) => { b.mat.userData.base = on ? 0.55 : 0; if (!twFlashes.some(f => f.mats.includes(b.mat))) b.mat.emissiveIntensity = b.mat.userData.base; });
+    ledMats[0].emissiveIntensity = st.speed < 40 ? 1.8 : 0.04; ledMats[1].emissiveIntensity = st.speed > 40 ? 1.8 : 0.04;
     readout();
   }
   function beginCue() { try { if (track) au.currentTime = 0; } catch (e) {} vt = 0; st.r = R0; st.on = true; st.mode = 'cue'; }
@@ -2869,17 +2907,19 @@ FIGS3D.push({ id: 'rp', name: 'Record player', mod: (() => {
   // pick a song: stop the deck, lift the old record off, slide the new one on, then cue and play
   function loadTrack(t) {
     if (sw.on) return;
-    pending = t; status = ''; audioErr = false; nxt.track = t; nxt.img = null; drawLabel(nxt); drawSleeve();
+    pending = t; status = ''; audioErr = false; nxt.track = t; nxt.img = null; drawLabel(nxt);
     if (st.on || st.mode !== 'rest') { st.on = false; if (st.mode !== 'rest') st.mode = 'return'; }
     au.src = t.src; au.muted = true;                                               // prime audio inside the user's gesture
     au.play().then(() => { if (!wantPlay) { au.pause(); try { au.currentTime = 0; } catch (e) {} } au.muted = false; }).catch(() => { au.muted = false; });
     if (t.art) { const im = new Image(); im.crossOrigin = 'anonymous'; im.onload = () => {
-      if (nxt.track === t) { nxt.img = im; drawLabel(nxt); drawSleeve(); } else if (cur.track === t) { cur.img = im; drawLabel(cur); } }; im.src = t.art; }
+      if (nxt.track === t) { nxt.img = im; drawLabel(nxt); } else if (cur.track === t) { cur.img = im; drawLabel(cur); } if (slTrack === t) { slImg = im; drawSleeve(); } }; im.src = t.art; }
     SFX.button(); render();
   }
 
   function key(e) {
     if (e.key === 'h' || e.key === 'H') { setFocus(!document.body.classList.contains('rp-focus')); return true; }
+    if (e.key === 'i' || e.key === 'I') return isoView();
+    if (e.key === 'r' || e.key === 'R') return homeCam();
     if (e.key === '/') { setFocus(false); UI.focus(); return true; }
     if (e.key === ' ') { if (!e.repeat) startStop(); return true; }
     if (e.key === '3') return setSpeed(33.333); if (e.key === '4') return setSpeed(45);
@@ -2949,10 +2989,10 @@ FIGS3D.push({ id: 'rp', name: 'Record player', mod: (() => {
   function tick(now, dt) {
     UI.show(active === ID);
     // record swap sequence
-    if (pending && !sw.on && st.mode === 'rest' && st.rpm < 1.5) { sw.on = true; sw.t = 0; tap(500, 0.25, 2); }
+    if (pending && !sw.on && st.mode === 'rest' && st.rpm < 1.5) { sw.on = true; sw.t = 0; slTrack = pending; slImg = nxt.img; drawSleeve(); tap(500, 0.25, 2); }
     if (sw.on) {
       const t0 = sw.t; sw.t += dt;
-      [T.slIn[0], T.pull[0], T.deck[0]].forEach(m => { if (t0 < m && sw.t >= m) tap(m === T.pull[0] ? 700 : 420, 0.22, 2); });
+      [T.pop[0], T.pull[0], T.deck[0]].forEach(m => { if (t0 < m && sw.t >= m) tap(m === T.pull[0] ? 700 : 420, 0.22, 2); });
       if (sw.t >= T_END) { [cur, nxt] = [nxt, cur]; nxt.g.visible = false; track = cur.track; pending = null; sw.on = false; layout(); SFX.thunk(); beginCue(); render(); }
     }
     // platter
@@ -3000,7 +3040,7 @@ FIGS3D.push({ id: 'rp', name: 'Record player', mod: (() => {
     slider.position.z = st.pitch / 8 * SLHALF * TS;
     haze.uniforms.opacity.value += ((p ? 0.12 : 0) - haze.uniforms.opacity.value) * Math.min(1, dt * 3);
     if ((tick.n = (tick.n || 0) + 1) % 10 === 0) readout();
-    tickFlashes(now);
+    stepCam(dt); tickFlashes(now);
   }
 
   // ── search bar (iTunes catalog: 30-second previews with cover art) ──
@@ -3114,6 +3154,23 @@ body.rp-focus #rp-now { display:block; }
     return { focus: () => { input.focus(); input.select(); }, show: on => { root.hidden = !on; window.__rpEye(on); }, root };
   })();
 
+  // ── camera: centred on the deck; the iso button gives a true isometric, orthographic view and flies there ──
+  const HOME = W(140, 110, 22), CAM_DIR = new THREE.Vector3(1, 1, 1).normalize();
+  let camFly = null, hooked = false;
+  const aspectK = () => Math.max(1, 1.45 / persp.aspect);
+  function flyCam(pos, tgt, dur) { camFly = { t: 0, d: dur, p0: camera.position.clone(), t0: controls.target.clone(), p1: pos, t1: tgt.clone(), z0: camera.zoom, z1: 1 }; }
+  function homeCam(dur = 0.9) { const iso = camera === ortho; flyCam(HOME.clone().addScaledVector(CAM_DIR, iso ? 14 : 8.8 * aspectK()), HOME, dur); return true; }
+  function isoView() { if (camera !== ortho) setOrtho(true, 540 * TS * aspectK() / fovK()); else setOrtho(false); homeCam(); return true; }
+  function stepCam(dt) {
+    if (!hooked && typeof act !== 'undefined') { act.iso = isoView; hooked = true; }
+    if (!camFly) return;
+    const f = camFly; f.t = Math.min(1, f.t + dt / f.d); const k = ss(0, 1, f.t);
+    const v0 = f.p0.clone().sub(f.t0), v1 = f.p1.clone().sub(f.t1), r = v0.length() + (v1.length() - v0.length()) * k;
+    const q = new THREE.Quaternion().setFromUnitVectors(v0.clone().normalize(), v1.clone().normalize()), qk = new THREE.Quaternion().slerp(q, k);
+    controls.target.lerpVectors(f.t0, f.t1, k); camera.position.copy(controls.target).addScaledVector(v0.normalize().applyQuaternion(qk), r);
+    if (camera === ortho) { camera.zoom = f.z0 + (f.z1 - f.z0) * k; camera.updateProjectionMatrix(); }
+    controls.update(); if (f.t >= 1) camFly = null;
+  }
   function setFocus(on) { if (window.__rpSetFocus) window.__rpSetFocus(on); }
   function updateNow() { if (!window.__rpNow) return; window.__rpNow(track ? track.title : 'Blank record', track ? `${track.artist} · ${fmt(pos())} / ${fmt(dur())}` : 'press / to search for a song', Math.min(1, pos() / dur())); }
   themeHooks.push(t => { pilotMat.color.set(t === 'light' ? 0xc3c6c8 : 0x2b2e30); rimMat.color.set(t === 'light' ? 0x9fa4a7 : 0xc4c7c9); drawLabel(cur); drawLabel(nxt); drawSleeve(); render(); });
@@ -3121,10 +3178,10 @@ body.rp-focus #rp-now { display:block; }
   return { group: g0, key, click, tick, readout,
     stop: () => { st.on = false; if (st.mode !== 'rest') st.mode = 'return'; render(); },
     demo: () => { if (!busy() && !st.on) startStop(); },
-    panel: [['Hide controls', 'H', () => setFocus(true)], ['Search a song', '/', () => UI.focus()], ['Start / stop', 'space', startStop], ['33⅓ rpm', '3', () => setSpeed(33.333)], ['45 rpm', '4', () => setSpeed(45)], ['Cue arm', 'C', cue], ['Pitch +', '↑', () => setPitch(st.pitch + 1)], ['Pitch −', '↓', () => setPitch(st.pitch - 1)]],
-    view: { target: W(75, 150, 30), dist: 8.4 },
-    info: '<h2>Record player</h2><p>Type any song or artist in the search bar and pick a result: the platter stops, the old record lifts off and flies away, a sleeve with the album cover slides in, the new record is pulled out of it, carried over and lowered onto the spindle, then the platter spins up, the arm cues itself and the music plays. You hear a real 30-second preview, and the arm tracks across the groove as it plays. Drag the record to spin or scratch it, drag the pitch slider or the volume knob, or drag the tonearm and drop it anywhere on the record to play from there. 33 / 45 change the speed. H hides every control and leaves just the player and the music. Needs an internet connection for search and audio.</p>',
-    hint: '/ search · space start · drag record, arm, pitch, knob · H hide controls' };
+    panel: [['Hide controls', 'H', () => setFocus(true)], ['Search a song', '/', () => UI.focus()], ['Start / stop', 'space', startStop], ['33⅓ rpm', '3', () => setSpeed(33.333)], ['45 rpm', '4', () => setSpeed(45)], ['Cue arm', 'C', cue], ['Center view', 'R', () => homeCam()], ['Pitch +', '↑', () => setPitch(st.pitch + 1)], ['Pitch −', '↓', () => setPitch(st.pitch - 1)]],
+    view: { target: W(140, 110, 22), dist: 8.8 },
+    // info: '<h2>Record player</h2><p>Type any song or artist in the search bar and pick a result: the platter stops, the old record lifts off and flies away, the album sleeve pops out of the crate of records, the new record slides out of it and is lowered onto the spindle, then the platter spins up, the arm cues itself and the music plays. You hear a real 30-second preview, and the arm tracks across the groove as it plays. Drag the record to spin or scratch it, drag the pitch slider or the volume knob, or drag the tonearm and drop it anywhere on the record to play from there. 33 / 45 change the speed. H hides every control and leaves just the player and the music. Needs an internet connection for search and audio.</p>',
+    hint: '/ search · space start · drag record, arm, pitch, knob · I iso · R centre · H hide controls' };
 })() });
 
 
@@ -3463,4 +3520,4 @@ addEventListener('storage', e => { if (e.key === 'iso-accent' && e.newValue) pic
 requestAnimationFrame(frame);
 </script>
 </body>
-</html>0
+</html>

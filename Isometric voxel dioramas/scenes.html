@@ -4,7 +4,7 @@
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Crect width='40' height='40' rx='9' fill='%23315b47'/%3E%3Cpath d='M7 25 20 7l13 18-13 8z' fill='%23dfc28d'/%3E%3C/svg%3E">
 <title>Voxel Worlds — Interactive 3D Scene Gallery</title>
 <style>
-:root{color-scheme:light;--bg:#f4f4f0;--paper:#fff;--ink:#242723;--muted:#74776e;--line:#e8e8e1;--accent:#416d56;--accent-soft:#edf3ed;--shadow:0 18px 48px rgba(42,48,37,.08);box-sizing:border-box}
+:root{color-scheme:light;--bg:#fff;--paper:#fff;--ink:#242723;--muted:#74776e;--line:#e8e8e1;--accent:#416d56;--accent-soft:#edf3ed;--shadow:0 18px 48px rgba(42,48,37,.08);box-sizing:border-box}
 *{box-sizing:inherit}
 html{scroll-behavior:smooth;scroll-padding-top:24px}
 body{margin:0;min-height:100vh;background:var(--bg);color:var(--ink);font:15px/1.5 Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif}
@@ -22,7 +22,8 @@ h1{margin:0;font-size:clamp(34px,5vw,58px);line-height:1.02;letter-spacing:-.06e
 .art-panel,.info-panel,.gallery{border:1px solid var(--line);background:var(--paper);border-radius:18px;box-shadow:var(--shadow)}
 .art-panel{overflow:hidden;min-width:0;padding:20px 20px 15px;background:linear-gradient(145deg,#fff,#f7f7f2)}
 #stage{position:relative;width:100%;height:430px;overflow:hidden;border-radius:13px;background:#fff}
-#scene-video{display:block;width:100%;height:100%;object-fit:contain;background:#fff;pointer-events:none}
+#scene-video{display:block;width:100%;height:100%;object-fit:contain;background:inherit;pointer-events:none}
+#stage.night-scene{background:#07120f}
 #scene3d{display:none}
 #stage-help{display:none}
 .webgl-error{position:absolute;inset:0;display:grid;place-items:center;padding:28px;color:#53615b;text-align:center}
@@ -55,11 +56,12 @@ canvas{max-width:100%;height:auto;display:block;image-rendering:pixelated;image-
 .scene-card.on{border-color:#73907a;background:#f5f8f4;box-shadow:inset 0 0 0 1px #73907a44}
 .card-icon{display:none}
 .scene-preview{display:grid;width:100%;aspect-ratio:4/3;place-items:center;overflow:hidden;border-radius:9px;background:#fff}
-.scene-preview-video{display:block;width:100%;height:100%;object-fit:contain;background:#fff;pointer-events:none}
+.scene-preview-video{display:block;width:100%;height:100%;object-fit:contain;background:inherit;pointer-events:none}
+.scene-card[data-id="nightChase"] .scene-preview{background:#07120f}
 .card-text{min-width:0}
 .card-title{display:block;overflow:hidden;color:#30332e;font-size:13px;font-weight:740;text-overflow:ellipsis;white-space:nowrap}
 .card-kind{display:block;margin-top:2px;color:#82857d;font-size:11px}
-.card-index{position:absolute;top:7px;right:9px;color:#b1b4ac;font-size:9px;font-weight:750;letter-spacing:.06em}
+.card-index{display:none}
 .scene-card[hidden]{display:none}
 @media(max-width:900px){#showcase{grid-template-columns:minmax(0,1fr)}.info-panel{min-height:230px}.info-bottom{padding-top:18px}#cards{grid-template-columns:repeat(3,minmax(0,1fr))}}
 @media(max-width:620px){#site{width:min(100% - 28px,1320px);padding-top:17px}.topbar{padding-bottom:16px}.edition{font-size:10px;padding:6px 9px}.intro{padding:30px 0 20px}.intro-copy{font-size:14px}.art-panel{padding:10px 10px 12px}.info-panel{padding:20px}.gallery{padding:17px 13px}.gallery-head{align-items:start}.gallery-head h2{font-size:18px}.gallery-head p{font-size:11px}#cards{grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}.scene-card{gap:9px;padding:8px 7px}.card-title{font-size:12px}.card-kind{font-size:10px}#stage{height:320px}}
@@ -1023,20 +1025,20 @@ function render(){if(sc.draw2D){sc.draw2D(ctx,T,W,H);return}buf.set(sbuf.subarra
 if(sc.post)sc.post(T);D=[];LN=[];LS=[];sc.dyn(T);shadows();for(const v of D)if(!v[5])vox(v[0],v[1],v[2],v[3]);for(const l of LN)drawLN(l[0],l[1],l[2]);for(const l of LS)drawLS(l);outline();ctx.putImageData(img,0,0);placeBubs()}
 function frame(ts){requestAnimationFrame(frame);acc+=Math.min(.1,(ts-last)/1000);last=ts;if(acc<1/30)return;const dt=acc;acc=0;T+=dt;sc.update&&sc.update(dt,T);render()}
 const catalog=[
- {id:'skatepark',scene:skatepark,title:'Skatepark',category:'Sport',icon:'🛹',description:'A raised concrete skatepark with its curved bowl, quarter pipe, rails and tiny skaters.',meta:['Concrete diorama','Skaters in motion']},
- {id:'rocket',scene:rocket,title:'Rocket launch',category:'Industry',icon:'🚀',description:'A tall white launch rocket stands beside a steel service tower and the small support vehicles on its pad.',meta:['Launch complex','Lift-off loop']},
- {id:'carrier',scene:carrier,title:'Aircraft carrier',category:'Industry',icon:'✈️',description:'A dark flight deck with parked fighter jets and its numbered island rises from open water.',meta:['Flight deck','Open sea']},
- {id:'nightChase',scene:nightChase,title:'Police pursuit',category:'Street',icon:'🚔',description:'A red car leads a flashing patrol cruiser along a tree-lined road at night.',meta:['After dark','Red & blue lights']},
- {id:'bank',scene:policeChase,title:'Bank aftermath',category:'Street',icon:'🏦',description:'A compact city block centers on a bank, neighboring storefronts, parked cars and the police response.',meta:['Bank block','After the pursuit']},
- {id:'highDive',scene:pool,title:'High dive',category:'Sport',icon:'🏊',description:'Swimmers and a diver animate a bright blue rectangular pool set into a broad gray deck.',meta:['Poolside diorama','Dive & splash']},
- {id:'courtyard',scene:tennis,title:'Stone courtyard',category:'Sport',icon:'🪨',description:'A rugged flagstone lane with a grassy edge, scattered rocks and two figures facing each other.',meta:['Stone paving','Character animation']},
- {id:'koi',scene:koi,title:'Koi pond',category:'Nature',icon:'🐟',description:'An overhead view of a clear pond ringed with rounded stones, grass and circling koi.',meta:['Water & wildlife','Overhead view']},
- {id:'icecream',scene:icecream,title:'Ice cream truck',category:'Street',icon:'🍦',description:'A pastel striped truck parks beside a sidewalk, shade tree, bench and waiting neighbors.',meta:['Neighborhood stop','Pastel details']},
- {id:'basketball',scene:court,title:'Basketball court',category:'Sport',icon:'🏀',description:'A weathered outdoor half court with a blue painted key, single hoop and players in motion.',meta:['Street sport','Team play']},
- {id:'fishing',scene:pond,title:'Fishing pier',category:'Nature',icon:'🎣',description:'Anglers stand on a timber pier above open water, with rods, pilings and reflections below.',meta:['Water & wildlife','Looping animation']}
+ {id:'skatepark',video:'videos/2mTbcxIZqqbVlarL.mp4',scene:skatepark,title:'Skatepark',category:'Sport',icon:'🛹',description:'A raised concrete skatepark with its curved bowl, quarter pipe, rails and tiny skaters.',meta:['Concrete diorama','Skaters in motion']},
+ {id:'rocket',video:'videos/oIAiu4ZikOdKucc0.mp4',scene:rocket,title:'Rocket launch',category:'Industry',icon:'🚀',description:'A tall white launch rocket stands beside a steel service tower and the small support vehicles on its pad.',meta:['Launch complex','Lift-off loop']},
+ {id:'carrier',video:'videos/40WA68EWC0xxq_cJ.mp4',scene:carrier,title:'Aircraft carrier',category:'Industry',icon:'✈️',description:'A dark flight deck with parked fighter jets and its numbered island rises from open water.',meta:['Flight deck','Open sea']},
+ {id:'nightChase',video:'videos/downloadmedia-20261022.mp4',scene:nightChase,title:'Police pursuit',category:'Street',icon:'🚔',description:'A red car leads a flashing patrol cruiser along a tree-lined road at night.',meta:['After dark','Red & blue lights']},
+ {id:'bank',video:'videos/UC3PFzf1gcCrmrMG.mp4',scene:policeChase,title:'Bank aftermath',category:'Street',icon:'🏦',description:'A compact city block centers on a bank, neighboring storefronts, parked cars and the police response.',meta:['Bank block','After the pursuit']},
+ {id:'highDive',video:'videos/3QqqBTxN2Ng-GZKd.mp4',scene:pool,title:'High dive',category:'Sport',icon:'🏊',description:'Swimmers and a diver animate a bright blue rectangular pool set into a broad gray deck.',meta:['Poolside diorama','Dive & splash']},
+ {id:'courtyard',video:'videos/sdVtY6TWmfxfPzIJ.mp4',scene:tennis,title:'Stone courtyard',category:'Sport',icon:'🪨',description:'A rugged flagstone lane with a grassy edge, scattered rocks and two figures facing each other.',meta:['Stone paving','Character animation']},
+ {id:'koi',video:'videos/2Oiq8IsiIfWdc-qE.mp4',scene:koi,title:'Koi pond',category:'Nature',icon:'🐟',description:'An overhead view of a clear pond ringed with rounded stones, grass and circling koi.',meta:['Water & wildlife','Overhead view']},
+ {id:'icecream',video:'videos/4gyZsIHqxorpcEs1.mp4',scene:icecream,title:'Ice cream truck',category:'Street',icon:'🍦',description:'A pastel striped truck parks beside a sidewalk, shade tree, bench and waiting neighbors.',meta:['Neighborhood stop','Pastel details']},
+ {id:'basketball',video:'videos/tJ6fU1cwFCPS4lgy.mp4',scene:court,title:'Basketball court',category:'Sport',icon:'🏀',description:'A weathered outdoor half court with a blue painted key, single hoop and players in motion.',meta:['Street sport','Team play']},
+ {id:'fishing',video:'videos/aUeTTSBuLz85-Uj2.mp4',scene:pond,title:'Fishing pier',category:'Nature',icon:'🎣',description:'Anglers stand on a timber pier above open water, with rods, pilings and reflections below.',meta:['Water & wildlife','Looping animation']}
 ];
 // ---- self-contained WebGL renderer: the showcase is geometry, not a video surface ----
-const glCanvas=document.getElementById('scene3d'),gl=glCanvas.getContext('webgl',{antialias:true,alpha:false});
+const glCanvas=document.getElementById('scene3d'),gl=null;
 let glProgram,glPosition,glNormal,glColor,glMatrix,glBuffers=[],yaw=.68,pitch=.62,cameraRadius=15.5,dragPoint=null;
 function compileShader(type,source){const shd=gl.createShader(type);gl.shaderSource(shd,source);gl.compileShader(shd);if(!gl.getShaderParameter(shd,gl.COMPILE_STATUS))throw new Error(gl.getShaderInfoLog(shd));return shd}
 function init3D(){
@@ -1179,15 +1181,19 @@ function build3DScene(id,t){
 const cards=document.getElementById('cards'),filters=[...document.querySelectorAll('.filter')];let active=catalog[10],filter='All';
 const cameraPresets={skatepark:[.68,.68,15.5],rocket:[.68,.58,14.5],carrier:[.68,.62,15.5],nightChase:[.68,.55,15.5],bank:[.68,.62,15.5],highDive:[.68,.72,15.5],courtyard:[.68,.92,15.5],koi:[.68,1.12,14.2],icecream:[.68,.65,15.5],basketball:[.68,.68,15.5],fishing:[.68,.78,15.5]};
 [yaw,pitch,cameraRadius]=cameraPresets[active.id];
-cards.innerHTML=catalog.map((item,i)=>`<button class="scene-card${item===active?' on':''}" type="button" data-id="${item.id}" data-category="${item.category}" aria-pressed="${item===active}"><span class="card-index">${String(i+1).padStart(2,'0')}</span><span class="card-icon" aria-hidden="true">${item.icon}</span><span class="card-text"><span class="card-title">${item.title}</span><span class="card-kind">${item.category}</span></span></button>`).join('');
-function selectScene(item){active=item;sc=item.scene;T=0;[yaw,pitch,cameraRadius]=cameraPresets[item.id]||[.68,.65,15.5];if(AU.x)ambient(sc.amb);document.getElementById('scene-category').textContent=item.category;document.getElementById('scene-icon').textContent=item.icon;document.getElementById('scene-title').textContent=item.title;document.getElementById('scene-description').textContent=item.description;document.getElementById('scene-meta').innerHTML=item.meta.map(tag=>`<span class="meta-pill">${tag}</span>`).join('');document.querySelectorAll('.scene-card').forEach(card=>{const on=card.dataset.id===item.id;card.classList.toggle('on',on);card.setAttribute('aria-pressed',String(on))});render3D()}
+cards.innerHTML=catalog.map((item,i)=>`<button class="scene-card${item===active?' on':''}" type="button" data-id="${item.id}" data-category="${item.category}" aria-pressed="${item===active}"><span class="card-index">${String(i+1).padStart(2,'0')}</span><span class="scene-preview"><video class="scene-preview-video" src="${item.video}" muted autoplay loop playsinline disablepictureinpicture disableremoteplayback preload="auto" aria-label="Continuously playing ${item.title} scene"></video></span><span class="card-text"><span class="card-title">${item.title}</span><span class="card-kind">${item.category} · silent loop</span></span></button>`).join('');
+const mainVideo=document.getElementById('scene-video');
+function startVideo(video){video.controls=false;video.autoplay=true;video.loop=true;video.muted=true;video.defaultMuted=true;video.volume=0;video.playsInline=true;video.disablePictureInPicture=true;video.disableRemotePlayback=true;const result=video.play();if(result&&result.catch)result.catch(()=>{})}
+function keepAllVideosRunning(){document.querySelectorAll('#scene-video,.scene-preview-video').forEach(video=>startVideo(video))}
+mainVideo.src=active.video;mainVideo.load();keepAllVideosRunning();document.addEventListener('visibilitychange',()=>{if(!document.hidden)keepAllVideosRunning()});
+function selectScene(item){active=item;sc=item.scene;T=0;[yaw,pitch,cameraRadius]=cameraPresets[item.id]||[.68,.65,15.5];if(mainVideo.getAttribute('src')!==item.video){mainVideo.src=item.video;mainVideo.load()}startVideo(mainVideo);if(AU.x)ambient(sc.amb);document.getElementById('scene-category').textContent=item.category;document.getElementById('scene-icon').textContent=item.icon;document.getElementById('scene-title').textContent=item.title;document.getElementById('scene-description').textContent=item.description;document.getElementById('scene-meta').innerHTML=item.meta.map(tag=>`<span class="meta-pill">${tag}</span>`).join('');document.querySelectorAll('.scene-card').forEach(card=>{const on=card.dataset.id===item.id;card.classList.toggle('on',on);card.setAttribute('aria-pressed',String(on))});render3D()}
 cards.addEventListener('click',e=>{const card=e.target.closest('.scene-card');if(card){const item=catalog.find(scene=>scene.id===card.dataset.id);if(item){selectScene(item);document.getElementById('showcase').scrollIntoView({behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth',block:'start'})}}});
 function setFilter(value){filter=value;filters.forEach(btn=>{const on=btn.dataset.filter===filter;btn.classList.toggle('on',on);btn.setAttribute('aria-pressed',String(on))});let count=0;document.querySelectorAll('.scene-card').forEach(card=>{const show=filter==='All'||card.dataset.category===filter;card.hidden=!show;if(show)count++});document.getElementById('scene-count').textContent=`${count} ${count===1?'scene':'scenes'}`}
 filters.forEach(btn=>btn.addEventListener('click',()=>setFilter(btn.dataset.filter)));
-const sound=document.getElementById('sound');sound.addEventListener('click',()=>{aInit();AU.on=!AU.on;if(AU.on)AU.x.resume();ambient(sc.amb);sound.setAttribute('aria-pressed',String(AU.on));sound.textContent=AU.on?'🔊  Turn scene sound off':'🔇  Enable scene sound'});
+const sound=document.getElementById('sound');if(sound)sound.addEventListener('click',()=>{aInit();AU.on=!AU.on;if(AU.on)AU.x.resume();ambient(sc.amb);sound.setAttribute('aria-pressed',String(AU.on));sound.textContent=AU.on?'🔊  Turn scene sound off':'🔇  Enable scene sound'});
 function render3D(){if(!glProgram||!glCanvas.width||!glCanvas.height)return;const bg=active.id==='nightChase'?[.025,.05,.048,1]:[1,1,.99,1];gl.clearColor(...bg);gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);const mesh=build3DScene(active.id,T),center=[0,.65,0],cp=Math.cos(pitch),eye=[center[0]+Math.sin(yaw)*cameraRadius*cp,center[1]+Math.sin(pitch)*cameraRadius,center[2]+Math.cos(yaw)*cameraRadius*cp],view=lookAt(eye,center,[0,1,0]),proj=orthographic(cameraRadius*.72,glCanvas.width/glCanvas.height,.1,80);gl.useProgram(glProgram);gl.uniformMatrix4fv(glMatrix,false,matMul(proj,view));const attrs=[[glPosition,glBuffers[0],mesh.p],[glNormal,glBuffers[1],mesh.n],[glColor,glBuffers[2],mesh.c]];for(const[loc,buffer,data]of attrs){gl.bindBuffer(gl.ARRAY_BUFFER,buffer);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(data),gl.DYNAMIC_DRAW);gl.enableVertexAttribArray(loc);gl.vertexAttribPointer(loc,3,gl.FLOAT,false,0,0)}gl.drawArrays(gl.TRIANGLES,0,mesh.p.length/3)}
 let last3D=0;function frame3D(ts){requestAnimationFrame(frame3D);if(ts-last3D<33)return;T+=Math.min(.1,(ts-last3D)/1000);last3D=ts;render3D()}
 function resize3D(){if(!gl)return;const r=glCanvas.getBoundingClientRect(),d=Math.min(window.devicePixelRatio||1,2),w=Math.max(1,Math.round(r.width*d)),h=Math.max(1,Math.round(r.height*d));if(glCanvas.width!==w||glCanvas.height!==h){glCanvas.width=w;glCanvas.height=h;gl.viewport(0,0,w,h);render3D()}}
 glCanvas.addEventListener('pointerdown',e=>{dragPoint=[e.clientX,e.clientY];glCanvas.setPointerCapture(e.pointerId)});glCanvas.addEventListener('pointermove',e=>{if(!dragPoint)return;const dx=e.clientX-dragPoint[0],dy=e.clientY-dragPoint[1];yaw-=dx*.008;pitch=Math.max(.18,Math.min(1.35,pitch+dy*.006));dragPoint=[e.clientX,e.clientY];render3D()});glCanvas.addEventListener('pointerup',()=>{dragPoint=null});glCanvas.addEventListener('pointercancel',()=>{dragPoint=null});glCanvas.addEventListener('wheel',e=>{e.preventDefault();cameraRadius=Math.max(9,Math.min(24,cameraRadius+e.deltaY*.012));render3D()},{passive:false});
-sc=active.scene;try{if(init3D()){resize3D();requestAnimationFrame(frame3D)}}catch(error){console.error(error);const panel=document.createElement('div');panel.className='webgl-error';panel.textContent='3D viewer error: '+(error&&error.message?error.message:'unknown startup error');document.getElementById('stage').appendChild(panel)}
+sc=active.scene;
 </script></body></html>

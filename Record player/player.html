@@ -115,7 +115,7 @@
 </div>
 <div class="ui" id="info"><h2>Click any part</h2><p>Drag to orbit, scroll to zoom, right-drag to pan. ↑ ↓ climb and descend once the rotor is at speed.</p></div>
 <div class="ui" id="hint">L lights · E engines · ↑↓ climb · C cabin lights · D doors · I iso · T theme</div>
-<!-- <a class="ui" id="credit" href="https://iso-glow.vercel.app" target="_blank" rel="noopener">Made with ISO-GLOW ↗</a> -->
+<a class="ui" id="credit" href="https://iso-glow.vercel.app" target="_blank" rel="noopener">Made with ISO-GLOW ↗</a>
 <div class="ui" id="read"></div>
 
 <script type="module">
@@ -2702,6 +2702,10 @@ FIGS3D.push({ id: 'rp', name: 'Record player', mod: (() => {
         vec3 col = vec3(0.060) * mix(0.8, 1.15, ridge);
         float sp = (kk(T, uL1, V, 70.0) * 0.55 + kk(T, uL1, V, 9.0) * 0.07 + kk(T, uL2, V, 70.0) * 0.45 + kk(T, uL2, V, 9.0) * 0.05) * (0.55 + 0.45 * ridge);
         col += vec3(0.80, 0.82, 0.85) * sp * zone;
+        float tg = 0.0;                                                          // gaps between tracks, rim and label edges
+        tg += 1.0 - smoothstep(0.0, 0.0022, abs(rad - 0.3897)); tg += 1.0 - smoothstep(0.0, 0.0022, abs(rad - 0.3077)); tg += 1.0 - smoothstep(0.0, 0.0022, abs(rad - 0.2462));
+        tg += 1.0 - smoothstep(0.0, 0.0016, abs(rad - 0.4615)); tg += 1.0 - smoothstep(0.0, 0.0016, abs(rad - 0.1763));
+        col += vec3(0.11) * clamp(tg, 0.0, 1.0) * smoothstep(0.7, 0.95, N.y);
         vec3 H1 = normalize(uL1 + V);
         col += vec3(0.5) * pow(max(dot(N, H1), 0.0), 36.0) * 0.22 * (1.0 - zone);
         col += vec3(0.030) * max(dot(N, uL1), 0.0);
@@ -2713,14 +2717,11 @@ FIGS3D.push({ id: 'rp', name: 'Record player', mod: (() => {
   function makeRecord() {
     const g = new THREE.Group(); g.userData = { rec: true }; g.rotation.order = 'YXZ'; g0.add(g);
     g.add(new THREE.Mesh(vinylGeo, vinylMat));
-    { const ring = (r, mat, z = 1.56) => g.add(loopL(circ(0, 0, r, z, 128), mat));
-      [60.8, 48, 38.4].forEach(r => ring(r, majorMat));
-      ring(RR - 1.2, majorMat, 1.72); ring(RR - 4.5, lineMat, 1.72); ring(27.5, lineMat, 1.67); }
     const sh = new THREE.Group(); g.add(sh);
     const lab = document.createElement('canvas'); lab.width = lab.height = 512;
     const tex = new THREE.CanvasTexture(lab); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 8;
-    { const m = new THREE.Mesh(new THREE.CircleGeometry(24 * TS, 64), new THREE.MeshBasicMaterial({ map: tex, toneMapped: false, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -12 }));
-      m.rotation.x = -Math.PI / 2; m.position.copy(W(0, 0, 1.74)); g.add(m); }
+    { const m = new THREE.Mesh(new THREE.CircleGeometry(24 * TS, 64), new THREE.MeshBasicMaterial({ map: tex, toneMapped: false, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 }));
+      m.rotation.x = -Math.PI / 2; m.position.copy(W(0, 0, 1.8)); g.add(m); }
     return { g, sh, lab, tex, track: null, img: null };
   }
   function drawLabel(r) {
@@ -2800,15 +2801,25 @@ FIGS3D.push({ id: 'rp', name: 'Record player', mod: (() => {
   //   old disk lifts off → flies to its sleeve → slides in → the sleeve returns to the crate
   //   the new sleeve pops out of the crate → the new disk slides out → is carried onto the spindle → the sleeve settles beside the deck
   const S = W(C[0], C[1], RZ), PSI = -0.2;
-  const POSE = { slot: { p: SLOT, tilt: TILT, yaw: 0, s: KS }, A: { p: W(-118, 158, RZ + 5), tilt: 0, yaw: PSI, s: 1 }, B: { p: W(CXM, CRY - 70, 96), tilt: 0, yaw: PSI, s: 1 } };
+  const A_P = W(-118, 158, RZ + 5);
+  const POSE = { slot: { p: SLOT, tilt: TILT, yaw: 0, s: KS }, A: { p: A_P, tilt: 0, yaw: PSI, s: 1 }, B: { p: A_P.clone().add(new THREE.Vector3(0, 110 * TS, 0)), tilt: 0, yaw: PSI, s: 1 } };
   const T = { fly: 1.0, slide: [1.0, 1.7], pop: [0.15, 1.5], pull: [1.6, 2.5], deck: [2.7, 3.9], back: [1.8, 3.0], settle: [2.8, 3.9] }, T_END = 3.9;
   const sw = { on: false, t: 0 };
   const ss = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
   const sg = (t, a, b) => Math.min(1, Math.max(0, (t - a) / (b - a)));
   let rotA = 0;
-  function setSleeve(o, f, t, u, lift, mid) {                                      // move a sleeve between two poses with an arc
-    const e = ss(0, 1, u), hx = ss(0.35, 1, u), g = o.g, arc = mid ? Math.sin(Math.PI * hx) : Math.sin(Math.PI * ss(0, 0.8, u));
-    g.position.set(f.p.x + (t.p.x - f.p.x) * hx, f.p.y + (t.p.y - f.p.y) * e + lift * TS * arc, f.p.z + (t.p.z - f.p.z) * hx);
+  function setSleeve(o, f, t, u, lift, mode) {                                      // move a sleeve between two poses without ever crossing the crate
+    const g = o.g, L = lift * TS; let e, x, y, z;
+    if (mode === 'up') {                                                           // straight up out of the crate, then across
+      const h = ss(0.4, 1, u); e = ss(0.3, 1, u);
+      if (u < 0.4) { x = f.p.x; z = f.p.z; y = f.p.y + L * ss(0, 0.4, u); }
+      else { const vy = f.p.y + L; x = f.p.x + (t.p.x - f.p.x) * h; z = f.p.z + (t.p.z - f.p.z) * h; y = vy + (t.p.y - vy) * h; }
+    } else if (mode === 'down') {                                                  // across to above its slot, then straight down into it
+      const h = ss(0, 0.6, u), dn = ss(0.6, 1, u), vy = t.p.y + L; e = ss(0, 0.75, u);
+      if (u < 0.6) { x = f.p.x + (t.p.x - f.p.x) * h; z = f.p.z + (t.p.z - f.p.z) * h; y = f.p.y + (vy - f.p.y) * h; }
+      else { x = t.p.x; z = t.p.z; y = vy + (t.p.y - vy) * dn; }
+    } else { e = ss(0, 1, u); x = f.p.x + (t.p.x - f.p.x) * e; y = f.p.y + (t.p.y - f.p.y) * e; z = f.p.z + (t.p.z - f.p.z) * e; }
+    g.position.set(x, y, z);
     g.rotation.set(f.tilt + (t.tilt - f.tilt) * e, f.yaw + (t.yaw - f.yaw) * e, 0); g.scale.setScalar(f.s + (t.s - f.s) * e); g.updateMatrixWorld(true);
   }
   const lp = new THREE.Vector3(), qa = new THREE.Quaternion(), qb = new THREE.Quaternion(), eu = new THREE.Euler(0, 0, 0, 'YXZ'), tmpO = new THREE.Object3D(), P1 = new THREE.Vector3();
@@ -2819,24 +2830,24 @@ FIGS3D.push({ id: 'rp', name: 'Record player', mod: (() => {
   function sheen() { recs.forEach(r => { r.sh.rotation.y = -r.g.rotation.y; }); }
   function layout() {
     if (!sw.on) {
-      setSleeve(cs, POSE.A, POSE.A, 0, 0); setSleeve(ns, POSE.slot, POSE.slot, 0, 0);
+      setSleeve(cs, POSE.A, POSE.A, 0, 0, 'flat'); setSleeve(ns, POSE.slot, POSE.slot, 0, 0, 'flat');
       cur.g.visible = true; cur.g.scale.setScalar(1); cur.g.position.copy(S); cur.g.rotation.set(0, rotA, 0);
       nxt.g.visible = false; nxt.g.position.set(0, -99, 0); sheen(); return;
     }
     const t = sw.t, pop = sg(t, T.pop[0], T.pop[1]), back = sg(t, T.back[0], T.back[1]), settle = sg(t, T.settle[0], T.settle[1]);
-    setSleeve(cs, POSE.A, POSE.slot, back, 70, false);                              // the old sleeve goes back into the crate
-    if (t < T.settle[0]) setSleeve(ns, POSE.slot, POSE.B, pop, 95, false); else setSleeve(ns, POSE.B, POSE.A, settle, 80, true);
+    setSleeve(cs, POSE.A, POSE.slot, back, 70, 'down');                              // the old sleeve goes back into the crate
+    if (t < T.settle[0]) setSleeve(ns, POSE.slot, POSE.B, pop, 120, 'up'); else setSleeve(ns, POSE.B, POSE.A, settle, 0, 'flat');
     // old disk: lift off, fly to its sleeve, slide in; from then on it travels inside the sleeve
     if (t < T.slide[0]) {
       const fo = sg(t, 0, T.fly), hx = ss(0, 0.8, fo), h = (fo < 0.15 ? ss(0, 0.15, fo) : 1 - ss(0.8, 1, fo)) * 26 * TS;
       recAt(POSE.A, 150, P1, qa); eu.set(0, rotA, 0); qb.setFromEuler(eu);
-      cur.g.position.copy(S).lerp(P1, hx); cur.g.position.y += h; cur.g.quaternion.copy(qb).slerp(qa, hx); cur.g.scale.setScalar(1);
-    } else { onSleeve(cs, 150 * (1 - ss(0, 1, sg(t, T.slide[0], T.slide[1]))), cur.g.position, qa); cur.g.quaternion.copy(qa); cur.g.scale.copy(cs.g.scale); }
-    cur.g.visible = true; nxt.g.visible = true;
+      cur.g.position.copy(S).lerp(P1, hx); cur.g.position.y += h; cur.g.quaternion.copy(qb).slerp(qa, hx); cur.g.scale.setScalar(1); cur.g.visible = true;
+    } else { const ddx = 150 * (1 - ss(0, 1, sg(t, T.slide[0], T.slide[1]))); onSleeve(cs, ddx, cur.g.position, qa); cur.g.quaternion.copy(qa); cur.g.scale.copy(cs.g.scale); if (ddx < 3) { cur.g.visible = false; } }
+    nxt.g.visible = true;
     // new disk: out of its sleeve, then onto the platter
     if (t < T.deck[0]) {
       const dx = 48 * ss(0, 1, pop) + 102 * ss(0, 1, sg(t, T.pull[0], T.pull[1]));
-      onSleeve(ns, dx, nxt.g.position, qa); nxt.g.quaternion.copy(qa); nxt.g.scale.copy(ns.g.scale);
+      onSleeve(ns, dx, nxt.g.position, qa); nxt.g.quaternion.copy(qa); nxt.g.scale.copy(ns.g.scale); nxt.g.visible = dx > 3;
     } else {
       const v = sg(t, T.deck[0], T.deck[1]), hx = ss(0, 0.8, v), h = (v < 0.15 ? ss(0, 0.15, v) : 1 - ss(0.8, 1, v)) * 26 * TS;
       recAt(POSE.B, 150, P1, qa); eu.set(0, rotA, 0); qb.setFromEuler(eu);

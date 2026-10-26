@@ -55,11 +55,13 @@ function buildLighthouseScene(g, t) {
   const waterColors = ['#347f92', '#39899a', '#438f9a', '#4c9aa4'];
   const step = 0.62;
   for (let x = -4.9; x < 4.9; x += step) {
+    const x1 = Math.min(x + step, 4.88);
     for (let z = -4.9; z < 4.9; z += step) {
-      if (inLand(x + step * 0.5, z + step * 0.5)) continue;
+      const z1 = Math.min(z + step, 4.88);
+      if (inLand((x + x1) * 0.5, (z + z1) * 0.5)) continue;
       const wave = (xx, zz) => 0.115 + 0.025 * Math.sin(xx * 1.33 + TAU * 8 * now / 46) * Math.cos(zz * 1.21 - TAU * 7 * now / 46);
-      const p00 = [x, wave(x, z), z], p10 = [x + step, wave(x + step, z), z];
-      const p11 = [x + step, wave(x + step, z + step), z + step], p01 = [x, wave(x, z + step), z + step];
+      const p00 = [x, wave(x, z), z], p10 = [x1, wave(x1, z), z];
+      const p11 = [x1, wave(x1, z1), z1], p01 = [x, wave(x, z1), z1];
       const k = (Math.floor((x + 5) / step) * 7 + Math.floor((z + 5) / step) * 3 + 40) % waterColors.length;
       quad(p00, p10, p11, p01, waterColors[k], [0, 1, 0]);
     }

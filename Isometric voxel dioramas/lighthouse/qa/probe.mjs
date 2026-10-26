@@ -24,8 +24,8 @@ function makeProbe() {
     record.bounds[5] = Math.max(record.bounds[5], p[2] + pad);
   };
   const g = { m: record };
-  g.tri = (...args) => { record.counts.tri++; args.slice(0, 3).forEach(addPoint); record.signature.push(['tri', ...args]); };
-  g.quad = (...args) => { record.counts.quad++; args.slice(0, 4).forEach(addPoint); record.signature.push(['quad', ...args]); };
+  g.tri = (...args) => { record.counts.tri++; args.slice(0, 3).forEach(point => addPoint(point)); record.signature.push(['tri', ...args]); };
+  g.quad = (...args) => { record.counts.quad++; args.slice(0, 4).forEach(point => addPoint(point)); record.signature.push(['quad', ...args]); };
   g.cube = (x, y, z, w, h, d, color) => {
     record.counts.cube++;
     [[x, y, z], [x + w, y + h, z + d]].forEach(p => addPoint(p));
@@ -54,7 +54,7 @@ const samples = beats.map(seconds => {
   const { g, record } = makeProbe();
   build(g, seconds);
   const [minX, minY, minZ, maxX, maxY, maxZ] = record.bounds;
-  if (minX < -5.5 || maxX > 5.5 || minZ < -5.5 || maxZ > 5.5 || minY < -1 || maxY > 5.5) {
+  if (minX < -5.05 || maxX > 5.05 || minZ < -5.05 || maxZ > 5.05 || minY < -1 || maxY > 5.5) {
     throw new Error(`Scene exceeds the authored frame at ${seconds}s: ${record.bounds.join(', ')}`);
   }
   return { seconds, counts: record.counts, bounds: record.bounds };

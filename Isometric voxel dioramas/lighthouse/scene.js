@@ -248,7 +248,7 @@ function buildLighthouseScene(g, t) {
   tri(sailInsetA, sailInsetB, sailInsetC, '#dc5140', [0, 0, 1]);
   line(boatPoint(-0.76, 0.29, 0), mastTop, '#513e32', 0.018);
   line(boatPoint(0.82, 0.28, 0), mastTop, '#513e32', 0.018);
-  const pennantTip = boatPoint(0.35, 2.05 + Math.sin(now * 2) * 0.04, 0);
+  const pennantTip = boatPoint(0.35, 2.05 + Math.sin(TAU * 13 * now / 46) * 0.04, 0);
   line(mastTop, pennantTip, '#503b2c', 0.018);
   tri(pennantTip, boatPoint(0.58, 1.99, 0), boatPoint(0.40, 1.91, 0), '#e2ae58', [0, 0, 1]);
 

@@ -115,7 +115,7 @@
 </div>
 <div class="ui" id="info"><h2>Click any part</h2><p>Drag to orbit, scroll to zoom, right-drag to pan. ↑ ↓ climb and descend once the rotor is at speed.</p></div>
 <div class="ui" id="hint">L lights · E engines · ↑↓ climb · C cabin lights · D doors · I iso · T theme</div>
-<a class="ui" id="credit" href="https://iso-glow.vercel.app" target="_blank" rel="noopener">Made with ISO-GLOW ↗</a>
+<!-- <a class="ui" id="credit" href="https://iso-glow.vercel.app" target="_blank" rel="noopener">Made with ISO-GLOW ↗</a> -->
 <div class="ui" id="read"></div>
 
 <script type="module">
@@ -2758,18 +2758,16 @@ FIGS3D.push({ id: 'rp', name: 'Record player', mod: (() => {
   const CRX = -190, CRY = -20, CRW = 134, CRD = 74, CRH = 46, CRZ = PLZ, WT = 4;
   { const pad = new THREE.Group(); pad.position.copy(W(CRX - 14, CRY - 12, 0)); g0.add(pad);
     plateWith(pad, CRW + 28, CRD + 24, [[12, 12], [CRW + 16, 12], [12, CRD + 12], [CRW + 16, CRD + 12]]); }
-  { const pad2 = new THREE.Group(); pad2.position.copy(W(30, -214, 0)); g0.add(pad2);
-    plateWith(pad2, 342, 212, [[12, 12], [330, 12], [12, 200], [330, 200]]); }
   rbox(CRX, CRY, CRZ, CRW, WT, CRH, 2, bodyMat, g0);                                // back
   rbox(CRX, CRY + CRD - WT, CRZ, CRW, WT, CRH - 10, 2, bodyMat, g0);                // front, lower so the covers show
   rbox(CRX, CRY, CRZ, WT, CRD, CRH, 2, bodyMat, g0); rbox(CRX + CRW - WT, CRY, CRZ, WT, CRD, CRH, 2, bodyMat, g0);
   rbox(CRX + WT, CRY + WT, CRZ, CRW - 2 * WT, CRD - 2 * WT, 3, 0, bodyMat, g0);
   label('VINYL', 40, 7, 6, onFront(CRX + CRW / 2, CRY + CRD, CRZ + 12), g0);
-  const CXM = CRX + CRW / 2, SLOTY = 0, HALF = SLW * KS / 2;
+  const CXM = CRX + CRW / 2, SLOTY = CRY + CRD - WT - 9, HALF = SLW * KS / 2;
   { const mats = [0x2a2c2e, 0x393c3f, 0x202224, 0x34383b].map(c => new THREE.MeshStandardMaterial({ color: c, roughness: 0.8 }));
     for (let i = 0; i < 5; i++) {                                                   // the other records, leaning back in the crate
       const m = new THREE.Mesh(new THREE.BoxGeometry(HALF * 2 * TS, 1.6 * TS, HALF * 2 * TS), mats[i % 4]);
-      m.rotation.order = 'YXZ'; m.rotation.x = TILT; m.position.copy(W(CXM, SLOTY + 8 * (i + 1) - HALF * Math.cos(TILT), CRZ + 3 + HALF * Math.sin(TILT)));
+      m.rotation.order = 'YXZ'; m.rotation.x = TILT; m.position.copy(W(CXM, SLOTY - 8 * (i + 1) - HALF * Math.cos(TILT), CRZ + 3 + HALF * Math.sin(TILT)));
       addOutline(m); twMeshes.push(m); g0.add(m); } }
   const SLOT = W(CXM, SLOTY - HALF * Math.cos(TILT), CRZ + 3 + HALF * Math.sin(TILT));
 
@@ -2802,26 +2800,24 @@ FIGS3D.push({ id: 'rp', name: 'Record player', mod: (() => {
   // swap choreography, all at once:
   //   old disk lifts off → flies to its sleeve → slides in → the sleeve returns to the crate
   //   the new sleeve pops out of the crate → the new disk slides out → is carried onto the spindle → the sleeve settles beside the deck
-  const S = W(C[0], C[1], RZ), PSI = -0.12, LIFT = 70 * TS;
-  const POSE = { slot: { p: SLOT, tilt: TILT, yaw: 0, s: KS }, A: { p: W(135, -112, PLZ + 0.2), tilt: 0, yaw: PSI, s: 1 }, B: { p: W(CXM, -175, PLZ + 100.2), tilt: 0, yaw: PSI, s: 1 } };
+  const S = W(C[0], C[1], RZ), PSI = -0.2;
+  const A_P = W(-118, 158, RZ + 5);
+  const POSE = { slot: { p: SLOT, tilt: TILT, yaw: 0, s: KS }, A: { p: A_P, tilt: 0, yaw: PSI, s: 1 }, B: { p: A_P.clone().add(new THREE.Vector3(0, 110 * TS, 0)), tilt: 0, yaw: PSI, s: 1 } };
   const T = { fly: 1.0, slide: [1.0, 1.7], pop: [0.15, 1.5], pull: [1.6, 2.5], deck: [2.7, 3.9], back: [1.8, 3.0], settle: [2.8, 3.9] }, T_END = 3.9;
   const sw = { on: false, t: 0 };
   const ss = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
   const sg = (t, a, b) => Math.min(1, Math.max(0, (t - a) / (b - a)));
   let rotA = 0;
-  const upDir = new THREE.Vector3(), eul = new THREE.Euler(0, 0, 0, 'YXZ'), vtmp = new THREE.Vector3();
-  const leanUp = (p, out) => out.set(0, 0, -1).applyEuler(eul.set(p.tilt, p.yaw, 0));    // the way a sleeve slides out along its own lean
-  function setSleeve(o, f, t, u, lift, mode) {                                      // move a sleeve between two poses without crossing anything
+  function setSleeve(o, f, t, u, lift, mode) {                                      // move a sleeve between two poses without ever crossing the crate
     const g = o.g, L = lift * TS; let e, x, y, z;
-    if (mode === 'up') {                                                           // slide out along the lean, then travel
-      const h = ss(0.4, 1, u), V = leanUp(f, upDir).multiplyScalar(L).add(f.p); e = ss(0.3, 1, u);
-      if (u < 0.4) { const k = ss(0, 0.4, u); x = f.p.x + (V.x - f.p.x) * k; y = f.p.y + (V.y - f.p.y) * k; z = f.p.z + (V.z - f.p.z) * k; }
-      else { x = V.x + (t.p.x - V.x) * h; y = V.y + (t.p.y - V.y) * h; z = V.z + (t.p.z - V.z) * h; }
-    } else if (mode === 'updown') {                                                // straight up, across at height, then down along the lean of its slot
-      const V = leanUp(t, vtmp).multiplyScalar(L).add(t.p), yc = Math.max(f.p.y + L, V.y); e = ss(0.25, 0.75, u);
-      if (u < 0.25) { x = f.p.x; z = f.p.z; y = f.p.y + (yc - f.p.y) * ss(0, 0.25, u); }
-      else if (u < 0.75) { const h = ss(0.25, 0.75, u); x = f.p.x + (V.x - f.p.x) * h; z = f.p.z + (V.z - f.p.z) * h; y = yc; }
-      else { const k = ss(0.75, 1, u); x = V.x + (t.p.x - V.x) * k; y = yc + (t.p.y - yc) * k; z = V.z + (t.p.z - V.z) * k; }
+    if (mode === 'up') {                                                           // straight up out of the crate, then across
+      const h = ss(0.4, 1, u); e = ss(0.3, 1, u);
+      if (u < 0.4) { x = f.p.x; z = f.p.z; y = f.p.y + L * ss(0, 0.4, u); }
+      else { const vy = f.p.y + L; x = f.p.x + (t.p.x - f.p.x) * h; z = f.p.z + (t.p.z - f.p.z) * h; y = vy + (t.p.y - vy) * h; }
+    } else if (mode === 'down') {                                                  // across to above its slot, then straight down into it
+      const h = ss(0, 0.6, u), dn = ss(0.6, 1, u), vy = t.p.y + L; e = ss(0, 0.75, u);
+      if (u < 0.6) { x = f.p.x + (t.p.x - f.p.x) * h; z = f.p.z + (t.p.z - f.p.z) * h; y = f.p.y + (vy - f.p.y) * h; }
+      else { x = t.p.x; z = t.p.z; y = vy + (t.p.y - vy) * dn; }
     } else { e = ss(0, 1, u); x = f.p.x + (t.p.x - f.p.x) * e; y = f.p.y + (t.p.y - f.p.y) * e; z = f.p.z + (t.p.z - f.p.z) * e; }
     g.position.set(x, y, z);
     g.rotation.set(f.tilt + (t.tilt - f.tilt) * e, f.yaw + (t.yaw - f.yaw) * e, 0); g.scale.setScalar(f.s + (t.s - f.s) * e); g.updateMatrixWorld(true);
@@ -2839,11 +2835,11 @@ FIGS3D.push({ id: 'rp', name: 'Record player', mod: (() => {
       nxt.g.visible = false; nxt.g.position.set(0, -99, 0); sheen(); return;
     }
     const t = sw.t, pop = sg(t, T.pop[0], T.pop[1]), back = sg(t, T.back[0], T.back[1]), settle = sg(t, T.settle[0], T.settle[1]);
-    setSleeve(cs, POSE.A, POSE.slot, back, 100, 'updown');                              // the old sleeve goes back into the crate
-    if (t < T.settle[0]) setSleeve(ns, POSE.slot, POSE.B, pop, 150, 'up'); else setSleeve(ns, POSE.B, POSE.A, settle, 0, 'flat');
+    setSleeve(cs, POSE.A, POSE.slot, back, 70, 'down');                              // the old sleeve goes back into the crate
+    if (t < T.settle[0]) setSleeve(ns, POSE.slot, POSE.B, pop, 120, 'up'); else setSleeve(ns, POSE.B, POSE.A, settle, 0, 'flat');
     // old disk: lift off, fly to its sleeve, slide in; from then on it travels inside the sleeve
     if (t < T.slide[0]) {
-      const fo = sg(t, 0, T.fly), hx = ss(0, 0.8, fo), h = (fo < 0.15 ? ss(0, 0.15, fo) : 1 - ss(0.8, 1, fo)) * LIFT;
+      const fo = sg(t, 0, T.fly), hx = ss(0, 0.8, fo), h = (fo < 0.15 ? ss(0, 0.15, fo) : 1 - ss(0.8, 1, fo)) * 26 * TS;
       recAt(POSE.A, 150, P1, qa); eu.set(0, rotA, 0); qb.setFromEuler(eu);
       cur.g.position.copy(S).lerp(P1, hx); cur.g.position.y += h; cur.g.quaternion.copy(qb).slerp(qa, hx); cur.g.scale.setScalar(1); cur.g.visible = true;
     } else { const ddx = 150 * (1 - ss(0, 1, sg(t, T.slide[0], T.slide[1]))); onSleeve(cs, ddx, cur.g.position, qa); cur.g.quaternion.copy(qa); cur.g.scale.copy(cs.g.scale); if (ddx < 3) { cur.g.visible = false; } }
@@ -2853,7 +2849,7 @@ FIGS3D.push({ id: 'rp', name: 'Record player', mod: (() => {
       const dx = 48 * ss(0, 1, pop) + 102 * ss(0, 1, sg(t, T.pull[0], T.pull[1]));
       onSleeve(ns, dx, nxt.g.position, qa); nxt.g.quaternion.copy(qa); nxt.g.scale.copy(ns.g.scale); nxt.g.visible = dx > 3;
     } else {
-      const v = sg(t, T.deck[0], T.deck[1]), hx = ss(0, 0.8, v), h = (v < 0.15 ? ss(0, 0.15, v) : 1 - ss(0.8, 1, v)) * LIFT;
+      const v = sg(t, T.deck[0], T.deck[1]), hx = ss(0, 0.8, v), h = (v < 0.15 ? ss(0, 0.15, v) : 1 - ss(0.8, 1, v)) * 26 * TS;
       recAt(POSE.B, 150, P1, qa); eu.set(0, rotA, 0); qb.setFromEuler(eu);
       nxt.g.position.copy(P1).lerp(S, hx); nxt.g.position.y += h; nxt.g.quaternion.copy(qa).slerp(qb, hx); nxt.g.scale.setScalar(1);
     }
@@ -3257,12 +3253,12 @@ body.rp-focus #rp-now { display:block; }
   })();
 
   // ── camera: centred on the deck; the iso button gives a true isometric, orthographic view and flies there ──
-  const HOME = W(150, 80, 22), CAM_DIR = new THREE.Vector3(1, 1, 1).normalize();
+  const HOME = W(140, 110, 22), CAM_DIR = new THREE.Vector3(1, 1, 1).normalize();
   let camFly = null, hooked = false;
   const aspectK = () => Math.max(1, 1.45 / persp.aspect);
   function flyCam(pos, tgt, dur) { camFly = { t: 0, d: dur, p0: camera.position.clone(), t0: controls.target.clone(), p1: pos, t1: tgt.clone(), z0: camera.zoom, z1: 1 }; }
-  function homeCam(dur = 0.9) { const iso = camera === ortho; flyCam(HOME.clone().addScaledVector(CAM_DIR, iso ? 14 : 9.8 * aspectK()), HOME, dur); return true; }
-  function isoView() { if (camera !== ortho) setOrtho(true, 660 * TS * aspectK() / fovK()); else setOrtho(false); homeCam(); return true; }
+  function homeCam(dur = 0.9) { const iso = camera === ortho; flyCam(HOME.clone().addScaledVector(CAM_DIR, iso ? 14 : 8.8 * aspectK()), HOME, dur); return true; }
+  function isoView() { if (camera !== ortho) setOrtho(true, 540 * TS * aspectK() / fovK()); else setOrtho(false); homeCam(); return true; }
   function stepCam(dt) {
     if (!hooked && typeof act !== 'undefined') { act.iso = isoView; hooked = true; }
     if (!camFly) return;
@@ -3281,8 +3277,8 @@ body.rp-focus #rp-now { display:block; }
     stop: () => { st.on = false; if (st.mode !== 'rest') st.mode = 'return'; render(); },
     demo: () => { if (!busy() && !st.on) startStop(); },
     panel: [['Hide controls', 'H', () => setFocus(true)], ['Search a song', '/', () => UI.focus()], ['Start / stop', 'space', startStop], ['33⅓ rpm', '3', () => setSpeed(33.333)], ['45 rpm', '4', () => setSpeed(45)], ['Cue arm', 'C', cue], ['Center view', 'R', () => homeCam()], ['Pitch +', '↑', () => setPitch(st.pitch + 1)], ['Pitch −', '↓', () => setPitch(st.pitch - 1)]],
-    view: { target: W(150, 80, 22), dist: 9.8 },
-    info: '<h2>Record player</h2><p>Type any song or artist in the search bar and pick a result: the platter stops, the old record lifts off and flies away, the album sleeve pops out of the crate of records, the new record slides out of it and is lowered onto the spindle, then the platter spins up, the arm cues itself and the music plays. With no song chosen the blank record plays a built-in lo-fi loop. Songs play as real 30-second previews, and the arm tracks across the groove as it plays. Drag the record to spin or scratch it, drag the pitch slider or the volume knob, or drag the tonearm and drop it anywhere on the record to play from there. 33 / 45 change the speed. H hides every control and leaves just the player and the music. Needs an internet connection for search and audio.</p>',
+    view: { target: W(140, 110, 22), dist: 8.8 },
+    // info: '<h2>Record player</h2><p>Type any song or artist in the search bar and pick a result: the platter stops, the old record lifts off and flies away, the album sleeve pops out of the crate of records, the new record slides out of it and is lowered onto the spindle, then the platter spins up, the arm cues itself and the music plays. With no song chosen the blank record plays a built-in lo-fi loop. Songs play as real 30-second previews, and the arm tracks across the groove as it plays. Drag the record to spin or scratch it, drag the pitch slider or the volume knob, or drag the tonearm and drop it anywhere on the record to play from there. 33 / 45 change the speed. H hides every control and leaves just the player and the music. Needs an internet connection for search and audio.</p>',
     hint: '/ search · space start · drag record, arm, pitch, knob · I iso · R centre · H hide controls' };
 })() });
 

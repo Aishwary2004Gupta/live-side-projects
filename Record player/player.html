@@ -2672,24 +2672,51 @@ FIGS3D.push({ id: 'rp', name: 'Record player', mod: (() => {
     if (lines.length > maxLines) { lines.length = maxLines; lines[maxLines - 1] = lines[maxLines - 1].replace(/.{0,2}$/, '…'); }
     return lines;
   };
-  const vinylMat = new THREE.MeshStandardMaterial({ color: 0x131415, roughness: 0.3, metalness: 0.1, side: THREE.DoubleSide });
-  const sheenCv = document.createElement('canvas'); sheenCv.width = sheenCv.height = 512;
-  { const x = sheenCv.getContext('2d'); x.fillStyle = '#000'; x.fillRect(0, 0, 512, 512);
-    if (x.createConicGradient) { const g = x.createConicGradient(0.7, 256, 256);
-      [[0, '#000'], [0.04, '#000'], [0.095, '#8d9093'], [0.15, '#000'], [0.5, '#000'], [0.545, '#000'], [0.6, '#74777a'], [0.655, '#000'], [1, '#000']].forEach(([p, c]) => g.addColorStop(p, c));
-      x.fillStyle = g; x.fillRect(0, 0, 512, 512); } }
-  const sheenTex = new THREE.CanvasTexture(sheenCv); sheenTex.colorSpace = THREE.SRGBColorSpace;
+  // The vinyl is shaded in world space: the highlight comes from fixed lights + the camera (anisotropic, along the grooves),
+  // so it stays put while the record spins. Grooves are fract(length(vUv - 0.5) * 200.0).
+  const vinylMat = new THREE.ShaderMaterial({
+    side: THREE.DoubleSide,
+    uniforms: { uL1: { value: new THREE.Vector3(-0.35, 0.85, 0.40).normalize() }, uL2: { value: new THREE.Vector3(0.45, 0.80, -0.40).normalize() } },
+    vertexShader: `
+      varying vec3 vW; varying vec3 vN; varying vec3 vR; varying vec2 vUv;
+      void main() {
+        vec4 wp = modelMatrix * vec4(position, 1.0);
+        vW = wp.xyz; vN = normalize(mat3(modelMatrix) * normal);
+        vR = mat3(modelMatrix) * vec3(position.x, 0.0, position.z);
+        vUv = position.xz / ${(2 * RR * TS).toFixed(6)} + 0.5;
+        gl_Position = projectionMatrix * viewMatrix * wp;
+      }`,
+    fragmentShader: `
+      uniform vec3 uL1; uniform vec3 uL2;
+      varying vec3 vW; varying vec3 vN; varying vec3 vR; varying vec2 vUv;
+      float kk(vec3 T, vec3 L, vec3 V, float p) { vec3 H = normalize(L + V); float d = dot(T, H); return pow(sqrt(max(1.0 - d * d, 0.0)), p); }
+      void main() {
+        float rad = length(vUv - 0.5);
+        float g = fract(rad * 200.0);
+        float ridge = abs(g - 0.5) * 2.0;
+        vec3 N = normalize(vN); if (!gl_FrontFacing) N = -N;
+        vec3 V = normalize(cameraPosition - vW);
+        vec3 R = normalize(vR + vec3(1e-5));
+        vec3 T = normalize(cross(N, R));
+        float zone = smoothstep(0.19, 0.205, rad) * (1.0 - smoothstep(0.452, 0.466, rad)) * smoothstep(0.8, 0.95, N.y);
+        vec3 col = vec3(0.060) * mix(0.8, 1.15, ridge);
+        float sp = (kk(T, uL1, V, 70.0) * 0.55 + kk(T, uL1, V, 9.0) * 0.07 + kk(T, uL2, V, 70.0) * 0.45 + kk(T, uL2, V, 9.0) * 0.05) * (0.55 + 0.45 * ridge);
+        col += vec3(0.80, 0.82, 0.85) * sp * zone;
+        vec3 H1 = normalize(uL1 + V);
+        col += vec3(0.5) * pow(max(dot(N, H1), 0.0), 36.0) * 0.22 * (1.0 - zone);
+        col += vec3(0.030) * max(dot(N, uL1), 0.0);
+        gl_FragColor = vec4(col, 1.0);
+      }`
+  });
   const vinylGeo = new THREE.LatheGeometry([[2, 0], [RR - 1.2, 0], [RR - 0.3, 0.25], [RR, 0.8], [RR - 0.3, 1.45], [RR - 1.2, 1.7], [RR - 4.5, 1.7], [RR - 6, 1.5], [27.5, 1.5], [26.5, 1.66], [2, 1.66]]
     .map(([r, y]) => new THREE.Vector2(r * TS, y * TS)), 160);
   function makeRecord() {
     const g = new THREE.Group(); g.userData = { rec: true }; g.rotation.order = 'YXZ'; g0.add(g);
     g.add(new THREE.Mesh(vinylGeo, vinylMat));
     { const ring = (r, mat, z = 1.56) => g.add(loopL(circ(0, 0, r, z, 128), mat));
-      for (let r = 70; r >= 31; r -= 2.6) ring(r, lineMat); [60.8, 48, 38.4].forEach(r => ring(r, majorMat));
+      [60.8, 48, 38.4].forEach(r => ring(r, majorMat));
       ring(RR - 1.2, majorMat, 1.72); ring(RR - 4.5, lineMat, 1.72); ring(27.5, lineMat, 1.67); }
-    const sh = new THREE.Group(); g.add(sh);                                          // the highlight stays put while the disk turns
-    { const m = new THREE.Mesh(new THREE.RingGeometry(26 * TS, (RR - 5) * TS, 160), new THREE.MeshBasicMaterial({ map: sheenTex, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false, opacity: 0.85 }));
-      m.rotation.x = -Math.PI / 2; m.position.copy(W(0, 0, 1.6)); sh.add(m); }
+    const sh = new THREE.Group(); g.add(sh);
     const lab = document.createElement('canvas'); lab.width = lab.height = 512;
     const tex = new THREE.CanvasTexture(lab); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 8;
     { const m = new THREE.Mesh(new THREE.CircleGeometry(24 * TS, 64), new THREE.MeshBasicMaterial({ map: tex, toneMapped: false, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -12 }));
@@ -2743,65 +2770,76 @@ FIGS3D.push({ id: 'rp', name: 'Record player', mod: (() => {
       addOutline(m); twMeshes.push(m); g0.add(m); } }
   const SLOT = W(CXM, SLOTY - HALF * Math.cos(TILT), CRZ + 3 + HALF * Math.sin(TILT));
 
-  // the chosen sleeve: two cards with the new record between them (open edge on its +x side)
-  const sl = new THREE.Group(); sl.rotation.order = 'YXZ'; g0.add(sl);
-  const slc = document.createElement('canvas'); slc.width = slc.height = 512;
-  const slTex = new THREE.CanvasTexture(slc); slTex.colorSpace = THREE.SRGBColorSpace; slTex.anisotropy = 8;
-  { const geo = () => new THREE.BoxGeometry(SLW * TS, 0.8 * TS, SLW * TS);
-    const back = new THREE.Mesh(geo(), bodyMat); back.position.y = 0.4 * TS; addOutline(back); twMeshes.push(back); sl.add(back);
-    const front = new THREE.Mesh(geo(), [bodyMat, bodyMat, new THREE.MeshBasicMaterial({ map: slTex, toneMapped: false }), bodyMat, bodyMat, bodyMat]);
-    front.position.y = 3.2 * TS; addOutline(front); twMeshes.push(front); sl.add(front); }
-  let slTrack = null, slImg = null;
-  function drawSleeve() {
-    const x = slc.getContext('2d'), Cc = pal3(), A_ = '#' + accent.getHexString(), t = slTrack;
+  // two sleeves trade places: one lies beside the deck holding the cover of the record on the platter, the other waits in the crate
+  function makeSleeve() {
+    const g = new THREE.Group(); g.rotation.order = 'YXZ'; g0.add(g);
+    const cv = document.createElement('canvas'); cv.width = cv.height = 512;
+    const tex = new THREE.CanvasTexture(cv); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 8;
+    const geo = () => new THREE.BoxGeometry(SLW * TS, 0.8 * TS, SLW * TS);
+    const back = new THREE.Mesh(geo(), bodyMat); back.position.y = 0.4 * TS; addOutline(back); twMeshes.push(back); g.add(back);
+    const front = new THREE.Mesh(geo(), [bodyMat, bodyMat, new THREE.MeshBasicMaterial({ map: tex, toneMapped: false }), bodyMat, bodyMat, bodyMat]);
+    front.position.y = 3.2 * TS; addOutline(front); twMeshes.push(front); g.add(front);
+    return { g, cv, tex, track: null, img: null };
+  }
+  function drawSleeve(o) {
+    const x = o.cv.getContext('2d'), Cc = pal3(), A_ = '#' + accent.getHexString(), t = o.track;
     x.fillStyle = Cc.glassOff; x.fillRect(0, 0, 512, 512);
-    if (slImg) { try { x.drawImage(slImg, 0, 0, 512, 512); } catch (e) {} }
+    if (o.img) { try { x.drawImage(o.img, 0, 0, 512, 512); } catch (e) {} }
     else { x.strokeStyle = Cc.line; x.lineWidth = 2; for (let r = 40; r < 260; r += 28) { x.beginPath(); x.arc(256, 230, r, 0, Math.PI * 2); x.stroke(); } }
     x.fillStyle = 'rgba(12,13,14,0.74)'; x.fillRect(0, 380, 512, 132);
     x.fillStyle = A_; x.fillRect(0, 380, 512, 4);
     x.textAlign = 'left'; x.fillStyle = '#f1f1ee'; x.font = `600 34px ${MONO3}`;
     if (t) { wrap(x, t.title, 460, 2).forEach((l, i) => x.fillText(l, 26, 420 + i * 38));
       x.fillStyle = '#b9bbb8'; x.font = `24px ${MONO3}`; wrap(x, t.artist, 460, 1).forEach(l => x.fillText(l, 26, 490)); }
-    else { x.fillText('ISO-GLOW RECORDS', 26, 430); x.fillStyle = '#b9bbb8'; x.font = `24px ${MONO3}`; x.fillText('search for a song', 26, 478); }
-    slTex.needsUpdate = true;
+    else { x.fillText('NEEDLE DROP', 26, 430); x.fillStyle = '#b9bbb8'; x.font = `24px ${MONO3}`; x.fillText('Iso-Glow Sessions', 26, 478); }
+    o.tex.needsUpdate = true;
   }
+  let cs = makeSleeve(), ns = makeSleeve();                                         // cs: beside the deck · ns: in the crate
 
-  // swap choreography: the old disk lifts off and flies away · the sleeve pops out of the crate, grows and tilts flat ·
-  // the new disk slides out of it · it is carried over and lowered onto the spindle · the sleeve goes back into the crate
-  const S = W(C[0], C[1], RZ), STG = W(-118, 158, RZ + 5), PSI = -0.2, OLD_AWAY = W(-180, 330, 100);
-  const T = { oldEnd: 1.0, pop: [0.5, 1.8], pull: [2.0, 3.1], deck: [3.5, 4.8], back: [3.5, 4.7] }, T_END = 4.8;
+  // swap choreography, all at once:
+  //   old disk lifts off → flies to its sleeve → slides in → the sleeve returns to the crate
+  //   the new sleeve pops out of the crate → the new disk slides out → is carried onto the spindle → the sleeve settles beside the deck
+  const S = W(C[0], C[1], RZ), PSI = -0.2;
+  const POSE = { slot: { p: SLOT, tilt: TILT, yaw: 0, s: KS }, A: { p: W(-118, 158, RZ + 5), tilt: 0, yaw: PSI, s: 1 }, B: { p: W(CXM, CRY - 70, 96), tilt: 0, yaw: PSI, s: 1 } };
+  const T = { fly: 1.0, slide: [1.0, 1.7], pop: [0.15, 1.5], pull: [1.6, 2.5], deck: [2.7, 3.9], back: [1.8, 3.0], settle: [2.8, 3.9] }, T_END = 3.9;
   const sw = { on: false, t: 0 };
   const ss = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
   const sg = (t, a, b) => Math.min(1, Math.max(0, (t - a) / (b - a)));
   let rotA = 0;
-  function sleeveAt(u) {                                                           // u: 0 in the crate … 1 laid out beside the deck
-    const e = ss(0, 1, u), hx = ss(0.35, 1, u);
-    sl.position.set(SLOT.x + (STG.x - SLOT.x) * hx, SLOT.y + (STG.y - SLOT.y) * e + 70 * TS * Math.sin(Math.PI * ss(0, 0.8, u)), SLOT.z + (STG.z - SLOT.z) * hx);
-    sl.rotation.set(TILT * (1 - e), PSI * e, 0); sl.scale.setScalar(KS + (1 - KS) * e); sl.updateMatrixWorld(true);
+  function setSleeve(o, f, t, u, lift, mid) {                                      // move a sleeve between two poses with an arc
+    const e = ss(0, 1, u), hx = ss(0.35, 1, u), g = o.g, arc = mid ? Math.sin(Math.PI * hx) : Math.sin(Math.PI * ss(0, 0.8, u));
+    g.position.set(f.p.x + (t.p.x - f.p.x) * hx, f.p.y + (t.p.y - f.p.y) * e + lift * TS * arc, f.p.z + (t.p.z - f.p.z) * hx);
+    g.rotation.set(f.tilt + (t.tilt - f.tilt) * e, f.yaw + (t.yaw - f.yaw) * e, 0); g.scale.setScalar(f.s + (t.s - f.s) * e); g.updateMatrixWorld(true);
   }
-  const lp = new THREE.Vector3(), qa = new THREE.Quaternion(), qb = new THREE.Quaternion(), eu = new THREE.Euler(0, 0, 0, 'YXZ');
-  const onSleeve = (dx, outPos, outQuat) => { lp.set(dx * TS, TS, 0); sl.localToWorld(lp); outPos.copy(lp); outQuat.copy(sl.quaternion); };
+  const lp = new THREE.Vector3(), qa = new THREE.Quaternion(), qb = new THREE.Quaternion(), eu = new THREE.Euler(0, 0, 0, 'YXZ'), tmpO = new THREE.Object3D(), P1 = new THREE.Vector3();
+  tmpO.rotation.order = 'YXZ';
+  const onSleeve = (o, dx, P, Q) => { lp.set(dx * TS, TS, 0); o.g.localToWorld(lp); P.copy(lp); Q.copy(o.g.quaternion); };     // a record lying in a sleeve
+  const recAt = (f, dx, P, Q) => { tmpO.position.copy(f.p); tmpO.rotation.set(f.tilt, f.yaw, 0); tmpO.scale.setScalar(f.s); tmpO.updateMatrixWorld(true);
+    lp.set(dx * TS, TS, 0); tmpO.localToWorld(lp); P.copy(lp); Q.copy(tmpO.quaternion); };                                  // …or in a sleeve pose
   function sheen() { recs.forEach(r => { r.sh.rotation.y = -r.g.rotation.y; }); }
   function layout() {
     if (!sw.on) {
-      sleeveAt(0); cur.g.visible = true; cur.g.scale.setScalar(1); cur.g.position.copy(S); cur.g.rotation.set(0, rotA, 0);
+      setSleeve(cs, POSE.A, POSE.A, 0, 0); setSleeve(ns, POSE.slot, POSE.slot, 0, 0);
+      cur.g.visible = true; cur.g.scale.setScalar(1); cur.g.position.copy(S); cur.g.rotation.set(0, rotA, 0);
       nxt.g.visible = false; nxt.g.position.set(0, -99, 0); sheen(); return;
     }
-    const t = sw.t;
-    const uo = sg(t, 0, T.oldEnd), ho = ss(0.2, 1, uo);                              // old disk
-    cur.g.visible = uo < 1;
-    cur.g.position.set(S.x + OLD_AWAY.x * ho, S.y + ss(0, 0.28, uo) * 26 * TS + OLD_AWAY.y * ho, S.z + OLD_AWAY.z * ho);
-    cur.g.rotation.set(0, rotA + 0.6 * ho, 0.22 * Math.sin(Math.PI * ho)); cur.g.scale.setScalar(1 - 0.7 * ho);
-    const popU = sg(t, T.pop[0], T.pop[1]), backU = sg(t, T.back[0], T.back[1]);       // sleeve
-    sleeveAt(Math.max(0, popU - backU));
-    nxt.g.visible = true;                                                             // new disk
+    const t = sw.t, pop = sg(t, T.pop[0], T.pop[1]), back = sg(t, T.back[0], T.back[1]), settle = sg(t, T.settle[0], T.settle[1]);
+    setSleeve(cs, POSE.A, POSE.slot, back, 70, false);                              // the old sleeve goes back into the crate
+    if (t < T.settle[0]) setSleeve(ns, POSE.slot, POSE.B, pop, 95, false); else setSleeve(ns, POSE.B, POSE.A, settle, 80, true);
+    // old disk: lift off, fly to its sleeve, slide in; from then on it travels inside the sleeve
+    if (t < T.slide[0]) {
+      const fo = sg(t, 0, T.fly), hx = ss(0, 0.8, fo), h = (fo < 0.15 ? ss(0, 0.15, fo) : 1 - ss(0.8, 1, fo)) * 26 * TS;
+      recAt(POSE.A, 150, P1, qa); eu.set(0, rotA, 0); qb.setFromEuler(eu);
+      cur.g.position.copy(S).lerp(P1, hx); cur.g.position.y += h; cur.g.quaternion.copy(qb).slerp(qa, hx); cur.g.scale.setScalar(1);
+    } else { onSleeve(cs, 150 * (1 - ss(0, 1, sg(t, T.slide[0], T.slide[1]))), cur.g.position, qa); cur.g.quaternion.copy(qa); cur.g.scale.copy(cs.g.scale); }
+    cur.g.visible = true; nxt.g.visible = true;
+    // new disk: out of its sleeve, then onto the platter
     if (t < T.deck[0]) {
-      const dx = 48 * ss(0, 1, popU) + 102 * ss(0, 1, sg(t, T.pull[0], T.pull[1]));
-      onSleeve(dx, nxt.g.position, qa); nxt.g.quaternion.copy(qa); nxt.g.scale.copy(sl.scale);
+      const dx = 48 * ss(0, 1, pop) + 102 * ss(0, 1, sg(t, T.pull[0], T.pull[1]));
+      onSleeve(ns, dx, nxt.g.position, qa); nxt.g.quaternion.copy(qa); nxt.g.scale.copy(ns.g.scale);
     } else {
       const v = sg(t, T.deck[0], T.deck[1]), hx = ss(0, 0.8, v), h = (v < 0.15 ? ss(0, 0.15, v) : 1 - ss(0.8, 1, v)) * 26 * TS;
-      sleeveAt(1); const P1 = new THREE.Vector3(); onSleeve(150, P1, qa); sleeveAt(Math.max(0, popU - backU));
-      eu.set(0, rotA, 0); qb.setFromEuler(eu);
+      recAt(POSE.B, 150, P1, qa); eu.set(0, rotA, 0); qb.setFromEuler(eu);
       nxt.g.position.copy(P1).lerp(S, hx); nxt.g.position.y += h; nxt.g.quaternion.copy(qa).slerp(qb, hx); nxt.g.scale.setScalar(1);
     }
     sheen();
@@ -2862,13 +2900,57 @@ FIGS3D.push({ id: 'rp', name: 'Record player', mod: (() => {
   au.preservesPitch = au.mozPreservesPitch = au.webkitPreservesPitch = false;
   let blocked = false, wantPlay = false, audioErr = false, seekTo = null, vol = 0.8, fade = 0;
   au.addEventListener('error', () => { audioErr = true; });
-  const unlock = () => { if (blocked && wantPlay) au.play().then(() => { blocked = false; }).catch(() => {}); };
+  const unlock = () => { if (actx && actx.state !== 'running') actx.resume().catch(() => {}); if (blocked && wantPlay && track) au.play().then(() => { blocked = false; }).catch(() => {}); };
   addEventListener('pointerdown', unlock);
   au.addEventListener('loadedmetadata', () => { if (seekTo != null && isFinite(au.duration)) { try { au.currentTime = seekTo * au.duration; } catch (e) {} seekTo = null; } });
   au.addEventListener('ended', () => { if (st.mode === 'play') { st.mode = 'return'; st.on = false; render(); } });
 
+  // ── default record: when no song is chosen the blank record plays a little lo-fi loop, synthesised here (works offline) ──
+  let actx = null, defBuf = null, defSrc = null, defGain = null, defOn = false, dfade = 0;
+  const getCtx = () => actx || (actx = new (window.AudioContext || window.webkitAudioContext)());
+  (function buildDefault() {
+    const OC = window.OfflineAudioContext || window.webkitOfflineAudioContext; if (!OC) return;
+    const sr = 22050, bpm = 78, beat = 60 / bpm, bar = beat * 4, bars = 8, len = Math.round(sr * bar * bars);
+    let oc; try { oc = new OC(1, len, sr); } catch (e) { return; }
+    const f = m => 440 * Math.pow(2, (m - 69) / 12);
+    const master = oc.createGain(); master.gain.value = 0.9; const lpf = oc.createBiquadFilter(); lpf.type = 'lowpass'; lpf.frequency.value = 5200; master.connect(lpf); lpf.connect(oc.destination);
+    const tone = (m, t0, dur, type, vol, att, rel, dest) => { const o = oc.createOscillator(), g = oc.createGain(); o.type = type; o.frequency.value = f(m);
+      g.gain.setValueAtTime(0.0001, t0); g.gain.linearRampToValueAtTime(vol, t0 + att); g.gain.setTargetAtTime(0.0001, t0 + dur, rel); o.connect(g); g.connect(dest || master); o.start(t0); o.stop(t0 + dur + rel * 6); };
+    const nb = oc.createBuffer(1, Math.round(sr * 0.25), sr), nd = nb.getChannelData(0); for (let i = 0; i < nd.length; i++) nd[i] = Math.random() * 2 - 1;
+    const hit = (t0, dur, vol, ftype, freq) => { const s_ = oc.createBufferSource(), g = oc.createGain(), fl = oc.createBiquadFilter(); s_.buffer = nb; fl.type = ftype; fl.frequency.value = freq;
+      g.gain.setValueAtTime(vol, t0); g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur); s_.connect(fl); fl.connect(g); g.connect(master); s_.start(t0); s_.stop(t0 + dur + 0.02); };
+    const kick = t0 => { const o = oc.createOscillator(), g = oc.createGain(); o.frequency.setValueAtTime(120, t0); o.frequency.exponentialRampToValueAtTime(42, t0 + 0.14);
+      g.gain.setValueAtTime(0.55, t0); g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.3); o.connect(g); g.connect(master); o.start(t0); o.stop(t0 + 0.32); };
+    const chords = [[57, 60, 64, 67, 71], [53, 57, 60, 64, 67], [55, 60, 64, 67, 71], [55, 59, 62, 64, 67], [57, 60, 64, 67, 71], [53, 57, 60, 64, 67], [50, 53, 57, 60, 64], [52, 56, 59, 62, 64]];
+    const roots = [45, 41, 48, 43, 45, 41, 38, 40];
+    const mel = [[0, 0.5, 76, 1], [0, 2.5, 74, 0.8], [1, 0, 72, 1.2], [1, 2, 69, 1], [2, 0.5, 71, 1], [2, 2.5, 74, 1], [3, 0, 76, 1.5], [3, 3, 72, 0.7],
+                 [4, 0.5, 76, 1], [4, 2, 79, 0.8], [5, 0, 77, 1.2], [5, 2.5, 72, 1], [6, 0, 74, 1], [6, 2, 72, 1.1], [7, 0, 71, 1], [7, 2, 68, 1.6]];
+    for (let b = 0; b < bars; b++) {
+      const t0 = b * bar, ch = chords[b];
+      ch.forEach((m, i) => { tone(m, t0 + i * 0.012, bar * 0.95, 'triangle', 0.030, 0.18, 0.28); tone(m + 12, t0 + i * 0.012, bar * 0.9, 'sine', 0.010, 0.25, 0.3); });
+      [0, 2].forEach(k => { tone(roots[b], t0 + k * beat, beat * 1.6, 'sine', 0.22, 0.01, 0.25); });
+      [0.5, 1.5, 2.5, 3.5].forEach((k, i) => tone(ch[(i + 1) % 5] + 12, t0 + k * beat + 0.03, 0.35, 'triangle', 0.05, 0.004, 0.12));
+      [0, 2.5].forEach(k => kick(t0 + k * beat)); [1, 3].forEach(k => hit(t0 + k * beat, 0.16, 0.20, 'bandpass', 1900));
+      for (let e = 0; e < 8; e++) hit(t0 + (e + (e % 2 ? 0.16 : 0)) * beat / 2, 0.045, e % 2 ? 0.05 : 0.08, 'highpass', 7500);
+    }
+    mel.forEach(([b, k, m, d]) => tone(m, b * bar + k * beat + 0.02, d * beat * 0.6, 'sine', 0.07, 0.01, 0.35));
+    const cr = oc.createBuffer(1, len, sr), cd = cr.getChannelData(0);                // vinyl crackle and hiss
+    for (let i = 0; i < len; i++) { cd[i] = (Math.random() * 2 - 1) * 0.006; if (Math.random() < 0.00045) { const a = (Math.random() * 0.5 + 0.1) * (Math.random() < 0.5 ? -1 : 1); for (let j = 0; j < 40 && i + j < len; j++) cd[i + j] += a * Math.exp(-j / 6); } }
+    const cs_ = oc.createBufferSource(); cs_.buffer = cr; const cg = oc.createGain(); cg.gain.value = 0.55; cs_.connect(cg); cg.connect(oc.destination); cs_.start(0);
+    oc.startRendering().then(b => { defBuf = b; FAKE = b.duration; }).catch(() => {});
+  })();
+  function defStart(off) {
+    if (!defBuf) return false; const c = getCtx();
+    if (!defGain) { defGain = c.createGain(); defGain.gain.value = 0; defGain.connect(c.destination); }
+    if (c.state !== 'running') c.resume().catch(() => {});
+    defSrc = c.createBufferSource(); defSrc.buffer = defBuf; defSrc.connect(defGain);
+    try { defSrc.start(0, Math.max(0, Math.min(off, defBuf.duration - 0.05))); } catch (e) { defSrc = null; return false; }
+    defOn = true; return true;
+  }
+  function defStop() { if (defSrc) { try { defSrc.stop(); } catch (e) {} try { defSrc.disconnect(); } catch (e) {} defSrc = null; } defOn = false; dfade = 0; }
+
   // ── state and behaviour ──
-  const R0 = 75, R1 = 33, FAKE = 30;                                               // lead-in / run-out radii; length of the blank record
+  const R0 = 75, R1 = 33; let FAKE = 24.6;                                               // lead-in / run-out radii; length of the blank record
   const st = { on: false, speed: 33.333, pitch: 0, rpm: 0, mode: 'rest', a: A_REST, lift: 0, r: R0 };
   let drag = null, scratchT = 0;
   let vt = 0, pending = null, status = '';
@@ -2884,7 +2966,7 @@ FIGS3D.push({ id: 'rp', name: 'Record player', mod: (() => {
   const clip = (s, n) => s.length > n ? s.slice(0, n - 1) + '…' : s;
   const busy = () => sw.on || !!pending;
   function readout() { if (active !== ID) return;
-    const el = document.getElementById('read'), nm = track ? clip(`${track.title} — ${track.artist}`, 44) : 'blank record';
+    const el = document.getElementById('read'), nm = track ? clip(`${track.title} — ${track.artist}`, 44) : 'Needle Drop — default record';
     if (audioErr && track) el.textContent = 'could not load this preview · search another song';
     else if (blocked && wantPlay) el.textContent = 'click anywhere to allow audio';
     else if (busy()) el.textContent = pending ? (sw.on ? `swapping disks · ${clip(pending.title, 36)}` : `stopping the deck · ${clip(pending.title, 30)}`) : 'changing record';
@@ -2896,7 +2978,7 @@ FIGS3D.push({ id: 'rp', name: 'Record player', mod: (() => {
     ledMats[0].emissiveIntensity = st.speed < 40 ? 1.8 : 0.04; ledMats[1].emissiveIntensity = st.speed > 40 ? 1.8 : 0.04;
     readout();
   }
-  function beginCue() { try { if (track) au.currentTime = 0; } catch (e) {} vt = 0; st.r = R0; st.on = true; st.mode = 'cue'; }
+  function beginCue() { try { if (track) au.currentTime = 0; } catch (e) {} defStop(); vt = 0; st.r = R0; st.on = true; st.mode = 'cue'; }
   function cue() { if (busy()) return true; if (st.mode === 'play' || st.mode === 'cue') st.mode = 'return'; else beginCue(); tap(900, 0.3, 2); render(); return true; }
   function startStop() { if (busy()) return true; flash(bStart.g, 140); SFX.switch();
     if (!st.on) beginCue(); else { st.on = false; if (st.mode !== 'rest') st.mode = 'return'; }
@@ -2907,12 +2989,12 @@ FIGS3D.push({ id: 'rp', name: 'Record player', mod: (() => {
   // pick a song: stop the deck, lift the old record off, slide the new one on, then cue and play
   function loadTrack(t) {
     if (sw.on) return;
-    pending = t; status = ''; audioErr = false; nxt.track = t; nxt.img = null; drawLabel(nxt);
+    pending = t; status = ''; audioErr = false; blocked = false; defStop(); nxt.track = t; nxt.img = null; drawLabel(nxt);
     if (st.on || st.mode !== 'rest') { st.on = false; if (st.mode !== 'rest') st.mode = 'return'; }
     au.src = t.src; au.muted = true;                                               // prime audio inside the user's gesture
     au.play().then(() => { if (!wantPlay) { au.pause(); try { au.currentTime = 0; } catch (e) {} } au.muted = false; }).catch(() => { au.muted = false; });
     if (t.art) { const im = new Image(); im.crossOrigin = 'anonymous'; im.onload = () => {
-      if (nxt.track === t) { nxt.img = im; drawLabel(nxt); } else if (cur.track === t) { cur.img = im; drawLabel(cur); } if (slTrack === t) { slImg = im; drawSleeve(); } }; im.src = t.art; }
+      if (nxt.track === t) { nxt.img = im; drawLabel(nxt); } else if (cur.track === t) { cur.img = im; drawLabel(cur); } [cs, ns].forEach(o => { if (o.track === t) { o.img = im; drawSleeve(o); } }); }; im.src = t.art; }
     SFX.button(); render();
   }
 
@@ -2978,7 +3060,7 @@ FIGS3D.push({ id: 'rp', name: 'Record player', mod: (() => {
       const r = radAt(st.a);
       if (r <= RR + 3 && r >= R1 - 4) {                                              // dropped on the record: play from there
         const p = Math.max(0, Math.min(1, (R0 - r) / (R0 - R1)));
-        if (track) { if (isFinite(au.duration)) { try { au.currentTime = p * au.duration; } catch (e) {} } else seekTo = p; } vt = p * FAKE;
+        if (track) { if (isFinite(au.duration)) { try { au.currentTime = p * au.duration; } catch (e) {} } else seekTo = p; } vt = p * FAKE; defStop();
         st.on = true; st.mode = 'play'; SFX.thunk();
       } else st.mode = 'return';
       render();
@@ -2989,11 +3071,11 @@ FIGS3D.push({ id: 'rp', name: 'Record player', mod: (() => {
   function tick(now, dt) {
     UI.show(active === ID);
     // record swap sequence
-    if (pending && !sw.on && st.mode === 'rest' && st.rpm < 1.5) { sw.on = true; sw.t = 0; slTrack = pending; slImg = nxt.img; drawSleeve(); tap(500, 0.25, 2); }
+    if (pending && !sw.on && st.mode === 'rest' && st.rpm < 1.5) { sw.on = true; sw.t = 0; ns.track = pending; ns.img = nxt.img; drawSleeve(ns); tap(500, 0.25, 2); }
     if (sw.on) {
       const t0 = sw.t; sw.t += dt;
       [T.pop[0], T.pull[0], T.deck[0]].forEach(m => { if (t0 < m && sw.t >= m) tap(m === T.pull[0] ? 700 : 420, 0.22, 2); });
-      if (sw.t >= T_END) { [cur, nxt] = [nxt, cur]; nxt.g.visible = false; track = cur.track; pending = null; sw.on = false; layout(); SFX.thunk(); beginCue(); render(); }
+      if (sw.t >= T_END) { [cur, nxt] = [nxt, cur]; [cs, ns] = [ns, cs]; nxt.g.visible = false; track = cur.track; pending = null; sw.on = false; layout(); SFX.thunk(); beginCue(); render(); }
     }
     // platter
     if (drag && drag.kind === 'spin') {                                               // held by hand: the platter follows the pointer
@@ -3027,8 +3109,13 @@ FIGS3D.push({ id: 'rp', name: 'Record player', mod: (() => {
     }
     arm.rotation.y = -st.a; lift.position.y = st.lift * TS;
     // music follows the needle
-    wantPlay = p && !!track;
-    if (wantPlay) {
+    const wantDef = p && !track && !!defBuf; wantPlay = p;
+    if (wantDef) {
+      if (!defOn) defStart(vt);
+      if (defOn && defSrc) { blocked = actx.state !== 'running'; const rt = Math.min(4, Math.max(0.1, st.rpm / 33.333)); if (Math.abs(defSrc.playbackRate.value - rt) > 0.004) defSrc.playbackRate.value = rt; dfade = Math.min(1, dfade + dt * 4); }
+    } else if (defOn) { dfade = Math.max(0, dfade - dt * 8); if (dfade < 0.03) defStop(); }
+    if (defGain) defGain.gain.value = dfade * vol;
+    if (p && !!track) {
       if (au.paused && !blocked) au.play().catch(() => { blocked = true; });
       const rate = Math.min(4, Math.max(0.1, st.rpm / 33.333)); if (Math.abs(au.playbackRate - rate) > 0.004) au.playbackRate = rate;
       fade = Math.min(1, fade + dt * 4);
@@ -3172,15 +3259,15 @@ body.rp-focus #rp-now { display:block; }
     controls.update(); if (f.t >= 1) camFly = null;
   }
   function setFocus(on) { if (window.__rpSetFocus) window.__rpSetFocus(on); }
-  function updateNow() { if (!window.__rpNow) return; window.__rpNow(track ? track.title : 'Blank record', track ? `${track.artist} · ${fmt(pos())} / ${fmt(dur())}` : 'press / to search for a song', Math.min(1, pos() / dur())); }
-  themeHooks.push(t => { pilotMat.color.set(t === 'light' ? 0xc3c6c8 : 0x2b2e30); rimMat.color.set(t === 'light' ? 0x9fa4a7 : 0xc4c7c9); drawLabel(cur); drawLabel(nxt); drawSleeve(); render(); });
-  drawLabel(cur); drawLabel(nxt); drawSleeve(); layout(); render();
+  function updateNow() { if (!window.__rpNow) return; window.__rpNow(track ? track.title : 'Needle Drop', track ? `${track.artist} · ${fmt(pos())} / ${fmt(dur())}` : `Iso-Glow Sessions · default record · ${fmt(pos())} / ${fmt(dur())}`, Math.min(1, pos() / dur())); }
+  themeHooks.push(t => { pilotMat.color.set(t === 'light' ? 0xc3c6c8 : 0x2b2e30); rimMat.color.set(t === 'light' ? 0x9fa4a7 : 0xc4c7c9); drawLabel(cur); drawLabel(nxt); drawSleeve(cs); drawSleeve(ns); render(); });
+  drawLabel(cur); drawLabel(nxt); drawSleeve(cs); drawSleeve(ns); layout(); render();
   return { group: g0, key, click, tick, readout,
     stop: () => { st.on = false; if (st.mode !== 'rest') st.mode = 'return'; render(); },
     demo: () => { if (!busy() && !st.on) startStop(); },
     panel: [['Hide controls', 'H', () => setFocus(true)], ['Search a song', '/', () => UI.focus()], ['Start / stop', 'space', startStop], ['33⅓ rpm', '3', () => setSpeed(33.333)], ['45 rpm', '4', () => setSpeed(45)], ['Cue arm', 'C', cue], ['Center view', 'R', () => homeCam()], ['Pitch +', '↑', () => setPitch(st.pitch + 1)], ['Pitch −', '↓', () => setPitch(st.pitch - 1)]],
     view: { target: W(140, 110, 22), dist: 8.8 },
-    info: '<h2>Record player</h2><p>Type any song or artist in the search bar and pick a result: the platter stops, the old record lifts off and flies away, the album sleeve pops out of the crate of records, the new record slides out of it and is lowered onto the spindle, then the platter spins up, the arm cues itself and the music plays. You hear a real 30-second preview, and the arm tracks across the groove as it plays. Drag the record to spin or scratch it, drag the pitch slider or the volume knob, or drag the tonearm and drop it anywhere on the record to play from there. 33 / 45 change the speed. H hides every control and leaves just the player and the music. Needs an internet connection for search and audio.</p>',
+    info: '<h2>Record player</h2><p>Type any song or artist in the search bar and pick a result: the platter stops, the old record lifts off and flies away, the album sleeve pops out of the crate of records, the new record slides out of it and is lowered onto the spindle, then the platter spins up, the arm cues itself and the music plays. With no song chosen the blank record plays a built-in lo-fi loop. Songs play as real 30-second previews, and the arm tracks across the groove as it plays. Drag the record to spin or scratch it, drag the pitch slider or the volume knob, or drag the tonearm and drop it anywhere on the record to play from there. 33 / 45 change the speed. H hides every control and leaves just the player and the music. Needs an internet connection for search and audio.</p>',
     hint: '/ search · space start · drag record, arm, pitch, knob · I iso · R centre · H hide controls' };
 })() });
 

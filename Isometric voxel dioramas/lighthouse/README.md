@@ -1,8 +1,8 @@
 # Lighthouse Harbor
 
 An animated isometric coastal diorama added to the existing Voxel Worlds gallery.
-The gallery opens on Lighthouse Harbor by default; select its card again to reset
-the 46-second loop. Drag to inspect the model and use the wheel to zoom.
+The gallery opens on Lighthouse Harbor by default. Its camera stays fixed while
+the 46-second loop plays.
 
 ## Files
 

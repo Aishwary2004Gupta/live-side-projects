@@ -1025,6 +1025,7 @@ function render(){if(sc.draw2D){sc.draw2D(ctx,T,W,H);return}buf.set(sbuf.subarra
 if(sc.post)sc.post(T);D=[];LN=[];LS=[];sc.dyn(T);shadows();for(const v of D)if(!v[5])vox(v[0],v[1],v[2],v[3]);for(const l of LN)drawLN(l[0],l[1],l[2]);for(const l of LS)drawLS(l);outline();ctx.putImageData(img,0,0);placeBubs()}
 function frame(ts){requestAnimationFrame(frame);acc+=Math.min(.1,(ts-last)/1000);last=ts;if(acc<1/30)return;const dt=acc;acc=0;T+=dt;sc.update&&sc.update(dt,T);render()}
 const catalog=[
+ {id:'lighthouse',video:null,poster:'lighthouse/refs/reference.png',scene:{amb:'sea'},title:'Lighthouse harbor',category:'Nature',icon:'L',description:'A red-and-white beacon watches over a rocky shore as its keeper secures a small sailboat at the timber pier.',meta:['Coastal diorama','46-second loop']},
  {id:'skatepark',video:'videos/2mTbcxIZqqbVlarL.mp4',scene:skatepark,title:'Skatepark',category:'Sport',icon:'🛹',description:'A raised concrete skatepark with its curved bowl, quarter pipe, rails and tiny skaters.',meta:['Concrete diorama','Skaters in motion']},
  {id:'rocket',video:'videos/oIAiu4ZikOdKucc0.mp4',scene:rocket,title:'Rocket launch',category:'Industry',icon:'🚀',description:'A tall white launch rocket stands beside a steel service tower and the small support vehicles on its pad.',meta:['Launch complex','Lift-off loop']},
  {id:'carrier',video:'videos/40WA68EWC0xxq_cJ.mp4',scene:carrier,title:'Aircraft carrier',category:'Industry',icon:'✈️',description:'A dark flight deck with parked fighter jets and its numbered island rises from open water.',meta:['Flight deck','Open sea']},
@@ -1046,6 +1047,7 @@ const glCanvas=document.getElementById('scene3d');let gl=null;
 let glProgram,glPosition,glNormal,glColor,glMatrix,glBuffers=[],yaw=.68,pitch=.62,cameraRadius=15.5,dragPoint=null;
 function compileShader(type,source){const shd=gl.createShader(type);gl.shaderSource(shd,source);gl.compileShader(shd);if(!gl.getShaderParameter(shd,gl.COMPILE_STATUS))throw new Error(gl.getShaderInfoLog(shd));return shd}
 function init3D(){
+ if(!gl)gl=glCanvas.getContext('webgl',{alpha:false,antialias:true});
  if(!gl){document.getElementById('stage').insertAdjacentHTML('beforeend','<div class="webgl-error">This browser does not have WebGL enabled. Enable hardware acceleration to view the 3D scenes.</div>');return false}
  const vs='attribute vec3 aPosition;attribute vec3 aNormal;attribute vec3 aColor;uniform mat4 uMatrix;varying vec3 vColor;varying float vLight;void main(){gl_Position=uMatrix*vec4(aPosition,1.0);vec3 n=normalize(aNormal);vec3 light=normalize(vec3(-0.45,0.88,0.42));vLight=0.48+0.52*max(dot(n,light),0.0);vColor=aColor;}';
  const fs='precision mediump float;varying vec3 vColor;varying float vLight;void main(){gl_FragColor=vec4(vColor*vLight,1.0);}';
@@ -1152,6 +1154,8 @@ function build3DScene(id,t){
   for(const[x,z]of[[-1.3,-.7],[.6,-1.1],[1.4,.75],[-.6,1.15]]){cylinderLilypad(x,z);sphere(x,.22,z,.06,.035,.06,'#efd3a0',8,4)}
   for(const[x,z]of[[-3.8,-3.6],[3.7,-3.5],[-3.8,3.6],[3.8,3.7]])tree(x,z,.58);
   function cylinderLilypad(x,z){slab(x-.17,z-.16,.34,.32,.17,'#4c8648')}
+ } else if(id==='lighthouse'){
+  buildLighthouseScene(g,t);
  } else if(id==='icecream'){
   ground('#65914e');slab(-4.8,-2.0,9.6,1.9,.13,'#666966');slab(-4.6,.2,9.2,2.0,.14,'#c9c2ae');
   // Mint and rose service truck, striped awning, wheels and oversized roof cone.
@@ -1182,11 +1186,11 @@ function build3DScene(id,t){
  }
  return m;
 }
-const cards=document.getElementById('cards'),filters=[...document.querySelectorAll('.filter')];let active=catalog.find(item=>item.id==='fishing')||catalog[0],filter='All';
-const cameraPresets={skatepark:[.68,.68,15.5],rocket:[.68,.58,14.5],carrier:[.68,.62,15.5],cricket:[.68,.68,15.5],suburban:[.68,.65,15.5],forestRescue:[.68,.72,15.5],dustKings:[.68,.62,15.5],iceFishing:[.68,.78,15.5],bank:[.68,.62,15.5],highDive:[.68,.72,15.5],courtyard:[.68,.92,15.5],koi:[.68,1.12,14.2],icecream:[.68,.65,15.5],basketball:[.68,.68,15.5],fishing:[.68,.78,15.5]};
+const cards=document.getElementById('cards'),filters=[...document.querySelectorAll('.filter')];let active=catalog.find(item=>item.id==='lighthouse')||catalog[0],filter='All';
+const cameraPresets={lighthouse:[.785,.576,14.4],skatepark:[.68,.68,15.5],rocket:[.68,.58,14.5],carrier:[.68,.62,15.5],cricket:[.68,.68,15.5],suburban:[.68,.65,15.5],forestRescue:[.68,.72,15.5],dustKings:[.68,.62,15.5],iceFishing:[.68,.78,15.5],bank:[.68,.62,15.5],highDive:[.68,.72,15.5],courtyard:[.68,.92,15.5],koi:[.68,1.12,14.2],icecream:[.68,.65,15.5],basketball:[.68,.68,15.5],fishing:[.68,.78,15.5]};
 [yaw,pitch,cameraRadius]=cameraPresets[active.id];
 const videoPoster=video=>video.replace(/^videos\//,'posters/').replace(/\.mp4$/i,'.jpg');
-cards.innerHTML=catalog.map((item,i)=>`<button class="scene-card${item===active?' on':''}" type="button" data-id="${item.id}" data-category="${item.category}" aria-pressed="${item===active}"><span class="card-index">${String(i+1).padStart(2,'0')}</span><span class="scene-preview"><video class="scene-preview-video" src="${item.video}" poster="${videoPoster(item.video)}" muted playsinline disablepictureinpicture disableremoteplayback preload="metadata" aria-label="Still preview of ${item.title}; click to play"></video></span><span class="card-text"><span class="card-title">${item.title}</span><span class="card-kind">${item.category} · click to play</span></span></button>`).join('');
+cards.innerHTML=catalog.map((item,i)=>`<button class="scene-card${item===active?' on':''}" type="button" data-id="${item.id}" data-category="${item.category}" aria-pressed="${item===active}"><span class="card-index">${String(i+1).padStart(2,'0')}</span><span class="scene-preview">${item.video?`<video class="scene-preview-video" src="${item.video}" poster="${videoPoster(item.video)}" muted playsinline disablepictureinpicture disableremoteplayback preload="metadata" aria-label="Still preview of ${item.title}; click to play"></video>`:`<img class="scene-preview-video" src="${item.poster}" alt="${item.title} scene preview">`}</span><span class="card-text"><span class="card-title">${item.title}</span><span class="card-kind">${item.category} · click to play</span></span></button>`).join('');
 const mainVideo=document.getElementById('scene-video');
 let selectedPlaybackStarted=false;
 function configureVideo(video){video.controls=false;video.autoplay=false;video.loop=true;video.muted=true;video.defaultMuted=true;video.volume=0;video.playsInline=true;video.disablePictureInPicture=true;video.disableRemotePlayback=true;video.tabIndex=-1;if(!video.dataset.contextGuard){video.dataset.contextGuard='1';video.addEventListener('contextmenu',event=>event.preventDefault())}video.pause()}

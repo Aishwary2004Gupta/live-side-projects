@@ -57,7 +57,7 @@ function buildLighthouseScene(g, t) {
   for (let x = -4.9; x < 4.9; x += step) {
     for (let z = -4.9; z < 4.9; z += step) {
       if (inLand(x + step * 0.5, z + step * 0.5)) continue;
-      const wave = (xx, zz) => 0.115 + 0.025 * Math.sin(xx * 1.33 + now * 1.18) * Math.cos(zz * 1.21 - now * 0.92);
+      const wave = (xx, zz) => 0.115 + 0.025 * Math.sin(xx * 1.33 + TAU * 8 * now / 46) * Math.cos(zz * 1.21 - TAU * 7 * now / 46);
       const p00 = [x, wave(x, z), z], p10 = [x + step, wave(x + step, z), z];
       const p11 = [x + step, wave(x + step, z + step), z + step], p01 = [x, wave(x, z + step), z + step];
       const k = (Math.floor((x + 5) / step) * 7 + Math.floor((z + 5) / step) * 3 + 40) % waterColors.length;
@@ -153,7 +153,7 @@ function buildLighthouseScene(g, t) {
   sphere(lx, 4.97, lz, 0.065, 0.065, 0.065, '#d0a35b', 6, 4);
   // A tiny pennant reacts to the same gust that rocks the boat.
   const gust = smooth(16, 19, now) * (1 - smooth(24, 27, now));
-  const pennant = (Math.sin(now * 1.7) * 0.10 + gust * 0.22);
+  const pennant = (Math.sin(TAU * 9 * now / 46) * 0.10 + gust * 0.22);
   line([lx, 4.74, lz], [lx + 0.38, 4.74 + pennant, lz + 0.03], '#65483a', 0.022);
   tri([lx + 0.37, 4.73 + pennant, lz + 0.03], [lx + 0.76, 4.63 + pennant, lz + 0.03],
     [lx + 0.52, 4.48 + pennant, lz + 0.03], '#c34d3b', [0, 0, 1]);
@@ -209,9 +209,9 @@ function buildLighthouseScene(g, t) {
   // Skiff rocks gently at the pier. Its hull, seats, mast, sail, rigging and sailor
   // are rebuilt from absolute time, so the animation is stable under frame seeking.
   const boatX = 2.20, boatZ = 1.62;
-  const bob = 0.035 * Math.sin(now * TAU / 3.8) + gust * 0.07 * Math.sin(now * 3.1);
-  const roll = 0.045 * Math.sin(now * 1.8) + gust * 0.13 * Math.sin(now * 3.4);
-  const yaw = 0.13 + 0.025 * Math.sin(now * 0.72);
+  const bob = 0.035 * Math.sin(TAU * 12 * now / 46) + gust * 0.07 * Math.sin(now * 3.1);
+  const roll = 0.045 * Math.sin(TAU * 15 * now / 46) + gust * 0.13 * Math.sin(now * 3.4);
+  const yaw = 0.13 + 0.025 * Math.sin(TAU * 5 * now / 46);
   const cY = Math.cos(yaw), sY = Math.sin(yaw);
   const boatPoint = (u, h, v) => [boatX + u * cY - v * sY,
     0.12 + bob + h - v * roll, boatZ + u * sY + v * cY];
@@ -251,7 +251,7 @@ function buildLighthouseScene(g, t) {
   tri(pennantTip, boatPoint(0.58, 1.99, 0), boatPoint(0.40, 1.91, 0), '#e2ae58', [0, 0, 1]);
 
   // Small sailor with a cap and life vest; head and arms turn toward the keeper.
-  const sailorX = boatX + 0.22, sailorZ = boatZ + 0.10, sailorY = 0.47 + bob;
+  const sailorX = boatX + 0.22, sailorZ = boatZ + 0.10, sailorY = 0.36 + bob;
   sphere(sailorX, sailorY, sailorZ, 0.13, 0.055, 0.13, '#27333a', 7, 4);
   cube(sailorX - 0.10, sailorY + 0.04, sailorZ - 0.10, 0.20, 0.25, 0.20, '#344e5a');
   cube(sailorX - 0.12, sailorY + 0.12, sailorZ + 0.085, 0.24, 0.08, 0.035, '#d47742');
@@ -292,9 +292,10 @@ function buildLighthouseScene(g, t) {
   const wave = smooth(31, 33, now) * (1 - smooth(35, 37, now));
   const stride = now * 4.5;
   const bobKeeper = Math.abs(Math.sin(stride)) * walking * 0.035;
-  const kY = 0.20 + bobKeeper;
+  const onPier = smooth(-0.35, 0.05, keeperX) * (1 - smooth(1.25, 1.55, keeperX));
+  const kY = 0.20 + onPier * 0.35 + bobKeeper;
   const stepL = Math.sin(stride) * walking * 0.075, stepR = -Math.sin(stride) * walking * 0.075;
-  sphere(keeperX, 0.205, keeperZ, 0.34, 0.035, 0.24, '#59624e', 8, 3);
+  sphere(keeperX, 0.205 + onPier * 0.35, keeperZ, 0.34, 0.035, 0.24, '#59624e', 8, 3);
   // Boots, trousers, coat body, scarf, collar, face, cap, eyes, arms and hands.
   cube(keeperX - 0.15 + stepL, kY, keeperZ - 0.09, 0.13, 0.20, 0.18, '#49392f');
   cube(keeperX + 0.03 + stepR, kY, keeperZ - 0.09, 0.13, 0.20, 0.18, '#49392f');
@@ -323,12 +324,13 @@ function buildLighthouseScene(g, t) {
     line([x, y + 0.10 + lift, z + 0.01], [x + scale, y + lift, z], '#fffaf0', 0.035 * scale);
     line([x - scale * 0.12, y + 0.03, z], [x + scale * 0.10, y + 0.03, z], '#aa8a63', 0.02 * scale);
   };
-  drawGull(-3.35 + (now / 46) * 1.45, 2.55 + Math.sin(now * 0.62) * 0.16, 2.48, now * 2.6, 0.20);
-  drawGull(2.95 - (now / 46) * 1.20, 2.85 + Math.sin(now * 0.55 + 1.7) * 0.13, -2.60, now * 2.2 + 1.7, 0.16);
+  const gullPhase = TAU * now / 46;
+  drawGull(-2.8 + Math.cos(gullPhase) * 0.65, 2.55 + Math.sin(gullPhase * 2) * 0.16, 2.48 + Math.sin(gullPhase) * 0.28, gullPhase * 18, 0.20);
+  drawGull(3.0 + Math.cos(gullPhase + 1.7) * 0.50, 2.85 + Math.sin(gullPhase * 2 + 1.7) * 0.13, -2.60 + Math.sin(gullPhase + 1.7) * 0.24, gullPhase * 16 + 1.7, 0.16);
 
   // A blinking harbor marker and the lantern on the pier animate on separate phases.
   tube([3.62, 0.15, -2.72], [3.62, 0.92, -2.72], 0.045, '#453e36', 7, 0.035);
-  cone(3.62, 0.92, -2.72, 0.15, 0.18, now % 4 < 2 ? '#e3b858' : '#b67a45', 0.07, 6);
+  cone(3.62, 0.92, -2.72, 0.15, 0.18, Math.sin(TAU * 9 * now / 46) > 0 ? '#e3b858' : '#b67a45', 0.07, 6);
   for (let i = 0; i < 4; i++) {
     const x = 3.0 + i * 0.38;
     sphere(x, 0.18 + 0.025 * Math.sin(now * 1.4 + i), -3.75 + (i % 2) * 0.22,

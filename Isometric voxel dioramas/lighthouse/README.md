@@ -1,20 +1,21 @@
 # Lighthouse Harbor
 
-An animated isometric coastal diorama added to the existing Voxel Worlds gallery.
-The gallery opens on Lighthouse Harbor by default. Its camera stays fixed while
-the 46-second loop plays.
+Lighthouse Harbor is the default scene in the Voxel Worlds gallery. The gallery
+plays the user-supplied 9.215-second MP4 as a silent loop. The original file is
+copied to `../videos/lighthouse.mp4`; its first-frame poster is
+`../posters/lighthouse.jpg`.
 
 ## Files
 
-- `scene.js` builds the lighthouse, rocky shore, beach, pier, skiff, keeper, and
-  gulls with the gallery's existing WebGL geometry helpers.
-- `DESIGN.md` records the staging, beats, cast, and detail targets.
-- `refs/SOURCES.md` records the visual and motion research.
-- `refs/reference.png` is the image supplied with the request.
-- `CREDITS.md` lists assets and attribution.
-- `qa/report.json` records code and geometry checks, including the live-preview
-  limitation.
+- `refs/video_contact.jpg` and `refs/video_contact_2fps.jpg` are frame sheets
+  sampled from the supplied clip.
+- `refs/reference.png` is the still image supplied with the original request.
+- `scene.js` retains the procedural 46-second geometry version as an alternate;
+  set the catalog item's `video` to `null` in `../scenes.html` to use it.
+- `DESIGN.md` records the active video scene and the procedural alternative.
+- `refs/SOURCES.md` records the video observations and motion research.
+- `CREDITS.md` lists the supplied media and the hand-built fallback.
+- `qa/report.json` records active-video metadata and checks for both versions.
 
-The entry point is [`../scenes.html`](../scenes.html). The implementation uses
-the gallery's self-contained WebGL renderer and does not download any models or
-runtime libraries.
+The gallery entry point is [`../scenes.html`](../scenes.html). No third-party
+models, textures, or runtime libraries are required.

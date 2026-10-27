@@ -58,6 +58,16 @@
   #load { left:50%; top:50%; transform:translate(-50%,-50%); color:var(--dim); letter-spacing:.12em; text-transform:uppercase; }
   @media (max-width:1100px) { #hint { display:none; } #info { bottom:56px; } #credit { bottom:auto; top:44px; right:16px; } #ctl { top:72px; } }
   @media (max-width:640px) { #ctl { top:auto; bottom:170px; width:150px; max-height:40vh; } #info { bottom:92px; max-width:calc(100vw - 190px); } #credit, #hint { display:none; } }
+
+body:not(.rp-ready) .ui, body:not(.rp-ready) #rp-ui, body:not(.rp-ready) #rp-eye, body:not(.rp-ready) #rp-now { visibility:hidden !important; }
+#rp-loading { position:fixed; inset:0; z-index:60; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:22px; background:var(--bg,#121316); color:var(--dim,#8b8f94); font:11px ui-monospace,"SF Mono",Menlo,Consolas,monospace; letter-spacing:.22em; text-transform:uppercase; text-align:center; padding:24px; transition:opacity .4s ease; }
+body.rp-ready #rp-loading { opacity:0; pointer-events:none; }
+#rp-loading .disc { width:76px; height:76px; border-radius:50%; position:relative; animation:rpspin 2.4s linear infinite;
+  background:radial-gradient(circle, var(--accent,#ff9a3c) 0 12%, #0b0c0d 13% 17%, transparent 18%), repeating-radial-gradient(circle, #202123 0 1.5px, #141517 1.5px 3px); box-shadow:0 0 0 1px rgba(255,255,255,.14), 0 8px 30px rgba(0,0,0,.35); }
+#rp-loading .disc::after { content:""; position:absolute; inset:0; border-radius:50%; background:conic-gradient(from 20deg, transparent 0 8%, rgba(255,255,255,.16) 11%, transparent 16% 58%, rgba(255,255,255,.10) 61%, transparent 66%); }
+@keyframes rpspin { to { transform:rotate(360deg); } }
+#rp-loading b { color:var(--ink,#e8e9ea); font-weight:600; letter-spacing:.3em; }
+#rp-load-msg { max-width:420px; line-height:1.8; letter-spacing:.14em; }
 </style>
 <script type="importmap">
 { "imports": {
@@ -65,8 +75,25 @@
   "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
 } }
 </script>
+<link rel="modulepreload" href="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js">
+<link rel="modulepreload" href="https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/controls/OrbitControls.js">
+<link rel="modulepreload" href="https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/loaders/GLTFLoader.js">
+
 </head>
 <body>
+<div id="rp-loading" role="status" aria-live="polite"><div class="disc"></div><div><b>Record player</b></div><div id="rp-load-msg">Warming up the deck…</div></div>
+<script>
+(function () {
+  var msg = function (t) { var m = document.getElementById('rp-load-msg'); if (m && !document.body.classList.contains('rp-ready')) m.textContent = t; };
+  window.addEventListener('error', function (e) {
+    if (e.target && e.target.tagName === 'SCRIPT') msg('Could not download the 3D library. Check your internet connection and reload.');
+    else msg('Something went wrong starting the scene: ' + (e.message || 'unknown error'));
+  }, true);
+  window.addEventListener('unhandledrejection', function (e) { msg('Something went wrong starting the scene.'); });
+  setTimeout(function () { msg('Still loading… the 3D library comes from the internet. Check your connection and reload if this stays.'); }, 12000);
+})();
+</script>
+
 <div class="ui" id="top">
   <div class="tops"><div class="brand"><i></i>Record player</div><div class="seg" role="tablist" aria-label="Figure"><button data-fig="tw" role="tab">Typewriter</button><button data-fig="dr" role="tab">Drum machine</button><button data-fig="cs" role="tab">Cassette</button><button data-fig="tm" role="tab">Timer</button><button data-fig="vm" role="tab">Vending</button></div></div>
   <div class="tops"><div class="swatches" id="swatches" role="radiogroup" aria-label="Glow colour"></div><button id="spin" title="Slowly turn the camera around the object" aria-label="Auto revolve around the object" aria-pressed="false">⟳<span>Revolve</span></button><button id="theme" title="Light / dark (T)" aria-label="Switch light or dark theme">◐</button></div>
@@ -115,7 +142,7 @@
 </div>
 <div class="ui" id="info"><h2>Click any part</h2><p>Drag to orbit, scroll to zoom, right-drag to pan. ↑ ↓ climb and descend once the rotor is at speed.</p></div>
 <div class="ui" id="hint">L lights · E engines · ↑↓ climb · C cabin lights · D doors · I iso · T theme</div>
-<!-- <a class="ui" id="credit" href="https://iso-glow.vercel.app" target="_blank" rel="noopener">Made with ISO-GLOW ↗</a> -->
+<a class="ui" id="credit" href="https://iso-glow.vercel.app" target="_blank" rel="noopener">Made with ISO-GLOW ↗</a>
 <div class="ui" id="read"></div>
 
 <script type="module">
@@ -3280,7 +3307,7 @@ body.rp-focus #rp-now { display:block; }
     demo: () => { if (!busy() && !st.on) startStop(); },
     panel: [['Hide controls', 'H', () => setFocus(true)], ['Search a song', '/', () => UI.focus()], ['Start / stop', 'space', startStop], ['33⅓ rpm', '3', () => setSpeed(33.333)], ['45 rpm', '4', () => setSpeed(45)], ['Cue arm', 'C', cue], ['Center view', 'R', () => homeCam()], ['Pitch +', '↑', () => setPitch(st.pitch + 1)], ['Pitch −', '↓', () => setPitch(st.pitch - 1)]],
     view: { target: W(110, 130, 22), dist: 9.4 },
-    // info: '<h2>Record player</h2><p>Type any song or artist in the search bar and pick a result: the platter stops, the old record lifts off and flies away, the album sleeve pops out of the crate of records, the new record slides out of it and is lowered onto the spindle, then the platter spins up, the arm cues itself and the music plays. With no song chosen the blank record plays a built-in lo-fi loop. Songs play as real 30-second previews, and the arm tracks across the groove as it plays. Drag the record to spin or scratch it, drag the pitch slider or the volume knob, or drag the tonearm and drop it anywhere on the record to play from there. 33 / 45 change the speed. H hides every control and leaves just the player and the music. Needs an internet connection for search and audio.</p>',
+    info: '<h2>Record player</h2><p>Type any song or artist in the search bar and pick a result: the platter stops, the old record lifts off and flies away, the album sleeve pops out of the crate of records, the new record slides out of it and is lowered onto the spindle, then the platter spins up, the arm cues itself and the music plays. With no song chosen the blank record plays a built-in lo-fi loop. Songs play as real 30-second previews, and the arm tracks across the groove as it plays. Drag the record to spin or scratch it, drag the pitch slider or the volume knob, or drag the tonearm and drop it anywhere on the record to play from there. 33 / 45 change the speed. H hides every control and leaves just the player and the music. Needs an internet connection for search and audio.</p>',
     hint: '/ search · space start · drag record, arm, pitch, knob · I iso · R centre · H hide controls' };
 })() });
 
@@ -3596,6 +3623,7 @@ render();
 document.querySelectorAll('.seg button').forEach(b => { b.hidden = !SHOW_FIGS.includes(b.dataset.fig); });
 if (SHOW_FIGS.length < 2) document.querySelector('.seg').hidden = true;   // one figure: no tab bar
 setFigure(SHOW_FIGS.includes(load('fig')) ? load('fig') : SHOW_FIGS[0]);
+document.body.classList.add('rp-ready'); setTimeout(() => { const l = document.getElementById('rp-loading'); if (l) l.remove(); }, 700);
 if (load('ortho') === '1') setOrtho(true, view().dist());
 // ── glow colour: same names and order as the 2D galleries (Ember is the 3D orange); shared choice with them via 'iso-accent' ──
 const ACCENTS3 = [['Ember', '#ff9d3c'], ['Cyan', '#22d3ee'], ['Lime', '#a3e635'], ['Violet', '#a78bfa'], ['Rose', '#fb7185'], ['Ice', '#dfe9ef']];

@@ -1,9 +1,10 @@
 # Lighthouse Harbor
 
 Lighthouse Harbor is the default scene in the Voxel Worlds gallery. The gallery
-plays the user-supplied 9.215-second MP4 as a silent loop. The original file is
-copied to `../videos/lighthouse.mp4`; its first-frame poster is
-`../posters/lighthouse.jpg`.
+plays a 9.2-second, constant 30 fps H.264 copy of the user-supplied MP4 as a
+silent loop. The exact supplied file is preserved at
+`../videos/lighthouse_source.mp4`; the playback copy is
+`../videos/lighthouse.mp4`. The clip's poster is `../posters/lighthouse.jpg`.
 
 ## Files
 

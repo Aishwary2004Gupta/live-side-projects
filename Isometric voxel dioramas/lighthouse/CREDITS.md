@@ -1,7 +1,10 @@
 # Credits
 
-- `../videos/lighthouse.mp4` is a direct copy of the user-supplied
-  `wLXgzsbioiCv9znZ.mp4`; the source file was not modified.
+- `../videos/lighthouse_source.mp4` is an exact copy of the user-supplied
+  `wLXgzsbioiCv9znZ.mp4`; the Downloads original was not modified.
+- `../videos/lighthouse.mp4` is a constant 30 fps H.264 playback copy made from
+  that source. The source clip had non-monotonic timestamps, so the playback
+  copy normalizes timestamps while retaining the visual content and silent loop.
 - `../posters/lighthouse.jpg` is a frame extracted from the user-supplied clip.
 - `refs/reference.png` is the still image supplied with the original request.
 - `scene.js` is hand-built fallback geometry from the earlier procedural scene.

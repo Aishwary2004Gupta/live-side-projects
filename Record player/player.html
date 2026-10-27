@@ -7,7 +7,7 @@
 <style>
   :root { --bg:#121314; --panel:rgba(22,23,24,.85); --line:#26292b; --ink:#c9d0db; --dim:#7d8796; --accent:#ff9d3c; }
 :root { color-scheme:dark; }
-  :root[data-theme="light"] { color-scheme:light; --bg:#e9eaea; --panel:rgba(246,246,245,.9); --line:#d6d8d8; --ink:#2b2e30; --dim:#6b7075; }
+  :root[data-theme="light"] { color-scheme:light; --bg:#f2efe9; --panel:rgba(252,251,248,.88); --line:#dcd7cd; --ink:#25282b; --dim:#6a6e73; }
   * { box-sizing:border-box; }
   @media (max-width:900px) { .build { display:none; } }
   .tops { display:flex; gap:8px; align-items:center; min-width:0; max-width:100%; }
@@ -59,7 +59,8 @@
   @media (max-width:1100px) { #hint { display:none; } #info { bottom:56px; } #credit { bottom:auto; top:44px; right:16px; } #ctl { top:72px; } }
   @media (max-width:640px) { #ctl { top:auto; bottom:170px; width:150px; max-height:40vh; } #info { bottom:92px; max-width:calc(100vw - 190px); } #credit, #hint { display:none; } }
 
-body:not(.rp-ready) .ui, body:not(.rp-ready) #rp-ui, body:not(.rp-ready) #rp-eye, body:not(.rp-ready) #rp-now { visibility:hidden !important; }
+body:not(.rp-ready) .ui, body:not(.rp-ready) #rp-ui, body:not(.rp-ready) #rp-dock, body:not(.rp-ready) #rp-now { visibility:hidden !important; }
+#info, #hint { display:none !important; }   /* the instructions live in the Help pop-up instead */
 #rp-loading { position:fixed; inset:0; z-index:60; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:22px; background:var(--bg,#121316); color:var(--dim,#8b8f94); font:11px ui-monospace,"SF Mono",Menlo,Consolas,monospace; letter-spacing:.22em; text-transform:uppercase; text-align:center; padding:24px; transition:opacity .4s ease; }
 body.rp-ready #rp-loading { opacity:0; pointer-events:none; }
 #rp-loading .disc { width:76px; height:76px; border-radius:50%; position:relative; animation:rpspin 2.4s linear infinite;
@@ -79,6 +80,7 @@ body.rp-ready #rp-loading { opacity:0; pointer-events:none; }
 <link rel="modulepreload" href="https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/controls/OrbitControls.js">
 <link rel="modulepreload" href="https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/loaders/GLTFLoader.js">
 
+<script>try{var t=localStorage.getItem("iso-glow-seahawk-theme");if(t==="light"||t==="dark")document.documentElement.dataset.theme=t;}catch(e){}</script>
 </head>
 <body>
 <div id="rp-loading" role="status" aria-live="polite"><div class="disc"></div><div><b>Record player</b></div><div id="rp-load-msg">Warming up the deck…</div></div>
@@ -287,8 +289,8 @@ const cabinLight = new THREE.PointLight(0xffffff, 0, 2.3, 2), cockpitLight = new
 const THEMES = {
   dark:  { bg: 0x121314, body: 0x1b1c1f, blade: 0x1d1e21, pad: 0x18191b, lamp: 0x1a1d22, line: 0x4f5357, major: 0x393c3f, edge: 0x27292c,
            sky: 0xdde4ff, ground: 0x080808, hemi: 0.7, amb: 0, sun: 0.7, fill: 0.2, shadow: 0.7, fadeMin: 0.45 },
-  light: { bg: 0xe9eaea, body: 0xf1f1f0, blade: 0xececeb, pad: 0xf6f6f5, lamp: 0xd8dadb, line: 0x5d6266, major: 0x8a8f93, edge: 0xb9bcbf,
-           sky: 0xffffff, ground: 0xe6e6e6, hemi: 0.9, amb: 1.6, sun: 0.35, fill: 0.15, shadow: 0.16, fadeMin: 0.8 },
+  light: { bg: 0xf2efe9, body: 0xfbfaf7, blade: 0xf3f1ec, pad: 0xfaf9f6, lamp: 0xe2ded6, line: 0x4b5055, major: 0x858a8f, edge: 0xb2b3b1,
+           sky: 0xfffdf9, ground: 0xe9e5de, hemi: 0.95, amb: 1.45, sun: 0.55, fill: 0.2, shadow: 0.2, fadeMin: 0.8 },
 };
 let theme = 'dark', accentHex = PALETTE[0][1];
 function setAccent(hex) {
@@ -749,7 +751,7 @@ function twTick(now, dt) {
 }
 themeHooks.push(t => {
   const light = t === 'light';
-  recessMat.color.set(light ? 0xdcdddd : 0x0f1011);
+  recessMat.color.set(light ? 0xe4e0d8 : 0x0f1011);
   twCaps.forEach(m => m.color.set(THEMES[t].body));
   bellMat.color.set(light ? 0xc3c6c8 : 0x2b2e30); guideMat.color.set(light ? 0xc3c6c8 : 0x2b2e30);
   hazeMat.blending = light ? THREE.NormalBlending : THREE.AdditiveBlending; hazeMat.needsUpdate = true;
@@ -1253,7 +1255,7 @@ function sideInset(parent, x, yRight, ztop, w, h, r) {  // recess on a side face
   parent.add(loopL(sh.getPoints(12).map(p => W(x + 0.07, yRight - p.x, ztop - h + p.y)), lineMat)); return m;
 }
 const pal3 = () => theme === 'light'
-  ? { line: '#8e9397', detail: '#c3c6c8', recess: '#dcdddd', ink: '#6a6f73', inkHi: '#16181a', glassOff: '#e4e5e5', glassOn: '#f6ece2', hi: '#7a3a00', bg: '#f6f6f5' }
+  ? { line: '#8f9296', detail: '#d3cec5', recess: '#e4e0d8', ink: '#686c71', inkHi: '#16181a', glassOff: '#ebe7df', glassOn: '#f6ece2', hi: '#7a3a00', bg: '#faf8f4' }
   : { line: '#4f5357', detail: '#2b2e30', recess: '#0f1011', ink: '#868b8f', inkHi: '#e6e8e9', glassOff: '#141516', glassOn: '#22170f', hi: '#ffd9a8', bg: '#121314' };
 
 const TM = (() => {
@@ -2791,9 +2793,11 @@ FIGS3D.push({ id: 'rp', name: 'Record player', mod: (() => {
   rbox(CRX + WT, CRY + WT, CRZ, CRW - 2 * WT, CRD - 2 * WT, 3, 0, bodyMat, g0);
   label('VINYL', 40, 7, 6, onFront(CRX + CRW / 2, CRY + CRD, CRZ + 12), g0);
   const CXM = CRX + CRW / 2, SLOTY = CRY + CRD - WT - 9, HALF = SLW * KS / 2;
-  { const mats = [0x2a2c2e, 0x393c3f, 0x202224, 0x34383b].map(c => new THREE.MeshStandardMaterial({ color: c, roughness: 0.8 }));
+  const DUM_DARK = [0x2a2c2e, 0x393c3f, 0x202224, 0x34383b], DUM_LIGHT = [0xe3dfd7, 0xd7d2c9, 0xece8e1, 0xdcd8cf];
+  const dumMats = DUM_DARK.map(c => new THREE.MeshStandardMaterial({ color: c, roughness: 0.8 }));
+  {
     for (let i = 0; i < 5; i++) {                                                   // the other records, leaning back in the crate
-      const m = new THREE.Mesh(new THREE.BoxGeometry(HALF * 2 * TS, 1.6 * TS, HALF * 2 * TS), mats[i % 4]);
+      const m = new THREE.Mesh(new THREE.BoxGeometry(HALF * 2 * TS, 1.6 * TS, HALF * 2 * TS), dumMats[i % 4]);
       m.rotation.order = 'YXZ'; m.rotation.x = TILT; m.position.copy(W(CXM, SLOTY - 8 * (i + 1) - HALF * Math.cos(TILT), CRZ + 3 + HALF * Math.sin(TILT)));
       addOutline(m); twMeshes.push(m); g0.add(m); } }
   const SLOT = W(CXM, SLOTY - HALF * Math.cos(TILT), CRZ + 3 + HALF * Math.sin(TILT));
@@ -3039,6 +3043,7 @@ FIGS3D.push({ id: 'rp', name: 'Record player', mod: (() => {
   }
 
   function key(e) {
+    if (e.key === '?') { if (window.__rpHelp) window.__rpHelp(true); return true; }
     if (e.key === 'h' || e.key === 'H') { setFocus(!document.body.classList.contains('rp-focus')); return true; }
     if (e.key === 'i' || e.key === 'I') return isoView();
     if (e.key === 'r' || e.key === 'R') return homeCam();
@@ -3191,11 +3196,28 @@ FIGS3D.push({ id: 'rp', name: 'Record player', mod: (() => {
 #rp-ui .it div { min-width:0; }
 #rp-ui .msg { padding:11px 12px; color:var(--dim); }
 body.rp-focus .ui, body.rp-focus #rp-ui { display:none !important; }
-#rp-eye { position:fixed; z-index:7; left:50%; bottom:14px; transform:translateX(-50%); display:flex; align-items:center; gap:7px; height:30px; padding:0 12px; border:1px solid var(--line); border-radius:15px; background:var(--panel); color:var(--dim); font:11px ui-monospace,"SF Mono",Menlo,Consolas,monospace; cursor:pointer; backdrop-filter:blur(8px); }
-#rp-eye:hover { color:var(--ink); border-color:var(--accent); }
-#rp-eye[hidden], #rp-now[hidden] { display:none; }
-#rp-eye svg { width:14px; height:14px; stroke:currentColor; fill:none; stroke-width:1.5; stroke-linecap:round; stroke-linejoin:round; }
-body.rp-focus #rp-eye { opacity:.35; } body.rp-focus #rp-eye:hover { opacity:1; }
+#rp-dock { position:fixed; z-index:7; left:50%; bottom:14px; transform:translateX(-50%); display:flex; gap:8px; }
+#rp-dock[hidden] { display:none; }
+#rp-dock button { display:flex; align-items:center; gap:7px; height:30px; padding:0 12px; border:1px solid var(--line); border-radius:15px; background:var(--panel); color:var(--dim); font:11px ui-monospace,"SF Mono",Menlo,Consolas,monospace; cursor:pointer; backdrop-filter:blur(8px); }
+#rp-dock button:hover { color:var(--ink); border-color:var(--accent); }
+#rp-dock svg { width:14px; height:14px; stroke:currentColor; fill:none; stroke-width:1.5; stroke-linecap:round; stroke-linejoin:round; }
+body.rp-focus #rp-dock button { opacity:.35; } body.rp-focus #rp-dock button:hover { opacity:1; }
+#rp-help-ov { position:fixed; inset:0; z-index:80; display:flex; align-items:center; justify-content:center; padding:20px; background:rgba(10,11,12,.34); backdrop-filter:blur(10px) saturate(.9); -webkit-backdrop-filter:blur(10px) saturate(.9); animation:rpfade .18s ease; }
+:root[data-theme="light"] #rp-help-ov { background:rgba(238,234,227,.45); }
+#rp-help-ov[hidden] { display:none; }
+@keyframes rpfade { from { opacity:0; } to { opacity:1; } }
+@keyframes rppop { from { opacity:0; transform:translateY(8px) scale(.985); } to { opacity:1; transform:none; } }
+#rp-help-ov .card { position:relative; width:min(580px,100%); max-height:min(84vh,760px); overflow:auto; padding:28px 30px 26px; border:1px solid var(--line); border-radius:18px; background:var(--panel); backdrop-filter:blur(14px); box-shadow:0 28px 80px rgba(0,0,0,.34); font:12.5px/1.7 ui-monospace,"SF Mono",Menlo,Consolas,monospace; color:var(--ink); animation:rppop .22s ease; }
+#rp-help-ov h2 { display:flex; align-items:center; gap:10px; margin:0 0 4px; font-size:13px; font-weight:600; letter-spacing:.22em; text-transform:uppercase; }
+#rp-help-ov h2 i { width:8px; height:8px; border-radius:50%; background:var(--accent); }
+#rp-help-ov h3 { margin:20px 0 6px; font-size:10.5px; font-weight:600; letter-spacing:.2em; text-transform:uppercase; color:var(--dim); }
+#rp-help-ov p { margin:0 0 8px; } #rp-help-ov .lead { color:var(--dim); }
+#rp-help-ov ul { margin:6px 0 0; padding-left:18px; } #rp-help-ov li { margin:2px 0; }
+#rp-help-ov .keys { display:grid; grid-template-columns:1fr auto; gap:7px 20px; align-items:baseline; }
+#rp-help-ov .keys span { color:var(--ink); } #rp-help-ov .keys em { font-style:normal; color:var(--dim); text-align:right; white-space:nowrap; }
+#rp-help-ov kbd { font:inherit; font-size:10.5px; padding:1px 6px; border:1px solid var(--line); border-radius:5px; color:var(--ink); background:var(--bg); }
+#rp-help-ov .x { position:absolute; top:14px; right:14px; width:28px; height:28px; border:1px solid var(--line); border-radius:50%; background:transparent; color:var(--dim); cursor:pointer; font:13px/1 inherit; }
+#rp-help-ov .x:hover { color:var(--ink); border-color:var(--accent); }
 #rp-now { position:fixed; z-index:6; left:50%; bottom:58px; transform:translateX(-50%); width:min(340px, calc(100vw - 40px)); text-align:center; font:12px/1.5 ui-monospace,"SF Mono",Menlo,Consolas,monospace; color:var(--ink); pointer-events:none; display:none; }
 body.rp-focus #rp-now { display:block; }
 #rp-now b { display:block; font-size:14px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
@@ -3207,8 +3229,11 @@ body.rp-focus #rp-now { display:block; }
     root.innerHTML = '<label class="bar"><svg viewBox="0 0 16 16"><circle cx="7" cy="7" r="5"/><path d="M11 11l3.5 3.5"/></svg><input type="text" placeholder="Type anything to press a record" autocomplete="off" spellcheck="false" aria-label="Search for a song or artist"><kbd>/</kbd></label><div class="list" hidden></div>';
     document.body.appendChild(root);
     const eye = document.createElement('button'); eye.id = 'rp-eye'; eye.type = 'button'; eye.title = 'Hide or show all controls (H)';
+    const help = document.createElement('button'); help.id = 'rp-help'; help.type = 'button'; help.title = 'How it works (?)';
+    help.innerHTML = '<svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="6.2"/><path d="M6.2 6.3a1.9 1.9 0 1 1 2.7 1.7c-.6.3-.9.7-.9 1.3M8 11.7v.1"/></svg>Help';
+    const dock = document.createElement('div'); dock.id = 'rp-dock'; dock.append(help, eye);
     const now = document.createElement('div'); now.id = 'rp-now'; now.innerHTML = '<b></b><span></span><i><u></u></i>';
-    document.body.append(eye, now);
+    document.body.append(dock, now);
     const EYE_OFF = '<svg viewBox="0 0 16 16"><path d="M1 8s2.4-4.5 7-4.5S15 8 15 8s-2.4 4.5-7 4.5S1 8 1 8z"/><circle cx="8" cy="8" r="2"/></svg>Hide controls';
     const EYE_ON = '<svg viewBox="0 0 16 16"><path d="M2 2l12 12M6.3 4c.5-.1 1.1-.2 1.7-.2 4.600 0 7 4.200 7 4.200s-.800 1.500-2.300 2.700M3.600 5.600C2.200 6.800 1 8 1 8s2.400 4.500 7 4.500c1 0 1.900-.2 2.700-.6"/></svg>Show controls';
     eye.innerHTML = EYE_OFF;
@@ -3216,7 +3241,36 @@ body.rp-focus #rp-now { display:block; }
     function setFocus(on) { document.body.classList.toggle('rp-focus', on); eye.innerHTML = on ? EYE_ON : EYE_OFF; if (on) input.blur(); }
     window.__rpSetFocus = setFocus;
     window.__rpNow = (t, a, p) => { const b = now.querySelector('b'), sp = now.querySelector('span'), u = now.querySelector('u'); b.textContent = t; sp.textContent = a; u.style.width = (p * 100).toFixed(1) + '%'; };
-    window.__rpEye = on => { eye.hidden = !on; if (!on) now.hidden = true; else now.hidden = false; };
+    window.__rpEye = on => { dock.hidden = !on; now.hidden = !on; };
+    const ov = document.createElement('div'); ov.id = 'rp-help-ov'; ov.hidden = true; ov.setAttribute('role', 'dialog'); ov.setAttribute('aria-modal', 'true'); ov.setAttribute('aria-label', 'How the record player works');
+    ov.innerHTML = `<div class="card"><button class="x" type="button" aria-label="Close help">✕</button>
+      <h2><i></i>Record player</h2><p class="lead">Search any song and its record is pulled from the crate and played for you.</p>
+      <h3>What happens</h3>
+      <p>Type any song or artist in the search bar and pick a result. The platter stops, the old record goes back into its sleeve and the crate, the new album sleeve pops out, the new record slides out of it and is lowered onto the spindle, then the platter spins up, the arm cues itself and the music plays.</p>
+      <ul><li>With no song chosen, the blank record plays a built-in lo-fi loop.</li><li>Songs play as real 30-second previews, and the arm tracks across the groove as it plays.</li></ul>
+      <h3>Controls</h3>
+      <div class="keys">
+        <span>Search for a song</span><em><kbd>/</kbd></em>
+        <span>Start or stop the platter</span><em><kbd>space</kbd></em>
+        <span>Spin or scratch the record</span><em>drag it</em>
+        <span>Pitch slider · volume knob</span><em>drag up / down</em>
+        <span>Tonearm: drop it anywhere on the record to play from there</span><em>drag it</em>
+        <span>Lift or cue the arm</span><em><kbd>C</kbd></em>
+        <span>33 / 45 rpm</span><em><kbd>3</kbd> <kbd>4</kbd></em>
+        <span>Pitch up / down</span><em><kbd>↑</kbd> <kbd>↓</kbd></em>
+        <span>Iso view · centre the camera</span><em><kbd>I</kbd> <kbd>R</kbd></em>
+        <span>Hide every control, leaving just the player and the music</span><em><kbd>H</kbd></em>
+        <span>Light / dark theme</span><em><kbd>T</kbd></em>
+        <span>Open or close this help</span><em><kbd>?</kbd></em>
+      </div>
+      <h3>Good to know</h3><p>Search and audio need an internet connection.</p></div>`;
+    document.body.appendChild(ov);
+    function setHelp(on) { ov.hidden = !on; if (on) { if (document.activeElement) document.activeElement.blur(); ov.querySelector('.x').focus(); } else help.blur(); }
+    window.__rpHelp = on => setHelp(on === undefined ? ov.hidden : on);
+    help.addEventListener('click', () => setHelp(true));
+    ov.querySelector('.x').addEventListener('click', () => setHelp(false));
+    ov.addEventListener('mousedown', e => { if (e.target === ov) setHelp(false); });
+    addEventListener('keydown', e => { if (!ov.hidden && (e.key === 'Escape' || e.key === '?')) { e.preventDefault(); e.stopPropagation(); setHelp(false); } }, true);
     const input = root.querySelector('input'), list = root.querySelector('.list');
     let results = [], sel = 0, seq = 0, timer = 0;
     const msg = t => { list.innerHTML = ''; const d = document.createElement('div'); d.className = 'msg'; d.textContent = t; list.appendChild(d); list.hidden = false; };
@@ -3300,7 +3354,7 @@ body.rp-focus #rp-now { display:block; }
   }
   function setFocus(on) { if (window.__rpSetFocus) window.__rpSetFocus(on); }
   function updateNow() { if (!window.__rpNow) return; window.__rpNow(track ? track.title : 'Needle Drop', track ? `${track.artist} · ${fmt(pos())} / ${fmt(dur())}` : `Iso-Glow Sessions · default record · ${fmt(pos())} / ${fmt(dur())}`, Math.min(1, pos() / dur())); }
-  themeHooks.push(t => { pilotMat.color.set(t === 'light' ? 0xc3c6c8 : 0x2b2e30); rimMat.color.set(t === 'light' ? 0x9fa4a7 : 0xc4c7c9); drawLabel(cur); drawLabel(nxt); drawSleeve(cs); drawSleeve(ns); render(); });
+  themeHooks.push(t => { pilotMat.color.set(t === 'light' ? 0xd2cec7 : 0x2b2e30); ledMats.forEach(m => m.color.set(t === 'light' ? 0xd2cec7 : 0x2b2e30)); rimMat.color.set(t === 'light' ? 0xa4a9ad : 0xc4c7c9); dumMats.forEach((m, i) => m.color.set((t === 'light' ? DUM_LIGHT : DUM_DARK)[i])); drawLabel(cur); drawLabel(nxt); drawSleeve(cs); drawSleeve(ns); render(); });
   drawLabel(cur); drawLabel(nxt); drawSleeve(cs); drawSleeve(ns); layout(); render();
   return { group: g0, key, click, tick, readout,
     stop: () => { st.on = false; if (st.mode !== 'rest') st.mode = 'return'; render(); },
@@ -3308,7 +3362,7 @@ body.rp-focus #rp-now { display:block; }
     panel: [['Hide controls', 'H', () => setFocus(true)], ['Search a song', '/', () => UI.focus()], ['Start / stop', 'space', startStop], ['33⅓ rpm', '3', () => setSpeed(33.333)], ['45 rpm', '4', () => setSpeed(45)], ['Cue arm', 'C', cue], ['Center view', 'R', () => homeCam()], ['Pitch +', '↑', () => setPitch(st.pitch + 1)], ['Pitch −', '↓', () => setPitch(st.pitch - 1)]],
     view: { target: W(110, 130, 22), dist: 9.4 },
     info: '<h2>Record player</h2><p>Type any song or artist in the search bar and pick a result: the platter stops, the old record lifts off and flies away, the album sleeve pops out of the crate of records, the new record slides out of it and is lowered onto the spindle, then the platter spins up, the arm cues itself and the music plays. With no song chosen the blank record plays a built-in lo-fi loop. Songs play as real 30-second previews, and the arm tracks across the groove as it plays. Drag the record to spin or scratch it, drag the pitch slider or the volume knob, or drag the tonearm and drop it anywhere on the record to play from there. 33 / 45 change the speed. H hides every control and leaves just the player and the music. Needs an internet connection for search and audio.</p>',
-    hint: '/ search · space start · drag record, arm, pitch, knob · I iso · R centre · H hide controls' };
+    hint: '' };
 })() });
 
 

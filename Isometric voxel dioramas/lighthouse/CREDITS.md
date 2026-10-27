@@ -1,9 +1,9 @@
 # Credits
 
-- Lighthouse Harbor geometry, cast, and animation are hand-built for this
-  project using the existing gallery geometry helpers.
-- The visual composition reference is the image supplied by the user at
-  `refs/reference.png`.
+- `../videos/lighthouse.mp4` is a direct copy of the user-supplied
+  `wLXgzsbioiCv9znZ.mp4`; the source file was not modified.
+- `../posters/lighthouse.jpg` is a frame extracted from the user-supplied clip.
+- `refs/reference.png` is the still image supplied with the original request.
+- `scene.js` is hand-built fallback geometry from the earlier procedural scene.
 - No third-party meshes, textures, videos, or code were imported.
-- Research sources and the asset search decision are documented in
-  `refs/SOURCES.md`.
+- Research and search decisions are documented in `refs/SOURCES.md`.

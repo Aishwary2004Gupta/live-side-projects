@@ -1,0 +1,83 @@
+<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><title>Small Plays — Halloween Night</title>
+<style>:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html,body{margin:0;height:100%;background:#1b1c20}body{display:flex;align-items:center;justify-content:center;overflow:hidden}canvas{display:block}</style></head><body>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+const T=THREE,PI=Math.PI,W=()=>Math.min(innerWidth,innerHeight);
+const R=new T.WebGLRenderer({antialias:true});R.setPixelRatio(Math.min(devicePixelRatio,2));R.setSize(W(),W());R.setClearColor(0x1b1c20);
+R.shadowMap.enabled=true;R.shadowMap.type=T.PCFSoftShadowMap;R.toneMapping=T.LinearToneMapping;R.toneMappingExposure=1.05;R.outputEncoding=T.sRGBEncoding;
+document.body.appendChild(R.domElement);addEventListener('resize',()=>R.setSize(W(),W()));
+const S=new T.Scene(),C=new T.PerspectiveCamera(30,1,.1,100);
+let sd=5;const rnd=()=>{sd|=0;sd=sd+0x6D2B79F5|0;let t=Math.imul(sd^sd>>>15,1|sd);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296};
+const mat=(c,e=0,ei=0,o={})=>new T.MeshStandardMaterial(Object.assign({color:c,roughness:.6,flatShading:true,emissive:e,emissiveIntensity:ei},o));
+const bas=(c,o={})=>new T.MeshBasicMaterial(Object.assign({color:c},o));
+const B=(w,h,d)=>new T.BoxGeometry(w,h,d),Cy=(a,b,h,s=8)=>new T.CylinderGeometry(a,b,h,s),Sp=(r,s=10)=>new T.SphereGeometry(r,s,s*.8|0);
+const add=(p,g,m,x=0,y=0,z=0)=>{const o=new T.Mesh(g,m);o.position.set(x,y,z);o.castShadow=o.receiveShadow=true;p.add(o);return o};
+const grp=(x,y,z,p=S)=>{const g=new T.Group();g.position.set(x,y,z);p.add(g);return g};
+const tex=(f)=>{const c=document.createElement('canvas');c.width=c.height=128;const x=c.getContext('2d');f(x);const t=new T.CanvasTexture(c);t.encoding=T.sRGBEncoding;return t};
+const glowT=tex(x=>{const g=x.createRadialGradient(64,64,0,64,64,64);g.addColorStop(0,'rgba(255,255,255,1)');g.addColorStop(.4,'rgba(255,255,255,.35)');g.addColorStop(1,'rgba(255,255,255,0)');x.fillStyle=g;x.fillRect(0,0,128,128)});
+const glow=(p,col,x,y,z,sz,op)=>{const s=new T.Sprite(new T.SpriteMaterial({map:glowT,color:col,transparent:true,opacity:op,blending:T.AdditiveBlending,depthWrite:false}));s.position.set(x,y,z);s.scale.setScalar(sz);p.add(s);return s};
+// set: wall + table
+const wallT=tex(x=>{const g=x.createRadialGradient(64,50,5,64,64,100);g.addColorStop(0,'#46484f');g.addColorStop(1,'#1a1b1f');x.fillStyle=g;x.fillRect(0,0,128,128)});
+const wall=new T.Mesh(new T.PlaneGeometry(40,24),bas(0xffffff,{map:wallT}));wall.position.set(0,8,-7);S.add(wall);
+const table=new T.Mesh(new T.PlaneGeometry(40,30),mat(0x141116,0,0,{roughness:.45,flatShading:false}));table.rotation.x=-PI/2;table.position.z=8;table.receiveShadow=true;S.add(table);
+// lights
+S.add(new T.HemisphereLight(0xfff0e0,0x403040,.55));
+const key=new T.DirectionalLight(0xfff1e0,.95);key.position.set(-5,9,9);key.castShadow=true;key.shadow.mapSize.set(2048,2048);Object.assign(key.shadow.camera,{left:-9,right:9,top:9,bottom:-9,near:1,far:40});key.shadow.bias=-.0005;S.add(key);
+const fill=new T.DirectionalLight(0xaab4ff,.3);fill.position.set(6,4,6);S.add(fill);
+// pumpkin geometry
+function pumGeo(r,ry){const g=new T.SphereGeometry(r,64,48),p=g.attributes.position,v=new T.Vector3();
+ for(let i=0;i<p.count;i++){v.fromBufferAttribute(p,i);const th=Math.atan2(v.z,v.x),sy=Math.sqrt(Math.max(0,1-(v.y/r)**2)),f=1+.07*Math.cos(th*10)*sy,t=Math.max(0,Math.abs(v.y)/r-.75)/.25;
+  p.setXYZ(i,v.x*f,v.y*ry-Math.sign(v.y)*.25*t*t*r*.4,v.z*f)}g.computeVertexNormals();return g}
+const stem=(p,y,s,c)=>{const m=mat(c,0,0,{roughness:.5});const a=add(p,Cy(.2*s,.32*s,.5*s,8),m,0,y,0);a.rotation.z=.12;add(p,Cy(.12*s,.2*s,.3*s,8),m,.04*s,y+.35*s,0).rotation.z=.25}
+// main pumpkin with window cut
+const pm=mat(0xf5750f,0,0,{side:T.DoubleSide,roughness:.4,flatShading:false});
+pm.onBeforeCompile=sh=>{
+ sh.vertexShader=sh.vertexShader.replace('#include <common>','#include <common>\nvarying vec3 vP;').replace('#include <begin_vertex>','#include <begin_vertex>\nvP=position;');
+ sh.fragmentShader=sh.fragmentShader.replace('#include <common>','#include <common>\nvarying vec3 vP;').replace('void main() {','void main() {\nvec2 q=vec2(vP.x/1.25,(vP.y+.1)/1.4);float a=atan(q.y,q.x);float kk=1.0+.06*sin(a*3.0)+.04*sin(a*5.0+1.0);float dq=dot(q,q)/(kk*kk);if(vP.z>0.0&&dq<1.0)discard;')
+ .replace('#include <dithering_fragment>','#include <dithering_fragment>\nif(!gl_FrontFacing)gl_FragColor.rgb=mix(gl_FragColor.rgb*.3,vec3(.2,.12,.28),.6);if(gl_FrontFacing&&vP.z>0.0&&dq<1.12)gl_FragColor.rgb=mix(gl_FragColor.rgb,vec3(.8,.82,.86),.85);')};
+const MP=grp(0,2.64,0);const shell=new T.Mesh(pumGeo(2.4,1.1),pm);shell.castShadow=true;MP.add(shell);stem(MP,2.75,1,0x8a6a30);
+// interior
+const IN=grp(0,0,0,MP),FY=-1.18,wins=[];
+add(IN,Cy(1.7,1.85,.2,28),mat(0x6f9a2e),0,-1.28,0).scale.z=.8;
+for(let i=0;i<45;i++){const a=rnd()*6.28,r=Math.sqrt(rnd())*1.55;add(IN,Sp(.1+rnd()*.12,5),mat(rnd()>.5?0x7fae35:0x9cc84a),Math.cos(a)*r,-1.12,Math.sin(a)*r*.8).scale.y=.6}
+{const g=grp(.05,FY,-.1,IN);add(g,B(1.3,.95,.9),mat(0x3b3946,0,0,{roughness:.4}),0,.475,0);
+ const roof=add(g,Cy(.87,.87,1.15,3),mat(0x55525f),0,1.23,0);roof.rotation.x=-PI/2;roof.scale.z=.65;
+ add(g,B(.18,.5,.18),mat(0x2e2c36),-.4,1.5,-.2);
+ const win=(x,y,z,w,h,ry)=>{const q=grp(x,y,z,g);q.rotation.y=ry;const m=bas(0xffe6a8);wins.push(m);add(q,B(w,h,.02),m).castShadow=false;const d=mat(0x2a2530);add(q,B(w,.025,.03),d);add(q,B(.025,h,.03),d)};
+ win(-.38,.62,.46,.22,.3,0);win(.38,.62,.46,.22,.3,0);win(.66,.6,-.2,.22,.3,PI/2);win(.66,.6,.2,.22,.3,PI/2);
+ const dm=bas(0xffb347);wins.push(dm);add(g,B(.26,.46,.02),dm,0,.23,.46).castShadow=false;
+ const ro=bas(0xffe6a8);wins.push(ro);add(g,Cy(.1,.1,.02,12),ro,0,1.12,.58).rotation.x=PI/2;
+ const jm=mat(0xff7a12,0xff6a00,.8);add(g,Sp(.1,8),jm,.55,.08,.7);glow(g,0xff8a1a,.55,.12,.75,.8,.6)}
+const fence=(x0,x1,z)=>{const m=mat(0xf2f0f4,0,0,{roughness:.5}),n=Math.round((x1-x0)/.13);for(let i=0;i<=n;i++)add(IN,B(.06,.3,.02),m,x0+i*(x1-x0)/n,FY+.15,z);add(IN,B(x1-x0,.03,.02),m,(x0+x1)/2,FY+.1,z-.02);add(IN,B(x1-x0,.03,.02),m,(x0+x1)/2,FY+.22,z-.02)};
+fence(-1.5,-.35,.85);fence(.5,1.35,.8);
+function br(p,len,r,d,m){const pv=grp(0,0,0,p);add(pv,Cy(r*.6,r,len,5),m,0,len/2,0).castShadow=false;
+ if(d>0)for(let k=0;k<2+(d>2?1:0);k++){const c=grp(0,len*(.6+.4*rnd()),0,pv);c.rotation.set(0,rnd()*6.3,(rnd()-.5)*1.4);br(c,len*.7,r*.6,d-1,m)}}
+const tL=grp(-1.3,FY,.3,IN);tL.rotation.z=.08;br(tL,.9,.05,2,mat(0xb0a49a));
+const tR=grp(1.1,FY,-.5,IN);tR.rotation.z=-.12;br(tR,1.3,.06,3,mat(0x1d1722));
+const moonM=new T.Mesh(new T.CircleGeometry(.42,24),bas(0xd9b2c0));moonM.position.set(1,.55,-1.4);IN.add(moonM);
+const mg=glow(IN,0xe0a8b8,1,.55,-1.3,2.6,.55);
+// interior lights
+const pl=(c,i,d,x,y,z)=>{const l=new T.PointLight(c,i,d);l.position.set(x,y,z);IN.add(l);return l};
+const L1=pl(0xffb060,2,4,0,-.3,.9),L2=pl(0x9a7cff,1,5,-.6,1,.4),L3=pl(0xff9ab8,1.2,4,1,.6,-.5);
+// ghosts
+const gh=[[-1.05,.45,.2,.55,0],[-.3,1.05,.3,.38,2],[.4,1.3,.1,.5,4]].map(([x,y,z,s,o])=>{const g=grp(x,y,z,IN);g.scale.setScalar(s);const m=bas(0xf3f0ff,{transparent:true,opacity:.93});
+ add(g,Sp(.3,12),m,0,.3,0).castShadow=false;const tl=grp(0,.3,0,g);add(tl,new T.ConeGeometry(.3,.8,12),m,0,-.4,0).rotation.x=PI;
+ [-.09,.09].forEach(e=>add(g,Sp(.035,5),bas(0x111122),e,.33,.27));add(g,Sp(.05,5),bas(0x111122),0,.2,.28).scale.y=1.4;return{g,tl,x,y,o}});
+// black pumpkins, mini pumpkins, twigs
+const bm=mat(0x16161a,0,0,{roughness:.35,flatShading:false,metalness:.15});
+[[-4.3,-1.5,.95],[3.9,-1.2,.95]].forEach(([x,z,s])=>{const g=grp(x,2.28,z);g.scale.setScalar(s);add(g,pumGeo(2.4,.95),bm);stem(g,2.4,1,0x2a2a30)});
+[[2.7,3.2,.5],[3.4,2.4,.55]].forEach(([x,z,s])=>{const g=grp(x,.4,z);add(g,pumGeo(s,.85),mat(0xe0431a,0,0,{roughness:.35,flatShading:false}));stem(g,s*.85,.18,0x9a7a30)});
+{const g=grp(-3.4,0,-3),m=mat(0x0a0a0c,0,0,{metalness:.6,roughness:.3});for(let i=0;i<4;i++){const s=grp((i-1.5)*.35,0,rnd()*.5,g);s.rotation.z=(i-1.5)*.18;br(s,2+rnd(),.07,3,m)}}
+const sp=[...Array(14)].map(()=>{const m=new T.Mesh(new T.SphereGeometry(.04,5,4),bas(0xffffff));m.position.set(-4.6+rnd()*2.4,2+rnd()*4,-3+rnd()*1);S.add(m);return{m,ph:rnd()*6}});
+const mo=[...Array(14)].map(()=>{const m=new T.Mesh(new T.SphereGeometry(.03,6,5),bas(0xffe9a0));IN.add(m);return{m,cx:-.8+rnd()*1.6,cy:-.2+rnd()*1.2,az:.3+rnd()*.4,ax:.2+rnd()*.5,i1:1+(rnd()*3|0),ph:rnd()*6}});
+// animate
+function frame(){const t=(performance.now()/1000)%10,P=t/10*PI*2,s=Math.sin;
+ C.position.set(.5*s(P),3.6,16);C.lookAt(0,2.4,0);
+ wins.forEach((m,i)=>{const v=.5+.5*s(P*(3+i%3)+i);m.color.setRGB(1,.82+.1*v,.4+.1*v).multiplyScalar(.9+.3*v)});
+ L1.intensity=2+.5*s(P*3)+.3*s(P*5);L3.intensity=1.2+.3*s(P*2);mg.material.opacity=.5+.1*s(P*2);mg.scale.setScalar(2.6+.12*s(P*2));
+ gh.forEach(o=>{o.g.position.set(o.x+.12*s(P+o.o),o.y+.1*s(P*2+o.o),o.g.position.z);o.g.rotation.z=.12*s(P+o.o);o.tl.rotation.z=.25*s(P*3+o.o)});
+ sp.forEach(o=>o.m.scale.setScalar(.2+1.2*Math.max(0,s(P*2+o.ph))));
+ mo.forEach(o=>{o.m.position.set(o.cx+o.ax*s(P*o.i1+o.ph),o.cy+.2*s(P*2+o.ph),o.az*s(P*((o.i1%3)+1)+o.ph*2));o.m.scale.setScalar(.6+.6*Math.abs(s(P*3+o.ph)))});
+ R.render(S,C);requestAnimationFrame(frame)}
+frame();
+</script></body></html>

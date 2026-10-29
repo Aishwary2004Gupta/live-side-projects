@@ -2705,7 +2705,7 @@ FIGS3D.push({ id: 'rp', name: 'Record player', mod: (() => {
   // so it stays put while the record spins. Grooves are fract(length(vUv - 0.5) * 200.0).
   const vinylMat = new THREE.ShaderMaterial({
     side: THREE.DoubleSide,
-    uniforms: { uL1: { value: new THREE.Vector3(-0.35, 0.85, 0.40).normalize() }, uL2: { value: new THREE.Vector3(0.45, 0.80, -0.40).normalize() } },
+    uniforms: { uDark: { value: 1 }, uL1: { value: new THREE.Vector3(-0.35, 0.85, 0.40).normalize() }, uL2: { value: new THREE.Vector3(0.45, 0.80, -0.40).normalize() } },
     vertexShader: `
       varying vec3 vW; varying vec3 vN; varying vec3 vR; varying vec2 vUv;
       void main() {
@@ -2716,7 +2716,7 @@ FIGS3D.push({ id: 'rp', name: 'Record player', mod: (() => {
         gl_Position = projectionMatrix * viewMatrix * wp;
       }`,
     fragmentShader: `
-      uniform vec3 uL1; uniform vec3 uL2;
+      uniform float uDark; uniform vec3 uL1; uniform vec3 uL2;
       varying vec3 vW; varying vec3 vN; varying vec3 vR; varying vec2 vUv;
       float kk(vec3 T, vec3 L, vec3 V, float p) { vec3 H = normalize(L + V); float d = dot(T, H); return pow(sqrt(max(1.0 - d * d, 0.0)), p); }
       void main() {
@@ -2728,6 +2728,27 @@ FIGS3D.push({ id: 'rp', name: 'Record player', mod: (() => {
         vec3 R = normalize(vR + vec3(1e-5));
         vec3 T = normalize(cross(N, R));
         float zone = smoothstep(0.19, 0.205, rad) * (1.0 - smoothstep(0.452, 0.466, rad)) * smoothstep(0.8, 0.95, N.y);
+        if (uDark > 0.5) {                                                       // dark theme: glossy black vinyl with two soft light wedges
+          float px = rad * 200.0, fw = fwidth(px);
+          float rd = abs(fract(px) - 0.5) * 2.0; rd = mix(rd, 0.5, smoothstep(0.3, 0.9, fw));
+          float sm = 0.0;                                                        // smooth, groove-free bands between tracks and at the lead-in
+          sm += 1.0 - smoothstep(0.003, 0.0085, abs(rad - 0.3897));
+          sm += 1.0 - smoothstep(0.003, 0.0085, abs(rad - 0.3077));
+          sm += 1.0 - smoothstep(0.003, 0.0085, abs(rad - 0.2462));
+          sm += 1.0 - smoothstep(0.0, 0.007, abs(rad - 0.458));
+          sm = clamp(sm, 0.0, 1.0);
+          vec3 cd = vec3(0.022) + vec3(0.016) * rd * (1.0 - sm);
+          float lobe = kk(T, uL1, V, 12.0) * 0.20 + kk(T, uL1, V, 150.0) * 0.50 + kk(T, uL2, V, 12.0) * 0.16 + kk(T, uL2, V, 150.0) * 0.42;
+          lobe *= mix(0.5, 1.0, smoothstep(0.2, 0.45, rad)) * mix(0.6 + 0.4 * rd, 1.0, sm);
+          cd += vec3(0.80, 0.82, 0.86) * lobe * zone;
+          cd += vec3(0.05) * sm * zone * (0.4 + lobe);
+          cd += vec3(0.10) * pow(1.0 - max(dot(N, V), 0.0), 3.0) * (1.0 - zone);
+          cd += vec3(0.6) * pow(max(dot(N, normalize(uL1 + V)), 0.0), 70.0) * 0.18 * (1.0 - zone);
+          cd += vec3(0.012) * max(dot(N, uL1), 0.0);
+          cd += vec3(0.07) * (1.0 - smoothstep(0.0, 0.004, abs(rad - 0.1763)));  // bezel around the label
+          cd += vec3(0.07) * (1.0 - smoothstep(0.0, 0.003, abs(rad - 0.4615)));  // inner edge of the rim lip
+          gl_FragColor = vec4(cd, 1.0); return;
+        }
         vec3 col = vec3(0.060) * mix(0.8, 1.15, ridge);
         float sp = (kk(T, uL1, V, 70.0) * 0.55 + kk(T, uL1, V, 9.0) * 0.07 + kk(T, uL2, V, 70.0) * 0.45 + kk(T, uL2, V, 9.0) * 0.05) * (0.55 + 0.45 * ridge);
         col += vec3(0.80, 0.82, 0.85) * sp * zone;
@@ -2753,7 +2774,40 @@ FIGS3D.push({ id: 'rp', name: 'Record player', mod: (() => {
       m.rotation.x = -Math.PI / 2; m.position.copy(W(0, 0, 1.8)); g.add(m); }
     return { g, sh, lab, tex, track: null, img: null };
   }
+  const LABEL_PAL = ['#e0793a', '#a23b42', '#efe6c8', '#2a8396', '#e6c93a', '#5b5e60', '#c8382f', '#b9bcb6', '#3f8470'];
+  function labelColor(r) {                                                          // a vivid colour taken from the cover art (or picked from the title)
+    const hsl = (R, G, B) => { R /= 255; G /= 255; B /= 255; const mx = Math.max(R, G, B), mn = Math.min(R, G, B), l = (mx + mn) / 2, d = mx - mn;
+      let h = 0, sat = 0; if (d) { sat = d / (1 - Math.abs(2 * l - 1)); h = mx === R ? ((G - B) / d) % 6 : mx === G ? (B - R) / d + 2 : (R - G) / d + 4; h *= 60; if (h < 0) h += 360; } return [h, sat, l]; };
+    if (r.img) { try { const c = document.createElement('canvas'); c.width = c.height = 16; const x = c.getContext('2d'); x.drawImage(r.img, 0, 0, 16, 16);
+      const d = x.getImageData(0, 0, 16, 16).data; let R = 0, G = 0, B = 0, W = 0;
+      for (let i = 0; i < d.length; i += 4) { const w = 0.1 + (Math.max(d[i], d[i + 1], d[i + 2]) - Math.min(d[i], d[i + 1], d[i + 2])) / 255; R += d[i] * w; G += d[i + 1] * w; B += d[i + 2] * w; W += w; }
+      const [h, sat, l] = hsl(R / W, G / W, B / W); return { css: `hsl(${h.toFixed(0)} ${Math.round(Math.min(1, sat * 1.25 + 0.08) * 100)}% ${Math.round(Math.min(0.62, Math.max(0.38, l)) * 100)}%)`, l: Math.min(0.62, Math.max(0.38, l)) }; } catch (e) {} }
+    let i = 0; if (r.track) { for (const ch of r.track.title + r.track.artist) i = (i * 31 + ch.charCodeAt(0)) >>> 0; i = 1 + (i % (LABEL_PAL.length - 1)); }
+    const c = r.track ? LABEL_PAL[i] : '#' + accent.getHexString(); const n = parseInt(c.slice(1), 16);
+    return { css: c, l: hsl(n >> 16, (n >> 8) & 255, n & 255)[2] };
+  }
+  function drawLabelDark(r) {
+    const x = r.lab.getContext('2d'), k = 512 / 48, lc = labelColor(r), ink = lc.l > 0.56 ? '#1b1a18' : '#f6f2ea';
+    x.clearRect(0, 0, 512, 512); x.save(); x.beginPath(); x.arc(256, 256, 256, 0, Math.PI * 2); x.clip();
+    x.fillStyle = lc.css; x.fillRect(0, 0, 512, 512);
+    const g = x.createRadialGradient(256, 200, 20, 256, 256, 256); g.addColorStop(0, 'rgba(255,255,255,0.10)'); g.addColorStop(1, 'rgba(0,0,0,0.12)'); x.fillStyle = g; x.fillRect(0, 0, 512, 512);
+    x.restore();
+    x.strokeStyle = 'rgba(0,0,0,0.20)'; x.lineWidth = 0.5 * k; x.beginPath(); x.arc(256, 256, 23.2 * k, 0, Math.PI * 2); x.stroke();
+    x.lineWidth = 0.35 * k; x.beginPath(); x.arc(256, 256, 8 * k, 0, Math.PI * 2); x.stroke();
+    x.textAlign = 'center'; x.fillStyle = ink;
+    if (r.track) {
+      x.font = `600 ${2.9 * k}px ${MONO3}`; const tl = wrap(x, r.track.title.toUpperCase(), 30 * k, 2); tl.forEach((l, i) => x.fillText(l, 256, 256 - (9 + (tl.length - 1) * 3.6) * k + i * 3.6 * k));
+      x.globalAlpha = 0.78; x.font = `${2.3 * k}px ${MONO3}`; wrap(x, r.track.artist, 28 * k, 1).forEach(l => x.fillText(l, 256, 256 + 14 * k)); x.globalAlpha = 1;
+    } else {
+      x.font = `600 ${2.9 * k}px ${MONO3}`; x.fillText('NEEDLE DROP', 256, 256 - 10 * k);
+      x.globalAlpha = 0.78; x.font = `${2.3 * k}px ${MONO3}`; x.fillText('ISO-GLOW SESSIONS', 256, 256 + 13 * k); x.fillText('SIDE A · 33⅓', 256, 256 + 16.2 * k); x.globalAlpha = 1;
+    }
+    x.fillStyle = '#0c0c0d'; x.beginPath(); x.arc(256, 256, 2.1 * k, 0, Math.PI * 2); x.fill();   // tiny spindle hole
+    x.strokeStyle = 'rgba(255,255,255,0.45)'; x.lineWidth = 0.35 * k; x.beginPath(); x.arc(256, 256, 2.9 * k, 0, Math.PI * 2); x.stroke();
+    r.tex.needsUpdate = true;
+  }
   function drawLabel(r) {
+    if (theme !== 'light') return drawLabelDark(r);
     const x = r.lab.getContext('2d'), Cc = pal3(), A_ = '#' + accent.getHexString(), k = 512 / 48;
     x.clearRect(0, 0, 512, 512); x.save(); x.beginPath(); x.arc(256, 256, 256, 0, Math.PI * 2); x.clip();
     x.fillStyle = Cc.glassOff; x.fillRect(0, 0, 512, 512);
@@ -2996,7 +3050,7 @@ FIGS3D.push({ id: 'rp', name: 'Record player', mod: (() => {
   // ── state and behaviour ──
   const R0 = 75, R1 = 33; let FAKE = 24.6;                                               // lead-in / run-out radii; length of the blank record
   const st = { on: false, speed: 33.333, pitch: 0, rpm: 0, mode: 'rest', a: A_REST, lift: 0, r: R0 };
-  let drag = null, scratchT = 0;
+  let drag = null, scratchT = 0, lastLock = false;
   let vt = 0, pending = null, status = '';
   const tipAt = a => [P[0] + LS * Math.cos(a), P[1] + LS * Math.sin(a)];
   const radAt = a => { const t = tipAt(a); return Math.hypot(t[0] - C[0], t[1] - C[1]); };
@@ -3020,6 +3074,7 @@ FIGS3D.push({ id: 'rp', name: 'Record player', mod: (() => {
   function render() {
     [[bStart, st.on], [b33, st.speed < 40], [b45, st.speed > 40]].forEach(([b, on]) => { b.mat.userData.base = on ? 0.55 : 0; if (!twFlashes.some(f => f.mats.includes(b.mat))) b.mat.emissiveIntensity = b.mat.userData.base; });
     ledMats[0].emissiveIntensity = st.speed < 40 ? 1.8 : 0.04; ledMats[1].emissiveIntensity = st.speed > 40 ? 1.8 : 0.04;
+    if (window.__rpPlay) window.__rpPlay(st.on);
     readout();
   }
   function beginCue() { try { if (track) au.currentTime = 0; } catch (e) {} defStop(); vt = 0; st.r = R0; st.on = true; st.mode = 'cue'; }
@@ -3115,6 +3170,7 @@ FIGS3D.push({ id: 'rp', name: 'Record player', mod: (() => {
 
   function tick(now, dt) {
     UI.show(active === ID);
+    { const lk = sw.on || !!pending; if (lk !== lastLock) { lastLock = lk; UI.lock(lk); } }
     // record swap sequence
     if (pending && !sw.on && st.mode === 'rest' && st.rpm < 1.5) { sw.on = true; sw.t = 0; ns.track = pending; ns.img = nxt.img; drawSleeve(ns); tap(500, 0.25, 2); }
     if (sw.on) {
@@ -3195,11 +3251,21 @@ FIGS3D.push({ id: 'rp', name: 'Record player', mod: (() => {
 #rp-ui .it span { display:block; color:var(--dim); font-size:11px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 #rp-ui .it div { min-width:0; }
 #rp-ui .msg { padding:11px 12px; color:var(--dim); }
+#rp-ui .sp { flex:none; display:none; width:13px; height:13px; border:2px solid var(--line); border-top-color:var(--accent); border-radius:50%; animation:rpspin 0.7s linear infinite; }
+#rp-ui.busy .sp { display:block; } #rp-ui.busy kbd { display:none; }
+#rp-ui .clr { flex:none; width:20px; height:20px; border:0; border-radius:50%; background:transparent; color:var(--dim); cursor:pointer; font:11px/1 inherit; padding:0; }
+#rp-ui .clr:hover { color:var(--ink); background:var(--bg); } #rp-ui .clr[hidden] { display:none; }
+#rp-ui .chips { display:flex; flex-wrap:wrap; gap:7px; padding:2px 12px 13px; }
+#rp-ui .chips button { border:1px solid var(--line); border-radius:14px; background:transparent; color:var(--ink); font:11px inherit; padding:4px 11px; cursor:pointer; }
+#rp-ui .chips button:hover { border-color:var(--accent); background:var(--bg); }
+#rp-ui .msg.h { padding-bottom:8px; font-size:10.5px; letter-spacing:.16em; text-transform:uppercase; }
+#rp-ui.locked .bar { opacity:.6; }
 body.rp-focus .ui, body.rp-focus #rp-ui { display:none !important; }
 #rp-dock { position:fixed; z-index:7; left:50%; bottom:14px; transform:translateX(-50%); display:flex; gap:8px; }
 #rp-dock[hidden] { display:none; }
 #rp-dock button { display:flex; align-items:center; gap:7px; height:30px; padding:0 12px; border:1px solid var(--line); border-radius:15px; background:var(--panel); color:var(--dim); font:11px ui-monospace,"SF Mono",Menlo,Consolas,monospace; cursor:pointer; backdrop-filter:blur(8px); }
 #rp-dock button:hover { color:var(--ink); border-color:var(--accent); }
+#rp-dock #rp-play.on { color:var(--ink); border-color:var(--accent); }
 #rp-dock svg { width:14px; height:14px; stroke:currentColor; fill:none; stroke-width:1.5; stroke-linecap:round; stroke-linejoin:round; }
 body.rp-focus #rp-dock button { opacity:.35; } body.rp-focus #rp-dock button:hover { opacity:1; }
 #rp-help-ov { position:fixed; inset:0; z-index:80; display:flex; align-items:center; justify-content:center; padding:20px; background:rgba(10,11,12,.34); backdrop-filter:blur(10px) saturate(.9); -webkit-backdrop-filter:blur(10px) saturate(.9); animation:rpfade .18s ease; }
@@ -3226,12 +3292,17 @@ body.rp-focus #rp-now { display:block; }
 #rp-now i u { display:block; height:100%; width:0; background:var(--accent); text-decoration:none; }`;
     document.head.appendChild(css);
     const root = document.createElement('div'); root.id = 'rp-ui';
-    root.innerHTML = '<label class="bar"><svg viewBox="0 0 16 16"><circle cx="7" cy="7" r="5"/><path d="M11 11l3.5 3.5"/></svg><input type="text" placeholder="Type anything to press a record" autocomplete="off" spellcheck="false" aria-label="Search for a song or artist"><kbd>/</kbd></label><div class="list" hidden></div>';
+    root.innerHTML = '<label class="bar"><svg viewBox="0 0 16 16"><circle cx="7" cy="7" r="5"/><path d="M11 11l3.5 3.5"/></svg><input type="text" placeholder="Type anything to press a record" autocomplete="off" spellcheck="false" aria-label="Search for a song or artist"><i class="sp"></i><button class="clr" type="button" hidden aria-label="Clear search">✕</button><kbd>/</kbd></label><div class="list" hidden></div>';
     document.body.appendChild(root);
     const eye = document.createElement('button'); eye.id = 'rp-eye'; eye.type = 'button'; eye.title = 'Hide or show all controls (H)';
     const help = document.createElement('button'); help.id = 'rp-help'; help.type = 'button'; help.title = 'How it works (?)';
     help.innerHTML = '<svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="6.2"/><path d="M6.2 6.3a1.9 1.9 0 1 1 2.7 1.7c-.6.3-.9.7-.9 1.3M8 11.7v.1"/></svg>Help';
-    const dock = document.createElement('div'); dock.id = 'rp-dock'; dock.append(help, eye);
+    const play = document.createElement('button'); play.id = 'rp-play'; play.type = 'button'; play.title = 'Start or stop the platter (space)';
+    const ICON_PLAY = '<svg viewBox="0 0 16 16"><path d="M5 3.2v9.6L12.6 8z"/></svg>Play', ICON_STOP = '<svg viewBox="0 0 16 16"><rect x="4" y="4" width="8" height="8" rx="1.2"/></svg>Stop';
+    play.innerHTML = ICON_PLAY;
+    window.__rpPlay = on => { play.innerHTML = on ? ICON_STOP : ICON_PLAY; play.classList.toggle('on', !!on); };
+    play.addEventListener('click', () => { if (window.__rpStartStop) window.__rpStartStop(); play.blur(); });
+    const dock = document.createElement('div'); dock.id = 'rp-dock'; dock.append(play, help, eye);
     const now = document.createElement('div'); now.id = 'rp-now'; now.innerHTML = '<b></b><span></span><i><u></u></i>';
     document.body.append(dock, now);
     const EYE_OFF = '<svg viewBox="0 0 16 16"><path d="M1 8s2.4-4.5 7-4.5S15 8 15 8s-2.4 4.5-7 4.5S1 8 1 8z"/><circle cx="8" cy="8" r="2"/></svg>Hide controls';
@@ -3315,12 +3386,21 @@ body.rp-focus #rp-now { display:block; }
       return r;
     }
     async function search(q) {
-      const my = ++seq; msg('searching…');
-      try { const r = await query(q); if (my !== seq) return []; results = r; sel = 0; if (r.length) paint(); else msg('no records found for “' + q + '”'); return r; }
+      const my = ++seq; root.classList.add('busy'); msg('searching…');
+      try { const r = await query(q); if (my !== seq) return []; results = r; sel = 0; if (r.length) paint(); else msg('no records found for “' + q + '” — try another title or artist'); return r; }
       catch (e) { if (my === seq) msg('can’t reach the music catalog — check your connection'); return []; }
+      finally { if (my === seq) root.classList.remove('busy'); }
     }
-    function choose(i) { const t = results[i]; if (!t || sw.on) return; close(); input.value = ''; input.placeholder = `Now pressing · ${clip(t.title, 24)} — ${clip(t.artist, 18)}`; input.blur(); loadTrack(t); }
-    input.addEventListener('input', () => { clearTimeout(timer); const q = input.value.trim(); if (!q) { seq++; close(); return; } timer = setTimeout(() => search(q), 280); });
+    function choose(i) { const t = results[i]; if (!t || sw.on) return; close(); input.value = ''; input.placeholder = `Now pressing · ${clip(t.title, 24)} — ${clip(t.artist, 18)}`; input.dataset.idle = input.placeholder; input.blur(); loadTrack(t); }
+    const clr = root.querySelector('.clr'), TRY = ['Hello Adele', 'Daft Punk', 'Miles Davis', 'Queen', 'Bohemian Rhapsody', 'Lofi beats', 'Taylor Swift', 'Fleetwood Mac'];
+    function chips() {                                                              // quick picks when the box is empty
+      list.innerHTML = ''; const h = document.createElement('div'); h.className = 'msg h'; h.textContent = 'Try one of these'; list.appendChild(h);
+      const w = document.createElement('div'); w.className = 'chips';
+      TRY.forEach(t => { const b = document.createElement('button'); b.type = 'button'; b.textContent = t; b.addEventListener('mousedown', e => { e.preventDefault(); input.value = t; clr.hidden = false; search(t).then(r => { if (r.length) choose(0); }); }); w.appendChild(b); });
+      list.appendChild(w); list.hidden = false;
+    }
+    clr.addEventListener('mousedown', e => { e.preventDefault(); input.value = ''; seq++; clr.hidden = true; root.classList.remove('busy'); input.focus(); chips(); });
+    input.addEventListener('input', () => { clearTimeout(timer); const q = input.value.trim(); clr.hidden = !q; if (!q) { seq++; root.classList.remove('busy'); chips(); return; } timer = setTimeout(() => search(q), 280); });
     input.addEventListener('keydown', async e => {
       e.stopPropagation();
       if (e.key === 'Escape') { input.value = ''; seq++; close(); input.blur(); }
@@ -3331,8 +3411,8 @@ body.rp-focus #rp-now { display:block; }
     });
     input.addEventListener('keyup', e => e.stopPropagation());
     input.addEventListener('blur', () => setTimeout(() => { if (document.activeElement !== input) list.hidden = true; }, 120));
-    input.addEventListener('focus', () => { if (results.length) paint(); });
-    return { focus: () => { input.focus(); input.select(); }, show: on => { root.hidden = !on; window.__rpEye(on); }, root };
+    input.addEventListener('focus', () => { if (sw.on) return; if (results.length) paint(); else if (!input.value.trim()) chips(); });
+    return { focus: () => { input.focus(); input.select(); }, show: on => { root.hidden = !on; window.__rpEye(on); }, lock: on => { root.classList.toggle('locked', on); input.placeholder = on ? 'Changing the record…' : (input.dataset.idle || input.placeholder); }, root };
   })();
 
   // ── camera: centred on the deck; the iso button gives a true isometric, orthographic view and flies there ──
@@ -3352,9 +3432,10 @@ body.rp-focus #rp-now { display:block; }
     if (camera === ortho) { camera.zoom = f.z0 + (f.z1 - f.z0) * k; camera.updateProjectionMatrix(); }
     controls.update(); if (f.t >= 1) camFly = null;
   }
+  window.__rpStartStop = () => startStop();
   function setFocus(on) { if (window.__rpSetFocus) window.__rpSetFocus(on); }
   function updateNow() { if (!window.__rpNow) return; window.__rpNow(track ? track.title : 'Needle Drop', track ? `${track.artist} · ${fmt(pos())} / ${fmt(dur())}` : `Iso-Glow Sessions · default record · ${fmt(pos())} / ${fmt(dur())}`, Math.min(1, pos() / dur())); }
-  themeHooks.push(t => { pilotMat.color.set(t === 'light' ? 0xd2cec7 : 0x2b2e30); ledMats.forEach(m => m.color.set(t === 'light' ? 0xd2cec7 : 0x2b2e30)); rimMat.color.set(t === 'light' ? 0xa4a9ad : 0xc4c7c9); dumMats.forEach((m, i) => m.color.set((t === 'light' ? DUM_LIGHT : DUM_DARK)[i])); drawLabel(cur); drawLabel(nxt); drawSleeve(cs); drawSleeve(ns); render(); });
+  themeHooks.push(t => { vinylMat.uniforms.uDark.value = t === 'light' ? 0 : 1; pilotMat.color.set(t === 'light' ? 0xd2cec7 : 0x2b2e30); ledMats.forEach(m => m.color.set(t === 'light' ? 0xd2cec7 : 0x2b2e30)); rimMat.color.set(t === 'light' ? 0xa4a9ad : 0xc4c7c9); dumMats.forEach((m, i) => m.color.set((t === 'light' ? DUM_LIGHT : DUM_DARK)[i])); drawLabel(cur); drawLabel(nxt); drawSleeve(cs); drawSleeve(ns); render(); });
   drawLabel(cur); drawLabel(nxt); drawSleeve(cs); drawSleeve(ns); layout(); render();
   return { group: g0, key, click, tick, readout,
     stop: () => { st.on = false; if (st.mode !== 'rest') st.mode = 'return'; render(); },

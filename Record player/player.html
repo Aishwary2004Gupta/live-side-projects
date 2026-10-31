@@ -80,6 +80,7 @@ body.rp-ready #rp-loading { opacity:0; pointer-events:none; }
 <link rel="modulepreload" href="https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/controls/OrbitControls.js">
 <link rel="modulepreload" href="https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/loaders/GLTFLoader.js">
 
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <script>try{var t=localStorage.getItem("iso-glow-seahawk-theme");if(t==="light"||t==="dark")document.documentElement.dataset.theme=t;}catch(e){}</script>
 </head>
 <body>
@@ -144,7 +145,7 @@ body.rp-ready #rp-loading { opacity:0; pointer-events:none; }
 </div>
 <div class="ui" id="info"><h2>Click any part</h2><p>Drag to orbit, scroll to zoom, right-drag to pan. ↑ ↓ climb and descend once the rotor is at speed.</p></div>
 <div class="ui" id="hint">L lights · E engines · ↑↓ climb · C cabin lights · D doors · I iso · T theme</div>
-<!-- <a class="ui" id="credit" href="https://iso-glow.vercel.app" target="_blank" rel="noopener">Made with ISO-GLOW ↗</a> -->
+<a class="ui" id="credit" href="https://iso-glow.vercel.app" target="_blank" rel="noopener">Made with ISO-GLOW ↗</a>
 <div class="ui" id="read"></div>
 
 <script type="module">
@@ -2974,6 +2975,8 @@ FIGS3D.push({ id: 'rp', name: 'Record player', mod: (() => {
   // ── default record: when no song is chosen the blank record plays a little lo-fi loop, synthesised here (works offline) ──
   let actx = null, defBuf = null, defSrc = null, defGain = null, defOn = false, dfade = 0;
   const getCtx = () => actx || (actx = new (window.AudioContext || window.webkitAudioContext)());
+  const DEF_MEL = [[0, 0.5, 76, 1], [0, 2.5, 74, 0.8], [1, 0, 72, 1.2], [1, 2, 69, 1], [2, 0.5, 71, 1], [2, 2.5, 74, 1], [3, 0, 76, 1.5], [3, 3, 72, 0.7],
+                 [4, 0.5, 76, 1], [4, 2, 79, 0.8], [5, 0, 77, 1.2], [5, 2.5, 72, 1], [6, 0, 74, 1], [6, 2, 72, 1.1], [7, 0, 71, 1], [7, 2, 68, 1.6]];
   (function buildDefault() {
     const OC = window.OfflineAudioContext || window.webkitOfflineAudioContext; if (!OC) return;
     const sr = 22050, bpm = 78, beat = 60 / bpm, bar = beat * 4, bars = 8, len = Math.round(sr * bar * bars);
@@ -2989,8 +2992,7 @@ FIGS3D.push({ id: 'rp', name: 'Record player', mod: (() => {
       g.gain.setValueAtTime(0.55, t0); g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.3); o.connect(g); g.connect(master); o.start(t0); o.stop(t0 + 0.32); };
     const chords = [[57, 60, 64, 67, 71], [53, 57, 60, 64, 67], [55, 60, 64, 67, 71], [55, 59, 62, 64, 67], [57, 60, 64, 67, 71], [53, 57, 60, 64, 67], [50, 53, 57, 60, 64], [52, 56, 59, 62, 64]];
     const roots = [45, 41, 48, 43, 45, 41, 38, 40];
-    const mel = [[0, 0.5, 76, 1], [0, 2.5, 74, 0.8], [1, 0, 72, 1.2], [1, 2, 69, 1], [2, 0.5, 71, 1], [2, 2.5, 74, 1], [3, 0, 76, 1.5], [3, 3, 72, 0.7],
-                 [4, 0.5, 76, 1], [4, 2, 79, 0.8], [5, 0, 77, 1.2], [5, 2.5, 72, 1], [6, 0, 74, 1], [6, 2, 72, 1.1], [7, 0, 71, 1], [7, 2, 68, 1.6]];
+    const mel = DEF_MEL;;
     for (let b = 0; b < bars; b++) {
       const t0 = b * bar, ch = chords[b];
       ch.forEach((m, i) => { tone(m, t0 + i * 0.012, bar * 0.95, 'triangle', 0.030, 0.18, 0.28); tone(m + 12, t0 + i * 0.012, bar * 0.9, 'sine', 0.010, 0.25, 0.3); });
@@ -3062,12 +3064,14 @@ FIGS3D.push({ id: 'rp', name: 'Record player', mod: (() => {
     au.play().then(() => { if (!wantPlay) { au.pause(); try { au.currentTime = 0; } catch (e) {} } au.muted = false; }).catch(() => { au.muted = false; });
     if (t.art) { const im = new Image(); im.crossOrigin = 'anonymous'; im.onload = () => {
       if (nxt.track === t) { nxt.img = im; drawLabel(nxt); } else if (cur.track === t) { cur.img = im; drawLabel(cur); } [cs, ns].forEach(o => { if (o.track === t) { o.img = im; drawSleeve(o); } }); }; im.src = t.art; }
+    if (window.__rpPrep) window.__rpPrep(t);                                         // start fetching lyrics and working out the timing right away
     SFX.button(); render();
   }
 
   function key(e) {
     if (e.key === '?') { if (window.__rpHelp) window.__rpHelp(true); return true; }
     if (e.key === 'h' || e.key === 'H') { setFocus(!document.body.classList.contains('rp-focus')); return true; }
+    if (e.key === 'v' || e.key === 'V') { NP.toggle(); return true; }
     if (e.key === 'i' || e.key === 'I') return isoView();
     if (e.key === 'r' || e.key === 'R') return homeCam();
     if (e.key === '/') { setFocus(false); UI.focus(); return true; }
@@ -3147,7 +3151,7 @@ FIGS3D.push({ id: 'rp', name: 'Record player', mod: (() => {
       if (sw.t >= T_END) { [cur, nxt] = [nxt, cur]; [cs, ns] = [ns, cs]; nxt.g.visible = false; track = cur.track; pending = null; sw.on = false; layout(); SFX.thunk(); beginCue(); render(); }
     }
     // platter
-    if (drag && drag.kind === 'spin') {                                               // held by hand: the platter follows the pointer
+    if (drag && (drag.kind === 'spin' || drag.kind === 'spin2d')) {                                               // held by hand: the platter follows the pointer
       const w = drag.dAng / Math.max(dt, 1e-3); drag.dAng = 0;
       st.rpm += (Math.max(-240, Math.min(240, -w * 60 / (2 * Math.PI))) - st.rpm) * Math.min(1, dt * 18); scratchT = 1.5;
     } else {
@@ -3196,7 +3200,7 @@ FIGS3D.push({ id: 'rp', name: 'Record player', mod: (() => {
     slider.position.z = st.pitch / 8 * SLHALF * TS;
     haze.uniforms.opacity.value += ((p ? 0.12 : 0) - haze.uniforms.opacity.value) * Math.min(1, dt * 3);
     if ((tick.n = (tick.n || 0) + 1) % 10 === 0) readout();
-    stepCam(dt); tickFlashes(now);
+    stepCam(dt); stepInset(); if (NP.open) NP.frame(now, dt); tickFlashes(now);
   }
 
   // ── search bar (iTunes catalog: 30-second previews with cover art) ──
@@ -3270,7 +3274,10 @@ body.rp-focus #rp-now { display:block; }
     play.innerHTML = ICON_PLAY;
     window.__rpPlay = on => { play.innerHTML = on ? ICON_STOP : ICON_PLAY; play.classList.toggle('on', !!on); };
     play.addEventListener('click', () => { if (window.__rpStartStop) window.__rpStartStop(); play.blur(); });
-    const dock = document.createElement('div'); dock.id = 'rp-dock'; dock.append(play, help, eye);
+    const dock = document.createElement('div'); dock.id = 'rp-dock'; const lyr = document.createElement('button'); lyr.id = 'rp-lyr'; lyr.type = 'button'; lyr.title = 'Lyrics view (V)';
+    lyr.innerHTML = '<svg viewBox="0 0 16 16"><path d="M6 11.2V3.4l7-1.6v7.8M6 11.2a1.8 1.8 0 1 1-1.8-1.8A1.8 1.8 0 0 1 6 11.2zm7-1.6a1.8 1.8 0 1 1-1.8-1.8A1.8 1.8 0 0 1 13 9.6z"/></svg>Lyrics';
+    lyr.addEventListener('click', () => { if (window.__rpNP) window.__rpNP(true); lyr.blur(); });
+    dock.append(play, lyr, help, eye);
     const now = document.createElement('div'); now.id = 'rp-now'; now.innerHTML = '<b></b><span></span><i><u></u></i>';
     document.body.append(dock, now);
     const EYE_OFF = '<svg viewBox="0 0 16 16"><path d="M1 8s2.4-4.5 7-4.5S15 8 15 8s-2.4 4.5-7 4.5S1 8 1 8z"/><circle cx="8" cy="8" r="2"/></svg>Hide controls';
@@ -3298,6 +3305,7 @@ body.rp-focus #rp-now { display:block; }
         <span>33 / 45 rpm</span><em><kbd>3</kbd> <kbd>4</kbd></em>
         <span>Pitch up / down</span><em><kbd>↑</kbd> <kbd>↓</kbd></em>
         <span>Iso view · centre the camera</span><em><kbd>I</kbd> <kbd>R</kbd></em>
+        <span>Lyrics view: rotating disc in the middle, lyrics all around it (<kbd>L</kbd> switches the layout)</span><em><kbd>V</kbd></em>
         <span>Hide every control, leaving just the player and the music</span><em><kbd>H</kbd></em>
         <span>Light / dark theme</span><em><kbd>T</kbd></em>
         <span>Open or close this help</span><em><kbd>?</kbd></em>
@@ -3339,12 +3347,12 @@ body.rp-focus #rp-now { display:block; }
       const url = 'https://itunes.apple.com/search?' + new URLSearchParams({ term: q, entity: 'song', limit: '8' });
       let j; try { const r = await fetch(url); j = await r.json(); } catch (e) { j = await jsonp(url); }
       return (j.results || []).filter(x => x.previewUrl).map(x => ({ title: x.trackName, artist: x.artistName, album: x.collectionName || 'Single',
-        src: x.previewUrl, thumb: x.artworkUrl60 || x.artworkUrl100, art: x.artworkUrl100 ? x.artworkUrl100.replace('100x100', '300x300') : '' }));
+        src: x.previewUrl, ms: x.trackTimeMillis || 0, thumb: x.artworkUrl60 || x.artworkUrl100, art: x.artworkUrl100 ? x.artworkUrl100.replace('100x100', '300x300') : '' }));
     };
     const viaDeezer = async q => {
       const j = await jsonp('https://api.deezer.com/search?' + new URLSearchParams({ q, limit: '8', output: 'jsonp' }));
       return (j.data || []).filter(x => x.preview).map(x => ({ title: x.title, artist: x.artist.name, album: x.album.title,
-        src: x.preview, thumb: x.album.cover_small, art: x.album.cover_medium }));
+        src: x.preview, ms: (x.duration || 0) * 1000, thumb: x.album.cover_small, art: x.album.cover_medium }));
     };
     async function query(q) {
       let r = [], err = null;
@@ -3359,7 +3367,8 @@ body.rp-focus #rp-now { display:block; }
       catch (e) { if (my === seq) msg('can’t reach the music catalog — check your connection'); return []; }
       finally { if (my === seq) root.classList.remove('busy'); }
     }
-    function choose(i) { const t = results[i]; if (!t || sw.on) return; close(); input.value = ''; input.placeholder = `Now pressing · ${clip(t.title, 24)} — ${clip(t.artist, 18)}`; input.dataset.idle = input.placeholder; input.blur(); loadTrack(t); }
+    function choose(i) { const t = results[i]; if (!t || sw.on) return; queue = { list: results.slice(), i }; close(); input.value = ''; input.placeholder = `Now pressing · ${clip(t.title, 24)} — ${clip(t.artist, 18)}`; input.dataset.idle = input.placeholder; input.blur(); loadTrack(t); }
+    let queue = null;
     const clr = root.querySelector('.clr'), TRY = ['Hello Adele', 'Daft Punk', 'Miles Davis', 'Queen', 'Bohemian Rhapsody', 'Lofi beats', 'Taylor Swift', 'Fleetwood Mac'];
     function chips() {                                                              // quick picks when the box is empty
       list.innerHTML = ''; const h = document.createElement('div'); h.className = 'msg h'; h.textContent = 'Try one of these'; list.appendChild(h);
@@ -3367,6 +3376,11 @@ body.rp-focus #rp-now { display:block; }
       TRY.forEach(t => { const b = document.createElement('button'); b.type = 'button'; b.textContent = t; b.addEventListener('mousedown', e => { e.preventDefault(); input.value = t; clr.hidden = false; search(t).then(r => { if (r.length) choose(0); }); }); w.appendChild(b); });
       list.appendChild(w); list.hidden = false;
     }
+    window.__rpStep = d => {                                                          // next / previous in the last search results, or a surprise pick
+      if (sw.on) return false;
+      if (queue && queue.list.length > 1) { queue.i = (queue.i + d + queue.list.length) % queue.list.length; const t = queue.list[queue.i]; input.dataset.idle = input.placeholder = `Now pressing · ${clip(t.title, 24)} — ${clip(t.artist, 18)}`; loadTrack(t); return true; }
+      search(TRY[Math.floor(Math.random() * TRY.length)]).then(r => { if (r.length) choose(Math.floor(Math.random() * Math.min(3, r.length))); }); return true;
+    };
     clr.addEventListener('mousedown', e => { e.preventDefault(); input.value = ''; seq++; clr.hidden = true; root.classList.remove('busy'); input.focus(); chips(); });
     input.addEventListener('input', () => { clearTimeout(timer); const q = input.value.trim(); clr.hidden = !q; if (!q) { seq++; root.classList.remove('busy'); chips(); return; } timer = setTimeout(() => search(q), 280); });
     input.addEventListener('keydown', async e => {
@@ -3398,17 +3412,352 @@ body.rp-focus #rp-now { display:block; }
     const q = new THREE.Quaternion().setFromUnitVectors(v0.clone().normalize(), v1.clone().normalize()), qk = new THREE.Quaternion().slerp(q, k);
     controls.target.lerpVectors(f.t0, f.t1, k); camera.position.copy(controls.target).addScaledVector(v0.normalize().applyQuaternion(qk), r);
     if (camera === ortho) { camera.zoom = f.z0 + (f.z1 - f.z0) * k; camera.updateProjectionMatrix(); }
-    controls.update(); if (f.t >= 1) camFly = null;
+    controls.update(); if (f.t >= 1) { camFly = null; fitDirty = true; }
   }
   window.__rpStartStop = () => startStop();
+  // Fit the whole scene (deck, crate and cover) into the free area between the bars and panels, so nothing is ever hidden behind the search bar or the side panel
+  let insKey = '', fitDirty = true; const fvt = new THREE.Vector3();
+  const FIT_PTS = [-204, 330].flatMap(x => [-32, 312].flatMap(y => [0, 112].map(z => W(x, y, z))));
+  function stepInset() {
+    if (camFly || NP.open) return;                                                  // wait for a camera move to finish; the lyrics view covers the scene anyway
+    const focus = document.body.classList.contains('rp-focus'), Wd = innerWidth, Ht = innerHeight; let Lf = 20, Rr = 20, Tp = 14, Bt = 14;
+    if (!focus) {
+      const vis = el => el && el.offsetParent !== null && getComputedStyle(el).visibility !== 'hidden';
+      const ctl = document.getElementById('ctl'), top = document.getElementById('top'), ui = document.getElementById('rp-ui'), dock = document.getElementById('rp-dock');
+      if (vis(ctl)) Rr = Wd - ctl.getBoundingClientRect().left + 16;
+      Tp = Math.max(vis(top) ? top.getBoundingClientRect().bottom : 0, vis(ui) ? ui.querySelector('.bar').getBoundingClientRect().bottom : 0) + 18;
+      Bt = vis(dock) ? Ht - dock.getBoundingClientRect().top + 18 : 20;
+    }
+    const k = [Wd, Ht, Lf, Rr, Tp, Bt, focus, camera === ortho].join('|'); if (k === insKey && !fitDirty) return; insKey = k; fitDirty = false;
+    const cam = camera; cam.clearViewOffset(); cam.zoom = 1; cam.updateProjectionMatrix(); cam.updateMatrixWorld(true);
+    let mnx = 1e9, mxx = -1e9, mny = 1e9, mxy = -1e9;
+    FIT_PTS.forEach(p => { fvt.copy(p).project(cam); mnx = Math.min(mnx, fvt.x); mxx = Math.max(mxx, fvt.x); mny = Math.min(mny, fvt.y); mxy = Math.max(mxy, fvt.y); });
+    const Wf = Wd - Lf - Rr, Hf = Ht - Tp - Bt, z = Math.max(0.35, Math.min(3, Math.min(2 * Wf / Wd / (mxx - mnx), 2 * Hf / Ht / (mxy - mny)) * 0.97));
+    cam.zoom = z; cam.updateProjectionMatrix();
+    const cxN = (mnx + mxx) / 2 * z, cyN = (mny + mxy) / 2 * z, fx = (Lf + Wd - Rr) / Wd - 1, fy = -((Tp + Ht - Bt) / Ht - 1);   // centre the scene in the free area
+    cam.setViewOffset(Wd, Ht, -(fx - cxN) * Wd / 2, (fy - cyN) * Ht / 2, Wd, Ht); cam.updateProjectionMatrix();
+  }
   function setFocus(on) { if (window.__rpSetFocus) window.__rpSetFocus(on); }
   function updateNow() { if (!window.__rpNow) return; window.__rpNow(track ? track.title : 'Needle Drop', track ? `${track.artist} · ${fmt(pos())} / ${fmt(dur())}` : `Iso-Glow Sessions · default record · ${fmt(pos())} / ${fmt(dur())}`, Math.min(1, pos() / dur())); }
+  // ── "Now playing" view, modelled on the reference video: a big marbled disc cropped at the left edge, the tonearm hanging from the top,
+  //    a tick dial with a progress marker, and the lyrics on a wheel around the disc (current word highlighted) ──
+  const NP = (() => {
+    const css = document.createElement('style');
+    css.textContent = `
+#rp-np { position:fixed; inset:0; z-index:40; background:#080808; color:#f1f1f1; overflow:hidden; font-family:Inter,-apple-system,"SF Pro Text",system-ui,sans-serif; animation:rpfade .35s ease; }
+#rp-np[hidden] { display:none; }
+#rp-np canvas { position:absolute; inset:0; width:100%; height:100%; cursor:grab; touch-action:none; }
+#rp-np .wheel { position:absolute; inset:0; pointer-events:none; -webkit-mask-image:linear-gradient(to bottom, transparent 3%, #000 15%, #000 84%, transparent 93%); mask-image:linear-gradient(to bottom, transparent 3%, #000 15%, #000 84%, transparent 93%); }
+#rp-np .ln { position:absolute; left:0; top:0; transform-origin:0 0; white-space:pre; display:flex; align-items:center; font-family:"JetBrains Mono","SF Mono",ui-monospace,Menlo,Consolas,monospace; font-size:4.25vh; line-height:1.55; will-change:transform,opacity,filter; }
+#rp-np .lb { display:inline-block; width:8.4vh; flex:none; font-size:1.9vh; color:#e8603f; }
+#rp-np .w { position:relative; display:inline-block; padding:0 .25em; margin:0 .05em; border-radius:.3em; color:#4a4a4a; transition:background .45s, color .45s; }
+#rp-np .gp { display:inline-flex; margin:0 .05em; border-radius:.32em; background:rgba(255,255,255,.055); }
+#rp-np .gp .w { margin:0; }
+#rp-np .w.past { color:#f4f4f4; }
+#rp-np .w.was { color:#fff; background:rgba(255,255,255,.07); }
+#rp-np .w.cur { color:var(--cc); background:var(--cb); }
+#rp-np .w.cur::before { content:""; position:absolute; left:50%; top:-.62em; width:.34em; height:.34em; transform:translateX(-50%); border:.09em solid var(--cc); box-sizing:content-box; }
+#rp-np .w.nxt::before { content:""; position:absolute; left:50%; top:-.62em; width:.34em; height:.34em; transform:translateX(-50%); background:var(--cc); opacity:.8; }
+#rp-np .ln.off .w { color:#c4c4c4; } #rp-np .ln.off.nx .w { color:#6a6a6a; } #rp-np .ln.off .w::before { display:none; }
+#rp-np .meta { position:absolute; right:4vw; top:5.2vh; text-align:right; max-width:42vw; }
+#rp-np .meta b { display:block; font-size:1.8vh; font-weight:500; color:#f2f2f2; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+#rp-np .meta span { display:block; margin-top:.7vh; font-size:1.5vh; color:#8d8d8d; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+#rp-np .meta span::before { content:"✳"; color:#ff7a59; margin-right:.6em; font-size:.95em; }
+#rp-np .tp { position:absolute; left:50%; bottom:3.4vh; transform:translateX(-50%); display:flex; align-items:center; gap:2.6vh; }
+#rp-np .tp button { display:grid; place-items:center; border:0; background:transparent; color:#8d8d8d; cursor:pointer; padding:0; width:3.4vh; height:3.4vh; }
+#rp-np .tp button:hover { color:#fff; }
+#rp-np .tp .pp { width:5vh; height:5vh; border:1px solid rgba(255,255,255,.22); border-radius:50%; color:#dcdcdc; }
+#rp-np .tp svg { width:1.7vh; height:1.7vh; fill:currentColor; }
+#rp-np .clock { position:absolute; right:4vw; bottom:4.2vh; font-size:1.5vh; color:#707070; font-variant-numeric:tabular-nums; }
+#rp-np .clock b { font-weight:400; color:#e6e6e6; }
+#rp-np .close { position:absolute; left:2.2vw; top:2.6vh; width:3.6vh; height:3.6vh; border:1px solid rgba(255,255,255,.14); border-radius:50%; background:transparent; color:#8d8d8d; cursor:pointer; font:1.5vh/1 inherit; opacity:.5; }
+#rp-np .close:hover { opacity:1; color:#fff; }
+#rp-np .sync { position:absolute; left:2.2vw; bottom:4vh; display:flex; align-items:center; gap:.9vh; font-size:1.3vh; color:#6a6a6a; }
+#rp-np .sync[hidden] { display:none; }
+#rp-np .sync button { width:2.6vh; height:2.6vh; border:1px solid rgba(255,255,255,.16); border-radius:50%; background:transparent; color:#9a9a9a; cursor:pointer; font:inherit; padding:0; }
+#rp-np .sync button:hover { color:#fff; border-color:rgba(255,255,255,.4); }
+#rp-np .sync em { font-style:normal; min-width:4.2em; text-align:center; color:#9a9a9a; }
+#rp-np .mk { position:absolute; left:0; top:0; width:1.5vh; height:1.5vh; box-sizing:border-box; border:.28vh solid var(--mc,#8f86ff); background:rgba(255,255,255,.10); box-shadow:0 0 1.3vh var(--mc,#8f86ff), inset 0 0 .6vh var(--mc,#8f86ff); pointer-events:none; opacity:0; transition:opacity .25s; will-change:transform; }
+#rp-np .w.cur { transition-delay:var(--dl,0s); animation:rppopw .34s cubic-bezier(.2,.9,.3,1.3) var(--dl,0s) backwards; }
+@keyframes rppopw { 0% { transform:translateY(0) scale(.86); } 38% { transform:translateY(-.24em) scale(1.16); } 100% { transform:none; } }
+#rp-np.center .lb { width:6.2vh; font-size:1.6vh; }
+#rp-np .lay { position:absolute; left:calc(2.2vw + 5vh); top:2.6vh; height:3.6vh; padding:0 1.3vh; border:1px solid rgba(255,255,255,.14); border-radius:1.8vh; background:transparent; color:#8d8d8d; cursor:pointer; font:1.3vh/1 inherit; letter-spacing:.08em; opacity:.5; }
+#rp-np .lay:hover { opacity:1; color:#fff; }
+@media (max-width:720px) { #rp-np .lb { width:5vh; } }`;
+    document.head.appendChild(css);
+    const root = document.createElement('div'); root.id = 'rp-np'; root.hidden = true; root.setAttribute('role', 'region'); root.setAttribute('aria-label', 'Now playing');
+    root.innerHTML = `<canvas></canvas><div class="wheel"></div><i class="mk"></i>
+      <div class="meta"><b></b><span></span></div>
+      <button class="close" type="button" aria-label="Back to the record player" title="Back (Esc)">✕</button>
+      <button class="lay" type="button" title="Switch between disc-in-the-middle and disc-at-the-side (L)">LAYOUT</button>
+      <div class="sync" hidden><span>lyrics timing</span><button type="button" data-a="m" aria-label="Lyrics earlier">−</button><em>+0s</em><button type="button" data-a="p" aria-label="Lyrics later">+</button></div>
+      <div class="tp"><button type="button" data-a="prev" aria-label="Previous"><svg viewBox="0 0 16 16"><path d="M3 3h1.6v10H3zM13 3v10L5.6 8z"/></svg></button>
+        <button type="button" class="pp" data-a="pp" aria-label="Play or pause"></button>
+        <button type="button" data-a="next" aria-label="Next"><svg viewBox="0 0 16 16"><path d="M11.4 3H13v10h-1.6zM3 3l7.4 5L3 13z"/></svg></button></div>
+      <div class="clock"><b>0:00</b> / <span>0:00</span></div>`;
+    document.body.appendChild(root);
+    const cv = root.querySelector('canvas'), cx = cv.getContext('2d'), wheel = root.querySelector('.wheel');
+    const mT = root.querySelector('.meta b'), mA = root.querySelector('.meta span'), ppB = root.querySelector('.pp'), clB = root.querySelector('.clock b'), clD = root.querySelector('.clock span');
+    const sync = root.querySelector('.sync'), syncV = sync.querySelector('em'), mk = root.querySelector('.mk'), layBtn = root.querySelector('.lay');
+    const ICON_PAUSE = '<svg viewBox="0 0 16 16"><path d="M4.5 3h2.6v10H4.5zM8.9 3h2.6v10H8.9z"/></svg>', ICON_PLAY = '<svg viewBox="0 0 16 16"><path d="M5 3v10l8-5z"/></svg>';
+
+    // ── colour helpers ──
+    const DEF_PAL = ['#ff3fa4', '#d4208f', '#ff9a2e', '#5b46c9', '#ff7cc0'];
+    const rgb2hsl = (R, G, B) => { R /= 255; G /= 255; B /= 255; const mx = Math.max(R, G, B), mn = Math.min(R, G, B), l = (mx + mn) / 2, d = mx - mn; let h = 0, s = 0;
+      if (d) { s = d / (1 - Math.abs(2 * l - 1)); h = mx === R ? ((G - B) / d) % 6 : mx === G ? (B - R) / d + 2 : (R - G) / d + 4; h *= 60; if (h < 0) h += 360; } return [h, s, l]; };
+    const hsl = (h, s, l) => `hsl(${Math.round(h)} ${Math.round(s * 100)}% ${Math.round(l * 100)}%)`;
+    function palette(img) {                                                          // the four most vivid colours of the cover art
+      if (!img) return DEF_PAL;
+      try { const c = document.createElement('canvas'); c.width = c.height = 24; const x = c.getContext('2d'); x.drawImage(img, 0, 0, 24, 24); const d = x.getImageData(0, 0, 24, 24).data, bins = {};
+        for (let i = 0; i < d.length; i += 4) { const [h, s, l] = rgb2hsl(d[i], d[i + 1], d[i + 2]), w = s * (1 - Math.abs(2 * l - 1)) + 0.04, k = (d[i] >> 6) + '-' + (d[i + 1] >> 6) + '-' + (d[i + 2] >> 6);
+          const b = bins[k] || (bins[k] = { w: 0, r: 0, g: 0, b: 0 }); b.w += w; b.r += d[i] * w; b.g += d[i + 1] * w; b.b += d[i + 2] * w; }
+        const list = Object.values(bins).sort((a, b) => b.w - a.w).map(b => [b.r / b.w, b.g / b.w, b.b / b.w]), out = [];
+        for (const c3 of list) { if (out.every(o => Math.hypot(o[0] - c3[0], o[1] - c3[1], o[2] - c3[2]) > 70)) out.push(c3); if (out.length === 4) break; }
+        const css = out.map(([r, g, b]) => { const [h, s, l] = rgb2hsl(r, g, b); return hsl(h, Math.min(1, s * 1.15 + 0.12), Math.min(0.66, Math.max(0.36, l))); });
+        while (css.length < 4) { const [h, s, l] = rgb2hsl(...(out[0] || [200, 60, 140])); css.push(hsl(h + 38 * css.length, Math.min(1, s + 0.2), 0.52)); }
+        return css; } catch (e) { return DEF_PAL; }
+    }
+    const rng = seed => () => (seed = (seed * 1664525 + 1013904223) >>> 0) / 4294967296;
+    function marble(pal, seedStr) {                                                  // a swirled coloured-vinyl texture
+      const S = 1280, c = document.createElement('canvas'); c.width = c.height = S; const x = c.getContext('2d'), R = S / 2;
+      let seed = 7; for (const ch of seedStr) seed = (seed * 31 + ch.charCodeAt(0)) >>> 0; const rnd = rng(seed), blur = typeof x.filter === 'string';
+      const g = x.createRadialGradient(R, R, 0, R, R, R); g.addColorStop(0, pal[0]); g.addColorStop(1, pal[1]); x.fillStyle = g; x.fillRect(0, 0, S, S);
+      for (let i = 0; i < 52; i++) {
+        const col = pal[Math.floor(rnd() * pal.length)], r0 = R * (0.2 + 0.78 * rnd()), th0 = rnd() * 6.283, span = 0.5 + rnd() * 2.6, amp = R * (0.04 + 0.15 * rnd()), k = 2 + Math.floor(rnd() * 4), ph = rnd() * 6.283;
+        x.globalAlpha = 0.3 + 0.5 * rnd(); x.strokeStyle = col; x.lineWidth = R * (0.03 + 0.17 * rnd()); x.lineCap = 'round'; if (blur) x.filter = `blur(${(R * 0.022 * (0.4 + rnd())).toFixed(1)}px)`;
+        x.beginPath(); for (let s = 0; s <= 64; s++) { const t = s / 64, th = th0 + span * t, rr = r0 + amp * Math.sin(k * th + ph) + R * 0.07 * (t - 0.5); const px = R + rr * Math.cos(th), py = R + rr * Math.sin(th); s ? x.lineTo(px, py) : x.moveTo(px, py); } x.stroke();
+      }
+      x.filter = 'none'; x.globalAlpha = 1; return c;
+    }
+    function labelTex(title, artist, pal) {                                          // pale paper label with text round the rim
+      const S = 720, c = document.createElement('canvas'); c.width = c.height = S; const x = c.getContext('2d'), R = S / 2, ink = hsl(...rgb2hsl(...[0, 0, 0]).map((v, i) => i === 2 ? 0.2 : v));
+      x.save(); x.beginPath(); x.arc(R, R, R, 0, 6.283); x.clip();
+      const g = x.createLinearGradient(0, 0, S, S); g.addColorStop(0, '#d9c9ff'); g.addColorStop(0.55, '#f3d3ec'); g.addColorStop(1, '#ffc9de'); x.fillStyle = g; x.fillRect(0, 0, S, S);
+      const t = x.createRadialGradient(R, R, R * 0.2, R, R, R); t.addColorStop(0, 'rgba(255,255,255,0.25)'); t.addColorStop(1, 'rgba(120,60,100,0.10)'); x.fillStyle = t; x.fillRect(0, 0, S, S); x.restore();
+      const maroon = '#7d1f45'; x.fillStyle = maroon; x.strokeStyle = 'rgba(125,31,69,0.35)'; x.lineWidth = 2; x.beginPath(); x.arc(R, R, R * 0.93, 0, 6.283); x.stroke(); x.beginPath(); x.arc(R, R, R * 0.66, 0, 6.283); x.stroke();
+      const ring = (txt, rad, size, a0) => { x.save(); x.font = `${size}px "JetBrains Mono",ui-monospace,monospace`; x.textAlign = 'center'; x.textBaseline = 'middle'; const step = (size * 0.62) / rad; let a = a0;
+        for (const ch of txt) { x.save(); x.translate(R + Math.cos(a) * rad, R + Math.sin(a) * rad); x.rotate(a + Math.PI / 2); x.fillText(ch, 0, 0); x.restore(); a += step; } x.restore(); };
+      const loop = `${artist} · ${title} · 33⅓ rpm · play it loud and scratch it often · `; let s = ''; while (s.length < 120) s += loop; ring(s.slice(0, 118), R * 0.8, R * 0.058, 0);
+      x.textAlign = 'center'; x.textBaseline = 'middle'; x.font = `600 ${R * 0.2}px Inter,system-ui,sans-serif`; x.save(); x.translate(R * 1.34, R); x.rotate(Math.PI / 2); let tt = title; while (x.measureText(tt).width > R * 1.2 && tt.length > 3) tt = tt.slice(0, -2); x.fillText(tt === title ? tt : tt + '…', 0, 0); x.restore();
+      x.font = `${R * 0.085}px Inter,system-ui,sans-serif`; x.save(); x.translate(R * 0.62, R); x.rotate(-Math.PI / 2); x.fillText('Side', 0, -R * 0.1); x.font = `600 ${R * 0.2}px Inter,system-ui,sans-serif`; x.fillText('A', 0, R * 0.1); x.restore();
+      x.font = `${R * 0.075}px "JetBrains Mono",ui-monospace,monospace`; x.save(); x.translate(R * 1.08, R); x.rotate(Math.PI / 2); x.fillText('33⅓', 0, R * 0.62); x.restore();
+      x.fillStyle = '#0c0c0d'; x.beginPath(); x.arc(R, R, R * 0.03, 0, 6.283); x.fill(); return c;
+    }
+
+    // ── lyrics ──
+    const NOTE = ['c', 'db', 'd', 'eb', 'e', 'f', 'gb', 'g', 'ab', 'a', 'bb', 'b'], noteName = m => NOTE[m % 12] + (Math.floor(m / 12) - 1);
+    const NOTE_COL = { c: '#ff6b6b', d: '#f2c230', e: '#ff7ac8', f: '#ff9f43', g: '#8f86ff', a: '#4ad6c0', b: '#5ee08a' };
+    const noteColor = n => NOTE_COL[n[0]] || '#cfcfcf';
+    function defaultLyrics() {                                                       // the built-in loop's own melody, written out as note names
+      const labels = ['verse', 'verse', 'hook', 'outro'], bar = 60 / 78 * 4, lines = [];
+      for (let L = 0; L < 4; L++) {
+        const notes = DEF_MEL.filter(n => n[0] >= L * 2 && n[0] < L * 2 + 2).map(n => ({ text: noteName(n[2]), t0: n[0] * bar + n[1] * (bar / 4) + 0.02 }));
+        const t0 = L * 2 * bar, t1 = (L + 1) * 2 * bar, words = notes.map((n, i) => ({ ...n, grp: i >= notes.length - 3 && i < notes.length - 1 ? 1 : 0 }));
+        const last = notes.length ? notes[notes.length - 1].t0 : t0; for (let r = 1; r <= 2; r++) words.push({ text: '_', t0: last + (t1 - last) * r / 3, rest: true, grp: 0 });
+        lines.push({ label: labels[L], words, t0, t1 });
+      }
+      return { lines, off: 0, note: false };
+    }
+    function parseLrc(txt) {
+      const out = []; for (const ln of txt.split('\n')) { const m = /^\[(\d+):(\d+(?:\.\d+)?)\]\s*(.*)$/.exec(ln.trim()); if (m && m[3].trim()) out.push({ t: +m[1] * 60 + +m[2], text: m[3].trim() }); }
+      return out;
+    }
+    function lyricsFrom(res, t) {
+      const toLines = arr => arr.map((l, i) => { const t1 = Math.min(i + 1 < arr.length ? arr[i + 1].t : l.t + 4, l.t + 8), ws = l.text.split(/\s+/), step = Math.max(0.15, (t1 - l.t) * 0.92 / ws.length);
+        return { label: '', words: ws.map((w, k) => ({ text: w, t0: l.t + k * step, grp: 0 })), t0: l.t, t1 }; });
+      if (res && res.synced && res.synced.length) { const dur = res.dur || 0, off = Math.max(0, Math.min(dur - 30, dur * 0.35)); return { lines: toLines(res.synced), off, note: true }; }
+      if (res && res.plain) { const arr = res.plain.split('\n').map(s => s.trim()).filter(Boolean).slice(0, 80).map((text, i) => ({ t: i * 3.2, text })); return { lines: toLines(arr), off: 0, note: false, approx: true }; }
+      return { lines: [{ label: 'now', words: t.title.split(/\s+/).map((w, k) => ({ text: w, t0: 0, grp: 0 })), t0: 0, t1: 9 }, { label: 'by', words: t.artist.split(/\s+/).map(w => ({ text: w, t0: 0, grp: 0 })), t0: 9, t1: 18 },
+        { label: '', words: ['no', 'lyrics', 'found', 'for', 'this', 'song'].map(w => ({ text: w, t0: 0, grp: 0 })), t0: 18, t1: 30 }], off: 0, note: false, none: true };
+    }
+    async function fetchLyrics(t) {
+      try { const q = new URLSearchParams({ track_name: t.title, artist_name: t.artist }); const r = await fetch('https://lrclib.net/api/search?' + q), j = await r.json();
+        const hits = j || [], withSync = hits.filter(x => x.syncedLyrics), pool = withSync.length ? withSync : hits; if (!pool.length) return null;
+        const want = t.ms ? t.ms / 1000 : 0, hit = want ? pool.slice().sort((x, y) => Math.abs((x.duration || 0) - want) - Math.abs((y.duration || 0) - want))[0] : pool[0];   // the version that is as long as this track
+        return { synced: hit.syncedLyrics ? parseLrc(hit.syncedLyrics) : null, plain: hit.plainLyrics, dur: hit.duration }; } catch (e) { return null; }
+    }
+    // Where in the song does the 30-second preview start? Listen to the preview itself: find the offset at which the vocal entries in the audio line up with the lyric line starts.
+    async function autoSync(t, synced, songDur) {
+      try {
+        const ab = await (await fetch(t.src)).arrayBuffer(), ac = getCtx(), buf = await new Promise((ok, no) => ac.decodeAudioData(ab, ok, no));
+        const x = buf.getChannelData(0), sr = buf.sampleRate, hop = Math.round(sr * 0.01), win = Math.round(sr * 0.02), n = Math.floor((x.length - win) / hop), dur = buf.duration;
+        const e = new Float32Array(n); for (let i = 0; i < n; i++) { let sum = 0; const o = i * hop; for (let j = 1; j < win; j++) { const d = x[o + j] - x[o + j - 1]; sum += d * d; } e[i] = Math.sqrt(sum / win); }   // energy of the voice-and-above band
+        const sm = new Float32Array(n); for (let i = 0; i < n; i++) { let sum = 0, c = 0; for (let k = -4; k <= 4; k++) { const j = i + k; if (j >= 0 && j < n) { sum += e[j]; c++; } } sm[i] = sum / c; }
+        const nov = new Float32Array(n); for (let i = 5; i < n - 5; i++) nov[i] = Math.max(0, sm[i + 4] - sm[i - 4]);                                  // how fast the sound swells
+        let mean = 0; for (const v of nov) mean += v; mean /= n; let sd = 0; for (const v of nov) sd += (v - mean) * (v - mean); sd = Math.sqrt(sd / n) || 1;
+        const starts = synced.map(l => l.t), maxOff = Math.max(0, (songDur || dur + 120) - dur), scores = [];
+        for (let off = 0; off <= maxOff; off += 0.1) { let sc = 0, cnt = 0;
+          for (const ts of starts) { const u = ts - off; if (u < 0.4 || u > dur - 0.4) continue; const c = Math.round(u / 0.01); let m = 0; for (let k = -12; k <= 12; k++) { const v = nov[c + k] || 0; if (v > m) m = v; } sc += (m - mean) / sd; cnt++; }
+          scores.push(cnt >= 2 ? sc / cnt * Math.min(1, cnt / 4) : -9); }
+        let bi = 0; scores.forEach((v, i) => { if (v > scores[bi]) bi = i; }); const sorted = scores.slice().sort((p, q) => p - q), med = sorted[Math.floor(sorted.length / 2)];
+        if (scores[bi] < 0.9 || scores[bi] - med < 0.7) return null;                  // not convincing: keep the estimate
+        return bi * 0.1;
+      } catch (err) { return null; }
+    }
+    const prep = t => { if (!t.lyricsP) t.lyricsP = fetchLyrics(t); if (!t.syncP) t.syncP = t.lyricsP.then(res => res && res.synced && res.synced.length ? autoSync(t, res.synced, res.dur) : null); };
+    window.__rpPrep = prep;
+
+    // ── state ──
+    let layout = 'center'; try { layout = localStorage.getItem('rp-np-layout') || 'center'; } catch (e) {}
+    root.classList.toggle('center', layout === 'center');
+    let open = false, W = 0, H = 0, dpr = 1, key = '', pal = DEF_PAL, tex = null, lab = null, lyr = defaultLyrics(), els = [], curPos = 0, nudge = 0, lastWord = -1, lastLine = -1, pulse = 0;
+    function geom() {                                                                // where the disc sits, how big it is, and the wheel the lyrics ride on
+      const c = layout === 'center', R = (c ? 0.27 : 0.469) * H, k = R / (0.469 * H), u = H * k;
+      return { c, k, u, R, Cx: c ? W * 0.44 : 0, Cy: H / 2, r0: 0.604 * u * (c ? 1.04 : 1), step: (c ? 24 : 13.7) * Math.PI / 180, maxd: c ? 4.7 : 3.6 };
+    }
+    function fit() {                                                                 // shrink long lines so they stay on screen
+      const g = geom(), base = g.c ? 3.4 : 4.25, availPx = g.c ? W - g.Cx - g.r0 - 0.06 * W : 0.96 * W - (g.Cx + g.r0), chars = availPx / (0.006 * base * H);
+      els.forEach(o => { const len = 4 + o.line.words.reduce((a, w) => a + w.text.length + 1.6, 0); const fs = len > chars ? Math.max(1.9, base * chars / len) : base; o.el.style.fontSize = fs.toFixed(2) + 'vh'; });
+    }
+    function resize() { dpr = Math.min(2, window.devicePixelRatio || 1); W = innerWidth; H = innerHeight; cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr); if (els.length) fit(); }
+    function build(l) {                                                              // one element per lyric line, positioned each frame on the wheel
+      wheel.innerHTML = ''; els = [];
+      l.lines.forEach(line => { const el = document.createElement('div'); el.className = 'ln off'; const lb = document.createElement('span'); lb.className = 'lb'; lb.textContent = line.label; el.appendChild(lb);
+        const ws = []; let gp = null;
+        line.words.forEach((w, k) => { const s = document.createElement('span'); s.className = 'w'; s.textContent = w.text; const col = w.rest ? '#777' : noteColor(w.text.toLowerCase()), n = l.note || l.approx || l.none ? ['#8f86ff', '#ff6b6b', '#f2c230', '#ff7ac8', '#4ad6c0', '#5ee08a'][k % 6] : col;
+          s.style.setProperty('--cc', n); s.style.setProperty('--cb', n + '33');
+          if (w.grp) { if (!gp) { gp = document.createElement('span'); gp.className = 'gp'; el.appendChild(gp); } gp.appendChild(s); if (!line.words[k + 1] || !line.words[k + 1].grp) gp = null; } else el.appendChild(s); ws.push(s); });
+        if (line.words.some(w => w.grp)) { const g = el.querySelector('.gp'); if (g) { const f = g.firstChild, la = g.lastChild; if (f) f.textContent = '[' + f.textContent; if (la) la.textContent = la.textContent + ']'; } }
+        wheel.appendChild(el); els.push({ el, ws, line }); });
+      sync.hidden = !(l.note || l.approx); curPos = 0; lastWord = -1; lastLine = -1;
+      fit(); M.el = null;
+    }
+    const setSyncLbl = txt => { const sp = sync.querySelector('span'); if (sp) sp.textContent = txt || 'lyrics timing'; };
+    function setTrack() {
+      const t = track, img = cur.img; pal = palette(img); const seed = t ? t.title + t.artist : 'needle drop';
+      tex = marble(pal, seed);
+      mT.textContent = t ? t.title : 'Needle Drop'; mA.textContent = t ? t.artist : 'Iso-Glow Sessions'; nudge = 0; syncV.textContent = '+0s';
+      if (!t) { lyr = defaultLyrics(); build(lyr); return; }
+      lyr = { lines: [{ label: '', words: [{ text: 'finding', t0: 0, grp: 0 }, { text: 'lyrics…', t0: 1, grp: 0 }], t0: 0, t1: 60 }], off: 0, note: false }; build(lyr);
+      const mine = t; prep(mine); setSyncLbl('finding the timing…');
+      mine.lyricsP.then(res => { if (track !== mine) return; lyr = lyricsFrom(res, mine); build(lyr); setSyncLbl(lyr.note ? 'estimating the timing…' : ''); mine.syncP.then(off => { if (track !== mine || !lyr.note) return; if (off != null) { lyr.off = off; setSyncLbl('in sync with the song'); } else setSyncLbl('timing is approximate'); }); });
+    }
+
+    // ── drawing ──
+    const sheenGrad = () => null;
+    function drawDisc(ang, p, dt, g) {
+      const u = g.u, Cx = g.Cx, Cy = g.Cy, R = 0.469 * u, Rl = 0.173 * u;
+      cx.save(); cx.shadowColor = 'rgba(0,0,0,0.7)'; cx.shadowBlur = 0.045 * u; cx.shadowOffsetX = 0.006 * u; cx.shadowOffsetY = 0.014 * u; cx.fillStyle = '#0a0a0b'; cx.beginPath(); cx.arc(Cx, Cy, R, 0, 6.283); cx.fill(); cx.restore();
+      cx.save(); cx.beginPath(); cx.arc(Cx, Cy, R, 0, 6.283); cx.clip();
+      const blurA = Math.min(0.05, Math.abs(st.rpm) * 6.283 / 60 * dt * 1.2), n = blurA > 0.004 ? 3 : 1;      // a touch of motion blur while it spins
+      for (let i = 0; i < n; i++) { cx.save(); cx.globalAlpha = n === 1 ? 1 : (i === 0 ? 1 : 0.5 / i); cx.translate(Cx, Cy); cx.rotate(ang - i * blurA); cx.drawImage(tex, -R, -R, 2 * R, 2 * R); cx.restore(); }
+      cx.lineWidth = 1;                                                              // fine grooves and the pale track gaps
+      for (let r = Rl * 1.12; r < R * 0.985; r += 0.0046 * u) { cx.strokeStyle = (Math.round(r / (0.0046 * u)) & 1) ? 'rgba(255,255,255,0.045)' : 'rgba(0,0,0,0.07)'; cx.beginPath(); cx.arc(Cx, Cy, r, 0, 6.283); cx.stroke(); }
+      [0.27, 0.315, 0.352, 0.394, 0.43].forEach(f => { cx.strokeStyle = 'rgba(255,235,245,0.26)'; cx.lineWidth = 1.2; cx.beginPath(); cx.arc(Cx, Cy, f * u, 0, 6.283); cx.stroke(); });
+      if (cx.createConicGradient) { const g = cx.createConicGradient(-0.5, Cx, Cy); [[0, 0], [0.04, 0], [0.09, 0.20], [0.15, 0], [0.5, 0], [0.54, 0], [0.59, 0.14], [0.65, 0], [1, 0]].forEach(([s, a]) => g.addColorStop(s, `rgba(255,255,255,${a})`)); cx.fillStyle = g; cx.fillRect(Cx - R, Cy - R, 2 * R, 2 * R); }
+      const v = cx.createRadialGradient(Cx, Cy, R * 0.9, Cx, Cy, R); v.addColorStop(0, 'rgba(0,0,0,0)'); v.addColorStop(0.9, 'rgba(0,0,0,0.28)'); v.addColorStop(1, 'rgba(0,0,0,0.55)'); cx.fillStyle = v; cx.fillRect(Cx - R, Cy - R, 2 * R, 2 * R);
+      cx.strokeStyle = 'rgba(255,255,255,0.16)'; cx.lineWidth = 1.5; cx.beginPath(); cx.arc(Cx, Cy, R - 3, 0.2, 1.4); cx.stroke(); cx.beginPath(); cx.arc(Cx, Cy, R - 3, 3.4, 4.6); cx.stroke();
+      cx.restore();
+      cx.strokeStyle = 'rgba(0,0,0,0.85)'; cx.lineWidth = 2; cx.beginPath(); cx.arc(Cx, Cy, R - 1, 0, 6.283); cx.stroke();
+      cx.fillStyle = '#050505'; cx.beginPath(); cx.arc(Cx, Cy, Rl + 0.013 * u, 0, 6.283); cx.fill();      // black bezel, then the label
+      cx.save(); cx.translate(Cx, Cy); cx.rotate(ang); cx.drawImage(cur.lab, -Rl, -Rl, 2 * Rl, 2 * Rl); cx.restore();
+    }
+    function drawDial(p, g) {
+      const u = g.u, Cx = g.Cx, Cy = g.Cy, R = 0.469 * u, A = 50 * Math.PI / 180, r1 = R + 0.026 * u;
+      cx.save(); cx.strokeStyle = 'rgba(255,255,255,0.10)'; cx.lineWidth = 1; cx.beginPath(); cx.arc(Cx, Cy, R + 0.046 * u, -A, A); cx.stroke();
+      for (let a = -50; a <= 50.01; a += 2) { const w = Math.exp(-Math.pow(a / 15, 2)), len = (0.010 + 0.042 * w) * u, rad = a * Math.PI / 180, c = Math.cos(rad), s = Math.sin(rad);
+        const r = Math.round(74 + (255 - 74) * w), g = Math.round(74 + (96 - 74) * w), b = Math.round(74 + (112 - 74) * w); cx.strokeStyle = `rgba(${r},${g},${b},${0.55 + 0.45 * w})`; cx.lineWidth = Math.max(1, 0.0018 * u * (1 + w));
+        cx.beginPath(); cx.moveTo(Cx + c * r1, Cy + s * r1); cx.lineTo(Cx + c * (r1 + len), Cy + s * (r1 + len)); cx.stroke(); }
+      const ra = R + 0.046 * u, al = -A + 2 * A * p; cx.strokeStyle = '#e8503a'; cx.lineWidth = 1.5; cx.beginPath(); cx.arc(Cx, Cy, ra, -A, al); cx.stroke();
+      const mx = Cx + Math.cos(al) * ra, my = Cy + Math.sin(al) * ra; cx.fillStyle = '#0a0a0a'; cx.beginPath(); cx.arc(mx, my, 0.0085 * u, 0, 6.283); cx.fill();
+      cx.strokeStyle = '#ff5b4d'; cx.lineWidth = 1.6; cx.stroke(); cx.fillStyle = '#ff5b4d'; cx.beginPath(); cx.arc(mx, my, 0.0028 * u, 0, 6.283); cx.fill(); cx.restore();
+    }
+    function drawArm(G) {
+      const u = G.u, Cx = G.Cx, Cy = G.Cy, Px = Cx + 0.285 * u, Py = Cy - 0.506 * u, Larm = 0.53 * u;
+      const rad3 = radAt(st.a), r2 = Math.max(0.23, Math.min(0.64, 0.23 + (rad3 - R1) / (R0 - R1) * (0.455 - 0.23))) * u;       // the real arm's position, mapped onto the big disc
+      let dx = Px - Cx, dy = Py - Cy, d = Math.hypot(dx, dy), a = (Larm * Larm - r2 * r2 + d * d) / (2 * d), h2 = Larm * Larm - a * a, h = Math.sqrt(Math.max(h2, 0));   // tip: circle(pivot, L) ∩ circle(centre, r2)
+      const ex = dx / d, ey = dy / d, mxp = Px - ex * a, myp = Py - ey * a; let tx = mxp + ey * h, ty = myp - ex * h, tx2 = mxp - ey * h, ty2 = myp + ex * h; if (ty2 > ty) { tx = tx2; ty = ty2; }
+      const ang = Math.atan2(ty - Py, tx - Px), L = Math.hypot(tx - Px, ty - Py), lift = Math.min(1, st.lift / 6), w = 0.0165 * u;
+      cx.save(); cx.translate(Px, Py);
+      cx.save(); cx.translate(0.012 * u * (1 + lift), 0.02 * u * (1 + lift)); cx.rotate(ang); cx.fillStyle = `rgba(0,0,0,${0.35 - 0.1 * lift})`; cx.filter = 'blur(' + (0.008 * u * (1 + lift)).toFixed(1) + 'px)'; cx.fillRect(0, -w / 2, L, w); cx.restore(); cx.filter = 'none';
+      cx.save(); cx.rotate(ang);
+      const g = cx.createLinearGradient(0, -w / 2, 0, w / 2); g.addColorStop(0, '#6f7377'); g.addColorStop(0.3, '#f4f6f8'); g.addColorStop(0.55, '#b8bcc0'); g.addColorStop(1, '#5f6367'); cx.fillStyle = g; cx.fillRect(0, -w / 2, L - 0.04 * u, w);
+      cx.save(); cx.translate(L - 0.045 * u, 0); cx.rotate(-0.2); cx.fillStyle = '#171718'; const hw = 0.03 * u, hl = 0.07 * u; cx.beginPath(); cx.roundRect ? cx.roundRect(0, -hw / 2, hl, hw, 0.005 * u) : cx.rect(0, -hw / 2, hl, hw); cx.fill();
+      cx.fillStyle = '#ff8a1f'; cx.fillRect(hl * 0.55, -hw * 0.28, hl * 0.34, hw * 0.56); cx.fillStyle = '#9a9ea2'; cx.fillRect(hl, -0.002 * u, 0.012 * u, 0.004 * u); cx.restore(); cx.restore();
+      const b = cx.createRadialGradient(-0.012 * u, -0.012 * u, 0.004 * u, 0, 0, 0.068 * u); b.addColorStop(0, '#f4f5f7'); b.addColorStop(0.55, '#a5a9ad'); b.addColorStop(0.62, '#3a3c3f'); b.addColorStop(0.7, '#cfd2d5'); b.addColorStop(1, '#4a4d50');
+      cx.fillStyle = b; cx.shadowColor = 'rgba(0,0,0,0.5)'; cx.shadowBlur = 0.03 * u; cx.beginPath(); cx.arc(0, 0, 0.068 * u, 0, 6.283); cx.fill(); cx.shadowBlur = 0;
+      cx.strokeStyle = 'rgba(0,0,0,0.35)'; cx.lineWidth = 1; cx.beginPath(); cx.arc(0, 0, 0.049 * u, 0, 6.283); cx.stroke(); cx.fillStyle = '#c9ccd0'; cx.beginPath(); cx.arc(0, 0, 0.02 * u, 0, 6.283); cx.fill();
+      cx.restore();
+    }
+
+    // ── lyrics wheel ──
+    const OPS = [1, 0.5, 0.22, 0.1, 0.05, 0.02, 0, 0, 0], BLR = [0, 1.4, 3, 4.5, 6, 7, 8, 8, 8];
+    const NEAR = 3.0;                                                                 // lines up to 3 steps away ride the right-hand side; the rest sit on the far side, with a gap between so they never collide
+    const interp = (arr, d) => { const i = Math.min(arr.length - 2, Math.floor(d)), f = d - i; return arr[i] + (arr[i + 1] - arr[i]) * f; };
+    const M = { x: 0, y: 0, fx: 0, fy: 0, t: 1, dur: 0.25, h: 40, el: null }; let idxNow = 0;
+    function updateWheel(T, dt, g) {
+      if (!els.length) return;
+      let idx = 0; for (let i = 0; i < els.length; i++) if (T >= els[i].line.t0) idx = i;
+      idxNow = idx; const target = lyr.none || lyr.lines.length < 2 ? 0 : idx; curPos += (target - curPos) * (1 - Math.exp(-dt * 6));
+      els.forEach((o, i) => { const d = i - curPos, ad = Math.abs(d);
+        if (ad > g.maxd) { if (o.vis) { o.el.style.display = 'none'; o.vis = false; } return; }
+        if (!o.vis) { o.el.style.display = 'flex'; o.vis = true; }
+        let phi = d * g.step, far = false, mul = 1;
+        if (g.c && ad > NEAR) { if (ad < 3.7) mul = Math.max(0, (3.3 - ad) / 0.3); else { far = true; phi = Math.sign(d) * (Math.PI * 0.72 + (ad - 3.7) * g.step); mul = Math.min(1, (ad - 3.7) / 0.25 + 0.2); } }
+        const flip = Math.abs(phi) > Math.PI / 2, px = g.Cx + Math.cos(phi) * g.r0, py = g.Cy + Math.sin(phi) * g.r0, w = o.el.offsetWidth, h = o.el.offsetHeight;
+        o.el.style.transformOrigin = flip ? '100% 50%' : '0 50%';                    // lines on the far side are turned round so they still read the right way up
+        o.el.style.transform = flip ? `translate(${px - w}px, ${py - h / 2}px) rotate(${phi - Math.sign(phi) * Math.PI}rad)` : `translate(${px}px, ${py - h / 2}px) rotate(${phi}rad)`;
+        const base = far ? Math.max(0.05, 0.13 - (ad - 3.7) * 0.07) : interp(OPS, Math.min(ad, OPS.length - 1.01));
+        o.el.style.opacity = (base * mul).toFixed(3); o.el.style.filter = ad < 0.05 ? 'none' : `blur(${(far ? 3 : interp(BLR, Math.min(ad, BLR.length - 1.01))).toFixed(2)}px)`;
+        o.el.classList.toggle('off', i !== idx); o.el.classList.toggle('nx', i > idx);
+        if (i !== idx && o.active) { o.ws.forEach(s2 => { s2.className = 'w'; }); o.active = false; }
+        if (i === idx) { o.active = true; let wi = -1; o.line.words.forEach((w2, k) => { if (T >= w2.t0) wi = k; }); o.wi = wi;
+          o.ws.forEach((s, k) => { s.classList.toggle('past', k < wi); s.classList.toggle('cur', k === wi); s.classList.toggle('was', k === wi - 1); }); }
+      });
+    }
+    function updateMarker(now, dt, g) {                                              // the little square that hops from word to word
+      const o = els[idxNow]; if (!o || !o.vis) { mk.style.opacity = '0'; return; }
+      const k = Math.max(0, o.wi == null ? 0 : o.wi), tok = o.ws[k]; if (!tok) { mk.style.opacity = '0'; return; }
+      const r = tok.getBoundingClientRect(), fs = parseFloat(getComputedStyle(o.el).fontSize) || 30, phi = (idxNow - curPos) * g.step * (Math.abs((idxNow - curPos) * g.step) > Math.PI / 2 ? 1 : 1);
+      const tx = r.left + r.width / 2 + Math.sin(phi) * fs * 1.12, ty = r.top + r.height / 2 - Math.cos(phi) * fs * 1.12;
+      if (tok !== M.el) {                                                            // a new word: take off from where we are
+        const first = M.el === null, sameLine = M.el && o.ws.includes(M.el), nextW = o.line.words[k + 1], gap = nextW ? nextW.t0 - o.line.words[k].t0 : 0.3;
+        M.fx = first ? tx : M.x; M.fy = first ? ty : M.y; M.t = first ? 1 : 0; M.dur = sameLine ? Math.max(0.16, Math.min(0.34, gap * 0.8)) : 0.42;
+        M.h = Math.max(0.03 * H, Math.min(0.1 * H, Math.hypot(tx - M.fx, ty - M.fy) * (sameLine ? 0.5 : 0.22))); M.el = tok; M.lastTok = tok;
+        tok.style.setProperty('--dl', (first ? 0 : M.dur * 0.8).toFixed(2) + 's'); mk.style.setProperty('--mc', tok.style.getPropertyValue('--cc') || '#8f86ff');
+      }
+      if (M.t < 1) M.t = Math.min(1, M.t + dt / M.dur);
+      const e = M.t * M.t * (3 - 2 * M.t), x = M.fx + (tx - M.fx) * e, y = M.fy + (ty - M.fy) * e - Math.sin(Math.PI * M.t) * M.h;
+      const idle = M.t >= 1, bob = idle ? Math.sin(now / 240) * 0.18 * fs * 0.35 : 0, rot = idle ? 0 : 90 * e, sc = idle ? 1 : 1 + 0.35 * Math.sin(Math.PI * M.t);
+      M.x = x; M.y = y + bob; mk.style.opacity = '1';
+      mk.style.transform = `translate(${x}px, ${y + bob}px) translate(-50%, -50%) rotate(${rot}deg) scale(${sc})`;
+    }
+    const fmt2 = s => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
+    function frame(now, dt) {
+      if (W !== innerWidth || H !== innerHeight) resize();
+      const k = (track ? track.src : 'def') + (cur.img ? 'i' : '');
+      if (k !== key) { key = k; setTrack(); }
+      const t = pos(), d = dur(), p = Math.max(0, Math.min(1, t / d)), T = t + lyr.off + nudge;
+      const g = geom(); cx.setTransform(dpr, 0, 0, dpr, 0, 0); cx.clearRect(0, 0, W, H);
+      drawDial(p, g); drawDisc(-rotA, p, dt, g); drawArm(g);
+      updateWheel(T, dt, g); updateMarker(now, dt, g);
+      clB.textContent = fmt2(t); clD.textContent = fmt2(d); ppB.innerHTML = st.on || st.mode === 'play' || st.mode === 'cue' ? ICON_PAUSE : ICON_PLAY;
+    }
+
+    // ── interaction ──
+    const toggle = on => { open = on === undefined ? !open : on; root.hidden = !open; if (open) { resize(); key = ''; if (document.activeElement) document.activeElement.blur(); } };
+    const setLayout = l => { layout = l; root.classList.toggle('center', l === 'center'); try { localStorage.setItem('rp-np-layout', l); } catch (e) {} fit(); M.el = null; };
+    layBtn.addEventListener('click', () => setLayout(layout === 'center' ? 'side' : 'center'));
+    root.querySelector('.close').addEventListener('click', () => toggle(false));
+    root.querySelector('.tp').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; const a = b.dataset.a;
+      if (a === 'pp') startStop(); else if (a === 'prev') { if (!busy()) { st.on = true; beginCue(); render(); } } else if (a === 'next') { if (window.__rpStep) window.__rpStep(1); } });
+    sync.addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; nudge += b.dataset.a === 'p' ? 2 : -2; syncV.textContent = (nudge >= 0 ? '+' : '') + nudge + 's'; });
+    addEventListener('keydown', e => { if (!open) return; if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); toggle(false); } else if (e.key === 'l' || e.key === 'L') { setLayout(layout === 'center' ? 'side' : 'center'); } else if (e.key === '[' || e.key === ']') { nudge += e.key === ']' ? 2 : -2; syncV.textContent = (nudge >= 0 ? '+' : '') + nudge + 's'; } }, true);
+    cv.addEventListener('pointerdown', e => { if (e.button !== 0) return; const g = geom(), dx = e.clientX - g.Cx, dy = e.clientY - g.Cy; if (Math.hypot(dx, dy) > g.R || busy()) return; cv.setPointerCapture(e.pointerId); cv.style.cursor = 'grabbing'; drag = { kind: 'spin2d', a: Math.atan2(dy, dx), dAng: 0, moved: true, x: e.clientX, y: e.clientY }; });
+    cv.addEventListener('pointermove', e => { if (!drag || drag.kind !== 'spin2d') return; const g = geom(), a = Math.atan2(e.clientY - g.Cy, e.clientX - g.Cx), d = ((a - drag.a) + Math.PI * 3) % (Math.PI * 2) - Math.PI; rotA -= d; drag.dAng -= d; drag.a = a; });
+    const up = () => { if (drag && drag.kind === 'spin2d') { drag = null; cv.style.cursor = ''; } };
+    cv.addEventListener('pointerup', up); cv.addEventListener('pointercancel', up);
+    resize(); ppB.innerHTML = ICON_PLAY;
+    window.__rpNP = toggle;
+    return { frame, toggle, root, get open() { return open; } };
+  })();
+
   themeHooks.push(t => { vinylMat.uniforms.uDark.value = 1; pilotMat.color.set(t === 'light' ? 0xd2cec7 : 0x2b2e30); ledMats.forEach(m => m.color.set(t === 'light' ? 0xd2cec7 : 0x2b2e30)); rimMat.color.set(t === 'light' ? 0xa4a9ad : 0xc4c7c9); dumMats.forEach((m, i) => m.color.set((t === 'light' ? DUM_LIGHT : DUM_DARK)[i])); drawLabel(cur); drawLabel(nxt); drawSleeve(cs); drawSleeve(ns); render(); });
   drawLabel(cur); drawLabel(nxt); drawSleeve(cs); drawSleeve(ns); layout(); render();
   return { group: g0, key, click, tick, readout,
     stop: () => { st.on = false; if (st.mode !== 'rest') st.mode = 'return'; render(); },
     demo: () => { if (!busy() && !st.on) startStop(); },
-    panel: [['Hide controls', 'H', () => setFocus(true)], ['Search a song', '/', () => UI.focus()], ['Start / stop', 'space', startStop], ['33⅓ rpm', '3', () => setSpeed(33.333)], ['45 rpm', '4', () => setSpeed(45)], ['Cue arm', 'C', cue], ['Center view', 'R', () => homeCam()], ['Pitch +', '↑', () => setPitch(st.pitch + 1)], ['Pitch −', '↓', () => setPitch(st.pitch - 1)]],
+    panel: [['Hide controls', 'H', () => setFocus(true)], ['Search a song', '/', () => UI.focus()], ['Start / stop', 'space', startStop], ['33⅓ rpm', '3', () => setSpeed(33.333)], ['45 rpm', '4', () => setSpeed(45)], ['Cue arm', 'C', cue], ['Center view', 'R', () => homeCam()], ['Lyrics view', 'V', () => NP.toggle()], ['Pitch +', '↑', () => setPitch(st.pitch + 1)], ['Pitch −', '↓', () => setPitch(st.pitch - 1)]],
     view: { target: W(110, 130, 22), dist: 9.4 },
     info: '<h2>Record player</h2><p>Type any song or artist in the search bar and pick a result: the platter stops, the old record lifts off and flies away, the album sleeve pops out of the crate of records, the new record slides out of it and is lowered onto the spindle, then the platter spins up, the arm cues itself and the music plays. With no song chosen the blank record plays a built-in lo-fi loop. Songs play as real 30-second previews, and the arm tracks across the groove as it plays. Drag the record to spin or scratch it, drag the pitch slider or the volume knob, or drag the tonearm and drop it anywhere on the record to play from there. 33 / 45 change the speed. H hides every control and leaves just the player and the music. Needs an internet connection for search and audio.</p>',
     hint: '' };

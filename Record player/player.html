@@ -2674,7 +2674,7 @@ FIGS3D.push({ id: 'rp', name: 'Record player', mod: (() => {
   const cyl = (r, h, seg, mat, parent, pos, axis) => { const m = new THREE.Mesh(new THREE.CylinderGeometry(r * TS, r * TS, h * TS, seg), mat);
     if (axis === 'x') m.rotation.z = Math.PI / 2; m.position.copy(pos); addOutline(m); twMeshes.push(m); parent.add(m); return m; };
   const circ = (cx, cy, r, z, n = 96) => Array.from({ length: n }, (_, i) => { const a = i / n * Math.PI * 2; return W(cx + r * Math.cos(a), cy + r * Math.sin(a), z); });
-  plateWith(g0, 330, 312, [[18, 18], [312, 18], [18, 294], [312, 294]], [24, 296, 56]);
+  { const base = new THREE.Group(); base.position.copy(W(-216, -36, 0)); g0.add(base); plateWith(base, 546, 348, [[18, 18], [528, 18], [18, 330], [528, 330]], [240, 332, 56]); }
 
   // ── body on four feet ──
   const BX = 22, BY = 22, BW = 286, BD = 262, BZ = PLZ + 4, BH = 30, BT = BZ + BH, BF = BY + BD;
@@ -2708,9 +2708,9 @@ FIGS3D.push({ id: 'rp', name: 'Record player', mod: (() => {
     side: THREE.DoubleSide,
     uniforms: { uDark: { value: 1 }, uL1: { value: new THREE.Vector3(-0.75, 0.38, 0.35).normalize() }, uL2: { value: new THREE.Vector3(0.55, 0.35, -0.65).normalize() } },
     vertexShader: `
-      varying vec3 vW; varying vec3 vN; varying vec3 vR; varying vec2 vUv; varying vec3 vP;
+      varying vec3 vW; varying vec3 vN; varying vec3 vR; varying vec2 vUv; varying vec3 vP; varying vec3 vUp;
       void main() {
-        vP = position;
+        vP = position; vUp = normalize(mat3(modelMatrix) * vec3(0.0, 1.0, 0.0));
         vec4 wp = modelMatrix * vec4(position, 1.0);
         vW = wp.xyz; vN = normalize(mat3(modelMatrix) * normal);
         vR = mat3(modelMatrix) * vec3(position.x, 0.0, position.z);
@@ -2719,7 +2719,7 @@ FIGS3D.push({ id: 'rp', name: 'Record player', mod: (() => {
       }`,
     fragmentShader: `
       uniform float uDark; uniform vec3 uL1; uniform vec3 uL2;
-      varying vec3 vW; varying vec3 vN; varying vec3 vR; varying vec2 vUv; varying vec3 vP;
+      varying vec3 vW; varying vec3 vN; varying vec3 vR; varying vec2 vUv; varying vec3 vP; varying vec3 vUp;
       float kk(vec3 T, vec3 L, vec3 V, float p) { vec3 H = normalize(L + V); float d = dot(T, H); return pow(sqrt(max(1.0 - d * d, 0.0)), p); }
       void main() {
         float rad = length(vUv - 0.5);
@@ -2727,7 +2727,7 @@ FIGS3D.push({ id: 'rp', name: 'Record player', mod: (() => {
         float ridge = abs(g - 0.5) * 2.0;
         vec3 N = normalize(vN); if (!gl_FrontFacing) N = -N;
         float topY = ${(1.5 * TS).toFixed(6)}, isTop = step(topY * 0.985, vP.y) * (1.0 - step(topY * 1.015, vP.y));          // the flat groove surface, found from its height
-        if (isTop > 0.5) N = normalize(mat3(modelMatrix) * vec3(0.0, 1.0, 0.0));
+        if (isTop > 0.5) N = normalize(vUp);
         vec3 V = normalize(cameraPosition - vW);
         vec3 R = normalize(vR + vec3(1e-5));
         vec3 T = normalize(cross(N, R));
@@ -2771,15 +2771,17 @@ FIGS3D.push({ id: 'rp', name: 'Record player', mod: (() => {
   });
   const vinylGeo = new THREE.LatheGeometry([[2, 0], [RR - 1.2, 0], [RR - 0.3, 0.25], [RR, 0.8], [RR - 0.3, 1.45], [RR - 1.2, 1.7], [RR - 4.5, 1.7], [RR - 6, 1.5], [27.5, 1.5], [26.5, 1.66], [2, 1.66]]
     .map(([r, y]) => new THREE.Vector2(r * TS, y * TS)), 160);
+  const plainVinyl = new THREE.MeshStandardMaterial({ color: 0x0d0d0e, roughness: 0.28, metalness: 0.25, side: THREE.DoubleSide });
+  renderer.debug.onShaderError = (gl, program, vs, fs) => { try { if (gl.getShaderSource(fs).includes('uDark')) { recs.forEach(r => { r.body.material = plainVinyl; }); console.warn('The vinyl shader did not compile; using a plain black material instead.'); } } catch (e) {} };
   function makeRecord() {
     const g = new THREE.Group(); g.userData = { rec: true }; g.rotation.order = 'YXZ'; g0.add(g);
-    g.add(new THREE.Mesh(vinylGeo, vinylMat));
+    const body = new THREE.Mesh(vinylGeo, vinylMat); g.add(body);
     const sh = new THREE.Group(); g.add(sh);
     const lab = document.createElement('canvas'); lab.width = lab.height = 512;
     const tex = new THREE.CanvasTexture(lab); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 8;
     { const m = new THREE.Mesh(new THREE.CircleGeometry(24 * TS, 64), new THREE.MeshBasicMaterial({ map: tex, toneMapped: false, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 }));
       m.rotation.x = -Math.PI / 2; m.position.copy(W(0, 0, 1.8)); g.add(m); }
-    return { g, sh, lab, tex, track: null, img: null };
+    return { g, sh, body, lab, tex, track: null, img: null };
   }
   function drawLabel(r) {
     const x = r.lab.getContext('2d'), Cc = pal3(), A_ = '#' + accent.getHexString(), k = 512 / 48;
@@ -2811,12 +2813,11 @@ FIGS3D.push({ id: 'rp', name: 'Record player', mod: (() => {
   // ── a crate of records to the left of the deck, and the sleeve that pops out of it ──
   const KS = 0.62, SLW = 164, TILT = 78 * Math.PI / 180;                           // crate sleeves are miniatures; the chosen one grows as it pops out
   const CRX = -190, CRY = -20, CRW = 134, CRD = 74, CRH = 46, CRZ = PLZ, WT = 4;
-  { const pad = new THREE.Group(); pad.position.copy(W(CRX - 14, CRY - 12, 0)); g0.add(pad);
-    plateWith(pad, CRW + 28, CRD + 24, [[12, 12], [CRW + 16, 12], [12, CRD + 12], [CRW + 16, CRD + 12]]); }
-  rbox(CRX, CRY, CRZ, CRW, WT, CRH, 2, bodyMat, g0);                                // back
-  rbox(CRX, CRY + CRD - WT, CRZ, CRW, WT, CRH - 10, 2, bodyMat, g0);                // front, lower so the covers show
-  rbox(CRX, CRY, CRZ, WT, CRD, CRH, 2, bodyMat, g0); rbox(CRX + CRW - WT, CRY, CRZ, WT, CRD, CRH, 2, bodyMat, g0);
-  rbox(CRX + WT, CRY + WT, CRZ, CRW - 2 * WT, CRD - 2 * WT, 3, 0, bodyMat, g0);
+  const crateMat = new THREE.MeshStandardMaterial({ color: 0x5a3e29, roughness: 0.85, metalness: 0.02, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1 });
+  rbox(CRX, CRY, CRZ, CRW, WT, CRH, 2, crateMat, g0);                                // back
+  rbox(CRX, CRY + CRD - WT, CRZ, CRW, WT, CRH - 10, 2, crateMat, g0);                // front, lower so the covers show
+  rbox(CRX, CRY, CRZ, WT, CRD, CRH, 2, crateMat, g0); rbox(CRX + CRW - WT, CRY, CRZ, WT, CRD, CRH, 2, crateMat, g0);
+  rbox(CRX + WT, CRY + WT, CRZ, CRW - 2 * WT, CRD - 2 * WT, 3, 0, crateMat, g0);
   label('VINYL', 40, 7, 6, onFront(CRX + CRW / 2, CRY + CRD, CRZ + 12), g0);
   const CXM = CRX + CRW / 2, SLOTY = CRY + CRD - WT - 9, HALF = SLW * KS / 2;
   const DUM_DARK = [0x2a2c2e, 0x393c3f, 0x202224, 0x34383b], DUM_LIGHT = [0xe3dfd7, 0xd7d2c9, 0xece8e1, 0xdcd8cf];
@@ -2830,9 +2831,9 @@ FIGS3D.push({ id: 'rp', name: 'Record player', mod: (() => {
   }
   const dumMats = DUM_DARK.map(c => new THREE.MeshStandardMaterial({ color: c, roughness: 0.8 }));
   {
-    for (let i = 0; i < 5; i++) {                                                   // the other records, leaning back in the crate
+    for (let i = 0; i < 6; i++) {                                                   // the other records, leaning back in the crate
       const dm = dumMats[i % 4], m = new THREE.Mesh(new THREE.BoxGeometry(HALF * 2 * TS, 1.6 * TS, HALF * 2 * TS), [dm, dm, new THREE.MeshBasicMaterial({ map: coverTex(i), toneMapped: false }), dm, dm, dm]);
-      m.rotation.order = 'YXZ'; m.rotation.x = TILT; m.position.copy(W(CXM, SLOTY - 8 * (i + 1) - HALF * Math.cos(TILT), CRZ + 3 + HALF * Math.sin(TILT)));
+      m.rotation.order = 'YXZ'; m.rotation.x = TILT; m.position.copy(W(CXM, SLOTY - 7 * (i + 1) - HALF * Math.cos(TILT), CRZ + 3 + HALF * Math.sin(TILT)));
       addOutline(m); twMeshes.push(m); g0.add(m); } }
   const SLOT = W(CXM, SLOTY - HALF * Math.cos(TILT), CRZ + 3 + HALF * Math.sin(TILT));
 
@@ -2866,7 +2867,7 @@ FIGS3D.push({ id: 'rp', name: 'Record player', mod: (() => {
   //   old disk lifts off → flies to its sleeve → slides in → the sleeve returns to the crate
   //   the new sleeve pops out of the crate → the new disk slides out → is carried onto the spindle → the sleeve settles beside the deck
   const S = W(C[0], C[1], RZ), PSI = -0.12, LIFT = 70 * TS;
-  const POSE = { slot: { p: SLOT, tilt: TILT, yaw: 0, s: KS }, A: { p: W(-118, 158, 0.2), tilt: 0, yaw: PSI, s: 1 }, B: { p: W(-118, 338, 100.2), tilt: 0, yaw: PSI, s: 1 } };
+  const POSE = { slot: { p: SLOT, tilt: TILT, yaw: 0, s: KS }, A: { p: W(-118, 158, PLZ + 0.2), tilt: 0, yaw: PSI, s: 1 }, B: { p: W(-118, 338, PLZ + 100.2), tilt: 0, yaw: PSI, s: 1 } };
   const T = { fly: 1.0, slide: [1.0, 1.7], pop: [0.15, 1.5], pull: [1.6, 2.5], deck: [2.7, 3.9], back: [1.8, 3.0], settle: [2.8, 3.9] }, T_END = 3.9;
   const sw = { on: false, t: 0 };
   const ss = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
@@ -3079,6 +3080,7 @@ FIGS3D.push({ id: 'rp', name: 'Record player', mod: (() => {
     SFX.button(); render();
   }
 
+  window.__rpUseAlt = (t, src) => { if (wantPlay || (track !== t && pending !== t)) return false; t.src = src; au.src = src; return true; };
   function key(e) {
     if (e.key === '?') { if (window.__rpHelp) window.__rpHelp(true); return true; }
     if (e.key === 'h' || e.key === 'H') { setFocus(!document.body.classList.contains('rp-focus')); return true; }
@@ -3317,6 +3319,7 @@ body.rp-focus #rp-now { display:block; }
         <span>Pitch up / down</span><em><kbd>↑</kbd> <kbd>↓</kbd></em>
         <span>Iso view · centre the camera</span><em><kbd>I</kbd> <kbd>R</kbd></em>
         <span>Lyrics view: rotating disc in the middle, lyrics all around it (<kbd>L</kbd> switches the layout)</span><em><kbd>V</kbd></em>
+        <span>Lyrics a little off? Click the line you are hearing (or use the arrow keys); it is remembered for that song</span><em><kbd>↑</kbd> <kbd>↓</kbd></em>
         <span>Hide every control, leaving just the player and the music</span><em><kbd>H</kbd></em>
         <span>Light / dark theme</span><em><kbd>T</kbd></em>
         <span>Open or close this help</span><em><kbd>?</kbd></em>
@@ -3415,7 +3418,8 @@ body.rp-focus #rp-now { display:block; }
   const aspectK = () => Math.max(1, 1.45 / persp.aspect);
   function flyCam(pos, tgt, dur) { camFly = { t: 0, d: dur, p0: camera.position.clone(), t0: controls.target.clone(), p1: pos, t1: tgt.clone(), z0: camera.zoom, z1: 1 }; }
   function homeCam(dur = 0.9) { const iso = camera === ortho; flyCam(HOME.clone().addScaledVector(CAM_DIR, iso ? 14 : 9.4 * aspectK()), HOME, dur); return true; }
-  function isoView() { if (camera !== ortho) setOrtho(true, 600 * TS * aspectK() / fovK()); else setOrtho(false); homeCam(); return true; }
+  const LW0 = [lineMat.linewidth, majorMat.linewidth];
+  function isoView() { if (camera !== ortho) setOrtho(true, 600 * TS * aspectK() / fovK()); else setOrtho(false); lineMat.linewidth = LW0[0] * (camera === ortho ? 1.45 : 1); majorMat.linewidth = LW0[1] * (camera === ortho ? 1.45 : 1); homeCam(); return true; }
   function stepCam(dt) {
     if (!hooked && typeof act !== 'undefined') { act.iso = isoView; hooked = true; }
     if (!camFly) return;
@@ -3429,7 +3433,7 @@ body.rp-focus #rp-now { display:block; }
   window.__rpStartStop = () => startStop();
   // Fit the whole scene (deck, crate and cover) into the free area between the bars and panels, so nothing is ever hidden behind the search bar or the side panel
   let insKey = '', fitDirty = true; const fvt = new THREE.Vector3();
-  const FIT_PTS = [-204, 330].flatMap(x => [-32, 312].flatMap(y => [0, 112].map(z => W(x, y, z))));
+  const FIT_PTS = [-216, 330].flatMap(x => [-36, 312].flatMap(y => [0, 112].map(z => W(x, y, z))));
   function stepInset() {
     if (camFly || NP.open) return;                                                  // wait for a camera move to finish; the lyrics view covers the scene anyway
     const focus = document.body.classList.contains('rp-focus'), Wd = innerWidth, Ht = innerHeight; let Lf = 20, Rr = 20, Tp = 14, Bt = 14;
@@ -3460,7 +3464,7 @@ body.rp-focus #rp-now { display:block; }
 #rp-np[hidden] { display:none; }
 #rp-np canvas { position:absolute; inset:0; width:100%; height:100%; cursor:grab; touch-action:none; }
 #rp-np .wheel { position:absolute; inset:0; pointer-events:none; -webkit-mask-image:linear-gradient(to bottom, transparent 3%, #000 15%, #000 84%, transparent 93%); mask-image:linear-gradient(to bottom, transparent 3%, #000 15%, #000 84%, transparent 93%); }
-#rp-np .ln { position:absolute; left:0; top:0; transform-origin:0 0; white-space:pre; display:flex; align-items:center; font-family:"JetBrains Mono","Noto Sans Devanagari","SF Mono",ui-monospace,Menlo,Consolas,monospace; font-size:4.25vh; line-height:1.55; will-change:transform,opacity,filter; }
+#rp-np .ln { pointer-events:auto; cursor:pointer; position:absolute; left:0; top:0; transform-origin:0 0; white-space:pre; display:flex; align-items:center; font-family:"JetBrains Mono","Noto Sans Devanagari","SF Mono",ui-monospace,Menlo,Consolas,monospace; font-size:4.25vh; line-height:1.55; will-change:transform,opacity,filter; }
 #rp-np .lb { display:inline-block; width:8.4vh; flex:none; font-size:1.9vh; color:#e8603f; }
 #rp-np .w { position:relative; display:inline-block; padding:0 .25em; margin:0 .05em; border-radius:.3em; color:#4a4a4a; transition:background .45s, color .45s; }
 #rp-np .gp { display:inline-flex; margin:0 .05em; border-radius:.32em; background:rgba(255,255,255,.055); }
@@ -3484,7 +3488,7 @@ body.rp-focus #rp-now { display:block; }
 #rp-np .clock b { font-weight:400; color:#e6e6e6; }
 #rp-np .close { position:absolute; left:2.2vw; top:2.6vh; width:3.6vh; height:3.6vh; border:1px solid rgba(255,255,255,.14); border-radius:50%; background:transparent; color:#8d8d8d; cursor:pointer; font:1.5vh/1 inherit; opacity:.5; }
 #rp-np .close:hover { opacity:1; color:#fff; }
-#rp-np .sync { position:absolute; left:2.2vw; bottom:4vh; display:flex; align-items:center; gap:.9vh; font-size:1.3vh; color:#6a6a6a; }
+#rp-np .sync { position:absolute; left:2.2vw; bottom:4vh; max-width:44vw; flex-wrap:wrap; display:flex; align-items:center; gap:.9vh; font-size:1.3vh; color:#6a6a6a; }
 #rp-np .sync[hidden] { display:none; }
 #rp-np .sync button { width:2.6vh; height:2.6vh; border:1px solid rgba(255,255,255,.16); border-radius:50%; background:transparent; color:#9a9a9a; cursor:pointer; font:inherit; padding:0; }
 #rp-np .sync button:hover { color:#fff; border-color:rgba(255,255,255,.4); }
@@ -3502,7 +3506,7 @@ body.rp-focus #rp-now { display:block; }
       <div class="meta"><b></b><span></span></div>
       <button class="close" type="button" aria-label="Back to the record player" title="Back (Esc)">✕</button>
       <button class="lay" type="button" title="Switch between disc-in-the-middle and disc-at-the-side (L)">LAYOUT</button>
-      <div class="sync" hidden><span>lyrics timing</span><button type="button" data-a="m" aria-label="Lyrics earlier">−</button><em>+0s</em><button type="button" data-a="p" aria-label="Lyrics later">+</button></div>
+      <div class="sync" hidden><span>lyrics timing</span><button type="button" data-a="m" aria-label="Lyrics later">−</button><em>+0.0s</em><button type="button" data-a="p" aria-label="Lyrics later">+</button></div>
       <div class="tp"><button type="button" data-a="prev" aria-label="Previous"><svg viewBox="0 0 16 16"><path d="M3 3h1.6v10H3zM13 3v10L5.6 8z"/></svg></button>
         <button type="button" class="pp" data-a="pp" aria-label="Play or pause"></button>
         <button type="button" data-a="next" aria-label="Next"><svg viewBox="0 0 16 16"><path d="M11.4 3H13v10h-1.6zM3 3l7.4 5L3 13z"/></svg></button></div>
@@ -3588,10 +3592,20 @@ body.rp-focus #rp-now { display:block; }
         const want = t.ms ? t.ms / 1000 : 0, hit = want ? pool.slice().sort((x, y) => Math.abs((x.duration || 0) - want) - Math.abs((y.duration || 0) - want))[0] : pool[0];   // the version that is as long as this track
         return { synced: hit.syncedLyrics ? parseLrc(hit.syncedLyrics) : null, plain: hit.plainLyrics, dur: hit.duration }; } catch (e) { return null; }
     }
+    function altPreview(t) {
+      return new Promise(res => { const cb = 'rpalt' + Date.now(), sc = document.createElement('script'), done = v => { delete window[cb]; sc.remove(); res(v); };
+        window[cb] = d => { const nm = x => (x || '').toLowerCase().replace(/\(.*?\)|\[.*?\]/g, '').replace(/[^a-z0-9\u0900-\u097f]+/g, ' ').trim(); const want = nm(t.title);
+          const hit = (d.data || []).find(x => x.preview && nm(x.title) === want && Math.abs((x.duration || 0) - (t.ms || 0) / 1000) < 4) || (d.data || []).find(x => x.preview && nm(x.title) === want); done(hit ? hit.preview : null); };
+        sc.onerror = () => done(null); sc.src = 'https://api.deezer.com/search?q=' + encodeURIComponent(t.artist + ' ' + t.title) + '&limit=8&output=jsonp&callback=' + cb; document.head.appendChild(sc); setTimeout(() => { if (window[cb]) done(null); }, 8000); });
+    }
     // Where in the song does the 30-second preview start? Listen to the preview itself: find the offset at which the vocal entries in the audio line up with the lyric line starts.
     async function autoSync(t, synced, songDur) {
       try {
-        const ab = await (await fetch(t.src)).arrayBuffer(), ac = getCtx(), buf = await new Promise((ok, no) => ac.decodeAudioData(ab, ok, no));
+        const ac = getCtx(); let ab = null;
+        try { ab = await (await fetch(t.src)).arrayBuffer(); }
+        catch (e1) {                                                                // blocked? look for the same song's Deezer preview, and play that one instead if it can be read
+          const alt = await altPreview(t); if (!alt) return null; ab = await (await fetch(alt)).arrayBuffer(); if (!(window.__rpUseAlt && window.__rpUseAlt(t, alt))) return null; }
+        const buf = await new Promise((ok, no) => ac.decodeAudioData(ab, ok, no));
         const x = buf.getChannelData(0), sr = buf.sampleRate, hop = Math.round(sr * 0.01), win = Math.round(sr * 0.02), n = Math.floor((x.length - win) / hop), dur = buf.duration;
         const e = new Float32Array(n); for (let i = 0; i < n; i++) { let sum = 0; const o = i * hop; for (let j = 1; j < win; j++) { const d = x[o + j] - x[o + j - 1]; sum += d * d; } e[i] = Math.sqrt(sum / win); }   // energy of the voice-and-above band
         const sm = new Float32Array(n); for (let i = 0; i < n; i++) { let sum = 0, c = 0; for (let k = -4; k <= 4; k++) { const j = i + k; if (j >= 0 && j < n) { sum += e[j]; c++; } } sm[i] = sum / c; }
@@ -3643,15 +3657,26 @@ body.rp-focus #rp-now { display:block; }
       sync.hidden = !(l.note || l.approx); curPos = 0; lastWord = -1; lastLine = -1;
       fit(); M.el = null;
     }
+    const syncKeyOf = t => 'rp-sync:' + (t.artist + '|' + t.title).toLowerCase();
+    const loadSync = t => { try { const v = localStorage.getItem(syncKeyOf(t)); return v == null ? null : +v; } catch (e) { return null; } };
+    const saveSync = () => { try { if (track) localStorage.setItem(syncKeyOf(track), String(lyr.off)); } catch (e) {} };
+    const showAdj = () => { const a = lyr.adj || 0; syncV.textContent = (a >= 0 ? '+' : '') + a.toFixed(1) + 's'; };
+    function adjust(dv) { if (!(lyr.note || lyr.approx)) return; lyr.off += dv; lyr.adj = (lyr.adj || 0) + dv; lyr.user = true; saveSync(); showAdj(); setSyncLbl('your timing'); }
+    function alignTo(i) {                                                            // "this is the line I am hearing right now"
+      const o = els[i]; if (!o || !(lyr.note || lyr.approx)) return; const newOff = o.line.t0 + 0.3 - (pos() + LEAD);
+      lyr.adj = (lyr.adj || 0) + (newOff - lyr.off); lyr.off = newOff; lyr.user = true; saveSync(); showAdj(); setSyncLbl('your timing'); }
     const setSyncLbl = txt => { const sp = sync.querySelector('span'); if (sp) sp.textContent = txt || 'lyrics timing'; };
     function setTrack() {
       const t = track, img = cur.img; pal = palette(img); const seed = t ? t.title + t.artist : 'needle drop';
       tex = marble(pal, seed);
-      mT.textContent = t ? t.title : 'Needle Drop'; mA.textContent = t ? t.artist : 'Iso-Glow Sessions'; nudge = 0; syncV.textContent = '+0s';
+      mT.textContent = t ? t.title : 'Needle Drop'; mA.textContent = t ? t.artist : 'Iso-Glow Sessions'; nudge = 0; syncV.textContent = '+0.0s';
       if (!t) { lyr = defaultLyrics(); build(lyr); return; }
       lyr = { lines: [{ label: '', words: [{ text: 'finding', t0: 0, grp: 0 }, { text: 'lyrics…', t0: 1, grp: 0 }], t0: 0, t1: 60 }], off: 0, note: false }; build(lyr);
       const mine = t; prep(mine); setSyncLbl('finding the timing…');
-      mine.lyricsP.then(res => { if (track !== mine) return; lyr = lyricsFrom(res, mine); build(lyr); setSyncLbl(lyr.note ? 'estimating the timing…' : ''); mine.syncP.then(off => { if (track !== mine || !lyr.note) return; if (off != null) { lyr.off = off; setSyncLbl('in sync with the song'); } else setSyncLbl('timing is approximate'); }); });
+      mine.lyricsP.then(res => { if (track !== mine) return; lyr = lyricsFrom(res, mine); build(lyr); const saved = loadSync(mine);
+        if (saved != null && (lyr.note || lyr.approx)) { lyr.off = saved; lyr.user = true; showAdj(); setSyncLbl('your timing'); return; }
+        setSyncLbl(lyr.note ? 'finding the timing…' : lyr.approx ? 'timing is approximate · click the line you hear' : '');
+        mine.syncP.then(off => { if (track !== mine || !lyr.note || lyr.user) return; if (off != null) { lyr.off = off; setSyncLbl('in sync with the song'); } else setSyncLbl('timing is approximate · click the line you hear'); }); });
     }
 
     // ── drawing ──
@@ -3741,7 +3766,7 @@ body.rp-focus #rp-now { display:block; }
     const fmt2 = s => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
     function frame(now, dt) {
       if (W !== innerWidth || H !== innerHeight) resize();
-      const k = (track ? track.src : 'def') + (cur.img ? 'i' : '');
+      const k = (track ? track.title + '|' + track.artist : 'def') + (cur.img ? 'i' : '');
       if (k !== key) { key = k; setTrack(); }
       const t = pos(), d = dur(), p = Math.max(0, Math.min(1, t / d)), pn = performance.now();
       if (t !== clk.a) { clk.a = t; clk.s = pn; }                                    // the audio clock only ticks every so often: carry it forward smoothly between ticks
@@ -3759,8 +3784,9 @@ body.rp-focus #rp-now { display:block; }
     root.querySelector('.close').addEventListener('click', () => toggle(false));
     root.querySelector('.tp').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; const a = b.dataset.a;
       if (a === 'pp') startStop(); else if (a === 'prev') { if (!busy()) { st.on = true; beginCue(); render(); } } else if (a === 'next') { if (window.__rpStep) window.__rpStep(1); } });
-    sync.addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; nudge += b.dataset.a === 'p' ? 2 : -2; syncV.textContent = (nudge >= 0 ? '+' : '') + nudge + 's'; });
-    addEventListener('keydown', e => { if (!open) return; if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); toggle(false); } else if (e.key === 'l' || e.key === 'L') { setLayout(layout === 'center' ? 'side' : 'center'); } else if (e.key === '[' || e.key === ']') { nudge += e.key === ']' ? 2 : -2; syncV.textContent = (nudge >= 0 ? '+' : '') + nudge + 's'; } }, true);
+    sync.addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; adjust(b.dataset.a === 'p' ? 0.5 : -0.5); });
+    wheel.addEventListener('click', e => { const el = e.target.closest('.ln'); if (!el) return; alignTo(els.findIndex(o => o.el === el)); });
+    addEventListener('keydown', e => { if (!open) return; if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); toggle(false); } else if (e.key === 'l' || e.key === 'L') { setLayout(layout === 'center' ? 'side' : 'center'); } else if (e.key === '[' || e.key === ']') adjust(e.key === ']' ? 0.5 : -0.5); else if (e.key === 'ArrowDown') { e.preventDefault(); e.stopPropagation(); alignTo(idxNow + 1); } else if (e.key === 'ArrowUp') { e.preventDefault(); e.stopPropagation(); alignTo(idxNow - 1); } }, true);
     cv.addEventListener('pointerdown', e => { if (e.button !== 0) return; const g = geom(), dx = e.clientX - g.Cx, dy = e.clientY - g.Cy; if (Math.hypot(dx, dy) > g.R || busy()) return; cv.setPointerCapture(e.pointerId); cv.style.cursor = 'grabbing'; drag = { kind: 'spin2d', a: Math.atan2(dy, dx), dAng: 0, moved: true, x: e.clientX, y: e.clientY }; });
     cv.addEventListener('pointermove', e => { if (!drag || drag.kind !== 'spin2d') return; const g = geom(), a = Math.atan2(e.clientY - g.Cy, e.clientX - g.Cx), d = ((a - drag.a) + Math.PI * 3) % (Math.PI * 2) - Math.PI; rotA -= d; drag.dAng -= d; drag.a = a; });
     const up = () => { if (drag && drag.kind === 'spin2d') { drag = null; cv.style.cursor = ''; } };
@@ -3770,7 +3796,7 @@ body.rp-focus #rp-now { display:block; }
     return { frame, toggle, root, get open() { return open; } };
   })();
 
-  themeHooks.push(t => { vinylMat.uniforms.uDark.value = 1; pilotMat.color.set(t === 'light' ? 0xd2cec7 : 0x2b2e30); ledMats.forEach(m => m.color.set(t === 'light' ? 0xd2cec7 : 0x2b2e30)); rimMat.color.set(t === 'light' ? 0xa4a9ad : 0x9ba0a5); dumMats.forEach((m, i) => m.color.set((t === 'light' ? DUM_LIGHT : DUM_DARK)[i])); drawLabel(cur); drawLabel(nxt); drawSleeve(cs); drawSleeve(ns); render(); });
+  themeHooks.push(t => { vinylMat.uniforms.uDark.value = 1; crateMat.color.set(t === 'light' ? 0xcaa57a : 0x5a3e29); pilotMat.color.set(t === 'light' ? 0xd2cec7 : 0x2b2e30); ledMats.forEach(m => m.color.set(t === 'light' ? 0xd2cec7 : 0x2b2e30)); rimMat.color.set(t === 'light' ? 0xa4a9ad : 0x9ba0a5); dumMats.forEach((m, i) => m.color.set((t === 'light' ? DUM_LIGHT : DUM_DARK)[i])); drawLabel(cur); drawLabel(nxt); drawSleeve(cs); drawSleeve(ns); render(); });
   drawLabel(cur); drawLabel(nxt); drawSleeve(cs); drawSleeve(ns); layout(); render();
   return { group: g0, key, click, tick, readout,
     stop: () => { st.on = false; if (st.mode !== 'rest') st.mode = 'return'; render(); },

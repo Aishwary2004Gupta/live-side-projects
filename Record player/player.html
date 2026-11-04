@@ -1717,8 +1717,6 @@ body.rp-focus #rp-now { display:block; }
 #rp-np .w.past { color:#f4f4f4; }
 #rp-np .w.was { color:#fff; background:rgba(255,255,255,.07); }
 #rp-np .w.cur { color:var(--cc); background:var(--cb); }
-#rp-np .w.cur::before { content:""; position:absolute; left:50%; top:-.62em; width:.34em; height:.34em; transform:translateX(-50%); border:.09em solid var(--cc); box-sizing:content-box; }
-#rp-np .w.nxt::before { content:""; position:absolute; left:50%; top:-.62em; width:.34em; height:.34em; transform:translateX(-50%); background:var(--cc); opacity:.8; }
 #rp-np .ln.off .w { color:#c4c4c4; } #rp-np .ln.off.nx .w { color:#6a6a6a; } #rp-np .ln.off .w::before { display:none; }
 #rp-np .meta { position:absolute; right:4vw; top:5.2vh; text-align:right; max-width:42vw; }
 #rp-np .meta b { display:block; font-size:1.8vh; font-weight:500; color:#f2f2f2; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
@@ -1739,7 +1737,7 @@ body.rp-focus #rp-now { display:block; }
 #rp-np .sync .ch { width:auto; padding:0 1.1vh; border-radius:1.4vh; letter-spacing:.06em; } #rp-np .sync .ch[hidden] { display:none; }
 #rp-np .sync button:hover { color:#fff; border-color:rgba(255,255,255,.4); }
 #rp-np .sync em { font-style:normal; min-width:4.2em; text-align:center; color:#9a9a9a; }
-#rp-np .mk { position:absolute; left:0; top:0; width:.9vh; height:.9vh; box-sizing:border-box; border-radius:50%; border:.16vh solid var(--mc,#8f86ff); background:radial-gradient(circle at 32% 28%,rgba(255,255,255,.95),var(--mc,#8f86ff) 42%,rgba(20,18,35,.85) 100%); box-shadow:0 0 .9vh var(--mc,#8f86ff), inset 0 0 .25vh rgba(255,255,255,.7); pointer-events:none; opacity:0; transition:opacity .25s; will-change:transform; }
+#rp-np .mk { position:absolute; left:0; top:0; width:1vh; height:1vh; border-radius:50%; background:radial-gradient(circle at 34% 30%, #fff 0 14%, var(--mc,#8f86ff) 48%, rgba(0,0,0,.35) 120%); box-shadow:0 0 .7vh var(--mc,#8f86ff); pointer-events:none; opacity:0; transition:opacity .25s; will-change:transform; }
 #rp-np .w.cur { transition-delay:var(--dl,0s); animation:rppopw .34s cubic-bezier(.2,.9,.3,1.3) var(--dl,0s) backwards; }
 @keyframes rppopw { 0% { transform:translateY(0) scale(.86); } 38% { transform:translateY(-.24em) scale(1.16); } 100% { transform:none; } }
 #rp-np.center .lb { width:6.2vh; font-size:1.6vh; }
@@ -1818,7 +1816,7 @@ body.rp-focus #rp-now { display:block; }
         const last = notes.length ? notes[notes.length - 1].t0 : t0; for (let r = 1; r <= 2; r++) words.push({ text: '_', t0: last + (t1 - last) * r / 3, rest: true, grp: 0 });
         lines.push({ label: labels[L], words, t0, t1 });
       }
-      return { lines, off: 0, end: 30, note: false };
+      return { lines, off: 0, note: false };
     }
     function parseLrc(txt) {
       const out = []; for (const ln of txt.split('\n')) { const m = /^\[(\d+):(\d+(?:\.\d+)?)\]\s*(.*)$/.exec(ln.trim()); if (m && m[3].trim()) out.push({ t: +m[1] * 60 + +m[2], text: m[3].trim() }); }
@@ -1838,12 +1836,10 @@ body.rp-focus #rp-now { display:block; }
       if (res && res.synced && res.synced.length) {
         const dur = res.dur || 0, last = Math.max(0, dur - 30), blocks = chorusBlocks(res.synced), cands = blocks.map(b => Math.min(last || 1e9, Math.max(0, b.t - 1))); let ci = 0, bd = 1e9;
         blocks.forEach((b, k) => { const d = Math.abs(b.t - dur * 0.42); if (d < bd) { bd = d; ci = k; } });                    // the preview is the chorus: start from the chorus nearest the middle of the song
-        const off = cands.length ? cands[ci] : Math.max(0, Math.min(dur - 30, dur * 0.35)), end = off + 30;
-        const lines = toLines(res.synced.filter(l => l.t >= off && l.t < end)).map(l => ({ ...l, t1: Math.min(l.t1, end) }));
-        return { lines, off, end, note: true, cands, ci }; }
-      if (res && res.plain) { const arr = res.plain.split('\n').map(s => s.trim()).filter(Boolean).slice(0, 10).map((text, i) => ({ t: i * 3.2, text })); return { lines: toLines(arr), off: 0, end: 30, note: false, approx: true }; }
+        const off = cands.length ? cands[ci] : Math.max(0, Math.min(dur - 30, dur * 0.35)); return { lines: toLines(res.synced), off, note: true, cands, ci }; }
+      if (res && res.plain) { const arr = res.plain.split('\n').map(s => s.trim()).filter(Boolean).slice(0, 80).map((text, i) => ({ t: i * 3.2, text })); return { lines: toLines(arr), off: 0, note: false, approx: true }; }
       return { lines: [{ label: 'now', words: t.title.split(/\s+/).map((w, k) => ({ text: w, t0: 0, grp: 0 })), t0: 0, t1: 9 }, { label: 'by', words: t.artist.split(/\s+/).map(w => ({ text: w, t0: 0, grp: 0 })), t0: 9, t1: 18 },
-        { label: '', words: ['no', 'lyrics', 'found', 'for', 'this', 'song'].map(w => ({ text: w, t0: 0, grp: 0 })), t0: 18, t1: 30 }], off: 0, end: 30, note: false, none: true };
+        { label: '', words: ['no', 'lyrics', 'found', 'for', 'this', 'song'].map(w => ({ text: w, t0: 0, grp: 0 })), t0: 18, t1: 30 }], off: 0, note: false, none: true };
     }
     async function fetchLyrics(t) {
       try { const q = new URLSearchParams({ track_name: t.title, artist_name: t.artist }); const r = await fetch('https://lrclib.net/api/search?' + q), j = await r.json();
@@ -1892,6 +1888,8 @@ body.rp-focus #rp-now { display:block; }
     const prep = t => { if (!t.lyricsP) t.lyricsP = fetchLyrics(t); if (!t.syncP) t.syncP = t.lyricsP.then(res => res && res.synced && res.synced.length ? autoSync(t, res.synced, res.dur) : null); };
     window.__rpPrep = prep;
 
+    let palRGB = [[143, 134, 255]];
+    const rgbOf = css => { try { const c = document.createElement('canvas'); c.width = c.height = 1; const x = c.getContext('2d'); x.fillStyle = css; x.fillRect(0, 0, 1, 1); const d = x.getImageData(0, 0, 1, 1).data; return [d[0], d[1], d[2]]; } catch (e) { return [143, 134, 255]; } };
     // ── state ──
     const clk = { a: -1, s: 0 }, LEAD = 0.08;                                        // highlight a hair before the word, so it never looks late
     let lastSig = '', npStill = false;
@@ -1911,8 +1909,8 @@ body.rp-focus #rp-now { display:block; }
       wheel.innerHTML = ''; els = [];
       l.lines.forEach(line => { const el = document.createElement('div'); el.className = 'ln off'; const lb = document.createElement('span'); lb.className = 'lb'; lb.textContent = line.label; el.appendChild(lb);
         const ws = []; let gp = null;
-        line.words.forEach((w, k) => { const s = document.createElement('span'); s.className = 'w'; s.textContent = w.text; const col = w.rest ? '#777' : noteColor(w.text.toLowerCase()), n = l.note || l.approx || l.none ? ['#8f86ff', '#ff6b6b', '#f2c230', '#ff7ac8', '#4ad6c0', '#5ee08a'][k % 6] : col;
-          s.style.setProperty('--cc', n); s.style.setProperty('--cb', n + '33');
+        line.words.forEach((w, k) => { const s = document.createElement('span'); s.className = 'w'; s.textContent = w.text; const rgb = palRGB[k % palRGB.length] || [143, 134, 255], lift = v => Math.round(v + (255 - v) * 0.3);
+          s.style.setProperty('--cc', w.rest ? '#777' : `rgb(${lift(rgb[0])},${lift(rgb[1])},${lift(rgb[2])})`); s.style.setProperty('--cb', w.rest ? 'rgba(119,119,119,.2)' : `rgba(${rgb[0]},${rgb[1]},${rgb[2]},.30)`);
           if (w.grp) { if (!gp) { gp = document.createElement('span'); gp.className = 'gp'; el.appendChild(gp); } gp.appendChild(s); if (!line.words[k + 1] || !line.words[k + 1].grp) gp = null; } else el.appendChild(s); ws.push(s); });
         if (line.words.some(w => w.grp)) { const g = el.querySelector('.gp'); if (g) { const f = g.firstChild, la = g.lastChild; if (f) f.textContent = '[' + f.textContent; if (la) la.textContent = la.textContent + ']'; } }
         el.style.display = 'none'; wheel.appendChild(el); els.push({ el, ws, line, vis: false }); });
@@ -1923,23 +1921,31 @@ body.rp-focus #rp-now { display:block; }
     const loadSync = t => { try { const v = localStorage.getItem(syncKeyOf(t)); return v == null ? null : +v; } catch (e) { return null; } };
     const saveSync = () => { try { if (track) localStorage.setItem(syncKeyOf(track), String(lyr.off)); } catch (e) {} };
     const showAdj = () => { const a = lyr.adj || 0; syncV.textContent = (a >= 0 ? '+' : '') + a.toFixed(1) + 's'; };
-    function nextChorus() { if (!lyr.cands || lyr.cands.length < 2) return; lyr.ci = (lyr.ci + 1) % lyr.cands.length; lyr.off = lyr.cands[lyr.ci]; lyr.adj = 0; lyr.user = true; saveSync(); showAdj(); setSyncLbl(`chorus ${lyr.ci + 1} of ${lyr.cands.length}`); }
-    function adjust(dv) { if (!(lyr.note || lyr.approx)) return; lyr.off += dv; lyr.adj = (lyr.adj || 0) + dv; lyr.user = true; saveSync(); showAdj(); setSyncLbl('your timing'); }
+    function rewindow(force) {                                                      // keep only the lines that are sung during the clip, and rebuild when the clip's position changes
+      if (!lyr.note || !lyr.all) { if (force) build(lyr); return; }
+      const span = isFinite(au.duration) && au.duration > 1 ? au.duration : 30, o = lyr.off;
+      const keep = lyr.all.filter(l => l.t1 > o - 0.3 && l.t0 < o + span + 0.3), sig = keep.length + '|' + (keep.length ? keep[0].t0 : '');
+      if (!force && sig === lyr.winSig) return; lyr.winSig = sig; lyr.lines = keep.length ? keep : lyr.all.slice(0, 1); build(lyr);
+      const Tc = pos() + lyr.off + LEAD; let ci = 0; lyr.lines.forEach((l, i) => { if (Tc >= l.t0) ci = i; }); curPos = ci;
+    }
+    function nextChorus() { if (!lyr.cands || lyr.cands.length < 2) return; lyr.ci = (lyr.ci + 1) % lyr.cands.length; lyr.off = lyr.cands[lyr.ci]; lyr.adj = 0; lyr.user = true; saveSync(); showAdj(); rewindow(); setSyncLbl(`chorus ${lyr.ci + 1} of ${lyr.cands.length}`); }
+    function adjust(dv) { if (!(lyr.note || lyr.approx)) return; lyr.off += dv; lyr.adj = (lyr.adj || 0) + dv; lyr.user = true; saveSync(); showAdj(); rewindow(); setSyncLbl('your timing'); }
     function alignTo(i) {                                                            // "this is the line I am hearing right now"
       const o = els[i]; if (!o || !(lyr.note || lyr.approx)) return; const newOff = o.line.t0 + 0.3 - (pos() + LEAD);
-      lyr.adj = (lyr.adj || 0) + (newOff - lyr.off); lyr.off = newOff; lyr.user = true; saveSync(); showAdj(); setSyncLbl('your timing'); }
+      lyr.adj = (lyr.adj || 0) + (newOff - lyr.off); lyr.off = newOff; lyr.user = true; saveSync(); showAdj(); rewindow(); setSyncLbl('your timing'); }
     const setSyncLbl = txt => { const sp = sync.querySelector('span'); if (sp) sp.textContent = txt || 'lyrics timing'; };
     function setTrack() {
-      const t = track, img = cur.img; pal = palette(img); const seed = t ? t.title + t.artist : 'needle drop';
+      const t = track, img = cur.img; pal = palette(img); palRGB = pal.map(rgbOf); const seed = t ? t.title + t.artist : 'needle drop';
       tex = marble(pal, seed);
       mT.textContent = t ? t.title : 'Needle Drop'; mA.textContent = t ? t.artist : 'Iso-Glow Sessions'; nudge = 0; syncV.textContent = '+0.0s';
       if (!t) { lyr = defaultLyrics(); build(lyr); return; }
       lyr = { lines: [{ label: '', words: [{ text: 'finding', t0: 0, grp: 0 }, { text: 'lyrics…', t0: 1, grp: 0 }], t0: 0, t1: 60 }], off: 0, note: false }; build(lyr);
       const mine = t; prep(mine); setSyncLbl('finding the timing…');
-      mine.lyricsP.then(res => { if (track !== mine) return; lyr = lyricsFrom(res, mine); build(lyr); const saved = loadSync(mine);
-        if (saved != null && (lyr.note || lyr.approx)) { lyr.off = saved; lyr.user = true; showAdj(); setSyncLbl('your timing'); return; }
+      mine.lyricsP.then(res => { if (track !== mine) return; lyr = lyricsFrom(res, mine); lyr.all = lyr.lines; const saved = loadSync(mine);
+        if (saved != null && (lyr.note || lyr.approx)) { lyr.off = saved; lyr.user = true; rewindow(true); showAdj(); setSyncLbl('your timing'); return; }
+        rewindow(true);
         setSyncLbl(lyr.note ? (lyr.cands && lyr.cands.length ? 'starting from the chorus…' : 'finding the timing…') : lyr.approx ? 'timing is approximate · click the line you hear' : '');
-        mine.syncP.then(off => { if (track !== mine || !lyr.note || lyr.user) return; if (off != null) { lyr.off = off; setSyncLbl('in sync with the song'); } else setSyncLbl(lyr.cands && lyr.cands.length > 1 ? 'aligned to a chorus · wrong one? try chorus ⟳' : 'timing is approximate · click the line you hear'); }); });
+        mine.syncP.then(off => { if (track !== mine || !lyr.note || lyr.user) return; if (off != null) { lyr.off = off; rewindow(); setSyncLbl('in sync with the song'); } else setSyncLbl(lyr.cands && lyr.cands.length > 1 ? 'aligned to a chorus · wrong one? try chorus ⟳' : 'timing is approximate · click the line you hear'); }); });
     }
 
     // ── drawing ──
@@ -2009,12 +2015,11 @@ body.rp-focus #rp-now { display:block; }
           o.ws.forEach((s, k) => { s.classList.toggle('past', k < wi); s.classList.toggle('cur', k === wi); s.classList.toggle('was', k === wi - 1); }); }
       });
     }
-    function updateMarker(now, dt, g, T) {                                            // the small orb that hops from word to word
-      if (lyr.end != null && T >= lyr.end) { mk.style.opacity = '0'; return; }
+    function updateMarker(now, dt, g) {                                              // the little square that hops from word to word
       const o = els[idxNow]; if (!o || !o.vis) { mk.style.opacity = '0'; return; }
       const k = Math.max(0, o.wi == null ? 0 : o.wi), tok = o.ws[k]; if (!tok) { mk.style.opacity = '0'; return; }
       const r = tok.getBoundingClientRect(), fs = parseFloat(getComputedStyle(o.el).fontSize) || 30, phi = (idxNow - curPos) * g.step * (Math.abs((idxNow - curPos) * g.step) > Math.PI / 2 ? 1 : 1);
-      const tx = r.left + r.width / 2 + Math.sin(phi) * fs * 1.12, ty = r.top + r.height / 2 - Math.cos(phi) * fs * 1.12;
+      const tx = r.left + r.width / 2 + Math.sin(phi) * fs * 1.0, ty = r.top + r.height / 2 - Math.cos(phi) * fs * 1.0;
       if (tok !== M.el) {                                                            // a new word: take off from where we are
         const first = M.el === null, sameLine = M.el && o.ws.includes(M.el), nextW = o.line.words[k + 1], gap = nextW ? nextW.t0 - o.line.words[k].t0 : 0.3;
         M.fx = first ? tx : M.x; M.fy = first ? ty : M.y; M.t = first || REDUCED ? 1 : 0; M.dur = sameLine ? Math.max(0.16, Math.min(0.34, gap * 0.8)) : 0.42;
@@ -2023,15 +2028,17 @@ body.rp-focus #rp-now { display:block; }
       }
       if (M.t < 1) M.t = Math.min(1, M.t + dt / M.dur);
       const e = M.t * M.t * (3 - 2 * M.t), x = M.fx + (tx - M.fx) * e, y = M.fy + (ty - M.fy) * e - Math.sin(Math.PI * M.t) * M.h;
-      const idle = M.t >= 1, bob = idle && playing() && !REDUCED ? Math.sin(now / 240) * 0.18 * fs * 0.35 : 0, rot = idle ? 0 : 90 * e, sc = idle ? 1 : 1 + 0.35 * Math.sin(Math.PI * M.t);
+      const idle = M.t >= 1, bob = idle && playing() && !REDUCED ? Math.sin(now / 240) * 0.1 * fs : 0, fl = Math.sin(Math.PI * M.t), land = M.t > 0.86 && !idle ? Math.sin(Math.PI * (M.t - 0.86) / 0.14) : 0;
+      const sx = idle ? 1 : 1 - 0.16 * fl + 0.22 * land, sy = idle ? 1 : 1 + 0.26 * fl - 0.26 * land;                // stretches in the air, squashes on landing
       M.x = x; M.y = y + bob; mk.style.opacity = '1';
-      mk.style.transform = `translate(${x}px, ${y + bob}px) translate(-50%, -50%) rotate(${rot}deg) scale(${sc})`;
+      mk.style.transform = `translate(${x}px, ${y + bob}px) translate(-50%, -50%) scale(${sx.toFixed(3)}, ${sy.toFixed(3)})`;
     }
     const fmt2 = s => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
     function frame(now, dt) {
       if (W !== innerWidth || H !== innerHeight) resize();
       const k = (track ? track.title + '|' + track.artist : 'def') + (cur.img ? 'i' : '');
       if (k !== key) { key = k; setTrack(); }
+      if (lyr.note && !lyr.winDur && isFinite(au.duration) && au.duration > 1) { lyr.winDur = true; rewindow(); }          // the clip's real length is known now
       const t = pos(), d = dur(), p = Math.max(0, Math.min(1, t / d)), pn = performance.now();
       if (t !== clk.a) { clk.a = t; clk.s = pn; }                                    // the audio clock only ticks every so often: carry it forward smoothly between ticks
       const rate = track ? au.playbackRate : Math.max(0, st.rpm / 33.333), ahead = playing() ? Math.min(0.12, (pn - clk.s) / 1000 * rate) : 0, T = t + ahead + lyr.off + nudge + LEAD;
@@ -2039,7 +2046,7 @@ body.rp-focus #rp-now { display:block; }
       if (sigNow === lastSig && st.rpm < 0.02 && !drag) { npStill = true; return; } lastSig = sigNow; npStill = false;          // nothing changed: skip the redraw
       const g = geom(); cx.setTransform(dpr, 0, 0, dpr, 0, 0); cx.clearRect(0, 0, W, H);
       drawDial(p, g); drawDisc(-rotA, p, dt, g); drawArm(g);
-      updateWheel(T, dt, g); updateMarker(now, dt, g, T);
+      updateWheel(T, dt, g); updateMarker(now, dt, g);
       clB.textContent = fmt2(t); clD.textContent = fmt2(d); ppB.innerHTML = st.on || st.mode === 'play' || st.mode === 'cue' ? ICON_PAUSE : ICON_PLAY;
     }
 

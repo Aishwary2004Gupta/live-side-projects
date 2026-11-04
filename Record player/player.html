@@ -1664,7 +1664,7 @@ body.rp-focus #rp-now { display:block; }
   let wakeUntil = 0, idleN = 0, lowN = 0;
   const wake = (ms = 1500) => { wakeUntil = Math.max(wakeUntil, performance.now() + ms); };
   ['pointerdown', 'pointermove', 'pointerup', 'wheel', 'keydown', 'keyup', 'touchstart', 'touchmove', 'click', 'input', 'resize', 'focusin'].forEach(ev => addEventListener(ev, () => wake(), { capture: true, passive: true }));
-  window.__rpWake = wake;
+  window.__rpWake = wake; wake(4500);                                              // full-rate frames while the page starts up
   window.__rpIdle = () => {
     const busyNow = performance.now() < wakeUntil || st.rpm > 0.02 || st.mode !== 'rest' || st.lift > 0.01 || sw.on || !!pending || !!drag || !!camFly || scratchT > 0 || controls.autoRotate || (typeof camAnim !== 'undefined' && !!camAnim) || NP.moving();
     if (busyNow) { idleN = 0; return !!window.__rpLow && (++lowN & 1) === 1; }       // power saver halves the frame rate while busy
@@ -1677,9 +1677,11 @@ body.rp-focus #rp-now { display:block; }
   }
   const togglePower = () => setQuality(!window.__rpLow, true);
   // Fit the whole scene (deck, crate and cover) into the free area between the bars and panels, so nothing is ever hidden behind the search bar or the side panel
-  let insKey = '', fitDirty = true; const fvt = new THREE.Vector3();
+  let insKey = '', fitDirty = true, compiled = false; const bootT = performance.now(), bootRefits = [250, 900, 2200]; const fvt = new THREE.Vector3();
   const FIT_PTS = [-216, 330].flatMap(x => [-36, 312].flatMap(y => [0, 112].map(z => W(x, y, z))));
   function stepInset() {
+    if (!compiled) { compiled = true; try { renderer.compile(scene, camera); } catch (e) {} }                // build every shader up front so nothing pops in
+    while (bootRefits.length && performance.now() - bootT > bootRefits[0]) { bootRefits.shift(); fitDirty = true; }
     if (camFly || NP.open) return;                                                  // wait for a camera move to finish; the lyrics view covers the scene anyway
     const focus = document.body.classList.contains('rp-focus'), Wd = innerWidth, Ht = innerHeight; let Lf = 20, Rr = 20, Tp = 14, Bt = 14;
     if (!focus) {
@@ -1690,9 +1692,10 @@ body.rp-focus #rp-now { display:block; }
       Bt = vis(dock) ? Ht - dock.getBoundingClientRect().top + 18 : 20;
     }
     const k = [Wd, Ht, Lf, Rr, Tp, Bt, focus, camera === ortho].join('|'); if (k === insKey && !fitDirty) return; insKey = k; fitDirty = false;
-    const cam = camera; cam.clearViewOffset(); cam.zoom = 1; cam.updateProjectionMatrix(); cam.updateMatrixWorld(true);
+    const cam = camera; cam.clearViewOffset(); cam.zoom = 1; cam.lookAt(controls.target); cam.updateProjectionMatrix(); cam.updateMatrixWorld(true);       // point it at the scene first: in the very first frame it has not been aimed yet
     let mnx = 1e9, mxx = -1e9, mny = 1e9, mxy = -1e9;
     FIT_PTS.forEach(p => { fvt.copy(p).project(cam); mnx = Math.min(mnx, fvt.x); mxx = Math.max(mxx, fvt.x); mny = Math.min(mny, fvt.y); mxy = Math.max(mxy, fvt.y); });
+    if (!(mxx - mnx > 1e-4) || !(mxy - mny > 1e-4) || !isFinite(mxx + mnx + mxy + mny)) { fitDirty = true; return; }
     const Wf = Wd - Lf - Rr, Hf = Ht - Tp - Bt, z = Math.max(0.35, Math.min(3, Math.min(2 * Wf / Wd / (mxx - mnx), 2 * Hf / Ht / (mxy - mny)) * 0.97));
     cam.zoom = z; cam.updateProjectionMatrix();
     const cxN = (mnx + mxx) / 2 * z, cyN = (mny + mxy) / 2 * z, fx = (Lf + Wd - Rr) / Wd - 1, fy = -((Tp + Ht - Bt) / Ht - 1);   // centre the scene in the free area
@@ -2393,7 +2396,7 @@ render();
 document.querySelectorAll('.seg button').forEach(b => { b.hidden = !SHOW_FIGS.includes(b.dataset.fig); });
 if (SHOW_FIGS.length < 2) document.querySelector('.seg').hidden = true;   // one figure: no tab bar
 setFigure(SHOW_FIGS.includes(load('fig')) ? load('fig') : SHOW_FIGS[0]);
-document.body.classList.add('rp-ready'); setTimeout(() => { const l = document.getElementById('rp-loading'); if (l) l.remove(); }, 700);
+document.body.classList.add('rp-ready'); if (window.__rpWake) window.__rpWake(3000); setTimeout(() => { const l = document.getElementById('rp-loading'); if (l) l.remove(); }, 700);
 if (load('ortho') === '1') setOrtho(true, view().dist());
 // ── glow colour: same names and order as the 2D galleries (Ember is the 3D orange); shared choice with them via 'iso-accent' ──
 const ACCENTS3 = [['Ember', '#ff9d3c'], ['Cyan', '#22d3ee'], ['Lime', '#a3e635'], ['Violet', '#a78bfa'], ['Rose', '#fb7185'], ['Ice', '#dfe9ef']];

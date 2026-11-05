@@ -1,139 +1,907 @@
-<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><title>Small Plays — Halloween Night</title>
-<style>:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html,body{margin:0;height:100%;background:#000}body{display:flex;align-items:center;justify-content:center;overflow:hidden}canvas{display:block}</style></head><body>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-<script>
-const T=THREE,PI=Math.PI,W=()=>Math.min(innerWidth,innerHeight);
-const R=new T.WebGLRenderer({antialias:true});R.setPixelRatio(Math.min(devicePixelRatio,2));R.setSize(W(),W());R.setClearColor(0x000000);
-R.shadowMap.enabled=true;R.shadowMap.type=T.PCFSoftShadowMap;R.toneMapping=T.LinearToneMapping;R.toneMappingExposure=.9;R.outputEncoding=T.sRGBEncoding;
-document.body.appendChild(R.domElement);addEventListener('resize',()=>R.setSize(W(),W()));
-const S=new T.Scene(),C=new T.OrthographicCamera(-10.8,10.8,10.8,-10.8,1,60);C.position.set(0,10,12.5);C.lookAt(0,2,0);
-const G=new T.Group();G.rotation.y=PI/4;S.add(G);
-let sd=21;const rnd=()=>{sd|=0;sd=sd+0x6D2B79F5|0;let t=Math.imul(sd^sd>>>15,1|sd);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296};
-const mat=(c,e=0,ei=0,o={})=>new T.MeshStandardMaterial(Object.assign({color:c,roughness:.85,flatShading:true,emissive:e,emissiveIntensity:ei},o));
-const bas=(c,o={})=>new T.MeshBasicMaterial(Object.assign({color:c},o));
-const B=(w,h,d)=>new T.BoxGeometry(w,h,d),Cy=(a,b,h,s=8)=>new T.CylinderGeometry(a,b,h,s),Sp=(r,s=10)=>new T.SphereGeometry(r,s,s*.8|0);
-const add=(p,g,m,x=0,y=0,z=0)=>{const o=new T.Mesh(g,m);o.position.set(x,y,z);o.castShadow=o.receiveShadow=true;p.add(o);return o};
-const grp=(x,y,z,p=G)=>{const g=new T.Group();g.position.set(x,y,z);p.add(g);return g};
-const gt=(()=>{const c=document.createElement('canvas');c.width=c.height=64;const x=c.getContext('2d'),g=x.createRadialGradient(32,32,0,32,32,32);g.addColorStop(0,'rgba(255,255,255,1)');g.addColorStop(.35,'rgba(255,255,255,.35)');g.addColorStop(1,'rgba(255,255,255,0)');x.fillStyle=g;x.fillRect(0,0,64,64);return new T.CanvasTexture(c)})();
-const glow=(p,col,x,y,z,sz,op=.6)=>{const s=new T.Sprite(new T.SpriteMaterial({map:gt,color:col,transparent:true,opacity:op,blending:T.AdditiveBlending,depthWrite:false}));s.position.set(x,y,z);s.scale.setScalar(sz);p.add(s);return s};
-// dim night lighting
-G.add(new T.HemisphereLight(0x3a3470,0x1a0f26,.45));
-const moonL=new T.DirectionalLight(0x7a6cff,.6);moonL.position.set(-6,12,7);moonL.castShadow=true;moonL.shadow.mapSize.set(2048,2048);
-Object.assign(moonL.shadow.camera,{left:-9,right:9,top:9,bottom:-9,near:1,far:40});moonL.shadow.bias=-.0006;G.add(moonL);
-const pl=(c,i,d,x,y,z)=>{const l=new T.PointLight(c,i,d);l.position.set(x,y,z);G.add(l);return l};
-// terrain of rock columns
-const N=20,CS=.5,GH=[],ell=(x,z)=>((x+1.7)/2.8)**2+((z-1.4)/2.3)**2;
-const hAt=(x,z)=>GH[Math.max(0,Math.min(N-1,Math.floor((x+5)/CS)))*N+Math.max(0,Math.min(N-1,Math.floor((z+5)/CS)))];
-const rk=[0x3b3a4a,0x33323f,0x44414f,0x2f2e3a].map(c=>mat(c,0,0,{roughness:.9}));
-const tm={moss:mat(0x3a4a28),moss2:mat(0x2a3a24),leaf:mat(0x9a4a16),sand:mat(0x2e3328),rock:mat(0x55536a)};
-for(let i=0;i<N;i++)for(let j=0;j<N;j++){const x=-4.75+i*CS,z=-4.75+j*CS,e=ell(x,z);let h=.35;
- h+=Math.min(1,Math.max(0,(-z-2.2)/2.4)*3)+Math.min(1,Math.max(0,(x-1.8)/2.4)*1.5)+2.2*Math.exp(-((x-3.5)**2+(z+3.5)**2)/3);
- if(e<1)h=.3+(rnd()-.5)*.06;
- [[-3.2,2.5],[-.6,.9]].forEach(([a,b])=>{if(Math.hypot(x-a,z-b)<.6)h=.5});
- if(!(z>3.7&&e>=1))h+=(rnd()-.5)*.2;GH[i*N+j]=h;
- const r=rk[(rnd()*4)|0],top=e<1?tm.sand:h>2.6?tm.rock:rnd()<.12?tm.leaf:rnd()<.5?tm.moss:tm.moss2,w=CS*(.88+rnd()*.12);
- const m=new T.Mesh(B(w,h+1.2,w),[r,r,top,r,r,r]);m.position.set(x,(h-1.2)/2,z);m.rotation.y=(rnd()-.5)*.2;m.castShadow=m.receiveShadow=true;G.add(m)}
-// water
-// graveyard clearing
-const L2=pl(0x7aff9a,1.3,6,-1.7,1,1.4);
-const mist=[...Array(6)].map(()=>{const m=new T.Mesh(new T.CircleGeometry(.8,14),bas(0x8affa8,{transparent:true,opacity:.2,depthWrite:false}));m.rotation.x=-PI/2;G.add(m);return m});
-// flicker lists
-const fl=[],wins=[],sw=[],tails=[],mush=[],emb=[];
-function pumpkin(x,z,s=1,r=0,y){const g=grp(x,y??hAt(x,z),z);g.rotation.y=r;g.scale.setScalar(s);const m=mat(0xd9620f,0xff6a00,.5),fm=bas(0xffd36a);
- add(g,Sp(.34),m,0,.27,0).scale.y=.8;add(g,Cy(.03,.05,.12,5),mat(0x3a4a1e),0,.56,0);
- [-.12,.12].forEach(ex=>add(g,B(.08,.08,.05),fm,ex,.34,.31).castShadow=false);add(g,B(.2,.06,.05),fm,0,.19,.32).castShadow=false;
- const gl=glow(g,0xff8a1a,0,.35,.1,1.6,.6);fl.push({m,fm,gl,k:[3,5,7][fl.length%3],p:fl.length*1.7})}
-// cottage on plateau
-const cx=-2.9,cz=-3.9,cy=hAt(cx,cz);
-{const g=grp(cx,cy,cz);add(g,B(2,1.3,1.6),mat(0x5a4a55),0,.65,0);
- const roof=add(g,new T.ConeGeometry(1.65,1.2,4),mat(0x4a2a5a),0,1.9,0);roof.rotation.y=PI/4;roof.scale.z=.85;roof.rotation.z=.03;
- add(g,B(.3,.7,.3),mat(0x3e3640),.6,2.1,-.3);add(g,B(.5,.8,.06),mat(0x2b1a10),0,.4,.82);add(g,Cy(.25,.25,.06,10),mat(0x2b1a10),0,.8,.82).rotation.x=PI/2;
- [[-.65,.8,.82,.4,.4,.06],[.65,.8,.82,.4,.4,.06],[1.02,.8,.1,.06,.4,.4]].forEach(a=>{const m=bas(0xffb347);wins.push(m);add(g,B(a[3],a[4],a[5]),m,a[0],a[1],a[2]).castShadow=false;add(g,B(a[3]+.12,a[4]+.12,a[5]+(a[5]>.1?.1:.02)),mat(0x241a20),a[0],a[1],a[2]-(a[5]<.1?.02:0)).castShadow=false});
- glow(g,0xff9a3c,-.65,.8,1.1,1.9,.55);glow(g,0xff9a3c,.65,.8,1.1,1.9,.55);
- const bm=new T.Mesh(new T.ConeGeometry(.6,1.6,12,1,true),bas(0xffa040,{transparent:true,opacity:.1,blending:T.AdditiveBlending,depthWrite:false,side:T.DoubleSide}));bm.rotation.x=-PI/2;bm.position.set(0,.4,1.65);g.add(bm)}
-const L1=pl(0xff9a3c,1.6,6,cx,cy+1.2,cz+.8);
-// jack-o'-lanterns along shore, bundles
-for(let i=0;i<7;i++){const a=1.2+i*.4,x=-1.7+3.05*Math.cos(a),z=1.4+2.45*Math.sin(a);pumpkin(x,z,.8+rnd()*.3,-.8+rnd()*.3)}
-pumpkin(-1.3,-2.7,1.1,-.6);pumpkin(-.8,-3.1,.8,-.9);pumpkin(-1.6,-3.1,.7,-.3);pumpkin(3.2,2.9,1,-.8);pumpkin(-3.5,3.1,1.3,-.8);
-pl(0xff8a2a,1,5,-3.8,1.2,.8);
-// trees
-function br(p,len,r,d,m,lm){const pv=grp(0,0,0,p);add(pv,Cy(r*.6,r,len,5),m,0,len/2,0).castShadow=false;
- if(d==0&&rnd()<.6)add(pv,Sp(.17,5),lm,0,len,0).castShadow=false;
- if(d>0)for(let k=0;k<2+(d>2?1:0);k++){const c=grp(0,len*(.6+.4*rnd()),0,pv);c.rotation.set(0,rnd()*6.3,(rnd()-.5)*1.4);br(c,len*.7,r*.6,d-1,m,lm)}}
-const bkm=mat(0x2a2030),lfm=mat(0xb4501a,0x802a08,.5),trees=[];
-[[-4.3,-1.3,1.8],[1.2,-3.9,1.7],[3.1,.9,1.6]].forEach(([x,z,h],i)=>{const g=grp(x,hAt(x,z),z);g.rotation.z=(i-1)*.06;add(g,Cy(.1,.24,h,6),bkm,0,h/2,0);
- for(let k=0;k<5;k++){const pv=grp(0,h*(.5+.1*k),0,g);pv.rotation.set(0,k*2.4+i,.7+rnd()*.4);br(pv,.8+rnd()*.5,.05,2,bkm,lfm)}trees.push({x,z,y:hAt(x,z),h});
- const bt=mat(0x6a5a90);[[.3,h*.85,0],[-.3,h*.7,.2]].forEach(p=>{const b=grp(x+p[0],hAt(x,z)+p[1]-.1,z+p[2]);add(b,Sp(.07,6),bt).scale.y=1.4;[-1,1].forEach(s=>add(b,B(.04,.14,.1),bt,s*.07,0,0));add(b,Sp(.03,4),bas(0xffcf5a),.02,-.07,.05)})});
-function lantern(p,x,y,z,ph){const pv=grp(x,y,z,p),m=bas(0xffb347);add(pv,Cy(.005,.005,.3,3),bas(0x222222),0,-.15,0);add(pv,B(.2,.26,.2),m,0,-.43,0);add(pv,new T.ConeGeometry(.17,.12,4),mat(0x222222),0,-.25,0);sw.push({pv,ph});wins.push(m);glow(pv,0xffa040,0,-.43,0,1.2,.6)}
-{const t=trees[1];add(G,Cy(.02,.03,.9,4),bkm,t.x-.45,t.y+t.h*.78,t.z).rotation.z=PI/2;lantern(G,t.x-.9,t.y+t.h*.78,t.z,0)}
-{const x=-4.35,z=2.3,g=grp(x,hAt(x,z),z);add(g,Cy(.05,.07,1.6,5),mat(0x3b2a20),0,.8,0);add(g,B(.5,.05,.05),mat(0x3b2a20),.25,1.55,0);lantern(g,.5,1.55,0,2)}
-// web
-{const a=[trees[1].x,trees[1].y+2,trees[1].z],b=[trees[2].x,trees[2].y+2,trees[2].z],P=[];for(let k=0;k<3;k++){const p=[];for(let i=0;i<=12;i++){const u=i/12;p.push(new T.Vector3(a[0]+(b[0]-a[0])*u,a[1]+(b[1]-a[1])*u-k*.25-.3*Math.sin(u*PI),a[2]+(b[2]-a[2])*u))}P.push(p);
- G.add(new T.Line(new T.BufferGeometry().setFromPoints(p),new T.LineBasicMaterial({color:0xcfcaf0,transparent:true,opacity:.7})))}
- const sg=[];for(let i=1;i<12;i+=2)sg.push(P[0][i],P[2][i]);G.add(new T.LineSegments(new T.BufferGeometry().setFromPoints(sg),new T.LineBasicMaterial({color:0xcfcaf0,transparent:true,opacity:.5})))}
-// graves, cats, fence, mushrooms, fire pit
-function grave(x,z,r,w=.4,h=.55){const g=grp(x,hAt(x,z),z);g.rotation.set(0,r,(rnd()-.5)*.2);const m=mat(0x8a889c);add(g,B(w,h,.12),m,0,h/2,0);add(g,Cy(w/2,w/2,.12,10),m,0,h,0).rotation.x=PI/2}
-grave(-.8,-3,-.4);grave(-.1,-3.6,.3,.5,.7);grave(-1,-4.2,-.2,.35,.45);
-const bub=[],hands=[];
-[[-3.3,.2,.4],[-2,-.9,-.3],[-.9,-.1,.2],[-.2,1,-.5],[-3.7,1.6,.6],[-2.9,2.4,-.2],[-.5,2.6,.3]].forEach(([x,z,r])=>grave(x,z,r,.35+rnd()*.2,.4+rnd()*.35));
-{const x0=-1.7,z0=1.4,y0=hAt(x0,z0),cm=mat(0x16131a,0,0,{metalness:.5,roughness:.4});add(G,Cy(.55,.4,.85,12),cm,x0,y0+.5,z0);add(G,new T.TorusGeometry(.55,.05,6,14),cm,x0,y0+.93,z0).rotation.x=PI/2;add(G,Cy(.52,.52,.03,14),mat(0x3dff7a,0x3dff7a,1.8),x0,y0+.9,z0);[0,2,4].forEach(k=>add(G,Cy(.05,.04,.2,4),cm,x0+Math.cos(k)*.35,y0+.1,z0+Math.sin(k)*.35));glow(G,0x4dff8a,x0,y0+1.1,z0,2.8,.65);
- for(let i=0;i<3;i++){const a=i*2.2+.5;add(G,Sp(.14,6),mat(0xe8e2d0),x0+Math.cos(a)*1,y0+.14,z0+Math.sin(a)*1)}
- for(let i=0;i<3;i++){const m=new T.Mesh(new T.SphereGeometry(.07,6,5),bas(0x9dffb0));G.add(m);bub.push({m,x:x0,y:y0+.95,z:z0,i})}}
-[[-3,1],[-.9,2.4],[-2.4,-.4]].forEach(([x,z],i)=>{const g=grp(x,hAt(x,z),z),m=mat(0xe8e2c8);g.rotation.y=i*2;add(g,Cy(.04,.05,.5,5),m,0,.2,0);const h=grp(0,.45,0,g);add(h,B(.1,.08,.04),m);[-.04,-.013,.013,.04].forEach(f=>{add(h,Cy(.008,.012,.12,4),m,f,.09,0).rotation.z=f*3});hands.push({h,i})});
-const spd=grp((trees[1].x+trees[2].x)/2,(trees[1].y+trees[2].y)/2+1.7,(trees[1].z+trees[2].z)/2);spd.userData.by=spd.position.y;{const spm=mat(0x14101c);add(spd,Sp(.1,6),spm).scale.set(1,.8,1.2);for(let k=0;k<8;k++){const l=add(spd,Cy(.008,.008,.25,3),spm,Math.cos(k*.8)*.12,0,Math.sin(k*.8)*.12);l.rotation.z=Math.cos(k*.8)*1.1;l.rotation.x=Math.sin(k*.8)*1.1}add(spd,Cy(.004,.004,.9,3),bas(0xcfcaf0),0,.45,0)}
-function cat(x,y,z,r){const g=grp(x,y,z);g.rotation.y=r;const m=mat(0x15111c);add(g,Sp(.16),m,0,.14,0).scale.set(1,1,1.3);add(g,Sp(.11),m,0,.3,.16);
- [-.06,.06].forEach(e=>{add(g,new T.ConeGeometry(.04,.09,4),m,e,.42,.16);add(g,Sp(.02,4),bas(0x9dff5a),e*.8,.32,.26)});const tp=grp(0,.1,-.2,g);add(tp,Cy(.02,.025,.3,4),m,0,.15,0);tails.push(tp)}
-cat(-1.6,cy+.1,-2.8,-.6);cat(-.1,hAt(-.1,-3.6)+.7,-3.6,-.5);
-{const m=mat(0x8a5a2d);for(let i=0;i<6;i++){const x=-4.5+i*.55,z=-2.3;const g=grp(x,hAt(x,z),z);add(g,B(.09,.55,.09),m,0,.27,0);if(i<5){add(g,B(.55,.06,.04),m,.27,.2,0);add(g,B(.55,.06,.04),m,.27,.4,0)}}}
-[[-2.6,-.4,0x35f0c8],[1.4,3,0xb98cff],[3.9,2.6,0x35f0c8],[2.4,-1.8,0xb98cff]].forEach(([x,z,c],i)=>{const g=grp(x,hAt(x,z),z);g.scale.setScalar(1.2);add(g,Cy(.04,.05,.2,5),mat(0xe8e0d0),0,.1,0);const m=mat(c,c,1.2);add(g,new T.SphereGeometry(.12,8,6,0,PI*2,0,PI/2),m,0,.18,0);glow(g,c,0,.2,0,.7,.4);mush.push({m,p:i})});
-{const fx=1.2,fz=3.8,fy=hAt(fx,fz);for(let i=0;i<9;i++){const a=i/9*PI*2;add(G,Sp(.14,5),mat(0x8a889c),fx+Math.cos(a)*.5,fy+.1,fz+Math.sin(a)*.5).scale.y=.8}
- add(G,Cy(.4,.4,.05,12),mat(0x1a1214),fx,fy+.03,fz);for(let i=0;i<6;i++){const m=bas(0xff5a1a);add(G,Sp(.08,5),m,fx+Math.cos(i*1.05)*.2,fy+.1,fz+Math.sin(i*1.05)*.2).castShadow=false;emb.push(m)}
- [0,1.5].forEach(r=>{const l=add(G,Cy(.05,.05,.6,5),mat(0x3b2418),fx,fy+.12,fz);l.rotation.set(0,r,PI/2)});glow(G,0xff6a1a,fx,fy+.3,fz,2.2,.6);pl(0xff7a2a,1.3,5,fx,fy+.7,fz)}
-// moon sculpture on the peak
-const mx=3.5,mz=-3.5,my=hAt(mx,mz),moon=grp(mx,my,mz);
-add(moon,Cy(.15,.25,.8,6),mat(0x6e6a80),0,.4,0);add(moon,Sp(1,18),mat(0xffc870,0xffa840,1.2),0,1.8,0);
-for(let i=0;i<6;i++){const a=.2+i*.6,e=(i%3-1)*.35;if(Math.cos(a)>-.2)add(moon,Sp(.22,6),mat(0xe0b060,0xd89a40,.5),Math.cos(a)*Math.cos(e)*.95,1.8+Math.sin(e)*.95,Math.sin(a)*Math.cos(e)*.95).scale.setScalar(.8)}
-glow(moon,0xffa840,0,1.8,0,5,.6);const L3=pl(0xff9a4a,1.2,7,mx,my+1.8,mz);
-const spk=[...Array(10)].map((_,i)=>{const a=i*2.4,m=new T.Mesh(new T.OctahedronGeometry(.07),bas(0xffe9a0));m.position.set(mx+Math.cos(a)*(1.2+(i%3)*.25),my+.8+((i*7)%10)*.2,mz+Math.sin(a)*(1.2+(i%3)*.25));G.add(m);return m});
-// ghosts, bats, kids
-const gh=[0,PI*2/3,PI*4/3].map(o=>{const g=grp(0,0,0),m=mat(0xdbe2ff,0x9fb4ff,.6,{transparent:true,opacity:.9});add(g,Sp(.3),m,0,.3,0);add(g,Cy(.3,.38,.4,10),m,0,.1,0);
- add(g,Sp(.045,5),bas(0x111122),-.1,.36,.26);add(g,Sp(.045,5),bas(0x111122),.1,.36,.26);add(g,Sp(.06,5),bas(0x111122),0,.24,.28).scale.y=1.3;return{g,o}});
-const batsF=[[1.2,-3.9,1,cy+3.2],[-2.9,-3.9,.9,cy+3.2],[-1.7,1.4,1.3,3.2]].map(([x,z,r,y],i)=>{const g=grp(0,0,0),m=mat(0x6a5a90);add(g,Sp(.09,6),m).scale.z=1.6;const w=[-1,1].map(s=>{const p=grp(s*.06,0,0,g);add(p,B(.3,.02,.14),m,s*.15,0,0);return[p,s]});return{g,w,x,z,r,y,o:i*2}});
-const kids=[];
-function kid(kind,ph){const g=grp(0,0,0);g.scale.setScalar(1.15);const bd=kind==0?mat(0xf5f5ff,0xaaccff,.5):kind==1?mat(0x5b2f8a):mat(0x3a2a6a);
- add(g,Cy(kind==0?.12:.08,.17,.3,8),bd,0,.17,0);
- if(kind==0){add(g,Sp(.13,8),bd,0,.38,0);[-.05,.05].forEach(e=>add(g,Sp(.02,4),bas(0),e,.4,.11))}
- else{add(g,Sp(.1,8),kind==1?mat(0x7ad05a):mat(0xd9620f,0xff6a00,.6),0,.38,0);
-  if(kind==1){add(g,Cy(.16,.16,.02,10),bd,0,.45,0);add(g,new T.ConeGeometry(.1,.26,8),bd,0,.58,0).rotation.z=.15}
-  else{[-.04,.04].forEach(e=>add(g,B(.03,.03,.02),bas(0xffd36a),e,.4,.09));add(g,Cy(.015,.02,.06,4),mat(0x3a4a1e),0,.48,0)}}
- const bk=grp(.16,.2,.04,g);add(bk,Cy(.05,.04,.08,8),mat(0xd9620f,0xff6a00,.9));add(bk,new T.TorusGeometry(.04,.004,4,8),bas(0x222222),0,.06,0);kids.push({g,ph})}
-kid(0,0);kid(1,.5);kid(2,1);
-// leaves, fireflies, stars
-const lc=[0xe8661a,0xc92d1c,0xf0a02a,0xb8481a];
-const dl=[...Array(18)].map((_,i)=>({m:add(G,B(.16,.015,.1),mat(lc[i%4]),0,0,0),sx:rnd()*10,sz:rnd()*9-4.5,ph:rnd()*6,dz:(rnd()-.5)*2}));
-const ff=[...Array(12)].map((_,i)=>{const m=new T.Mesh(new T.SphereGeometry(.05,6,5),bas(i%3?0xe8ff7a:0xc9a0ff));G.add(m);return{m,cx:-3+rnd()*6,cz:-3+rnd()*6,ax:.6+rnd()*1.2,az:.6+rnd()*1.2,i1:1+(i%3),i2:1+((i+1)%3),ph:rnd()*6,y:.8+rnd()*2.2}});
-const st=[...Array(18)].map(()=>{const m=new T.Mesh(new T.SphereGeometry(.035,5,4),bas(0xfff4c2));m.position.set(-4.6+rnd()*9.2,7+rnd()*2,-4.6+rnd()*9.2);G.add(m);return{m,ph:rnd()*6}});
-// animate
-function frame(){const t=(performance.now()/1000)%10,P=t/10*PI*2,s=Math.sin,c=Math.cos;
- G.rotation.y=PI/4+.07*s(P);
- 
- fl.forEach(f=>{const v=s(P*f.k+f.p)*.5+s(P*(f.k+2)+f.p*2)*.3;f.fm.color.setRGB(1,.8+.1*v,.35+.1*v);f.m.emissiveIntensity=.55+.3*v;f.gl.material.opacity=.5+.25*v});
- wins.forEach((m,i)=>{const v=.5+.5*s(P*(3+i%3)+i)*.6;m.color.setRGB(1,.75+.15*v,.3+.1*v).multiplyScalar(1+.3*v)});
- L1.intensity=1.6+.4*s(P*3)+.2*s(P*5);L2.intensity=1.4+.3*s(P*4);L3.intensity=1.2+.2*s(P*2);
- emb.forEach((m,i)=>m.color.setRGB(1,.25+.2*s(P*(2+i%3)+i),.05));
- sw.forEach(o=>{o.pv.rotation.z=.15*s(P*2+o.ph);o.pv.rotation.x=.08*s(P*3+o.ph)});
- tails.forEach((t,i)=>t.rotation.z=.4*s(P*2+i));
- mush.forEach(o=>o.m.emissiveIntensity=1+.6*s(P*2+o.p*1.3));
- mist.forEach((m,i)=>{const a=P+i*1.05,r=.9+.5*s(P*2+i);m.position.set(-1.7+c(a)*r*1.4,.55+.05*(i%3),1.4+s(a)*r);m.rotation.z=P+i;m.material.opacity=.15+.06*s(P*2+i)});
- gh.forEach((o,i)=>{const a=P+o.o;o.g.position.set(cx+c(a)*1.9,cy+1.8+.25*s(P*2+o.o),cz+s(a)*.9);o.g.rotation.y=-a-PI/2;o.g.rotation.z=.1*s(P*3+i)});
- batsF.forEach(b=>{const a=P+b.o;b.g.position.set(b.x+c(a)*b.r,b.y+.2*s(P*2+b.o),b.z+s(a)*b.r);b.g.rotation.y=-a;b.w.forEach(([w,sg])=>w.rotation.z=sg*.7*s(P*20))});
- kids.forEach(k=>{const a=P-k.ph,sg=Math.max(-1,Math.min(1,s(a)*6));k.g.position.set(-1.9-2.1*c(a),.4+Math.abs(s(P*10+k.ph))*.04,4.35);k.g.rotation.y=PI/2*sg});
- dl.forEach((l,i)=>{const u=(l.sx+t)%10,x=u-5,z=Math.max(-4.6,Math.min(4.6,l.sz+l.dz*(t/10)+.3*s(P+l.ph))),e=Math.max(0,Math.min(1,Math.min(u,10-u)*2));
-  l.m.position.set(x,Math.max(hAt(x,z),.05)+.2+.1*s(P*2+l.ph),z);l.m.rotation.set(P*(1+i%2)+l.ph,P*2+l.ph,0);l.m.scale.setScalar(e)});
- ff.forEach(f=>{f.m.position.set(f.cx+f.ax*s(P*f.i1+f.ph),f.y+.3*s(P*2+f.ph),f.cz+f.az*s(P*f.i2+f.ph*2));f.m.scale.setScalar(.6+.6*Math.abs(s(P*3+f.ph)))});
- bub.forEach(b=>{const u=(P/PI/2+b.i/3)%1;b.m.position.set(b.x+.2*s(u*6+b.i),b.y+u*1.2,b.z+.2*c(u*6+b.i));b.m.scale.setScalar(1-u*.8)});hands.forEach(o=>o.h.rotation.z=.25*s(P*2+o.i));spd.position.y=spd.userData.by-.25*(1+s(P));
- st.forEach(o=>o.m.scale.setScalar(.5+.8*Math.abs(s(P*2+o.ph))));
- spk.forEach((m,i)=>{const v=Math.max(0,s(P*2+i*.9));m.scale.setScalar(v*1.2+.01);m.rotation.y=P*2+i});
- R.render(S,C);requestAnimationFrame(frame)}
-frame();
-</script></body></html>
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover"
+    />
+    <title>Small Plays — Halloween Night</title>
+    <style>
+      :root {
+        box-sizing: border-box;
+        padding-top: env(safe-area-inset-top, 0px);
+        padding-bottom: env(safe-area-inset-bottom, 0px);
+      }
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+        background: #000;
+      }
+      body {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+      }
+      canvas {
+        display: block;
+      }
+    </style>
+  </head>
+  <body>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script>
+      const T = THREE,
+        PI = Math.PI,
+        W = () => Math.min(innerWidth, innerHeight);
+      const R = new T.WebGLRenderer({ antialias: true });
+      R.setPixelRatio(Math.min(devicePixelRatio, 2));
+      R.setSize(W(), W());
+      R.setClearColor(0x000000);
+      R.shadowMap.enabled = true;
+      R.shadowMap.type = T.PCFSoftShadowMap;
+      R.toneMapping = T.LinearToneMapping;
+      R.toneMappingExposure = 0.9;
+      R.outputEncoding = T.sRGBEncoding;
+      document.body.appendChild(R.domElement);
+      addEventListener("resize", () => R.setSize(W(), W()));
+      const S = new T.Scene(),
+        C = new T.OrthographicCamera(-10.8, 10.8, 10.8, -10.8, 1, 60);
+      C.position.set(0, 10, 12.5);
+      C.lookAt(0, 2, 0);
+      const G = new T.Group();
+      G.rotation.y = PI / 4;
+      S.add(G);
+      let sd = 21;
+      const rnd = () => {
+        sd |= 0;
+        sd = (sd + 0x6d2b79f5) | 0;
+        let t = Math.imul(sd ^ (sd >>> 15), 1 | sd);
+        t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+      };
+      const mat = (c, e = 0, ei = 0, o = {}) =>
+        new T.MeshStandardMaterial(
+          Object.assign(
+            {
+              color: c,
+              roughness: 0.85,
+              flatShading: true,
+              emissive: e,
+              emissiveIntensity: ei,
+            },
+            o,
+          ),
+        );
+      const bas = (c, o = {}) =>
+        new T.MeshBasicMaterial(Object.assign({ color: c }, o));
+      const B = (w, h, d) => new T.BoxGeometry(w, h, d),
+        Cy = (a, b, h, s = 8) => new T.CylinderGeometry(a, b, h, s),
+        Sp = (r, s = 10) => new T.SphereGeometry(r, s, (s * 0.8) | 0);
+      const add = (p, g, m, x = 0, y = 0, z = 0) => {
+        const o = new T.Mesh(g, m);
+        o.position.set(x, y, z);
+        o.castShadow = o.receiveShadow = true;
+        p.add(o);
+        return o;
+      };
+      const grp = (x, y, z, p = G) => {
+        const g = new T.Group();
+        g.position.set(x, y, z);
+        p.add(g);
+        return g;
+      };
+      const gt = (() => {
+        const c = document.createElement("canvas");
+        c.width = c.height = 64;
+        const x = c.getContext("2d"),
+          g = x.createRadialGradient(32, 32, 0, 32, 32, 32);
+        g.addColorStop(0, "rgba(255,255,255,1)");
+        g.addColorStop(0.35, "rgba(255,255,255,.35)");
+        g.addColorStop(1, "rgba(255,255,255,0)");
+        x.fillStyle = g;
+        x.fillRect(0, 0, 64, 64);
+        return new T.CanvasTexture(c);
+      })();
+      const glow = (p, col, x, y, z, sz, op = 0.6) => {
+        const s = new T.Sprite(
+          new T.SpriteMaterial({
+            map: gt,
+            color: col,
+            transparent: true,
+            opacity: op,
+            blending: T.AdditiveBlending,
+            depthWrite: false,
+          }),
+        );
+        s.position.set(x, y, z);
+        s.scale.setScalar(sz);
+        p.add(s);
+        return s;
+      };
+      // dim night lighting
+      G.add(new T.HemisphereLight(0x3a3470, 0x1a0f26, 0.45));
+      const moonL = new T.DirectionalLight(0x7a6cff, 0.6);
+      moonL.position.set(-6, 12, 7);
+      moonL.castShadow = true;
+      moonL.shadow.mapSize.set(2048, 2048);
+      Object.assign(moonL.shadow.camera, {
+        left: -9,
+        right: 9,
+        top: 9,
+        bottom: -9,
+        near: 1,
+        far: 40,
+      });
+      moonL.shadow.bias = -0.0006;
+      G.add(moonL);
+      const pl = (c, i, d, x, y, z) => {
+        const l = new T.PointLight(c, i, d);
+        l.position.set(x, y, z);
+        G.add(l);
+        return l;
+      };
+      // terrain of rock columns
+      const N = 20,
+        CS = 0.5,
+        GH = [],
+        ell = (x, z) => ((x + 1.7) / 2.8) ** 2 + ((z - 1.4) / 2.3) ** 2;
+      const hAt = (x, z) =>
+        GH[
+          Math.max(0, Math.min(N - 1, Math.floor((x + 5) / CS))) * N +
+            Math.max(0, Math.min(N - 1, Math.floor((z + 5) / CS)))
+        ];
+      const rk = [0x3b3a4a, 0x33323f, 0x44414f, 0x2f2e3a].map((c) =>
+        mat(c, 0, 0, { roughness: 0.9 }),
+      );
+      const tm = {
+        moss: mat(0x3a4a28),
+        moss2: mat(0x2a3a24),
+        leaf: mat(0x9a4a16),
+        sand: mat(0x2e3328),
+        rock: mat(0x55536a),
+      };
+      for (let i = 0; i < N; i++)
+        for (let j = 0; j < N; j++) {
+          const x = -4.75 + i * CS,
+            z = -4.75 + j * CS,
+            e = ell(x, z);
+          let h = 0.35;
+          h +=
+            Math.min(1, Math.max(0, (-z - 2.2) / 2.4) * 3) +
+            Math.min(1, Math.max(0, (x - 1.8) / 2.4) * 1.5) +
+            2.2 * Math.exp(-((x - 3.5) ** 2 + (z + 3.5) ** 2) / 3);
+          if (e < 1) h = 0.3 + (rnd() - 0.5) * 0.06;
+          [
+            [-3.2, 2.5],
+            [-0.6, 0.9],
+          ].forEach(([a, b]) => {
+            if (Math.hypot(x - a, z - b) < 0.6) h = 0.5;
+          });
+          if (!(z > 3.7 && e >= 1)) h += (rnd() - 0.5) * 0.2;
+          GH[i * N + j] = h;
+          const r = rk[(rnd() * 4) | 0],
+            top =
+              e < 1
+                ? tm.sand
+                : h > 2.6
+                  ? tm.rock
+                  : rnd() < 0.12
+                    ? tm.leaf
+                    : rnd() < 0.5
+                      ? tm.moss
+                      : tm.moss2,
+            w = CS * (0.88 + rnd() * 0.12);
+          const m = new T.Mesh(B(w, h + 1.2, w), [r, r, top, r, r, r]);
+          m.position.set(x, (h - 1.2) / 2, z);
+          m.rotation.y = (rnd() - 0.5) * 0.2;
+          m.castShadow = m.receiveShadow = true;
+          G.add(m);
+        }
+      // water
+      // graveyard clearing
+      const L2 = pl(0x7aff9a, 1.3, 6, -1.7, 1, 1.4);
+      const mist = [...Array(6)].map(() => {
+        const m = new T.Mesh(
+          new T.CircleGeometry(0.8, 14),
+          bas(0x8affa8, { transparent: true, opacity: 0.2, depthWrite: false }),
+        );
+        m.rotation.x = -PI / 2;
+        G.add(m);
+        return m;
+      });
+      // flicker lists
+      const fl = [],
+        wins = [],
+        sw = [],
+        tails = [],
+        mush = [],
+        emb = [];
+      function pumpkin(x, z, s = 1, r = 0, y) {
+        const g = grp(x, y ?? hAt(x, z), z);
+        g.rotation.y = r;
+        g.scale.setScalar(s);
+        const m = mat(0xd9620f, 0xff6a00, 0.5),
+          fm = bas(0xffd36a);
+        add(g, Sp(0.34), m, 0, 0.27, 0).scale.y = 0.8;
+        add(g, Cy(0.03, 0.05, 0.12, 5), mat(0x3a4a1e), 0, 0.56, 0);
+        [-0.12, 0.12].forEach(
+          (ex) =>
+            (add(g, B(0.08, 0.08, 0.05), fm, ex, 0.34, 0.31).castShadow =
+              false),
+        );
+        add(g, B(0.2, 0.06, 0.05), fm, 0, 0.19, 0.32).castShadow = false;
+        const gl = glow(g, 0xff8a1a, 0, 0.35, 0.1, 1.6, 0.6);
+        fl.push({ m, fm, gl, k: [3, 5, 7][fl.length % 3], p: fl.length * 1.7 });
+      }
+      // cottage on plateau
+      const cx = -2.9,
+        cz = -3.9,
+        cy = hAt(cx, cz);
+      {
+        const g = grp(cx, cy, cz);
+        add(g, B(2, 1.3, 1.6), mat(0x5a4a55), 0, 0.65, 0);
+        const roof = add(
+          g,
+          new T.ConeGeometry(1.65, 1.2, 4),
+          mat(0x4a2a5a),
+          0,
+          1.9,
+          0,
+        );
+        roof.rotation.y = PI / 4;
+        roof.scale.z = 0.85;
+        roof.rotation.z = 0.03;
+        add(g, B(0.3, 0.7, 0.3), mat(0x3e3640), 0.6, 2.1, -0.3);
+        add(g, B(0.5, 0.8, 0.06), mat(0x2b1a10), 0, 0.4, 0.82);
+        add(
+          g,
+          Cy(0.25, 0.25, 0.06, 10),
+          mat(0x2b1a10),
+          0,
+          0.8,
+          0.82,
+        ).rotation.x = PI / 2;
+        [
+          [-0.65, 0.8, 0.82, 0.4, 0.4, 0.06],
+          [0.65, 0.8, 0.82, 0.4, 0.4, 0.06],
+          [1.02, 0.8, 0.1, 0.06, 0.4, 0.4],
+        ].forEach((a) => {
+          const m = bas(0xffb347);
+          wins.push(m);
+          add(g, B(a[3], a[4], a[5]), m, a[0], a[1], a[2]).castShadow = false;
+          add(
+            g,
+            B(a[3] + 0.12, a[4] + 0.12, a[5] + (a[5] > 0.1 ? 0.1 : 0.02)),
+            mat(0x241a20),
+            a[0],
+            a[1],
+            a[2] - (a[5] < 0.1 ? 0.02 : 0),
+          ).castShadow = false;
+        });
+        glow(g, 0xff9a3c, -0.65, 0.8, 1.1, 1.9, 0.55);
+        glow(g, 0xff9a3c, 0.65, 0.8, 1.1, 1.9, 0.55);
+        const bm = new T.Mesh(
+          new T.ConeGeometry(0.6, 1.6, 12, 1, true),
+          bas(0xffa040, {
+            transparent: true,
+            opacity: 0.1,
+            blending: T.AdditiveBlending,
+            depthWrite: false,
+            side: T.DoubleSide,
+          }),
+        );
+        bm.rotation.x = -PI / 2;
+        bm.position.set(0, 0.4, 1.65);
+        g.add(bm);
+      }
+      const L1 = pl(0xff9a3c, 1.6, 6, cx, cy + 1.2, cz + 0.8);
+      // jack-o'-lanterns along shore, bundles
+      for (let i = 0; i < 7; i++) {
+        const a = 1.2 + i * 0.4,
+          x = -1.7 + 3.05 * Math.cos(a),
+          z = 1.4 + 2.45 * Math.sin(a);
+        pumpkin(x, z, 0.8 + rnd() * 0.3, -0.8 + rnd() * 0.3);
+      }
+      pumpkin(-1.3, -2.7, 1.1, -0.6);
+      pumpkin(-0.8, -3.1, 0.8, -0.9);
+      pumpkin(-1.6, -3.1, 0.7, -0.3);
+      pumpkin(3.2, 2.9, 1, -0.8);
+      pumpkin(-3.5, 3.1, 1.3, -0.8);
+      pl(0xff8a2a, 1, 5, -3.8, 1.2, 0.8);
+      // trees
+      function br(p, len, r, d, m, lm) {
+        const pv = grp(0, 0, 0, p);
+        add(pv, Cy(r * 0.6, r, len, 5), m, 0, len / 2, 0).castShadow = false;
+        if (d == 0 && rnd() < 0.6)
+          add(pv, Sp(0.17, 5), lm, 0, len, 0).castShadow = false;
+        if (d > 0)
+          for (let k = 0; k < 2 + (d > 2 ? 1 : 0); k++) {
+            const c = grp(0, len * (0.6 + 0.4 * rnd()), 0, pv);
+            c.rotation.set(0, rnd() * 6.3, (rnd() - 0.5) * 1.4);
+            br(c, len * 0.7, r * 0.6, d - 1, m, lm);
+          }
+      }
+      const bkm = mat(0x2a2030),
+        lfm = mat(0xb4501a, 0x802a08, 0.5),
+        trees = [];
+      [
+        [-4.3, -1.3, 1.8],
+        [1.2, -3.9, 1.7],
+        [3.1, 0.9, 1.6],
+      ].forEach(([x, z, h], i) => {
+        const g = grp(x, hAt(x, z), z);
+        g.rotation.z = (i - 1) * 0.06;
+        add(g, Cy(0.1, 0.24, h, 6), bkm, 0, h / 2, 0);
+        for (let k = 0; k < 5; k++) {
+          const pv = grp(0, h * (0.5 + 0.1 * k), 0, g);
+          pv.rotation.set(0, k * 2.4 + i, 0.7 + rnd() * 0.4);
+          br(pv, 0.8 + rnd() * 0.5, 0.05, 2, bkm, lfm);
+        }
+        trees.push({ x, z, y: hAt(x, z), h });
+        const bt = mat(0x6a5a90);
+        [
+          [0.3, h * 0.85, 0],
+          [-0.3, h * 0.7, 0.2],
+        ].forEach((p) => {
+          const b = grp(x + p[0], hAt(x, z) + p[1] - 0.1, z + p[2]);
+          add(b, Sp(0.07, 6), bt).scale.y = 1.4;
+          [-1, 1].forEach((s) =>
+            add(b, B(0.04, 0.14, 0.1), bt, s * 0.07, 0, 0),
+          );
+          add(b, Sp(0.03, 4), bas(0xffcf5a), 0.02, -0.07, 0.05);
+        });
+      });
+      function lantern(p, x, y, z, ph) {
+        const pv = grp(x, y, z, p),
+          m = bas(0xffb347);
+        add(pv, Cy(0.005, 0.005, 0.3, 3), bas(0x222222), 0, -0.15, 0);
+        add(pv, B(0.2, 0.26, 0.2), m, 0, -0.43, 0);
+        add(pv, new T.ConeGeometry(0.17, 0.12, 4), mat(0x222222), 0, -0.25, 0);
+        sw.push({ pv, ph });
+        wins.push(m);
+        glow(pv, 0xffa040, 0, -0.43, 0, 1.2, 0.6);
+      }
+      {
+        const t = trees[1];
+        add(
+          G,
+          Cy(0.02, 0.03, 0.9, 4),
+          bkm,
+          t.x - 0.45,
+          t.y + t.h * 0.78,
+          t.z,
+        ).rotation.z = PI / 2;
+        lantern(G, t.x - 0.9, t.y + t.h * 0.78, t.z, 0);
+      }
+      {
+        const x = -4.35,
+          z = 2.3,
+          g = grp(x, hAt(x, z), z);
+        add(g, Cy(0.05, 0.07, 1.6, 5), mat(0x3b2a20), 0, 0.8, 0);
+        add(g, B(0.5, 0.05, 0.05), mat(0x3b2a20), 0.25, 1.55, 0);
+        lantern(g, 0.5, 1.55, 0, 2);
+      }
+      // web
+      {
+        const a = [trees[1].x, trees[1].y + 2, trees[1].z],
+          b = [trees[2].x, trees[2].y + 2, trees[2].z],
+          P = [];
+        for (let k = 0; k < 3; k++) {
+          const p = [];
+          for (let i = 0; i <= 12; i++) {
+            const u = i / 12;
+            p.push(
+              new T.Vector3(
+                a[0] + (b[0] - a[0]) * u,
+                a[1] + (b[1] - a[1]) * u - k * 0.25 - 0.3 * Math.sin(u * PI),
+                a[2] + (b[2] - a[2]) * u,
+              ),
+            );
+          }
+          P.push(p);
+          G.add(
+            new T.Line(
+              new T.BufferGeometry().setFromPoints(p),
+              new T.LineBasicMaterial({
+                color: 0xcfcaf0,
+                transparent: true,
+                opacity: 0.7,
+              }),
+            ),
+          );
+        }
+        const sg = [];
+        for (let i = 1; i < 12; i += 2) sg.push(P[0][i], P[2][i]);
+        G.add(
+          new T.LineSegments(
+            new T.BufferGeometry().setFromPoints(sg),
+            new T.LineBasicMaterial({
+              color: 0xcfcaf0,
+              transparent: true,
+              opacity: 0.5,
+            }),
+          ),
+        );
+      }
+      // graves, cats, fence, mushrooms, fire pit
+      function grave(x, z, r, w = 0.4, h = 0.55) {
+        const g = grp(x, hAt(x, z), z);
+        g.rotation.set(0, r, (rnd() - 0.5) * 0.2);
+        const m = mat(0x8a889c);
+        add(g, B(w, h, 0.12), m, 0, h / 2, 0);
+        add(g, Cy(w / 2, w / 2, 0.12, 10), m, 0, h, 0).rotation.x = PI / 2;
+      }
+      grave(-0.8, -3, -0.4);
+      grave(-0.1, -3.6, 0.3, 0.5, 0.7);
+      grave(-1, -4.2, -0.2, 0.35, 0.45);
+      const bub = [],
+        hands = [];
+      [
+        [-3.3, 0.2, 0.4],
+        [-2, -0.9, -0.3],
+        [-0.9, -0.1, 0.2],
+        [-0.2, 1, -0.5],
+        [-3.7, 1.6, 0.6],
+        [-2.9, 2.4, -0.2],
+        [-0.5, 2.6, 0.3],
+      ].forEach(([x, z, r]) =>
+        grave(x, z, r, 0.35 + rnd() * 0.2, 0.4 + rnd() * 0.35),
+      );
+      {
+        const x0 = -1.7,
+          z0 = 1.4,
+          y0 = hAt(x0, z0),
+          cm = mat(0x16131a, 0, 0, { metalness: 0.5, roughness: 0.4 });
+        add(G, Cy(0.55, 0.4, 0.85, 12), cm, x0, y0 + 0.5, z0);
+        add(
+          G,
+          new T.TorusGeometry(0.55, 0.05, 6, 14),
+          cm,
+          x0,
+          y0 + 0.93,
+          z0,
+        ).rotation.x = PI / 2;
+        add(
+          G,
+          Cy(0.52, 0.52, 0.03, 14),
+          mat(0x3dff7a, 0x3dff7a, 1.8),
+          x0,
+          y0 + 0.9,
+          z0,
+        );
+        [0, 2, 4].forEach((k) =>
+          add(
+            G,
+            Cy(0.05, 0.04, 0.2, 4),
+            cm,
+            x0 + Math.cos(k) * 0.35,
+            y0 + 0.1,
+            z0 + Math.sin(k) * 0.35,
+          ),
+        );
+        glow(G, 0x4dff8a, x0, y0 + 1.1, z0, 2.8, 0.65);
+        for (let i = 0; i < 3; i++) {
+          const a = i * 2.2 + 0.5;
+          add(
+            G,
+            Sp(0.14, 6),
+            mat(0xe8e2d0),
+            x0 + Math.cos(a) * 1,
+            y0 + 0.14,
+            z0 + Math.sin(a) * 1,
+          );
+        }
+        for (let i = 0; i < 3; i++) {
+          const m = new T.Mesh(new T.SphereGeometry(0.07, 6, 5), bas(0x9dffb0));
+          G.add(m);
+          bub.push({ m, x: x0, y: y0 + 0.95, z: z0, i });
+        }
+      }
+      [
+        [-3, 1],
+        [-0.9, 2.4],
+        [-2.4, -0.4],
+      ].forEach(([x, z], i) => {
+        const g = grp(x, hAt(x, z), z),
+          m = mat(0xe8e2c8);
+        g.rotation.y = i * 2;
+        add(g, Cy(0.04, 0.05, 0.5, 5), m, 0, 0.2, 0);
+        const h = grp(0, 0.45, 0, g);
+        add(h, B(0.1, 0.08, 0.04), m);
+        [-0.04, -0.013, 0.013, 0.04].forEach((f) => {
+          add(h, Cy(0.008, 0.012, 0.12, 4), m, f, 0.09, 0).rotation.z = f * 3;
+        });
+        hands.push({ h, i });
+      });
+      const spd = grp(
+        (trees[1].x + trees[2].x) / 2,
+        (trees[1].y + trees[2].y) / 2 + 1.7,
+        (trees[1].z + trees[2].z) / 2,
+      );
+      spd.userData.by = spd.position.y;
+      {
+        const spm = mat(0x14101c);
+        add(spd, Sp(0.1, 6), spm).scale.set(1, 0.8, 1.2);
+        for (let k = 0; k < 8; k++) {
+          const l = add(
+            spd,
+            Cy(0.008, 0.008, 0.25, 3),
+            spm,
+            Math.cos(k * 0.8) * 0.12,
+            0,
+            Math.sin(k * 0.8) * 0.12,
+          );
+          l.rotation.z = Math.cos(k * 0.8) * 1.1;
+          l.rotation.x = Math.sin(k * 0.8) * 1.1;
+        }
+        add(spd, Cy(0.004, 0.004, 0.9, 3), bas(0xcfcaf0), 0, 0.45, 0);
+      }
+      function cat(x, y, z, r) {
+        const g = grp(x, y, z);
+        g.rotation.y = r;
+        const m = mat(0x15111c);
+        add(g, Sp(0.16), m, 0, 0.14, 0).scale.set(1, 1, 1.3);
+        add(g, Sp(0.11), m, 0, 0.3, 0.16);
+        [-0.06, 0.06].forEach((e) => {
+          add(g, new T.ConeGeometry(0.04, 0.09, 4), m, e, 0.42, 0.16);
+          add(g, Sp(0.02, 4), bas(0x9dff5a), e * 0.8, 0.32, 0.26);
+        });
+        const tp = grp(0, 0.1, -0.2, g);
+        add(tp, Cy(0.02, 0.025, 0.3, 4), m, 0, 0.15, 0);
+        tails.push(tp);
+      }
+      cat(-1.6, cy + 0.1, -2.8, -0.6);
+      cat(-0.1, hAt(-0.1, -3.6) + 0.7, -3.6, -0.5);
+      {
+        const m = mat(0x8a5a2d);
+        for (let i = 0; i < 6; i++) {
+          const x = -4.5 + i * 0.55,
+            z = -2.3;
+          const g = grp(x, hAt(x, z), z);
+          add(g, B(0.09, 0.55, 0.09), m, 0, 0.27, 0);
+          if (i < 5) {
+            add(g, B(0.55, 0.06, 0.04), m, 0.27, 0.2, 0);
+            add(g, B(0.55, 0.06, 0.04), m, 0.27, 0.4, 0);
+          }
+        }
+      }
+      [
+        [-2.6, -0.4, 0x35f0c8],
+        [1.4, 3, 0xb98cff],
+        [3.9, 2.6, 0x35f0c8],
+        [2.4, -1.8, 0xb98cff],
+      ].forEach(([x, z, c], i) => {
+        const g = grp(x, hAt(x, z), z);
+        g.scale.setScalar(1.2);
+        add(g, Cy(0.04, 0.05, 0.2, 5), mat(0xe8e0d0), 0, 0.1, 0);
+        const m = mat(c, c, 1.2);
+        add(
+          g,
+          new T.SphereGeometry(0.12, 8, 6, 0, PI * 2, 0, PI / 2),
+          m,
+          0,
+          0.18,
+          0,
+        );
+        glow(g, c, 0, 0.2, 0, 0.7, 0.4);
+        mush.push({ m, p: i });
+      });
+      {
+        const fx = 1.2,
+          fz = 3.8,
+          fy = hAt(fx, fz);
+        for (let i = 0; i < 9; i++) {
+          const a = (i / 9) * PI * 2;
+          add(
+            G,
+            Sp(0.14, 5),
+            mat(0x8a889c),
+            fx + Math.cos(a) * 0.5,
+            fy + 0.1,
+            fz + Math.sin(a) * 0.5,
+          ).scale.y = 0.8;
+        }
+        add(G, Cy(0.4, 0.4, 0.05, 12), mat(0x1a1214), fx, fy + 0.03, fz);
+        for (let i = 0; i < 6; i++) {
+          const m = bas(0xff5a1a);
+          add(
+            G,
+            Sp(0.08, 5),
+            m,
+            fx + Math.cos(i * 1.05) * 0.2,
+            fy + 0.1,
+            fz + Math.sin(i * 1.05) * 0.2,
+          ).castShadow = false;
+          emb.push(m);
+        }
+        [0, 1.5].forEach((r) => {
+          const l = add(
+            G,
+            Cy(0.05, 0.05, 0.6, 5),
+            mat(0x3b2418),
+            fx,
+            fy + 0.12,
+            fz,
+          );
+          l.rotation.set(0, r, PI / 2);
+        });
+        glow(G, 0xff6a1a, fx, fy + 0.3, fz, 2.2, 0.6);
+        pl(0xff7a2a, 1.3, 5, fx, fy + 0.7, fz);
+      }
+      // moon sculpture on the peak
+      const mx = 3.5,
+        mz = -3.5,
+        my = hAt(mx, mz),
+        moon = grp(mx, my, mz);
+      add(moon, Cy(0.15, 0.25, 0.8, 6), mat(0x6e6a80), 0, 0.4, 0);
+      add(moon, Sp(1, 18), mat(0xffc870, 0xffa840, 1.2), 0, 1.8, 0);
+      for (let i = 0; i < 6; i++) {
+        const a = 0.2 + i * 0.6,
+          e = ((i % 3) - 1) * 0.35;
+        if (Math.cos(a) > -0.2)
+          add(
+            moon,
+            Sp(0.22, 6),
+            mat(0xe0b060, 0xd89a40, 0.5),
+            Math.cos(a) * Math.cos(e) * 0.95,
+            1.8 + Math.sin(e) * 0.95,
+            Math.sin(a) * Math.cos(e) * 0.95,
+          ).scale.setScalar(0.8);
+      }
+      glow(moon, 0xffa840, 0, 1.8, 0, 5, 0.6);
+      const L3 = pl(0xff9a4a, 1.2, 7, mx, my + 1.8, mz);
+      const spk = [...Array(10)].map((_, i) => {
+        const a = i * 2.4,
+          m = new T.Mesh(new T.OctahedronGeometry(0.07), bas(0xffe9a0));
+        m.position.set(
+          mx + Math.cos(a) * (1.2 + (i % 3) * 0.25),
+          my + 0.8 + ((i * 7) % 10) * 0.2,
+          mz + Math.sin(a) * (1.2 + (i % 3) * 0.25),
+        );
+        G.add(m);
+        return m;
+      });
+      // ghosts, bats, kids
+      const gh = [0, (PI * 2) / 3, (PI * 4) / 3].map((o) => {
+        const g = grp(0, 0, 0),
+          m = mat(0xdbe2ff, 0x9fb4ff, 0.6, { transparent: true, opacity: 0.9 });
+        add(g, Sp(0.3), m, 0, 0.3, 0);
+        add(g, Cy(0.3, 0.38, 0.4, 10), m, 0, 0.1, 0);
+        add(g, Sp(0.045, 5), bas(0x111122), -0.1, 0.36, 0.26);
+        add(g, Sp(0.045, 5), bas(0x111122), 0.1, 0.36, 0.26);
+        add(g, Sp(0.06, 5), bas(0x111122), 0, 0.24, 0.28).scale.y = 1.3;
+        return { g, o };
+      });
+      const batsF = [
+        [1.2, -3.9, 1, cy + 3.2],
+        [-2.9, -3.9, 0.9, cy + 3.2],
+        [-1.7, 1.4, 1.3, 3.2],
+      ].map(([x, z, r, y], i) => {
+        const g = grp(0, 0, 0),
+          m = mat(0x6a5a90);
+        add(g, Sp(0.09, 6), m).scale.z = 1.6;
+        const w = [-1, 1].map((s) => {
+          const p = grp(s * 0.06, 0, 0, g);
+          add(p, B(0.3, 0.02, 0.14), m, s * 0.15, 0, 0);
+          return [p, s];
+        });
+        return { g, w, x, z, r, y, o: i * 2 };
+      });
+      const kids = [];
+      function kid(kind, ph) {
+        const g = grp(0, 0, 0);
+        g.scale.setScalar(1.15);
+        const bd =
+          kind == 0
+            ? mat(0xf5f5ff, 0xaaccff, 0.5)
+            : kind == 1
+              ? mat(0x5b2f8a)
+              : mat(0x3a2a6a);
+        add(g, Cy(kind == 0 ? 0.12 : 0.08, 0.17, 0.3, 8), bd, 0, 0.17, 0);
+        if (kind == 0) {
+          add(g, Sp(0.13, 8), bd, 0, 0.38, 0);
+          [-0.05, 0.05].forEach((e) =>
+            add(g, Sp(0.02, 4), bas(0), e, 0.4, 0.11),
+          );
+        } else {
+          add(
+            g,
+            Sp(0.1, 8),
+            kind == 1 ? mat(0x7ad05a) : mat(0xd9620f, 0xff6a00, 0.6),
+            0,
+            0.38,
+            0,
+          );
+          if (kind == 1) {
+            add(g, Cy(0.16, 0.16, 0.02, 10), bd, 0, 0.45, 0);
+            add(
+              g,
+              new T.ConeGeometry(0.1, 0.26, 8),
+              bd,
+              0,
+              0.58,
+              0,
+            ).rotation.z = 0.15;
+          } else {
+            [-0.04, 0.04].forEach((e) =>
+              add(g, B(0.03, 0.03, 0.02), bas(0xffd36a), e, 0.4, 0.09),
+            );
+            add(g, Cy(0.015, 0.02, 0.06, 4), mat(0x3a4a1e), 0, 0.48, 0);
+          }
+        }
+        const bk = grp(0.16, 0.2, 0.04, g);
+        add(bk, Cy(0.05, 0.04, 0.08, 8), mat(0xd9620f, 0xff6a00, 0.9));
+        add(
+          bk,
+          new T.TorusGeometry(0.04, 0.004, 4, 8),
+          bas(0x222222),
+          0,
+          0.06,
+          0,
+        );
+        kids.push({ g, ph });
+      }
+      kid(0, 0);
+      kid(1, 0.5);
+      kid(2, 1);
+      // leaves, fireflies, stars
+      const lc = [0xe8661a, 0xc92d1c, 0xf0a02a, 0xb8481a];
+      const dl = [...Array(18)].map((_, i) => ({
+        m: add(G, B(0.16, 0.015, 0.1), mat(lc[i % 4]), 0, 0, 0),
+        sx: rnd() * 10,
+        sz: rnd() * 9 - 4.5,
+        ph: rnd() * 6,
+        dz: (rnd() - 0.5) * 2,
+      }));
+      const ff = [...Array(12)].map((_, i) => {
+        const m = new T.Mesh(
+          new T.SphereGeometry(0.05, 6, 5),
+          bas(i % 3 ? 0xe8ff7a : 0xc9a0ff),
+        );
+        G.add(m);
+        return {
+          m,
+          cx: -3 + rnd() * 6,
+          cz: -3 + rnd() * 6,
+          ax: 0.6 + rnd() * 1.2,
+          az: 0.6 + rnd() * 1.2,
+          i1: 1 + (i % 3),
+          i2: 1 + ((i + 1) % 3),
+          ph: rnd() * 6,
+          y: 0.8 + rnd() * 2.2,
+        };
+      });
+      const st = [...Array(18)].map(() => {
+        const m = new T.Mesh(new T.SphereGeometry(0.035, 5, 4), bas(0xfff4c2));
+        m.position.set(-4.6 + rnd() * 9.2, 7 + rnd() * 2, -4.6 + rnd() * 9.2);
+        G.add(m);
+        return { m, ph: rnd() * 6 };
+      });
+      // animate
+      function frame() {
+        const t = (performance.now() / 1000) % 10,
+          P = (t / 10) * PI * 2,
+          s = Math.sin,
+          c = Math.cos;
+        G.rotation.y = PI / 4 + 0.07 * s(P);
+
+        fl.forEach((f) => {
+          const v = s(P * f.k + f.p) * 0.5 + s(P * (f.k + 2) + f.p * 2) * 0.3;
+          f.fm.color.setRGB(1, 0.8 + 0.1 * v, 0.35 + 0.1 * v);
+          f.m.emissiveIntensity = 0.55 + 0.3 * v;
+          f.gl.material.opacity = 0.5 + 0.25 * v;
+        });
+        wins.forEach((m, i) => {
+          const v = 0.5 + 0.5 * s(P * (3 + (i % 3)) + i) * 0.6;
+          m.color
+            .setRGB(1, 0.75 + 0.15 * v, 0.3 + 0.1 * v)
+            .multiplyScalar(1 + 0.3 * v);
+        });
+        L1.intensity = 1.6 + 0.4 * s(P * 3) + 0.2 * s(P * 5);
+        L2.intensity = 1.4 + 0.3 * s(P * 4);
+        L3.intensity = 1.2 + 0.2 * s(P * 2);
+        emb.forEach((m, i) =>
+          m.color.setRGB(1, 0.25 + 0.2 * s(P * (2 + (i % 3)) + i), 0.05),
+        );
+        sw.forEach((o) => {
+          o.pv.rotation.z = 0.15 * s(P * 2 + o.ph);
+          o.pv.rotation.x = 0.08 * s(P * 3 + o.ph);
+        });
+        tails.forEach((t, i) => (t.rotation.z = 0.4 * s(P * 2 + i)));
+        mush.forEach(
+          (o) => (o.m.emissiveIntensity = 1 + 0.6 * s(P * 2 + o.p * 1.3)),
+        );
+        mist.forEach((m, i) => {
+          const a = P + i * 1.05,
+            r = 0.9 + 0.5 * s(P * 2 + i);
+          m.position.set(
+            -1.7 + c(a) * r * 1.4,
+            0.55 + 0.05 * (i % 3),
+            1.4 + s(a) * r,
+          );
+          m.rotation.z = P + i;
+          m.material.opacity = 0.15 + 0.06 * s(P * 2 + i);
+        });
+        gh.forEach((o, i) => {
+          const a = P + o.o;
+          o.g.position.set(
+            cx + c(a) * 1.9,
+            cy + 1.8 + 0.25 * s(P * 2 + o.o),
+            cz + s(a) * 0.9,
+          );
+          o.g.rotation.y = -a - PI / 2;
+          o.g.rotation.z = 0.1 * s(P * 3 + i);
+        });
+        batsF.forEach((b) => {
+          const a = P + b.o;
+          b.g.position.set(
+            b.x + c(a) * b.r,
+            b.y + 0.2 * s(P * 2 + b.o),
+            b.z + s(a) * b.r,
+          );
+          b.g.rotation.y = -a;
+          b.w.forEach(([w, sg]) => (w.rotation.z = sg * 0.7 * s(P * 20)));
+        });
+        kids.forEach((k) => {
+          const a = P - k.ph,
+            sg = Math.max(-1, Math.min(1, s(a) * 6));
+          k.g.position.set(
+            -1.9 - 2.1 * c(a),
+            0.4 + Math.abs(s(P * 10 + k.ph)) * 0.04,
+            4.35,
+          );
+          k.g.rotation.y = (PI / 2) * sg;
+        });
+        dl.forEach((l, i) => {
+          const u = (l.sx + t) % 10,
+            x = u - 5,
+            z = Math.max(
+              -4.6,
+              Math.min(4.6, l.sz + l.dz * (t / 10) + 0.3 * s(P + l.ph)),
+            ),
+            e = Math.max(0, Math.min(1, Math.min(u, 10 - u) * 2));
+          l.m.position.set(
+            x,
+            Math.max(hAt(x, z), 0.05) + 0.2 + 0.1 * s(P * 2 + l.ph),
+            z,
+          );
+          l.m.rotation.set(P * (1 + (i % 2)) + l.ph, P * 2 + l.ph, 0);
+          l.m.scale.setScalar(e);
+        });
+        ff.forEach((f) => {
+          f.m.position.set(
+            f.cx + f.ax * s(P * f.i1 + f.ph),
+            f.y + 0.3 * s(P * 2 + f.ph),
+            f.cz + f.az * s(P * f.i2 + f.ph * 2),
+          );
+          f.m.scale.setScalar(0.6 + 0.6 * Math.abs(s(P * 3 + f.ph)));
+        });
+        bub.forEach((b) => {
+          const u = (P / PI / 2 + b.i / 3) % 1;
+          b.m.position.set(
+            b.x + 0.2 * s(u * 6 + b.i),
+            b.y + u * 1.2,
+            b.z + 0.2 * c(u * 6 + b.i),
+          );
+          b.m.scale.setScalar(1 - u * 0.8);
+        });
+        hands.forEach((o) => (o.h.rotation.z = 0.25 * s(P * 2 + o.i)));
+        spd.position.y = spd.userData.by - 0.25 * (1 + s(P));
+        st.forEach((o) =>
+          o.m.scale.setScalar(0.5 + 0.8 * Math.abs(s(P * 2 + o.ph))),
+        );
+        spk.forEach((m, i) => {
+          const v = Math.max(0, s(P * 2 + i * 0.9));
+          m.scale.setScalar(v * 1.2 + 0.01);
+          m.rotation.y = P * 2 + i;
+        });
+        R.render(S, C);
+        requestAnimationFrame(frame);
+      }
+      frame();
+    </script>
+  </body>
+</html>

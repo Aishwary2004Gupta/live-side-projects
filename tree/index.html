@@ -1,0 +1,841 @@
+<!doctype html>
+<html lang="es">
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+        <title>Garabatfire — Interactive Tree V15 — OK (Signed, Green BG)</title>
+        <style>
+            * {
+                box-sizing: border-box
+            }
+
+            html,body {
+                margin: 0;
+                width: 100%;
+                height: 100%;
+                overflow: hidden;
+                background: #495841;
+                font: 14px system-ui,Arial
+            }
+
+            #stage {
+                position: absolute;
+                inset: 0;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                overflow: hidden;
+                background: #495841
+            }
+
+            canvas {
+                display: block;
+                touch-action: none
+            }
+
+            #panel {
+                display: none
+            }
+
+            summary {
+                font-weight: 700;
+                cursor: pointer
+            }
+
+            label {
+                display: flex;
+                justify-content: space-between;
+                margin: 12px 0 4px
+            }
+
+            input[type=range] {
+                width: 100%
+            }
+
+            button,select {
+                border: 1px solid #ddd;
+                background: white;
+                border-radius: 8px;
+                padding: 8px;
+                color: #222;
+                cursor: pointer
+            }
+
+            button {
+                margin: 5px 3px 2px 0
+            }
+
+            small,#status {
+                color: #555;
+                font-size: 12px;
+                line-height: 1.45
+            }
+
+            #status {
+                margin-top: 9px
+            }
+
+            /* Firma: superposición fija, fuera del canvas y sin capturar gestos */
+            #signature {
+                position: fixed;
+                right: max(14px,env(safe-area-inset-right));
+                bottom: max(14px,env(safe-area-inset-bottom));
+                z-index: 4;
+                pointer-events: none;
+                user-select: none;
+                color: rgba(233,239,228,.48);
+                font: 600 clamp(10px,1.4vw,13px)/1.2 Arial,Helvetica,sans-serif;
+                letter-spacing: .055em;
+                text-shadow: 0 1px 2px rgba(0,0,0,.20)
+            }
+
+            #signature span {
+                font-weight: 400;
+                letter-spacing: .02em;
+                font-size: .85em
+            }
+        </style>
+    </head>
+    <body>
+        <div id="stage">
+            <canvas id="view"></canvas>
+        </div>
+        <div id="signature" aria-label="Garabatfire, 2026">
+            garabatfire <span>© 2026</span>
+        </div>
+        <div id="panel">
+            <details open>
+                <summary>Interactive Tree · V15 OK</summary>
+                <label>
+                    Inclinación desde Cinema <span id="tiltVal">100%</span>
+                </label>
+                <input id="tilt" type="range" min="0" max="100" value="100" step="1">
+                <label>
+                    Ancho mínimo / volumen <span id="widthVal">100%</span>
+                </label>
+                <input id="minWidth" type="range" min="40" max="100" value="100" step="1">
+                <label>
+                    Ensanchamiento <span id="bulkVal">1.50</span>
+                </label>
+                <input id="bulk" type="range" min="0.85" max="1.5" step="0.01" value="1.50">
+                <label>
+                    Hojas visibles <span id="countVal">1260</span>
+                </label>
+                <select id="count">
+                    <option value="250">250</option>
+                    <option value="600">600</option>
+                    <option value="1260" selected>Todas (1260)</option>
+                </select>
+                <label>
+                    Escala de hojas <span id="scaleVal">1.20</span>
+                </label>
+                <input id="scale" type="range" min="0.5" max="1.6" step="0.01" value="1.20">
+                <label>
+                    Sombra entre hojas <span id="shadowVal">19%</span>
+                </label>
+                <input id="shadow" type="range" min="0" max="65" value="19" step="1">
+                <label>
+                    Desplazamiento de sombra <span id="offsetVal">8 px</span>
+                </label>
+                <input id="offset" type="range" min="0" max="14" value="8" step="1">
+                <label>
+                    Suavidad de sombra <span id="softVal">7</span>
+                </label>
+                <input id="soft" type="range" min="0" max="12" value="7" step="1">
+                <label>
+                    Oclusión ramas principales <span id="occludeVal">55%</span>
+                </label>
+                <input id="occlude" type="range" min="0" max="100" value="55" step="5">
+                <label>
+                    Compresión por giro <span id="compressionVal">8%</span>
+                </label>
+                <input id="compression" type="range" min="0" max="100" step="1" value="8">
+                <label>
+                    Giro 3D viento <span id="flutterVal">2.00</span>
+                </label>
+                <input id="flutter" type="range" min="0" max="2" step="0.05" value="2.00">
+                <label>
+                    Fondo test <span id="bgVal">100%</span>
+                </label>
+                <input id="bgOpacity" type="range" min="0" max="100" step="5" value="100">
+                <hr style="border:0;border-top:1px solid #eee;margin:14px 0 6px">
+                <label>
+                    Rotación por viento <span id="windRotVal">3.00</span>
+                </label>
+                <input id="windRot" type="range" min="0" max="3" step="0.05" value="3.00">
+                <label>
+                    Retorno del giro <span id="rotReturnVal">0.05</span>
+                </label>
+                <input id="rotReturn" type="range" min="0.01" max="0.25" step="0.01" value="0.05">
+                <label>
+                    Sombra solo en hojas <span id="clipShadowsVal">Sí</span>
+                </label>
+                <input id="clipShadows" type="range" min="0" max="1" step="1" value="1">
+                <label>
+                    Distancia de separación <span id="spreadVal">7.0×</span>
+                </label>
+                <input id="spread" type="range" min="0.1" max="10" step="0.1" value="7.0">
+                <label>
+                    Fuerza de ráfaga <span id="forceVal">14.0</span>
+                </label>
+                <input id="force" type="range" min="0" max="20" step="0.1" value="14.0">
+                <label>
+                    Radio de influencia <span id="radiusVal">240 px</span>
+                </label>
+                <input id="radius" type="range" min="20" max="240" step="5" value="240">
+                <label>
+                    Inercia <span id="dragVal">0.980</span>
+                </label>
+                <input id="drag" type="range" min="0.78" max="0.98" step="0.005" value="0.980">
+                <label>
+                    Retorno <span id="springVal">0.0090</span>
+                </label>
+                <input id="spring" type="range" min="0.0002" max="0.009" step="0.0001" value="0.0090">
+                <label>
+                    Movimiento idle <span id="idleVal">0.50</span>
+                </label>
+                <input id="idle" type="range" min="0" max="2" step="0.05" value="0.50">
+                <div>
+                    <button id="pause">Pausar movimiento</button>
+                    <button id="compare">Comparar sin física</button>
+                </div>
+                <div>
+                    <button id="reference">Ver referencia C4D</button>
+                    <button id="anchors">Mostrar anclajes</button>
+                    <button id="reset">Restablecer</button>
+                </div>
+                <small>V15 OK — parámetros aprobados. Versión de referencia antes de experimentar con las ramas.</small>
+                <div id="status">Cargando…</div>
+            </details>
+        </div>
+        <script>
+            const canvas = document.getElementById('view')
+              , ctx = canvas.getContext('2d');
+            const stage = document.getElementById('stage');
+            let data = []
+              , images = {}
+              , ready = false
+              , W = 1340
+              , H = 2048
+              , ratio = 1
+              , dpr = 1
+              , selected = []
+              , shadowSprite = null
+              , depthMin = 0
+              , depthMax = 1;
+            const S = {
+                windRot: 3.00,
+                rotReturn: .05,
+                clipShadows: 1,
+                count: 1260,
+                tilt: 100,
+                minWidth: 100,
+                bulk: 1.50,
+                scale: 1.20,
+                shadow: 19,
+                soft: 7,
+                occlude: 55,
+                compression: 8,
+                flutter: 2.00,
+                bgOpacity: 100,
+                offset: 8,
+                spread: 7.0,
+                force: 14.0,
+                radius: 240,
+                drag: .980,
+                spring: .0090,
+                idle: .50,
+                reference: false,
+                anchors: false,
+                pause: false,
+                compare: false
+            };
+            let leafLayer = document.createElement("canvas")
+              , leafCtx = leafLayer.getContext("2d")
+              , shadowLayer = document.createElement("canvas")
+              , shadowCtx = shadowLayer.getContext("2d");
+            let particles = []
+              , lastTime = 0
+              , accum = 0
+              , simTime = 0;
+            const STEP = 1000 / 60;
+            let pointer = {
+                x: 0,
+                y: 0,
+                active: false,
+                down: false,
+                hasLast: false,
+                lastX: 0,
+                lastY: 0
+            }
+              , fpsFrames = 0
+              , fpsLast = 0
+              , fps = 0;
+            function image(url) {
+                return new Promise( (ok, fail) => {
+                    const i = new Image();
+                    i.onload = () => ok(i);
+                    i.onerror = () => fail(new Error(url + ' no encontrado'));
+                    i.src = url
+                }
+                )
+            }
+            // La silueta se procesa UNA vez (o al modificar la suavidad), no por cada hoja.
+            function bakeShadow() {
+                if (!images.leaf)
+                    return;
+                const source = images.leaf
+                  , dim = 320
+                  , pad = 20
+                  , inner = dim - 2 * pad;
+                const matte = document.createElement('canvas');
+                matte.width = inner;
+                matte.height = inner;
+                const mc = matte.getContext('2d');
+                mc.drawImage(source, 0, 0, inner, inner);
+                mc.globalCompositeOperation = 'source-in';
+                mc.fillStyle = '#10100c';
+                mc.fillRect(0, 0, inner, inner);
+                mc.globalCompositeOperation = 'source-over';
+                const out = document.createElement('canvas');
+                out.width = dim;
+                out.height = dim;
+                const oc = out.getContext('2d');
+                oc.filter = `blur(${S.soft}px)`;
+                // Desplazamiento local muy pequeño; el mismo affine transform de la hoja.
+                oc.drawImage(matte, pad, pad);
+                oc.filter = 'none';
+                shadowSprite = out;
+            }
+            function resize() {
+                ratio = Math.min(stage.clientWidth / W, stage.clientHeight / H);
+                const dw = W * ratio
+                  , dh = H * ratio;
+                dpr = Math.min(window.devicePixelRatio || 1, innerWidth < 700 ? 1.3 : 2);
+                canvas.width = Math.round(dw * dpr);
+                canvas.height = Math.round(dh * dpr);
+                canvas.style.width = dw + 'px';
+                canvas.style.height = dh + 'px';
+                leafLayer.width = shadowLayer.width = canvas.width;
+                leafLayer.height = shadowLayer.height = canvas.height;
+                draw()
+            }
+            function choose() {
+                const c = Math.min(S.count, data.length);
+                selected = c === data.length ? data : Array.from({
+                    length: c
+                }, (_, i) => data[Math.floor(i * data.length / c)]);
+                particles = selected.map( (a, i) => ({
+                    vx: 0,
+                    vy: 0,
+                    x: 0,
+                    y: 0,
+                    angle: 0,
+                    angularV: 0,
+                    seed: i * .748 + Math.sin(i * 8.31) * 2.4,
+                    wiggle: (.7 + (i % 11) * .047),
+                    mass: .83 + (i % 7) * .09,
+                    lim: 28 + (i % 9) * 3
+                }));
+                draw()
+            }
+            function draw() {
+                if (!ready)
+                    return;
+                ctx.setTransform(ratio * dpr, 0, 0, ratio * dpr, 0, 0);
+                ctx.clearRect(0, 0, W, H);
+                if (images.bg) {
+                    ctx.fillStyle = '#f4f4f4';
+                    ctx.fillRect(0, 0, W, H);
+                    ctx.globalAlpha = S.bgOpacity / 100;
+                    ctx.drawImage(images.bg, 0, 0, W, H);
+                    ctx.globalAlpha = 1;
+                }
+                if (S.reference) {
+                    ctx.drawImage(images.ref, 0, 0, W, H);
+                    return
+                }
+                leafCtx.setTransform(ratio * dpr, 0, 0, ratio * dpr, 0, 0);
+                shadowCtx.setTransform(ratio * dpr, 0, 0, ratio * dpr, 0, 0);
+                leafCtx.clearRect(0, 0, W, H);
+                shadowCtx.clearRect(0, 0, W, H);
+                const src = images.leaf
+                  , iw = src.naturalWidth
+                  , ih = src.naturalHeight
+                  , t = S.tilt / 100;
+                for (let i = 0; i < selected.length; i++) {
+                    const a = selected[i]
+                      , part = particles[i];
+                    const [baseX,baseY,h,w,angle,depth,id,rx,ry,ux,uy,compress] = a;
+                    const dx = S.compare ? 0 : (part?.x || 0)
+                      , dy = S.compare ? 0 : (part?.y || 0);
+                    const idlePhase = simTime * .00034 + (part?.seed || 0) * 1.37;
+                    const idleX = S.compare ? 0 : S.idle * (2.2 + ((part?.seed || 0) % 1.3) * 1.6) * Math.sin(idlePhase);
+                    const idleY = S.compare ? 0 : S.idle * 0.18 * (1.0 + ((part?.seed || 0) % 0.7)) * Math.sin(idlePhase * 1.13 + 0.8);
+                    const x = baseX + dx + idleX
+                      , y = baseY + dy + idleY;
+                    const cw = w * S.scale * S.bulk
+                      , ch = h * S.scale;
+                    const flatRight = [Math.cos(angle), Math.sin(angle)]
+                      , flatUp = [Math.sin(angle), -Math.cos(angle)];
+                    // V3: gradual perspective + minimum lateral width to avoid needle-like leaves.
+                    let rightX = flatRight[0] * (1 - t) + rx * compress * t
+                      , rightY = flatRight[1] * (1 - t) + ry * compress * t;
+                    let upX = flatUp[0] * (1 - t) + ux * t
+                      , upY = flatUp[1] * (1 - t) + uy * t;
+                    // Keep the projected right axis oriented consistently with the flat sprite.
+                    if (rightX * flatRight[0] + rightY * flatRight[1] < 0) {
+                        rightX = -rightX;
+                        rightY = -rightY;
+                    }
+                    // Prevent foreshortening beyond the chosen limit, preserving pivot and leaf length.
+                    const lateral = Math.hypot(rightX, rightY);
+                    const minimum = S.minWidth / 100;
+                    if (lateral < minimum) {
+                        const inv = minimum / Math.max(lateral, 1e-6);
+                        rightX *= inv;
+                        rightY *= inv;
+                    }
+                    // Clamp pathological skew; retain subtle Cinema-based orientation.
+                    const upLength = Math.hypot(upX, upY) || 1;
+                    upX /= upLength;
+                    upY /= upLength;
+                    const theta = S.compare ? 0 : ((part?.angle || 0) * S.windRot + (S.idle * .00022 * Math.sin(simTime * .00040 + (part?.seed || 0))));
+                    const co = Math.cos(theta)
+                      , si = Math.sin(theta);
+                    let rrX = rightX * co - rightY * si
+                      , rrY = rightX * si + rightY * co
+                      , uuX = upX * co - upY * si
+                      , uuY = upX * si + upY * co;
+                    const speed = Math.hypot(part?.vx || 0, part?.vy || 0);
+                    const gust = Math.min(1.25, (speed / 10) + Math.abs(part?.angularV || 0) * 55 + Math.abs(part?.angle || 0) * 1.8);
+                    const idleTwist = S.idle * .0007 * Math.sin(simTime * .00052 + (part?.seed || 0) * 2.1);
+                    const activeTwist = (0.95 * (part?.angularV || 0) + 0.22 * (part?.angle || 0)) * Math.min(1.6, 0.3 + gust);
+                    const twist = S.compare ? 0 : S.flutter * (idleTwist + activeTwist);
+                    const squeeze = 1 - (1 - Math.max(0.62, 1 - Math.min(0.42, Math.abs(twist) * 0.75))) * (S.compression / 100);
+                    rrX *= squeeze;
+                    rrY *= squeeze;
+                    const hand = ((part?.seed || 0) % 2 > 1) ? 1 : -1;
+                    const skew = twist * 0.22 * hand;
+                    const a1 = cw * rrX / iw
+                      , b1 = cw * rrY / iw
+                      , c1 = -ch * (uuX + skew * rrX) / ih
+                      , d1 = -ch * (uuY + skew * rrY) / ih;
+                    const tx = x - cw * rrX * .5 + ch * uuX * .96
+                      , ty = y - cw * rrY * .5 + ch * uuY * .96;
+                    if (S.shadow > 0 && shadowSprite) {
+                        shadowCtx.save();
+                        shadowCtx.transform(a1, b1, c1, d1, tx - S.offset, ty + S.offset * .85);
+                        // Variación moderada por profundidad, con composición estable por orden.
+                        const dn = Math.max(0, Math.min(1, (depth - depthMin) / Math.max(1e-6, depthMax - depthMin)));
+                        shadowCtx.globalAlpha = Math.min(.75, (S.shadow / 100) * (0.75 + 0.45 * dn));
+                        const pad = 20 / 280;
+                        shadowCtx.drawImage(shadowSprite, -iw * pad, -ih * pad, iw * (1 + 2 * pad), ih * (1 + 2 * pad));
+                        shadowCtx.globalAlpha = 1;
+                        shadowCtx.restore();
+                    }
+                    leafCtx.save();
+                    leafCtx.transform(a1, b1, c1, d1, tx, ty);
+                    leafCtx.drawImage(src, 0, 0);
+                    leafCtx.restore();
+                }
+                // Clipamos sombra acumulada al alpha de las hojas, no al fondo ni al tronco.
+                if (S.clipShadows) {
+                    shadowCtx.save();
+                    shadowCtx.setTransform(1, 0, 0, 1, 0, 0);
+                    shadowCtx.globalCompositeOperation = 'destination-in';
+                    shadowCtx.drawImage(leafLayer, 0, 0);
+                    shadowCtx.restore();
+                }
+                ctx.setTransform(1, 0, 0, 1, 0, 0);
+                ctx.drawImage(leafLayer, 0, 0);
+                ctx.globalAlpha = .60;
+                ctx.drawImage(shadowLayer, 0, 0);
+                ctx.globalAlpha = 1;
+                ctx.setTransform(ratio * dpr, 0, 0, ratio * dpr, 0, 0);
+                if (S.occlude > 0) {
+                    ctx.globalAlpha = S.occlude / 100;
+                    ctx.drawImage(images.tree, 0, 0, W, H);
+                    ctx.globalAlpha = 1;
+                }
+                if (S.anchors) {
+                    ctx.fillStyle = '#e54324';
+                    for (const a of selected) {
+                        ctx.beginPath();
+                        ctx.arc(a[0], a[1], 2.5, 0, Math.PI * 2);
+                        ctx.fill()
+                    }
+                }
+            }
+            document.getElementById('windRot').oninput = e => {
+                S.windRot = +e.target.value;
+                document.getElementById('windRotVal').textContent = S.windRot.toFixed(2);
+                draw()
+            }
+            ;
+            document.getElementById('rotReturn').oninput = e => {
+                S.rotReturn = +e.target.value;
+                document.getElementById('rotReturnVal').textContent = S.rotReturn.toFixed(2);
+                draw()
+            }
+            ;
+            document.getElementById('clipShadows').oninput = e => {
+                S.clipShadows = +e.target.value;
+                document.getElementById('clipShadowsVal').textContent = S.clipShadows ? 'Sí' : 'No';
+                draw()
+            }
+            ;
+            document.getElementById('offset').oninput = e => {
+                S.offset = +e.target.value;
+                document.getElementById('offsetVal').textContent = S.offset + ' px';
+                draw()
+            }
+            ;
+            document.getElementById('shadow').oninput = e => {
+                S.shadow = +e.target.value;
+                document.getElementById('shadowVal').textContent = S.shadow + '%';
+                draw()
+            }
+            ;
+            document.getElementById('soft').oninput = e => {
+                S.soft = +e.target.value;
+                document.getElementById('softVal').textContent = S.soft;
+                bakeShadow();
+                draw()
+            }
+            ;
+            document.getElementById('occlude').oninput = e => {
+                S.occlude = +e.target.value;
+                document.getElementById('occludeVal').textContent = S.occlude + '%';
+                draw()
+            }
+            ;
+            document.getElementById('compression').oninput = e => {
+                S.compression = +e.target.value;
+                document.getElementById('compressionVal').textContent = S.compression + '%';
+                draw()
+            }
+            ;
+            document.getElementById('flutter').oninput = e => {
+                S.flutter = +e.target.value;
+                document.getElementById('flutterVal').textContent = S.flutter.toFixed(2);
+                draw()
+            }
+            ;
+            document.getElementById('bgOpacity').oninput = e => {
+                S.bgOpacity = +e.target.value;
+                document.getElementById('bgVal').textContent = S.bgOpacity + '%';
+                draw()
+            }
+            ;
+            document.getElementById('tilt').oninput = e => {
+                S.tilt = +e.target.value;
+                document.getElementById('tiltVal').textContent = S.tilt + '%';
+                draw()
+            }
+            ;
+            document.getElementById('minWidth').oninput = e => {
+                S.minWidth = +e.target.value;
+                document.getElementById('widthVal').textContent = S.minWidth + '%';
+                draw()
+            }
+            ;
+            document.getElementById('bulk').oninput = e => {
+                S.bulk = +e.target.value;
+                document.getElementById('bulkVal').textContent = S.bulk.toFixed(2);
+                draw()
+            }
+            ;
+            document.getElementById('count').onchange = e => {
+                S.count = +e.target.value;
+                document.getElementById('countVal').textContent = S.count;
+                choose()
+            }
+            ;
+            document.getElementById('scale').oninput = e => {
+                S.scale = +e.target.value;
+                document.getElementById('scaleVal').textContent = S.scale.toFixed(2);
+                draw()
+            }
+            ;
+            document.getElementById('reference').onclick = e => {
+                S.reference = !S.reference;
+                e.target.textContent = S.reference ? 'Volver a hojas web' : 'Ver referencia C4D';
+                draw()
+            }
+            ;
+            document.getElementById('anchors').onclick = e => {
+                S.anchors = !S.anchors;
+                draw()
+            }
+            ;
+            document.getElementById('reset').onclick = () => {
+                Object.assign(S, {
+                    windRot: 3.00,
+                    rotReturn: .05,
+                    clipShadows: 1,
+                    tilt: 100,
+                    minWidth: 100,
+                    bulk: 1.50,
+                    count: 1260,
+                    scale: 1.20,
+                    shadow: 19,
+                    soft: 7,
+                    occlude: 55,
+                    compression: 8,
+                    flutter: 2.00,
+                    bgOpacity: 100,
+                    offset: 8,
+                    spread: 7.0,
+                    force: 14.0,
+                    radius: 240,
+                    drag: .980,
+                    spring: .0090,
+                    idle: .50,
+                    reference: false,
+                    anchors: false,
+                    pause: false,
+                    compare: false
+                });
+                for (const [key,value] of Object.entries({
+                    windRot: 3.00,
+                    rotReturn: .05,
+                    clipShadows: 1,
+                    tilt: 100,
+                    minWidth: 100,
+                    bulk: 1.50,
+                    count: 1260,
+                    scale: 1.20,
+                    shadow: 19,
+                    soft: 7,
+                    occlude: 55,
+                    compression: 8,
+                    flutter: 2.00,
+                    bgOpacity: 100,
+                    offset: 8,
+                    spread: 7.0,
+                    force: 14.0,
+                    radius: 240,
+                    drag: .980,
+                    spring: .0090,
+                    idle: .50
+                }))
+                    document.getElementById(key).value = value;
+                for (const [key,value] of Object.entries({
+                    windRotVal: '3.00',
+                    rotReturnVal: '0.05',
+                    clipShadowsVal: 'Sí',
+                    tiltVal: '100%',
+                    widthVal: '100%',
+                    bulkVal: '1.50',
+                    countVal: '1260',
+                    scaleVal: '1.20',
+                    shadowVal: '19%',
+                    softVal: '7',
+                    offsetVal: '8 px',
+                    spreadVal: '7.0×',
+                    occludeVal: '55%',
+                    compressionVal: '8%',
+                    flutterVal: '2.00',
+                    bgVal: '100%',
+                    forceVal: '14.0',
+                    radiusVal: '240 px',
+                    dragVal: '0.980',
+                    springVal: '0.0090',
+                    idleVal: '0.50'
+                }))
+                    document.getElementById(key).textContent = value;
+                document.getElementById('reference').textContent = 'Ver referencia C4D';
+                document.getElementById('pause').textContent = 'Pausar movimiento';
+                document.getElementById('compare').textContent = 'Comparar sin física';
+                bakeShadow();
+                choose();
+            }
+            ;
+            function setInput(key, label, format) {
+                const el = document.getElementById(key);
+                el.oninput = e => {
+                    S[key] = +e.target.value;
+                    document.getElementById(label).textContent = format(S[key])
+                }
+            }
+            ;setInput('spread', 'spreadVal', v => v.toFixed(1) + '×');
+            setInput('force', 'forceVal', v => v.toFixed(1));
+            setInput('radius', 'radiusVal', v => v + ' px');
+            setInput('drag', 'dragVal', v => v.toFixed(3));
+            setInput('spring', 'springVal', v => v.toFixed(4));
+            setInput('idle', 'idleVal', v => v.toFixed(2));
+            document.getElementById('pause').onclick = e => {
+                S.pause = !S.pause;
+                e.target.textContent = S.pause ? 'Reanudar movimiento' : 'Pausar movimiento'
+            }
+            ;
+            document.getElementById('compare').onclick = e => {
+                S.compare = !S.compare;
+                e.target.textContent = S.compare ? 'Volver a física' : 'Comparar sin física';
+                draw()
+            }
+            ;
+            // Canvas local coordinates are scaled to the original 1340 x 2048 image.
+            function pos(e) {
+                const r = canvas.getBoundingClientRect();
+                return {
+                    x: (e.clientX - r.left) / r.width * W,
+                    y: (e.clientY - r.top) / r.height * H
+                }
+            }
+            function push(e) {
+                const p = pos(e);
+                const move = pointer.hasLast ? Math.hypot(p.x - pointer.lastX, p.y - pointer.lastY) : 0;
+                pointer.prevX = pointer.lastX;
+                pointer.prevY = pointer.lastY;
+                pointer.x = p.x;
+                pointer.y = p.y;
+                pointer.active = true;
+                pointer.lastX = p.x;
+                pointer.lastY = p.y;
+                pointer.hasLast = true;
+                // Continuous stroke acts like a localized gust, without moving leaves before touch.
+                const impulse = Math.min(2.0, .4 + move / 26) * (pointer.down ? 1.3 : 1);
+                for (let i = 0; i < selected.length; i++) {
+                    const a = selected[i]
+                      , q = particles[i];
+                    const ax = a[0] + q.x
+                      , ay = a[1] + q.y;
+                    const vx = ax - p.x
+                      , vy = ay - p.y
+                      , d = Math.hypot(vx, vy)
+                      , rad = S.radius;
+                    if (d >= rad)
+                        continue;
+                    const f = (1 - d / rad) ** 2 * S.force * impulse / q.mass;
+                    const norm = Math.max(1, d);
+                    q.vx += (vx / norm) * f;
+                    q.vy += (vy / norm) * f;
+                    // torque a partir del gesto + posición: giro con orientación consistente y variación por hoja.
+                    const mvx = pointer.hasLast ? (p.x - (pointer.prevX ?? p.x)) : 0;
+                    const mvy = pointer.hasLast ? (p.y - (pointer.prevY ?? p.y)) : 0;
+                    const torque = (mvx * vy - mvy * vx) / Math.max(50, rad * rad);
+                    const sign = ((q.seed * 1.7) % 2 > 1) ? -1 : 1;
+                    q.angularV += Math.max(-.035, Math.min(.035, (torque * 3.0 + sign * .012) * f * .09));
+                }
+            }
+            canvas.addEventListener('pointerdown', e => {
+                pointer.down = true;
+                pointer.hasLast = false;
+                push(e);
+                canvas.setPointerCapture?.(e.pointerId)
+            }
+            );
+            canvas.addEventListener('pointermove', e => {
+                if (e.pointerType === 'mouse' || pointer.down)
+                    push(e)
+            }
+            );
+            function release() {
+                pointer.down = false;
+                pointer.hasLast = false;
+                pointer.active = false
+            }
+            canvas.addEventListener('pointerup', release);
+            canvas.addEventListener('pointercancel', release);
+            canvas.addEventListener('pointerleave', e => {
+                if (!pointer.down)
+                    release()
+            }
+            );
+            function step() {
+                for (const p of particles) {
+                    // Amortiguación crítica: para un resorte con stiffness k, el damping
+                    // se limita para evitar atravesar el punto de reposo (rebote).
+                    const damp = Math.min(S.drag, Math.max(.50, 1 - 2 * Math.sqrt(S.spring) + S.spring));
+                    p.vx = (p.vx - p.x * S.spring) * damp;
+                    p.vy = (p.vy - p.y * S.spring) * damp;
+                    p.x += p.vx;
+                    p.y += p.vy;
+                    const len = Math.hypot(p.x, p.y);
+                    if (len > p.lim * S.spread) {
+                        const limit = p.lim * S.spread / len;
+                        p.x *= limit;
+                        p.y *= limit;
+                        p.vx *= .6;
+                        p.vy *= .6
+                    }
+                    // También amortiguamos el giro para evitar un balanceo de resorte.
+                    const rotK = S.rotReturn;
+                    // aproximación sobreamortiguada, sin oscilación angular infinita.
+                    p.angularV = (p.angularV - p.angle * rotK * .045) * Math.max(.72, 1 - Math.sqrt(rotK) * .42);
+                    p.angle += p.angularV;
+                    p.angle = Math.max(-.65, Math.min(.65, p.angle));
+                    if (Math.abs(p.x) + Math.abs(p.y) < .015 && Math.abs(p.vx) + Math.abs(p.vy) < .015) {
+                        p.x = 0;
+                        p.y = 0;
+                        p.vx = 0;
+                        p.vy = 0
+                    }
+                }
+            }
+            function frame(time) {
+                if (!lastTime)
+                    lastTime = time;
+                let delta = Math.min(60, time - lastTime);
+                lastTime = time;
+                if (!S.pause) {
+                    accum += delta;
+                    while (accum >= STEP) {
+                        step();
+                        simTime += STEP;
+                        accum -= STEP
+                    }
+                }
+                if (ready && !S.reference)
+                    draw();
+                fpsFrames++;
+                if (time - fpsLast > 800) {
+                    fps = Math.round(fpsFrames * 1000 / (time - fpsLast));
+                    fpsFrames = 0;
+                    fpsLast = time;
+                    if (ready)
+                        document.getElementById('status').textContent = `${selected.length} hojas · ${fps} FPS aprox. · Arrastrá el dedo para generar viento`;
+                }
+                requestAnimationFrame(frame)
+            }
+            requestAnimationFrame(frame);
+            if (innerWidth < 700)
+                document.querySelector('#panel details').open = false;
+            (async () => {
+                try {
+                    const layoutP = fetch('tree_leaves_v3.json').then(r => {
+                        if (!r.ok)
+                            throw Error('tree_leaves_v3.json: ' + r.status);
+                        return r.json()
+                    }
+                    );
+                    const bgP = image('tree_scene_v10.webp');
+                    const [layout,tree,ref,leaf,bg] = await Promise.all([layoutP, image('tree_front_v11.png'), image('tree_with_leaves_ref.png'), image('leaf_A.webp?v=20261102b'), bgP]);
+                    data = layout.items;
+                    W = layout.width;
+                    H = layout.height;
+                    images = {
+                        tree,
+                        ref,
+                        leaf,
+                        bg
+                    };
+                    depthMin = Math.min(...data.map(d => d[5]));
+                    depthMax = Math.max(...data.map(d => d[5]));
+                    bakeShadow();
+                    ready = true;
+                    choose();
+                    resize();
+                    document.getElementById('status').textContent = data.length + ' hojas cargadas · V14: compresión por giro ajustable (0% conserva todo el ancho, 100% reproduce V13); se mantiene la distancia de separación.';
+                } catch (err) {
+                    document.getElementById('status').textContent = 'Error: ' + err.message;
+                    console.error(err)
+                }
+            }
+            )();
+            window.addEventListener('resize', resize);
+        </script>
+    </body>
+</html>

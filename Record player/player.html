@@ -4861,9 +4861,25 @@ body.rp-focus #rp-now { display:block; }
               input.placeholder = `Now pressing · ${clip(t.title, 24)} — ${clip(t.artist, 18)}`;
               input.dataset.idle = input.placeholder;
               input.blur();
+              collapseSearch();
+              updateStepTitles();
               loadTrack(t);
             }
             let queue = null;
+            function stepTitle(d) {
+              const i = queue ? queue.i + d : -1,
+                t = queue && i >= 0 && i < queue.list.length ? queue.list[i] : null;
+              return t
+                ? `Play ${d < 0 ? "previous" : "next"} song: ${t.title} — ${t.artist}`
+                : `No ${d < 0 ? "previous" : "next"} song available`;
+            }
+            function updateStepTitles() {
+              window.__rpStepTitles = {
+                previous: stepTitle(-1),
+                next: stepTitle(1),
+              };
+            }
+            updateStepTitles();
             const clr = root.querySelector(".clr"),
               TRY = [
                 "Arijit Singh",
@@ -4906,21 +4922,23 @@ body.rp-focus #rp-now { display:block; }
               list.hidden = false;
             }
             window.__rpStep = (d) => {
-              // next / previous in the last search results, or a surprise pick
+              // move through the selected search results without wrapping to an unrelated song
               if (sw.on) return false;
-              if (queue && queue.list.length > 1) {
-                queue.i = (queue.i + d + queue.list.length) % queue.list.length;
+              if (
+                queue &&
+                queue.list.length > 1 &&
+                queue.i + d >= 0 &&
+                queue.i + d < queue.list.length
+              ) {
+                queue.i += d;
                 const t = queue.list[queue.i];
                 input.dataset.idle =
                   input.placeholder = `Now pressing · ${clip(t.title, 24)} — ${clip(t.artist, 18)}`;
+                updateStepTitles();
                 loadTrack(t);
                 return true;
               }
-              search(TRY[Math.floor(Math.random() * TRY.length)]).then((r) => {
-                if (r.length)
-                  choose(Math.floor(Math.random() * Math.min(3, r.length)));
-              });
-              return true;
+              return false;
             };
             clr.addEventListener("mousedown", (e) => {
               e.preventDefault();
@@ -4952,6 +4970,7 @@ body.rp-focus #rp-now { display:block; }
                 if (ctl) ctl.abort();
                 close();
                 input.blur();
+                collapseSearch();
               } else if (e.key === "ArrowDown" && results.length) {
                 e.preventDefault();
                 sel = (sel + 1) % results.length;
@@ -4984,10 +5003,8 @@ body.rp-focus #rp-now { display:block; }
               else if (!input.value.trim()) chips();
             });
             return {
-              focus: () => {
-                input.focus();
-                input.select();
-              },
+              focus: expandSearch,
+              lyrics: (on) => root.classList.toggle("lyrics", !!on),
               show: (on) => {
                 root.hidden = !on;
                 window.__rpEye(on);
@@ -5298,6 +5315,8 @@ body.rp-focus #rp-now { display:block; }
 #rp-np .clock b { font-weight:400; color:#e6e6e6; }
 #rp-np .close { position:absolute; left:2.2vw; top:2.6vh; width:3.6vh; height:3.6vh; border:1px solid rgba(255,255,255,.14); border-radius:50%; background:transparent; color:#8d8d8d; cursor:pointer; font:1.5vh/1 inherit; opacity:.5; }
 #rp-np .close:hover { opacity:1; color:#fff; }
+#rp-np .search { position:absolute; left:calc(2.2vw + 5vh); top:2.6vh; height:3.6vh; padding:0 1.3vh; border:1px solid rgba(255,255,255,.14); border-radius:1.8vh; background:transparent; color:#8d8d8d; cursor:pointer; font:1.3vh/1 inherit; }
+#rp-np .search:hover { color:#fff; border-color:rgba(255,255,255,.4); }
 #rp-np .sync { position:absolute; left:2.2vw; bottom:4vh; max-width:44vw; flex-wrap:wrap; display:flex; align-items:center; gap:.9vh; font-size:1.3vh; color:#6a6a6a; }
 #rp-np .sync[hidden] { display:none; }
 #rp-np .sync button { width:2.6vh; height:2.6vh; border:1px solid rgba(255,255,255,.16); border-radius:50%; background:transparent; color:#9a9a9a; cursor:pointer; font:inherit; padding:0; }
@@ -5307,9 +5326,6 @@ body.rp-focus #rp-now { display:block; }
 #rp-np .mk { position:absolute; left:0; top:0; width:1vh; height:1vh; border-radius:50%; background:radial-gradient(circle at 34% 30%, #fff 0 14%, var(--mc,#8f86ff) 48%, rgba(0,0,0,.35) 120%); box-shadow:0 0 .7vh var(--mc,#8f86ff); pointer-events:none; opacity:0; transition:opacity .25s; will-change:transform; }
 #rp-np .w.cur { transition-delay:var(--dl,0s); animation:rppopw .34s cubic-bezier(.2,.9,.3,1.3) var(--dl,0s) backwards; }
 @keyframes rppopw { 0% { transform:translateY(0) scale(.86); } 38% { transform:translateY(-.24em) scale(1.16); } 100% { transform:none; } }
-#rp-np.center .lb { width:6.2vh; font-size:1.6vh; }
-#rp-np .lay { position:absolute; left:calc(2.2vw + 5vh); top:2.6vh; height:3.6vh; padding:0 1.3vh; border:1px solid rgba(255,255,255,.14); border-radius:1.8vh; background:transparent; color:#8d8d8d; cursor:pointer; font:1.3vh/1 inherit; letter-spacing:.08em; opacity:.5; }
-#rp-np .lay:hover { opacity:1; color:#fff; }
 @media (max-width:720px) { #rp-np .lb { width:5vh; } }`;
             document.head.appendChild(css);
             const root = document.createElement("div");
@@ -5320,11 +5336,11 @@ body.rp-focus #rp-now { display:block; }
             root.innerHTML = `<canvas></canvas><div class="wheel"></div><i class="mk"></i>
       <div class="meta"><b></b><span></span></div>
       <button class="close" type="button" aria-label="Back to the record player" title="Back (Esc)">✕</button>
-      <button class="lay" type="button" title="Switch between disc-in-the-middle and disc-at-the-side (L)">LAYOUT</button>
+      <button class="search" type="button">Search for a song</button>
       <div class="sync" hidden><span>lyrics timing</span><button type="button" data-a="m" aria-label="Lyrics later">−</button><em>+0.0s</em><button type="button" data-a="p" aria-label="Lyrics later">+</button><button type="button" class="ch" data-a="c" title="Try the next chorus" hidden>chorus ⟳</button></div>
-      <div class="tp"><button type="button" data-a="prev" aria-label="Previous"><svg viewBox="0 0 16 16"><path d="M3 3h1.6v10H3zM13 3v10L5.6 8z"/></svg></button>
+      <div class="tp"><button type="button" data-a="prev" aria-label="Previous" title="No previous song available"><svg viewBox="0 0 16 16"><path d="M3 3h1.6v10H3zM13 3v10L5.6 8z"/></svg></button>
         <button type="button" class="pp" data-a="pp" aria-label="Play or pause"></button>
-        <button type="button" data-a="next" aria-label="Next"><svg viewBox="0 0 16 16"><path d="M11.4 3H13v10h-1.6zM3 3l7.4 5L3 13z"/></svg></button></div>
+        <button type="button" data-a="next" aria-label="Next" title="No next song available"><svg viewBox="0 0 16 16"><path d="M11.4 3H13v10h-1.6zM3 3l7.4 5L3 13z"/></svg></button></div>
       <div class="clock"><b>0:00</b> / <span>0:00</span></div>`;
             document.body.appendChild(root);
             const cv = root.querySelector("canvas"),
@@ -5338,7 +5354,7 @@ body.rp-focus #rp-now { display:block; }
             const sync = root.querySelector(".sync"),
               syncV = sync.querySelector("em"),
               mk = root.querySelector(".mk"),
-              layBtn = root.querySelector(".lay");
+              searchBtn = root.querySelector(".search");
             const ICON_PAUSE =
                 '<svg viewBox="0 0 16 16"><path d="M4.5 3h2.6v10H4.5zM8.9 3h2.6v10H8.9z"/></svg>',
               ICON_PLAY =

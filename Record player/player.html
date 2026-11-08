@@ -2891,7 +2891,7 @@
                   x.fillText(l, 256, 256 + 14 * k),
                 );
               } else {
-                x.fillText("ISO-GLOW RECORDS", 256, 256 - 9 * k);
+                x.fillText("NEEDLE DROP RECORDS", 256, 256 - 9 * k);
                 x.fillStyle = Cc.ink;
                 x.font = `${2.6 * k}px ${MONO3}`;
                 x.fillText("SIDE A · 33⅓", 256, 256 + 10 * k);
@@ -2954,7 +2954,7 @@
             g0,
           );
           const CXM = CRX + CRW / 2,
-            SLOTY = CRY + CRD - WT - 9,
+            SLOTY = CRY + WT + 13,
             HALF = (SLW * KS) / 2;
           const DUM_DARK = [0x2a2c2e, 0x393c3f, 0x202224, 0x34383b],
             DUM_LIGHT = [0xe3dfd7, 0xd7d2c9, 0xece8e1, 0xdcd8cf];
@@ -3020,7 +3020,7 @@
               m.position.copy(
                 W(
                   CXM,
-                  SLOTY - 7 * (i + 1) - HALF * Math.cos(TILT),
+                  SLOTY + 7 * (i + 1) - HALF * Math.cos(TILT),
                   CRZ + 3 + HALF * Math.sin(TILT),
                 ),
               );
@@ -3104,7 +3104,7 @@
               x.fillText("NEEDLE DROP", 26, 430);
               x.fillStyle = "#b9bbb8";
               x.font = `24px ${MONO3}`;
-              x.fillText("Iso-Glow Sessions", 26, 478);
+              x.fillText("Needle Drop Sessions", 26, 478);
             }
             o.tex.needsUpdate = true;
           }
@@ -3121,18 +3121,21 @@
             slot: { p: SLOT, tilt: TILT, yaw: 0, s: KS },
             A: { p: W(-118, 158, PLZ + 0.2), tilt: 0, yaw: PSI, s: 1 },
             B: { p: W(-118, 338, PLZ + 100.2), tilt: 0, yaw: PSI, s: 1 },
+            front: { p: W(-204, 194, PLZ + 0.2), tilt: 0, yaw: PSI, s: 1 },
           };
           const T = {
               fly: 1.0,
               slide: [1.0, 1.7],
-              pop: [0.15, 1.5],
-              pull: [1.6, 2.5],
+              clear: [0, 0.45],
+              pop: [0.45, 1.8],
+              pull: [1.7, 2.5],
               deck: [2.7, 3.9],
-              back: [1.8, 3.0],
+              back: [1.9, 3.0],
               settle: [2.8, 3.9],
             },
             T_END = 3.9;
           const sw = { on: false, t: 0 };
+          let historyAtFront = false;
           const ss = (a, b, x) => {
             const t = Math.min(1, Math.max(0, (x - a) / (b - a)));
             return t * t * (3 - 2 * t);
@@ -3230,7 +3233,8 @@
           function layout() {
             if (!sw.on) {
               setSleeve(cs, POSE.A, POSE.A, 0, 0, "flat");
-              setSleeve(ns, POSE.slot, POSE.slot, 0, 0, "flat");
+              const h = historyAtFront ? POSE.front : POSE.slot;
+              setSleeve(ns, h, h, 0, 0, "flat");
               cur.g.visible = true;
               cur.g.scale.setScalar(1);
               cur.g.position.copy(S);
@@ -3244,8 +3248,19 @@
               pop = sg(t, T.pop[0], T.pop[1]),
               back = sg(t, T.back[0], T.back[1]),
               settle = sg(t, T.settle[0], T.settle[1]);
-            setSleeve(cs, POSE.A, POSE.slot, back, 120, "updown"); // the old sleeve goes back into the crate
-            if (t < T.settle[0])
+            setSleeve(cs, POSE.A, POSE.front, back, 0, "flat"); // keep the last played sleeve visible at the front
+            if (historyAtFront && t < T.clear[1])
+              setSleeve(
+                ns,
+                POSE.front,
+                POSE.slot,
+                sg(t, T.clear[0], T.clear[1]),
+                100,
+                "updown",
+              ); // clear the older sleeve back into the crate
+            else if (t < T.pop[0])
+              setSleeve(ns, POSE.slot, POSE.slot, 0, 0, "flat");
+            else if (t < T.settle[0])
               setSleeve(ns, POSE.slot, POSE.B, pop, 150, "up");
             else setSleeve(ns, POSE.B, POSE.A, settle, 0, "flat");
             // old disk: lift off, fly to its sleeve, slide in; from then on it travels inside the sleeve
@@ -4036,8 +4051,10 @@
               togglePower();
               return true;
             }
-            if (e.key === "i" || e.key === "I") return isoView();
-            if (e.key === "r" || e.key === "R") return homeCam();
+            if (e.key === "r" || e.key === "R") {
+              setViewPreset("default");
+              return true;
+            }
             if (e.key === "/") {
               setFocus(false);
               UI.focus();
@@ -4273,6 +4290,7 @@
                 track = cur.track;
                 pending = null;
                 sw.on = false;
+                historyAtFront = true;
                 layout();
                 SFX.thunk();
                 beginCue();
@@ -4580,12 +4598,11 @@ body.rp-focus #rp-now { display:block; }
         <span>Lift or cue the arm</span><em><kbd>C</kbd></em>
         <span>33 / 45 rpm</span><em><kbd>3</kbd> <kbd>4</kbd></em>
         <span>Pitch up / down</span><em><kbd>↑</kbd> <kbd>↓</kbd></em>
-        <span>Iso view · centre the camera</span><em><kbd>I</kbd> <kbd>R</kbd></em>
-        <span>Lyrics view: rotating disc in the middle, lyrics all around it (<kbd>L</kbd> switches the layout)</span><em><kbd>V</kbd></em>
+        <span>Default, top and front camera views</span><em>view buttons</em>
+        <span>Lyrics view: rotating disc at the side, lyrics all around it</span><em><kbd>V</kbd></em>
         <span>Lyrics a little off? Click the line you are hearing (or use the arrow keys); it is remembered for that song</span><em><kbd>↑</kbd> <kbd>↓</kbd></em>
         <span>Power saver: lower resolution and fewer redraws (good for laptops on battery and phones)</span><em><kbd>P</kbd></em>
         <span>Hide every control, leaving just the player and the music</span><em><kbd>H</kbd></em>
-        <span>Light / dark theme</span><em><kbd>T</kbd></em>
         <span>Open or close this help</span><em><kbd>?</kbd></em>
       </div>
       <h3>Good to know</h3><p>Search and audio need an internet connection.</p></div>`;
@@ -4874,10 +4891,19 @@ body.rp-focus #rp-now { display:block; }
                 : `No ${d < 0 ? "previous" : "next"} song available`;
             }
             function updateStepTitles() {
-              window.__rpStepTitles = {
-                previous: stepTitle(-1),
-                next: stepTitle(1),
-              };
+              const previous = stepTitle(-1),
+                next = stepTitle(1);
+              window.__rpStepTitles = { previous, next };
+              const prevButton = document.querySelector('#rp-np [data-a="prev"]'),
+                nextButton = document.querySelector('#rp-np [data-a="next"]');
+              if (prevButton) {
+                prevButton.title = previous;
+                prevButton.setAttribute("aria-label", previous);
+              }
+              if (nextButton) {
+                nextButton.title = next;
+                nextButton.setAttribute("aria-label", next);
+              }
             }
             updateStepTitles();
             const clr = root.querySelector(".clr"),
@@ -5019,11 +5045,10 @@ body.rp-focus #rp-now { display:block; }
             };
           })();
 
-          // ── camera: centred on the deck; the iso button gives a true isometric, orthographic view and flies there ──
+          // ── camera presets ──
           const HOME = W(110, 130, 22),
             CAM_DIR = new THREE.Vector3(1, 1, 1).normalize();
-          let camFly = null,
-            hooked = false;
+          let camFly = null;
           const aspectK = () => Math.max(1, 1.45 / persp.aspect);
           function flyCam(pos, tgt, dur) {
             camFly = {
@@ -5037,30 +5062,30 @@ body.rp-focus #rp-now { display:block; }
               z1: 1,
             };
           }
-          function homeCam(dur = REDUCED ? 0.01 : 0.9) {
-            const iso = camera === ortho;
+          function setViewPreset(name, dur = REDUCED ? 0.01 : 0.75) {
+            if (camera === ortho) setOrtho(false);
+            controls.autoRotate = false;
+            camera.up.set(0, 1, 0);
+            const dir =
+              name === "top"
+                ? new THREE.Vector3(0, 1, 0)
+                : name === "front"
+                  ? new THREE.Vector3(0, 0, 1)
+                  : CAM_DIR;
+            if (name === "top") camera.up.set(0, 0, -1);
             flyCam(
-              HOME.clone().addScaledVector(CAM_DIR, iso ? 14 : 9.4 * aspectK()),
+              HOME.clone().addScaledVector(dir, 9.4 * aspectK()),
               HOME,
               dur,
             );
-            return true;
+            document.querySelectorAll("#rp-views [data-rp-view]").forEach((b) =>
+              b.setAttribute("aria-selected", String(b.dataset.rpView === name)),
+            );
           }
-          const LW0 = [lineMat.linewidth, majorMat.linewidth];
-          function isoView() {
-            if (camera !== ortho)
-              setOrtho(true, (600 * TS * aspectK()) / fovK());
-            else setOrtho(false);
-            lineMat.linewidth = LW0[0] * (camera === ortho ? 1.45 : 1);
-            majorMat.linewidth = LW0[1] * (camera === ortho ? 1.45 : 1);
-            homeCam();
-            return true;
-          }
+          document.querySelectorAll("#rp-views [data-rp-view]").forEach((b) =>
+            b.addEventListener("click", () => setViewPreset(b.dataset.rpView)),
+          );
           function stepCam(dt) {
-            if (!hooked && typeof act !== "undefined") {
-              act.iso = isoView;
-              hooked = true;
-            }
             if (!camFly) return;
             const f = camFly;
             f.t = Math.min(1, f.t + dt / f.d);
@@ -5280,7 +5305,7 @@ body.rp-focus #rp-now { display:block; }
               track ? track.title : "Needle Drop",
               track
                 ? `${track.artist} · ${fmt(pos())} / ${fmt(dur())}`
-                : `Iso-Glow Sessions · default record · ${fmt(pos())} / ${fmt(dur())}`,
+                : `Needle Drop Sessions · default record · ${fmt(pos())} / ${fmt(dur())}`,
               Math.min(1, pos() / dur()),
             );
           }
@@ -6244,7 +6269,7 @@ body.rp-focus #rp-now { display:block; }
               const seed = t ? t.title + t.artist : "needle drop";
               tex = marble(pal, seed);
               mT.textContent = t ? t.title : "Needle Drop";
-              mA.textContent = t ? t.artist : "Iso-Glow Sessions";
+              mA.textContent = t ? t.artist : "Needle Drop Sessions";
               nudge = 0;
               syncV.textContent = "+0.0s";
               if (!t) {
@@ -6972,7 +6997,9 @@ body.rp-focus #rp-now { display:block; }
               ["33⅓ rpm", "3", () => setSpeed(33.333)],
               ["45 rpm", "4", () => setSpeed(45)],
               ["Cue arm", "C", cue],
-              ["Center view", "R", () => homeCam()],
+              ["Default view", "R", () => setViewPreset("default")],
+              ["Top view", "", () => setViewPreset("top")],
+              ["Front view", "", () => setViewPreset("front")],
               ["Lyrics view", "V", () => NP.toggle()],
               ["Power saver", "P", togglePower],
               ["Pitch +", "↑", () => setPitch(st.pitch + 1)],
@@ -7063,7 +7090,7 @@ body.rp-focus #rp-now { display:block; }
             t: 0,
             v,
           };
-          setSpin(false);
+          controls.autoRotate = false;
           setOrtho(true, v.dist());
           camAnim.from = camera.position.clone();
           camAnim.zoom0 = ortho.zoom;
@@ -7234,42 +7261,8 @@ body.rp-focus #rp-now { display:block; }
         themeHooks.forEach((f) => f(t));
         store("theme", t);
       }
-      // auto revolve: the camera slowly orbits the figure on screen; drag/zoom still work while it turns
-      const spinBtn = document.getElementById("spin");
-      function setSpin(on) {
-        if (camAnim) camAnim.spin = on;
-        controls.autoRotate = on;
-        controls.autoRotateSpeed = 1.2;
-        spinBtn.setAttribute("aria-pressed", on);
-        store("spin", on ? 1 : 0);
-      }
-      spinBtn.addEventListener("click", () => {
-        setSpin(!controls.autoRotate);
-        spinBtn.blur();
-      });
-      setSpin(load("spin") === "1");
-      document
-        .getElementById("theme")
-        .addEventListener("click", () =>
-          setTheme(theme === "dark" ? "light" : "dark"),
-        );
-      addEventListener("keydown", (e) => {
-        if (
-          !["tw", "pc"].includes(active) &&
-          e.key.toLowerCase() === "t" &&
-          !e.metaKey &&
-          !e.ctrlKey &&
-          !e.altKey &&
-          e.target.tagName !== "INPUT"
-        )
-          setTheme(theme === "dark" ? "light" : "dark");
-      });
-      setTheme(
-        load("theme") ||
-          (matchMedia("(prefers-color-scheme: light)").matches
-            ? "light"
-            : "dark"),
-      );
+      controls.autoRotate = false;
+      setTheme("dark");
 
       // click a part to identify it
       const ray = new THREE.Raycaster(),
@@ -7510,6 +7503,7 @@ body.rp-focus #rp-now { display:block; }
         document.getElementById("ctl-cs").classList.toggle("hide", f !== "cs");
         document.getElementById("ctl-tm").classList.toggle("hide", f !== "tm");
         document.getElementById("ctl-vm").classList.toggle("hide", f !== "vm");
+        document.getElementById("rp-views").hidden = f !== "rp";
         document
           .querySelectorAll(".seg button")
           .forEach((b) => b.setAttribute("aria-selected", b.dataset.fig === f));
@@ -7613,7 +7607,7 @@ body.rp-focus #rp-now { display:block; }
         panel.id = "ctl-" + id;
         panel.style.cssText =
           "top:64px; right:16px; display:flex; flex-direction:column; gap:6px; width:182px;";
-        [...F.panel, null, ["Iso view", "", () => act.iso(), "iso"]].forEach(
+        [...F.panel].forEach(
           (b) => {
             if (!b) {
               const sp = document.createElement("div");
@@ -7844,75 +7838,6 @@ body.rp-focus #rp-now { display:block; }
         const l = document.getElementById("rp-loading");
         if (l) l.remove();
       }, 700);
-      if (load("ortho") === "1") setOrtho(true, view().dist());
-
-      const ACCENTS3 = [
-        ["Ember", "#ff9d3c"],
-        ["Cyan", "#22d3ee"],
-        ["Lime", "#a3e635"],
-        ["Violet", "#a78bfa"],
-        ["Rose", "#fb7185"],
-        ["Ice", "#dfe9ef"],
-      ];
-      const swEl = document.getElementById("swatches");
-      swEl.innerHTML = ACCENTS3.map(
-        ([n, c]) =>
-          `<button role="radio" data-accent="${n.toLowerCase()}" aria-label="${n}" title="${n}" style="--sw:${c}"><i></i></button>`,
-      ).join("");
-      function pickAccent(k) {
-        const a = ACCENTS3.find((x) => x[0].toLowerCase() === k) || ACCENTS3[0];
-        k = a[0].toLowerCase();
-        const old = accent.clone();
-        setAccent(a[1]);
-        const swap = (c) => {
-          if (c && c.isColor && c.equals(old)) c.copy(accent);
-        };
-        scene.traverse((o) =>
-          [].concat(o.material || []).forEach((m) => {
-            // every part that carries the accent: emissive lights, accent lines, LEDs, glow sprites
-            if (m.emissive && m.emissive.getHex() !== 0)
-              m.emissive.copy(accent);
-            swap(m.color);
-            if (m.uniforms)
-              Object.values(m.uniforms).forEach((u) => swap(u.value));
-          }),
-        );
-        accentLineMat.color.copy(accent);
-        ledOnMat.color.copy(accent);
-        themeHooks.forEach((f) => f(theme)); // screens, labels and pools redraw with the new colour
-        swEl
-          .querySelectorAll("button")
-          .forEach((b) =>
-            b.setAttribute(
-              "aria-checked",
-              b.dataset.accent === k ? "true" : "false",
-            ),
-          );
-        try {
-          localStorage.setItem("iso-accent", k);
-        } catch (e) {}
-        try {
-          if (parent !== window)
-            parent.document.documentElement.style.setProperty("--accent", a[1]);
-        } catch (e) {} // the /demo shell around this page follows the choice
-      }
-      swEl.addEventListener("click", (e) => {
-        const b = e.target.closest("button[data-accent]");
-        if (b) {
-          pickAccent(b.dataset.accent);
-          b.blur();
-        }
-      });
-      addEventListener("storage", (e) => {
-        if (e.key === "iso-accent" && e.newValue) pickAccent(e.newValue);
-      });
-      {
-        let k = null;
-        try {
-          k = localStorage.getItem("iso-accent");
-        } catch (e) {}
-        pickAccent(k || "ember");
-      }
       requestAnimationFrame(frame);
     </script>
   </body>

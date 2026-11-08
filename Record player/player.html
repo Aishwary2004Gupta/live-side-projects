@@ -4873,6 +4873,7 @@ body.rp-focus #rp-now { display:block; }
               const t = results[i];
               if (!t || sw.on) return;
               queue = { list: results.slice(), i };
+              remember(t);
               close();
               input.value = "";
               input.placeholder = `Now pressing · ${clip(t.title, 24)} — ${clip(t.artist, 18)}`;
@@ -4882,10 +4883,29 @@ body.rp-focus #rp-now { display:block; }
               updateStepTitles();
               loadTrack(t);
             }
-            let queue = null;
+            let queue = null,
+              history = [],
+              historyIndex = -1;
+            const sameTrack = (a, b) => !!a && !!b && a.src === b.src;
+            function remember(t) {
+              if (historyIndex >= 0 && sameTrack(history[historyIndex], t)) return;
+              history.splice(historyIndex + 1);
+              history.push(t);
+              historyIndex = history.length - 1;
+              if (history.length > 40) {
+                history.shift();
+                historyIndex--;
+              }
+            }
             function stepTitle(d) {
-              const i = queue ? queue.i + d : -1,
-                t = queue && i >= 0 && i < queue.list.length ? queue.list[i] : null;
+              let t =
+                historyIndex + d >= 0 && historyIndex + d < history.length
+                  ? history[historyIndex + d]
+                  : null;
+              if (!t && queue) {
+                const i = queue.i + d;
+                if (i >= 0 && i < queue.list.length) t = queue.list[i];
+              }
               return t
                 ? `Play ${d < 0 ? "previous" : "next"} song: ${t.title} — ${t.artist}`
                 : `No ${d < 0 ? "previous" : "next"} song available`;
@@ -4951,13 +4971,29 @@ body.rp-focus #rp-now { display:block; }
               // move through the selected search results without wrapping to an unrelated song
               if (sw.on) return false;
               if (
+                historyIndex + d >= 0 &&
+                historyIndex + d < history.length
+              ) {
+                historyIndex += d;
+                const t = history[historyIndex];
+                if (queue) {
+                  const qi = queue.list.findIndex((x) => sameTrack(x, t));
+                  if (qi >= 0) queue.i = qi;
+                }
+                input.dataset.idle =
+                  input.placeholder = `Now pressing · ${clip(t.title, 24)} — ${clip(t.artist, 18)}`;
+                updateStepTitles();
+                loadTrack(t);
+                return true;
+              }
+              if (
                 queue &&
-                queue.list.length > 1 &&
                 queue.i + d >= 0 &&
                 queue.i + d < queue.list.length
               ) {
                 queue.i += d;
                 const t = queue.list[queue.i];
+                remember(t);
                 input.dataset.idle =
                   input.placeholder = `Now pressing · ${clip(t.title, 24)} — ${clip(t.artist, 18)}`;
                 updateStepTitles();

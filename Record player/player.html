@@ -505,9 +505,9 @@
         </div>
       </div>
       <div class="seg" id="rp-views" role="tablist" aria-label="Record player view">
-        <button type="button" data-rp-view="default" aria-selected="true">Default</button>
-        <button type="button" data-rp-view="top" aria-selected="false">Top</button>
-        <button type="button" data-rp-view="front" aria-selected="false">Front</button>
+        <button type="button" data-rp-view="default" title="Default view" aria-selected="true">Default view</button>
+        <button type="button" data-rp-view="top" title="Top view" aria-selected="false">Top view</button>
+        <button type="button" data-rp-view="front" title="Front view" aria-selected="false">Front view</button>
       </div>
     </div>
     <div class="ui ctl" id="ctl">
@@ -634,7 +634,6 @@
       const V = (x, y, z) => new THREE.Vector3(x / 100, z / 100, -y / 100);
       const themeHooks = []; // per-figure theme updates
       let active = "heli"; // which figure is on screen
-      let camAnim = null; // iso-view snap animation
 
       // ── renderer, scene, camera ──
       const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -3115,6 +3114,7 @@
           //   old disk lifts off → flies to its sleeve → slides in → the sleeve returns to the crate
           //   the new sleeve pops out of the crate → the new disk slides out → is carried onto the spindle → the sleeve settles beside the deck
           const S = W(C[0], C[1], RZ),
+            PREVIOUS = W(-68, 194, PLZ + 4),
             PSI = -0.12,
             LIFT = 70 * TS;
           const POSE = {
@@ -3239,8 +3239,12 @@
               cur.g.scale.setScalar(1);
               cur.g.position.copy(S);
               cur.g.rotation.set(0, rotA, 0);
-              nxt.g.visible = false;
-              nxt.g.position.set(0, -99, 0);
+              nxt.g.visible = historyAtFront;
+              if (historyAtFront) {
+                nxt.g.scale.setScalar(1);
+                nxt.g.position.copy(PREVIOUS);
+                nxt.g.rotation.set(0, 0, 0);
+              } else nxt.g.position.set(0, -99, 0);
               sheen();
               return;
             }
@@ -3983,6 +3987,7 @@
             defStop();
             nxt.track = t;
             nxt.img = null;
+            nxt.g.visible = false;
             drawLabel(nxt);
             if (st.on || st.mode !== "rest") {
               st.on = false;
@@ -4586,7 +4591,7 @@ body.rp-focus #rp-now { display:block; }
             ov.innerHTML = `<div class="card"><button class="x" type="button" aria-label="Close help">✕</button>
       <h2><i></i>Record player</h2><p class="lead">Search any song and its record is pulled from the crate and played for you.</p>
       <h3>What happens</h3>
-      <p>Type any song or artist in the search bar and pick a result. The platter stops, the old record goes back into its sleeve and the crate, the new album sleeve pops out, the new record slides out of it and is lowered onto the spindle, then the platter spins up, the arm cues itself and the music plays.</p>
+      <p>Click “Search for a song” and pick a result. The new record comes from the back of the crate; the old song sleeve stays displayed at the front while the new record is lowered onto the spindle.</p>
       <ul><li>With no song chosen, the blank record plays a built-in lo-fi loop.</li><li>Songs play as real 30-second previews, and the arm tracks across the groove as it plays.</li></ul>
       <h3>Controls</h3>
       <div class="keys">
@@ -4600,6 +4605,8 @@ body.rp-focus #rp-now { display:block; }
         <span>Pitch up / down</span><em><kbd>↑</kbd> <kbd>↓</kbd></em>
         <span>Default, top and front camera views</span><em>view buttons</em>
         <span>Lyrics view: rotating disc at the side, lyrics all around it</span><em><kbd>V</kbd></em>
+        <span>Choose another song in lyrics view</span><em>Search for a song</em>
+        <span>Previous / next song names</span><em>hover over the buttons</em>
         <span>Lyrics a little off? Click the line you are hearing (or use the arrow keys); it is remembered for that song</span><em><kbd>↑</kbd> <kbd>↓</kbd></em>
         <span>Power saver: lower resolution and fewer redraws (good for laptops on battery and phones)</span><em><kbd>P</kbd></em>
         <span>Hide every control, leaving just the player and the music</span><em><kbd>H</kbd></em>
@@ -4907,7 +4914,7 @@ body.rp-focus #rp-now { display:block; }
                 if (i >= 0 && i < queue.list.length) t = queue.list[i];
               }
               return t
-                ? `Play ${d < 0 ? "previous" : "next"} song: ${t.title} — ${t.artist}`
+                ? `Play the ${d < 0 ? "previous" : "next"} song: ${t.title} — ${t.artist}`
                 : `No ${d < 0 ? "previous" : "next"} song available`;
             }
             function updateStepTitles() {
@@ -5189,7 +5196,6 @@ body.rp-focus #rp-now { display:block; }
               !!camFly ||
               scratchT > 0 ||
               controls.autoRotate ||
-              (typeof camAnim !== "undefined" && !!camAnim) ||
               NP.moving();
             if (busyNow) {
               idleN = 0;
@@ -7113,24 +7119,6 @@ body.rp-focus #rp-now { display:block; }
         door() {
           st.door = !st.door;
         },
-        iso() {
-          // toggle: on = snap to the iso angle in true isometric (orthographic); off = back to perspective at the same angle
-          if (camera === ortho) {
-            setOrtho(false);
-            return;
-          }
-          const v = view();
-          camAnim = {
-            from: camera.position.clone(),
-            fromT: controls.target.clone(),
-            t: 0,
-            v,
-          };
-          controls.autoRotate = false;
-          setOrtho(true, v.dist());
-          camAnim.from = camera.position.clone();
-          camAnim.zoom0 = ortho.zoom;
-        },
         climb(d) {
           if (d > 0 && !st.eng) {
             st.msg = "start engines first";
@@ -7161,7 +7149,6 @@ body.rp-focus #rp-now { display:block; }
           e: "engines",
           c: "cabin",
           d: "door",
-          i: "iso",
         }[e.key.toLowerCase()];
         if (k) {
           run(k);
@@ -7541,16 +7528,11 @@ body.rp-focus #rp-now { display:block; }
         document.getElementById("ctl-vm").classList.toggle("hide", f !== "vm");
         document.getElementById("rp-views").hidden = f !== "rp";
         document
-          .querySelectorAll(".seg button")
+          .querySelectorAll(".seg button[data-fig]")
           .forEach((b) => b.setAttribute("aria-selected", b.dataset.fig === f));
         document.getElementById("info").innerHTML = v.info;
         document.getElementById("hint").textContent = v.hint;
         controls.minDistance = v.min;
-        if (camAnim) {
-          controls.enableDamping = true;
-          controls.autoRotate = camAnim.spin ?? controls.autoRotate;
-        }
-        camAnim = null;
         if (v.cam) {
           camera.position.copy(v.cam.pos);
           controls.target.copy(v.cam.target);
@@ -7573,7 +7555,7 @@ body.rp-focus #rp-now { display:block; }
         store("fig", f);
       }
       document
-        .querySelectorAll(".seg button")
+        .querySelectorAll(".seg button[data-fig]")
         .forEach((b) =>
           b.addEventListener("click", () => setFigure(b.dataset.fig)),
         );
@@ -7667,7 +7649,7 @@ body.rp-focus #rp-now { display:block; }
         tab.setAttribute("role", "tab");
         tab.textContent = EXTRA_NAMES[id];
         tab.addEventListener("click", () => setFigure(id));
-        document.querySelector(".seg").appendChild(tab);
+        document.querySelector("#top .tops .seg").appendChild(tab);
       }
       addEventListener("keydown", (e) => {
         const F = EXTRA[active];
@@ -7801,32 +7783,6 @@ body.rp-focus #rp-now { display:block; }
         spillMat.uniforms.opacity.value = st.cabin
           ? 0.4 * ease(st.doorT) * lift
           : 0;
-        if (camAnim) {
-          // while snapping back to the iso view, drop leftover drag momentum and pause the revolve so it lands exactly
-          if (camAnim.t === 0) {
-            camAnim.spin = controls.autoRotate;
-            controls.autoRotate = false;
-            controls.enableDamping = false;
-          }
-          camAnim.t = Math.min(1, camAnim.t + dt / 0.8);
-          const k = ease(camAnim.t);
-          const v = camAnim.v;
-          controls.target.lerpVectors(camAnim.fromT, v.target, k);
-          camera.position.lerpVectors(
-            camAnim.from,
-            v.target.clone().addScaledVector(v.dir, v.dist()),
-            k,
-          );
-          if (camera === ortho && camAnim.zoom0 !== undefined) {
-            ortho.zoom = THREE.MathUtils.lerp(camAnim.zoom0, 1, k);
-            ortho.updateProjectionMatrix();
-          }
-          if (camAnim.t >= 1) {
-            controls.enableDamping = true;
-            controls.autoRotate = camAnim.spin;
-            camAnim = null;
-          }
-        }
         if (active === "tw") twTick(now, dt);
         if (active === "dr") {
           DR.tick(now, dt);
@@ -7863,10 +7819,10 @@ body.rp-focus #rp-now { display:block; }
         appliedKey = "";
       });
       render();
-      document.querySelectorAll(".seg button").forEach((b) => {
+      document.querySelectorAll(".seg button[data-fig]").forEach((b) => {
         b.hidden = !SHOW_FIGS.includes(b.dataset.fig);
       });
-      if (SHOW_FIGS.length < 2) document.querySelector(".seg").hidden = true; // one figure: no tab bar
+      if (SHOW_FIGS.length < 2) document.querySelector("#top .tops .seg").hidden = true; // one figure: no tab bar
       setFigure(SHOW_FIGS.includes(load("fig")) ? load("fig") : SHOW_FIGS[0]);
       document.body.classList.add("rp-ready");
       if (window.__rpWake) window.__rpWake(3000);

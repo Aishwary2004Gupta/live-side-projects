@@ -4410,6 +4410,11 @@
             const css = document.createElement("style");
             css.textContent = `
 #rp-ui { position:fixed; z-index:6; top:58px; left:50%; transform:translateX(-50%); width:min(440px, calc(100vw - 32px)); font:12px/1.4 ui-monospace,"SF Mono",Menlo,Consolas,monospace; color:var(--ink); }
+#rp-ui.lyrics { z-index:60; top:2.6vh; }
+#rp-ui .trigger { display:block; margin:0 auto; padding:9px 16px; border:1px solid var(--line); border-radius:20px; background:var(--panel); color:var(--ink); font:12px ui-monospace,"SF Mono",Menlo,Consolas,monospace; cursor:pointer; backdrop-filter:blur(8px); }
+#rp-ui .trigger:hover { border-color:var(--accent); }
+#rp-ui.lyrics .trigger { display:none; }
+#rp-ui .bar[hidden], #rp-ui .list[hidden] { display:none !important; }
 #rp-ui .bar { display:flex; align-items:center; gap:9px; padding:0 12px; height:40px; border:1px solid var(--line); border-radius:12px; background:var(--panel); backdrop-filter:blur(8px); cursor:text; }
 #rp-ui .bar:focus-within { border-color:var(--accent); box-shadow:0 0 0 1px var(--accent) inset; }
 #rp-ui svg { flex:none; width:15px; height:15px; stroke:var(--dim); fill:none; stroke-width:1.6; stroke-linecap:round; }
@@ -4470,7 +4475,7 @@ body.rp-focus #rp-now { display:block; }
             const root = document.createElement("div");
             root.id = "rp-ui";
             root.innerHTML =
-              '<label class="bar"><svg viewBox="0 0 16 16"><circle cx="7" cy="7" r="5"/><path d="M11 11l3.5 3.5"/></svg><input type="text" placeholder="Type anything to press a record" autocomplete="off" spellcheck="false" aria-label="Search for a song or artist"><i class="sp"></i><button class="clr" type="button" hidden aria-label="Clear search">✕</button><kbd>/</kbd></label><div class="list" hidden></div>';
+              '<button class="trigger" type="button">Search for a song</button><label class="bar" hidden><svg viewBox="0 0 16 16"><circle cx="7" cy="7" r="5"/><path d="M11 11l3.5 3.5"/></svg><input type="text" placeholder="Search for a song or artist" autocomplete="off" spellcheck="false" aria-label="Search for a song or artist"><i class="sp"></i><button class="clr" type="button" hidden aria-label="Clear search">✕</button><kbd>/</kbd></label><div class="list" hidden></div>';
             document.body.appendChild(root);
             const eye = document.createElement("button");
             eye.id = "rp-eye";
@@ -4613,7 +4618,22 @@ body.rp-focus #rp-now { display:block; }
               true,
             );
             const input = root.querySelector("input"),
+              bar = root.querySelector(".bar"),
+              trigger = root.querySelector(".trigger"),
               list = root.querySelector(".list");
+            const collapseSearch = () => {
+              root.classList.remove("open");
+              bar.hidden = true;
+              list.hidden = true;
+            };
+            const expandSearch = () => {
+              if (document.body.classList.contains("rp-focus")) setFocus(false);
+              root.classList.add("open");
+              bar.hidden = false;
+              input.focus();
+              input.select();
+            };
+            trigger.addEventListener("click", expandSearch);
             let results = [],
               sel = 0,
               seq = 0,

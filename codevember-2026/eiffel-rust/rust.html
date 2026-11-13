@@ -36,7 +36,7 @@
   <div class="row">
     <button id="play">▶ Play</button>
     <button id="reset">⟲ Reset</button>
-    <label>Speed <select id="speed"><option value="4">Slow</option><option value="10" selected>Normal</option><option value="25">Fast</option></select></label>
+    <label>Speed <select id="speed"><option value="4">Slow</option><option value="8" selected>Normal</option><option value="25">Fast</option></select></label>
     <label>Model <select id="model"><option value="detailed">Detailed (155 MB)</option><option value="light">Light (17 MB)</option></select></label>
     <button id="rot">Auto-rotate: on</button>
   </div>
@@ -47,10 +47,11 @@ import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
 import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
 import {RoomEnvironment} from 'three/addons/environments/RoomEnvironment.js';
 
+addEventListener('error',e=>{const m=document.getElementById('lmsg');if(m){m.textContent='Error: '+e.message;document.getElementById('load').style.display='flex';}});
 const MAX_YEARS = 150, TOWER_H = 330;
 const MODELS = {
-  detailed:{path:'models/detailed/scene.gltf',credit:'"Eiffel Tower" by Fre1231 (CC-BY-4.0)',src:'https://sketchfab.com/3d-models/eiffel-tower-4db4b6809be7488cab729ef182fbc3bb'},
-  light:{path:'models/light/scene.gltf',credit:'"Eiffel Tower" by Johnson Martin (CC-BY-4.0)',src:'https://sketchfab.com/3d-models/eiffel-tower-6830e60d2c1048f2a33e92679664f652'}
+  detailed:{paths:['models/detailed/scene.gltf','detailed/scene.gltf','eiffel_tower__1_/scene.gltf','eiffel_tower (1)/scene.gltf','eiffel_tower_1/scene.gltf','scene.gltf'],credit:'"Eiffel Tower" by Fre1231 (CC-BY-4.0)',src:'https://sketchfab.com/3d-models/eiffel-tower-4db4b6809be7488cab729ef182fbc3bb'},
+  light:{paths:['models/light/scene.gltf','light/scene.gltf','eiffel_tower/scene.gltf'],credit:'"Eiffel Tower" by Johnson Martin (CC-BY-4.0)',src:'https://sketchfab.com/3d-models/eiffel-tower-6830e60d2c1048f2a33e92679664f652'}
 };
 
 // ---------- renderer / scene ----------
@@ -201,7 +202,20 @@ function loadModel(key){
   loadEl.style.display='flex'; barI.style.width='0'; lmsg.textContent='Loading tower…';
   document.getElementById('credit').innerHTML = `${cfg.credit} – <a href="${cfg.src}" target="_blank" rel="noopener">source</a>`;
   if (tower){ tower.traverse(o=>{ if(o.isMesh){o.geometry.dispose();} }); scene.remove(tower); tower=null; }
-  loader.load(cfg.path, gltf=>{
+  const override = new URLSearchParams(location.search).get('src');
+  const candidates = override ? [override] : cfg.paths;
+  (async()=>{
+    let found=null;
+    for(const u of candidates){ try{ const r=await fetch(u,{method:'HEAD'}); if(r.ok){found=u;break;} }catch(e){} }
+    if(!found){
+      lmsg.innerHTML='Could not find the model file.<br><small>Tried: '+candidates.join(', ')+'<br>Put the unzipped folder (scene.gltf + scene.bin) at one of those paths next to this HTML file, or open this page with <b>?src=your/folder/scene.gltf</b></small>';
+      return;
+    }
+    lmsg.textContent='Loading tower…';
+    doLoad(found);
+  })();
+  function doLoad(path){
+  loader.load(path, gltf=>{
     const root = gltf.scene;
     const box = new THREE.Box3().setFromObject(root);
     const size = box.getSize(new THREE.Vector3());
@@ -227,10 +241,12 @@ function loadModel(key){
     });
     tower = holder; scene.add(tower);
     loadEl.style.display='none';
+    startShow();
   }, e=>{
     if(e.total){ const p=e.loaded/e.total; barI.style.width=(p*100)+'%'; lmsg.textContent=`Loading tower… ${(e.loaded/1048576).toFixed(0)} / ${(e.total/1048576).toFixed(0)} MB`; }
     else lmsg.textContent=`Loading tower… ${(e.loaded/1048576).toFixed(0)} MB`;
   }, err=>{ lmsg.textContent='Failed to load model – serve this folder over HTTP (see README).'; console.error(err); });
+  }
 }
 
 // ---------- UI ----------
@@ -277,6 +293,10 @@ renderer.setAnimationLoop(()=>{
   renderer.render(scene,camera);
 });
 
+function startShow(){
+  setYears(0); playing=true; playBtn.textContent='⏸ Pause';
+  camera.position.set(560,260,640); controls.autoRotateSpeed=0.9;
+}
 setYears(0);
 loadModel('detailed');
 </script>

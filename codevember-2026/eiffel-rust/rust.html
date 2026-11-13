@@ -194,7 +194,8 @@ for(let i=0;i<FL;i++) respawn(i);
 
 // ---------- model loading ----------
 let tower = null;
-const loader = new GLTFLoader();
+const manager = new THREE.LoadingManager();
+const loader = new GLTFLoader(manager);
 const loadEl = document.getElementById('load'), barI = document.querySelector('#bar i'), lmsg = document.getElementById('lmsg');
 
 function loadModel(key){
@@ -208,7 +209,20 @@ function loadModel(key){
     let found=null;
     for(const u of candidates){ try{ const r=await fetch(u,{method:'HEAD'}); if(r.ok){found=u;break;} }catch(e){} }
     if(!found){
-      lmsg.innerHTML='Could not find the model file.<br><small>Tried: '+candidates.join(', ')+'<br>Put the unzipped folder (scene.gltf + scene.bin) at one of those paths next to this HTML file, or open this page with <b>?src=your/folder/scene.gltf</b></small>';
+      lmsg.innerHTML='Could not find the model automatically.<br><br><b>Choose your model files</b> (select <code>scene.gltf</code> and <code>scene.bin</code> together, or drag them onto this page):<br><br><button id="pick">Select scene.gltf + scene.bin</button><input id="files" type="file" multiple accept=".gltf,.bin" style="display:none">';
+      const input=document.getElementById('files');
+      document.getElementById('pick').onclick=()=>input.click();
+      input.onchange=()=>useFiles(input.files);
+      addEventListener('dragover',e=>e.preventDefault());
+      addEventListener('drop',e=>{e.preventDefault();useFiles(e.dataTransfer.files);});
+      function useFiles(list){
+        const map={}; let gltf=null;
+        for(const f of list){ map[f.name]=URL.createObjectURL(f); if(/\.gltf$/i.test(f.name)) gltf=map[f.name]; }
+        if(!gltf||!Object.keys(map).some(n=>/\.bin$/i.test(n))){ lmsg.innerHTML+='<br><br>Please select BOTH scene.gltf and scene.bin.'; return; }
+        manager.setURLModifier(u=>{ const n=decodeURIComponent(u.split('/').pop().split('?')[0]); return map[n]||u; });
+        lmsg.textContent='Loading tower…';
+        doLoad(gltf);
+      }
       return;
     }
     lmsg.textContent='Loading tower…';

@@ -1,6 +1,7 @@
 <!-- UI by @Lattice_Node — ludion.ai/p/like-pond (MIT) -->
 <div data-ld-part="like-pond" lang="ja">
   <canvas class="pond" aria-hidden="true"></canvas>
+  <img class="water-image" data-water-image alt="" aria-hidden="true" hidden>
   <button class="hit" type="button" aria-pressed="false" aria-label="いいね 128件">
     <svg class="still" viewBox="0 0 120 110" aria-hidden="true">
       <path d="M60 104C24 76 8 58 8 35 8 18 21 6 37 6c10 0 18 5 23 14C65 11 73 6 83 6c16 0 29 12 29 29 0 23-16 41-52 69Z"></path>
@@ -10,7 +11,10 @@
       <span class="num" data-num>128</span>
     </span>
   </button>
+  <button class="image-upload" data-image-upload type="button">Upload image</button>
+  <input class="image-file" data-image-input type="file" accept="image/*" aria-label="Choose an image for the water">
   <span class="vh" role="status" aria-live="polite" data-status></span>
+  <span class="vh" role="status" aria-live="polite" data-image-status></span>
   <span class="probe" aria-hidden="true"></span>
 </div>
 <style>
@@ -62,6 +66,25 @@
   pointer-events: none;
 }
 
+[data-ld-part="like-pond"] .water-image {
+  position: absolute;
+  z-index: 1;
+  top: 13.2cqw;
+  left: 13.2cqw;
+  display: block;
+  width: 73.6cqw;
+  height: 73.6cqw;
+  border-radius: 50%;
+  object-fit: cover;
+  opacity: .72;
+  mix-blend-mode: soft-light;
+  pointer-events: none;
+}
+
+[data-ld-part="like-pond"] .water-image[hidden] {
+  display: none;
+}
+
 /* 本物のボタン。絵は canvas が描き、ここは押す場所と数だけ */
 [data-ld-part="like-pond"] .hit {
   position: absolute;
@@ -90,6 +113,33 @@
 [data-ld-part="like-pond"] .hit:focus-visible {
   outline: max(2px, .35cqw) solid var(--_accent);
   outline-offset: max(3px, .7cqw);
+}
+
+[data-ld-part="like-pond"] .image-upload {
+  position: absolute;
+  top: 106cqw;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: .8cqw 2.4cqw;
+  border: 1px solid color-mix(in oklab, var(--_muted) 55%, transparent);
+  border-radius: var(--_radius);
+  background: var(--_surface);
+  box-shadow: var(--_shadow);
+  color: var(--_fg);
+  font: inherit;
+  font-size: max(12px, 2.8cqw);
+  line-height: 1.2;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+[data-ld-part="like-pond"] .image-upload:focus-visible {
+  outline: max(2px, .35cqw) solid var(--_accent);
+  outline-offset: 2px;
+}
+
+[data-ld-part="like-pond"] .image-file {
+  display: none;
 }
 
 [data-ld-part="like-pond"] .tally {
@@ -895,9 +945,51 @@ function mount(root) {
 
   const canvas = root.querySelector('.pond');
   const button = root.querySelector('.hit');
+  const imageOverlay = root.querySelector('[data-water-image]');
+  const imageUpload = root.querySelector('[data-image-upload]');
+  const imageInput = root.querySelector('[data-image-input]');
+  const imageStatus = root.querySelector('[data-image-status]');
   const numEl = root.querySelector('[data-num]');
   const statusEl = root.querySelector('[data-status]');
   const probe = root.querySelector('.probe');
+
+  let imageUrl = '';
+  let pendingImageUrl = '';
+  on(imageUpload, 'click', () => imageInput.click());
+  on(imageInput, 'change', () => {
+    const file = imageInput.files && imageInput.files[0];
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      imageStatus.textContent = 'Choose a valid image file.';
+      imageInput.value = '';
+      return;
+    }
+    if (pendingImageUrl) URL.revokeObjectURL(pendingImageUrl);
+    pendingImageUrl = URL.createObjectURL(file);
+    imageOverlay.src = pendingImageUrl;
+    imageStatus.textContent = 'Loading image…';
+  });
+  on(imageOverlay, 'load', () => {
+    if (!pendingImageUrl || imageOverlay.src !== pendingImageUrl) return;
+    if (imageUrl) URL.revokeObjectURL(imageUrl);
+    imageUrl = pendingImageUrl;
+    pendingImageUrl = '';
+    imageOverlay.hidden = false;
+    imageStatus.textContent = 'Image added to the water.';
+  });
+  on(imageOverlay, 'error', () => {
+    if (!pendingImageUrl || imageOverlay.src !== pendingImageUrl) return;
+    URL.revokeObjectURL(pendingImageUrl);
+    pendingImageUrl = '';
+    imageInput.value = '';
+    if (imageUrl) imageOverlay.src = imageUrl;
+    imageStatus.textContent = 'Could not load that image. Choose a different image.';
+  });
+  cleanups.push(() => {
+    if (pendingImageUrl) URL.revokeObjectURL(pendingImageUrl);
+    if (imageUrl) URL.revokeObjectURL(imageUrl);
+  });
+
   const motionQuery = matchMedia('(prefers-reduced-motion: reduce)');
   const schemeQuery = matchMedia('(prefers-color-scheme: dark)');
   let still = motionQuery.matches;

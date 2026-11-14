@@ -7,7 +7,7 @@
 <style>
   :root { --bg:#121314; --panel:rgba(22,23,24,.85); --line:#26292b; --ink:#c9d0db; --dim:#7d8796; --accent:#ff9d3c; }
 :root { color-scheme:dark; }
-  :root[data-theme="light"] { color-scheme:light; --bg:#f2efe9; --panel:rgba(252,251,248,.88); --line:#dcd7cd; --ink:#25282b; --dim:#6a6e73; }
+  :root[data-theme="light"] { color-scheme:light; --bg:#e8e4db; --panel:rgba(252,251,248,.88); --line:#dcd7cd; --ink:#25282b; --dim:#6a6e73; }
   * { box-sizing:border-box; }
   @media (max-width:900px) { .build { display:none; } }
   .tops { display:flex; gap:8px; align-items:center; min-width:0; max-width:100%; }
@@ -149,7 +149,7 @@ body.rp-ready #rp-loading { opacity:0; pointer-events:none; }
 </div>
 <div class="ui" id="info"><h2>Click any part</h2><p>Drag to orbit, scroll to zoom, right-drag to pan. ↑ ↓ climb and descend once the rotor is at speed.</p></div>
 <div class="ui" id="hint">L lights · E engines · ↑↓ climb · C cabin lights · D doors · I iso · T theme</div>
-<a class="ui" id="credit" href="https://x.com/Aish2004Gupta" target="_blank" rel="noopener">Made by X ↗</a>
+<a class="ui" id="credit" href="https://iso-glow.vercel.app" target="_blank" rel="noopener">Made with ISO-GLOW ↗</a>
 <div class="ui" id="read"></div>
 
 <script type="module">
@@ -294,8 +294,8 @@ const cabinLight = new THREE.PointLight(0xffffff, 0, 2.3, 2), cockpitLight = new
 const THEMES = {
   dark:  { bg: 0x0f1012, body: 0x26282d, blade: 0x28292e, pad: 0x1f2126, lamp: 0x232830, line: 0x80868c, major: 0x575d63, edge: 0x35383c,
            sky: 0xdde4ff, ground: 0x080808, hemi: 0.78, amb: 0, sun: 0.95, fill: 0.25, shadow: 0.7, fadeMin: 0.45 },
-  light: { bg: 0xf2efe9, body: 0xfbfaf7, blade: 0xf3f1ec, pad: 0xfaf9f6, lamp: 0xe2ded6, line: 0x4b5055, major: 0x858a8f, edge: 0xb2b3b1,
-           sky: 0xfffdf9, ground: 0xe9e5de, hemi: 0.95, amb: 1.45, sun: 0.55, fill: 0.2, shadow: 0.2, fadeMin: 0.8 },
+  light: { bg: 0xe8e4db, body: 0xa9aeb6, blade: 0xa9aeb6, pad: 0xd6d0c3, lamp: 0xe2ded6, line: 0x343a40, major: 0x555b62, edge: 0x2a2f34,
+           sky: 0xfffdf9, ground: 0xd9d3c6, hemi: 0.7, amb: 0.2, sun: 0.9, fill: 0.25, shadow: 0.3, fadeMin: 0.8 },
 };
 let theme = 'dark', accentHex = PALETTE[0][1];
 function setAccent(hex) {
@@ -756,8 +756,8 @@ function twTick(now, dt) {
 }
 themeHooks.push(t => {
   const light = t === 'light';
-  recessMat.color.set(light ? 0xe4e0d8 : 0x0f1011);
-  twCaps.forEach(m => m.color.set(THEMES[t].body));
+  recessMat.color.set(light ? 0x2c2f34 : 0x0f1011);
+  twCaps.forEach(m => m.color.set(t === 'light' ? 0xece9e2 : THEMES[t].body));
   bellMat.color.set(light ? 0xc3c6c8 : 0x2b2e30); guideMat.color.set(light ? 0xc3c6c8 : 0x2b2e30);
   hazeMat.blending = light ? THREE.NormalBlending : THREE.AdditiveBlending; hazeMat.needsUpdate = true;
   hazeMat.uniforms.color.value.copy(accent);
@@ -922,7 +922,7 @@ FIGS3D.push({ id: 'rp', name: 'Record player', mod: (() => {
   // so it stays put while the record spins. Grooves are fract(length(vUv - 0.5) * 200.0).
   const vinylMat = new THREE.ShaderMaterial({
     side: THREE.DoubleSide,
-    uniforms: { uDark: { value: 1 }, uL1: { value: new THREE.Vector3(-0.75, 0.38, 0.35).normalize() }, uL2: { value: new THREE.Vector3(0.55, 0.35, -0.65).normalize() } },
+    uniforms: { uDark: { value: 1 }, uTex: { value: null }, uMix: { value: 0 }, uL1: { value: new THREE.Vector3(-0.75, 0.38, 0.35).normalize() }, uL2: { value: new THREE.Vector3(0.55, 0.35, -0.65).normalize() } },
     vertexShader: `
       varying vec3 vW; varying vec3 vN; varying vec3 vR; varying vec2 vUv; varying vec3 vP; varying vec3 vUp;
       void main() {
@@ -934,7 +934,7 @@ FIGS3D.push({ id: 'rp', name: 'Record player', mod: (() => {
         gl_Position = projectionMatrix * viewMatrix * wp;
       }`,
     fragmentShader: `
-      uniform float uDark; uniform vec3 uL1; uniform vec3 uL2;
+      uniform float uDark; uniform sampler2D uTex; uniform float uMix; uniform vec3 uL1; uniform vec3 uL2;
       varying vec3 vW; varying vec3 vN; varying vec3 vR; varying vec2 vUv; varying vec3 vP; varying vec3 vUp;
       float kk(vec3 T, vec3 L, vec3 V, float p) { vec3 H = normalize(L + V); float d = dot(T, H); return pow(sqrt(max(1.0 - d * d, 0.0)), p); }
       void main() {
@@ -958,6 +958,7 @@ FIGS3D.push({ id: 'rp', name: 'Record player', mod: (() => {
           sm += 1.0 - smoothstep(0.0, 0.007, abs(rad - 0.458));
           sm = clamp(sm, 0.0, 1.0);
           vec3 cd = vec3(0.022) + vec3(0.016) * rd * (1.0 - sm);
+          if (uMix > 0.0) { vec3 mc = texture2D(uTex, vUv).rgb; float cm = smoothstep(0.17, 0.2, rad) * (1.0 - smoothstep(0.468, 0.485, rad)); cd = mix(cd, mc * (0.62 + 0.38 * rd) * 0.95, cm * uMix); }       // coloured vinyl: the swirl shows through the grooves
           float tv = dot(T, V), sv = sqrt(max(1.0 - tv * tv, 0.0));               // light is reflected by the grooves in a cone around their tangent, so only wedges of the disc catch it
           float l1 = dot(T, uL1), l2 = dot(T, uL2);
           float k1 = max(sqrt(max(1.0 - l1 * l1, 0.0)) * sv - l1 * tv, 0.0), k2 = max(sqrt(max(1.0 - l2 * l2, 0.0)) * sv - l2 * tv, 0.0);
@@ -989,9 +990,15 @@ FIGS3D.push({ id: 'rp', name: 'Record player', mod: (() => {
     .map(([r, y]) => new THREE.Vector2(r * TS, y * TS)), 160);
   const plainVinyl = new THREE.MeshStandardMaterial({ color: 0x0d0d0e, roughness: 0.28, metalness: 0.25, side: THREE.DoubleSide });
   renderer.debug.onShaderError = (gl, program, vs, fs) => { try { if (gl.getShaderSource(fs).includes('uDark')) { recs.forEach(r => { r.body.material = plainVinyl; }); console.warn('The vinyl shader did not compile; using a plain black material instead.'); } } catch (e) {} };
+  function setDisc(r, t, img) {
+    const m = r.body.material; if (!m.uniforms || !m.uniforms.uTex) return;           // (the plain fallback material has no colour support)
+    if (!t) { m.uniforms.uMix.value = 0; r.discKey = null; return; }
+    const cv = discCanvas(t, img); if (!cv || r.discKey === cv) return; r.discKey = cv;
+    if (r.discTex) r.discTex.dispose(); const tx = new THREE.CanvasTexture(cv); tx.colorSpace = THREE.NoColorSpace; tx.anisotropy = 8; m.uniforms.uTex.value = tx; m.uniforms.uMix.value = 1; r.discTex = tx;
+  }
   function makeRecord() {
     const g = new THREE.Group(); g.userData = { rec: true }; g.rotation.order = 'YXZ'; g0.add(g);
-    const body = new THREE.Mesh(vinylGeo, vinylMat); g.add(body);
+    const body = new THREE.Mesh(vinylGeo, vinylMat.clone()); g.add(body);                 // each record has its own colours
     const sh = new THREE.Group(); g.add(sh);
     const lab = document.createElement('canvas'); lab.width = lab.height = 512;
     const tex = new THREE.CanvasTexture(lab); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 8;
@@ -1081,6 +1088,7 @@ FIGS3D.push({ id: 'rp', name: 'Record player', mod: (() => {
   const POSE = { A: { p: W(-118, 158, PLZ + 0.2), tilt: 0, yaw: PSI, s: 1 }, B: { p: W(-118, 338, PLZ + 100.2), tilt: 0, yaw: PSI, s: 1 } };
   const T = { fly: 1.0, slide: [1.0, 1.7], pop: [0.15, 2.0], shift: [0.9, 1.7], pull: [2.1, 3.0], deck: [3.2, 4.4], back: [1.9, 3.1], settle: [3.2, 4.3] }, T_END = 4.4;
   const sw = { on: false, t: 0 };
+  let npAnim = false;                                                            // set when a record was swapped while the lyrics view was open
   const ss = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
   const sg = (t, a, b) => Math.min(1, Math.max(0, (t - a) / (b - a)));
   let rotA = 0;
@@ -1107,6 +1115,14 @@ FIGS3D.push({ id: 'rp', name: 'Record player', mod: (() => {
   const recAt = (f, dx, P, Q) => { tmpO.position.copy(f.p); tmpO.rotation.set(f.tilt, f.yaw, 0); tmpO.scale.setScalar(f.s); tmpO.updateMatrixWorld(true);
     lp.set(-dx * TS, TS, 0); tmpO.localToWorld(lp); P.copy(lp); Q.copy(tmpO.quaternion); };                                  // …or in a sleeve pose
   function sheen() { recs.forEach(r => { r.sh.rotation.y = -r.g.rotation.y; }); }
+  function instantSwap() {                                                         // lyrics view open: no 3D choreography and no mechanical sounds; the new record is simply on the deck when you come back
+    const n0 = crate[6]; n0.track = pending; n0.img = nxt.img; drawSleeve(n0);
+    [cur, nxt] = [nxt, cur]; { const popped = crate.pop(); crate.unshift(cs); cs = popped; }
+    nxt.g.visible = false; track = cur.track; pending = null; sw.on = false; sw.t = 0;
+    defStop(); vt = 0; try { au.currentTime = 0; } catch (e) {}
+    st.on = true; st.mode = 'play'; st.a = angleFor(R0); st.lift = 0; st.r = R0; st.rpm = Math.max(st.rpm, st.speed * (1 + st.pitch / 100));   // the needle is already down, so the music starts at once
+    layout(); npAnim = true; render();
+  }
   function layout() {
     if (!sw.on) {
       setSleeve(cs, POSE.A, POSE.A, 0, 0, 'flat'); crate.forEach((o, k) => setSleeve(o, slotPose(k), slotPose(k), 0, 0, 'flat'));
@@ -1289,14 +1305,14 @@ FIGS3D.push({ id: 'rp', name: 'Record player', mod: (() => {
   function loadTrack(t) {
     if (sw.on) return;
     if (playedList[playedList.length - 1] !== t) { playedList.push(t); if (playedList.length > 60) playedList.shift(); }
-    pending = t; status = ''; audioErr = false; blocked = false; blockedToast = false; defStop(); nxt.track = t; nxt.img = null; drawLabel(nxt);
+    pending = t; status = ''; audioErr = false; blocked = false; blockedToast = false; defStop(); nxt.track = t; nxt.img = null; drawLabel(nxt); setTimeout(() => { if (nxt.track === t) setDisc(nxt, t, null); }, 60);
     if (st.on || st.mode !== 'rest') { st.on = false; if (st.mode !== 'rest') st.mode = 'return'; }
     au.src = t.src; au.muted = true;                                               // prime audio inside the user's gesture
     au.play().then(() => { if (!wantPlay) { au.pause(); try { au.currentTime = 0; } catch (e) {} } au.muted = false; }).catch(() => { au.muted = false; });
     if (t.art) { const im = new Image(); im.crossOrigin = 'anonymous'; im.onload = () => {
-      if (nxt.track === t) { nxt.img = im; drawLabel(nxt); } else if (cur.track === t) { cur.img = im; drawLabel(cur); } [cs, ...crate].forEach(o => { if (o.track === t) { o.img = im; drawSleeve(o); } }); }; im.src = t.art; }
+      if (nxt.track === t) { nxt.img = im; drawLabel(nxt); setDisc(nxt, t, im); } else if (cur.track === t) { cur.img = im; drawLabel(cur); setDisc(cur, t, im); } [cs, ...crate].forEach(o => { if (o.track === t) { o.img = im; drawSleeve(o); } }); }; im.src = t.art; }
     if (window.__rpPrep) window.__rpPrep(t);                                         // start fetching lyrics and working out the timing right away
-    SFX.button(); render();
+    if (!NP.open) SFX.button(); render();
   }
 
   window.__rpUseAlt = (t, src) => { if (wantPlay || (track !== t && pending !== t)) return false; t.src = src; au.src = src; return true; };
@@ -1378,6 +1394,7 @@ FIGS3D.push({ id: 'rp', name: 'Record player', mod: (() => {
     UI.show(active === ID);
     { const lk = sw.on || !!pending; if (lk !== lastLock) { lastLock = lk; UI.lock(lk); } }
     // record swap sequence
+    if (pending && !sw.on && NP.open) instantSwap();
     if (pending && !sw.on && st.mode === 'rest' && st.rpm < 1.5) { sw.on = true; sw.t = 0; { const n0 = crate[6]; n0.track = pending; n0.img = nxt.img; drawSleeve(n0); } tap(500, 0.25, 2); }
     if (sw.on) {
       const t0 = sw.t; sw.t += dt * (REDUCED ? 3 : 1);
@@ -1650,19 +1667,46 @@ body.rp-focus #rp-now { display:block; }
   window.__rpSearch = () => UI.focus();
 
   // ── camera: centred on the deck; the iso button gives a true isometric, orthographic view and flies there ──
-  const HOME = W(110, 130, 22), VIEW_DIR = { default: new THREE.Vector3(1, 1, 1).normalize(), top: new THREE.Vector3(0.0001, 1, 0.0006).normalize(), front: new THREE.Vector3(0.0001, 0.2, 1).normalize() };
-  let camFly = null;
+  const HOME = W(110, 130, 22), VIEW_DIST = 9.4;
+  const VIEW_DIR = { default: new THREE.Vector3(0.6, 0.72, 1).normalize(), top: new THREE.Vector3(0.0001, 1, 0.0006).normalize(), front: new THREE.Vector3(0.0001, 0.2, 1).normalize() };
+  let camFly = null, curFit = null, camInit = false, insKey = '', fitDirty = true, compiled = false;
   const aspectK = () => Math.max(1, 1.45 / persp.aspect);
-  function flyCam(pos, tgt, dur) { camFly = { t: 0, d: dur, p0: camera.position.clone(), t0: controls.target.clone(), p1: pos, t1: tgt.clone(), z0: camera.zoom, z1: 1 }; }
-  function setView(name) { flyCam(HOME.clone().addScaledVector(VIEW_DIR[name], 9.4 * aspectK()), HOME, REDUCED ? 0.01 : 0.9); return true; }
+  const fvt = new THREE.Vector3(), fitCam = new THREE.PerspectiveCamera(), FIT_PTS = [-216, 330].flatMap(x => [-36, 312].flatMap(y => [0, 112].map(z => W(x, y, z))));
+  function freeRect() {                                                            // the area between the bars and panels
+    const focus = document.body.classList.contains('rp-focus'), Wd = innerWidth, Ht = innerHeight; let Lf = 20, Rr = 20, Tp = 14, Bt = 14;
+    if (!focus) {
+      const vis = el => el && el.offsetParent !== null && getComputedStyle(el).visibility !== 'hidden';
+      const ctl = document.getElementById('ctl'), top = document.getElementById('top'), dock = document.getElementById('rp-dock');
+      if (vis(ctl)) Rr = Wd - ctl.getBoundingClientRect().left + 16;
+      Tp = (vis(top) ? top.getBoundingClientRect().bottom : 0) + 18;
+      Bt = vis(dock) ? Ht - dock.getBoundingClientRect().top + 18 : 20;
+    }
+    return { Wd, Ht, Lf, Rr, Tp, Bt, focus };
+  }
+  function fitFor(pos, tgt, r) {                                                   // the zoom and offset that fit the whole scene into the free area, seen from `pos`
+    const c = fitCam; c.fov = camera.fov; c.aspect = camera.aspect; c.near = camera.near; c.far = camera.far; c.zoom = 1; c.clearViewOffset(); c.position.copy(pos); c.lookAt(tgt); c.updateProjectionMatrix(); c.updateMatrixWorld(true);
+    let mnx = 1e9, mxx = -1e9, mny = 1e9, mxy = -1e9;
+    FIT_PTS.forEach(p => { fvt.copy(p).project(c); mnx = Math.min(mnx, fvt.x); mxx = Math.max(mxx, fvt.x); mny = Math.min(mny, fvt.y); mxy = Math.max(mxy, fvt.y); });
+    if (!(mxx - mnx > 1e-4) || !(mxy - mny > 1e-4) || !isFinite(mxx + mnx + mxy + mny)) return null;
+    const Wf = r.Wd - r.Lf - r.Rr, Hf = r.Ht - r.Tp - r.Bt, z = Math.max(0.35, Math.min(3, Math.min(2 * Wf / r.Wd / (mxx - mnx), 2 * Hf / r.Ht / (mxy - mny)) * 0.97));
+    const cxN = (mnx + mxx) / 2 * z, cyN = (mny + mxy) / 2 * z, fx = (r.Lf + r.Wd - r.Rr) / r.Wd - 1, fy = -((r.Tp + r.Ht - r.Bt) / r.Ht - 1);   // centre the scene in the free area
+    return { z, ox: -(fx - cxN) * r.Wd / 2, oy: (fy - cyN) * r.Ht / 2 };
+  }
+  function applyFit(f, r) { camera.zoom = f.z; camera.setViewOffset(r.Wd, r.Ht, f.ox, f.oy, r.Wd, r.Ht); camera.updateProjectionMatrix(); curFit = f; }
+  const ease5 = t => t * t * t * (t * (t * 6 - 15) + 10);                          // smootherstep: gentle start, gentle landing
+  function flyCam(pos, tgt, dur) {                                                 // the camera AND the screen-fit move together, so there is no jump when it arrives
+    const r = freeRect(), dest = fitFor(pos, tgt, r), from = curFit || fitFor(camera.position, controls.target, r) || { z: 1, ox: 0, oy: 0 };
+    camFly = { t: 0, d: dur, p0: camera.position.clone(), t0: controls.target.clone(), p1: pos, t1: tgt.clone(), f0: from, f1: dest || from, r };
+  }
+  function setView(name) { flyCam(HOME.clone().addScaledVector(VIEW_DIR[name], VIEW_DIST * aspectK()), HOME, REDUCED ? 0.01 : 1.5); return true; }
   function stepCam(dt) {
     if (!camFly) return;
-    const f = camFly; f.t = Math.min(1, f.t + dt / f.d); const k = ss(0, 1, f.t);
+    const f = camFly; f.t = Math.min(1, f.t + dt / f.d); const k = ease5(f.t);
     const v0 = f.p0.clone().sub(f.t0), v1 = f.p1.clone().sub(f.t1), r = v0.length() + (v1.length() - v0.length()) * k;
     const q = new THREE.Quaternion().setFromUnitVectors(v0.clone().normalize(), v1.clone().normalize()), qk = new THREE.Quaternion().slerp(q, k);
     controls.target.lerpVectors(f.t0, f.t1, k); camera.position.copy(controls.target).addScaledVector(v0.normalize().applyQuaternion(qk), r);
-    if (camera === ortho) { camera.zoom = f.z0 + (f.z1 - f.z0) * k; camera.updateProjectionMatrix(); }
-    controls.update(); if (f.t >= 1) { camFly = null; fitDirty = true; }
+    applyFit({ z: Math.exp(Math.log(f.f0.z) + (Math.log(f.f1.z) - Math.log(f.f0.z)) * k), ox: f.f0.ox + (f.f1.ox - f.f0.ox) * k, oy: f.f0.oy + (f.f1.oy - f.f0.oy) * k }, f.r);
+    controls.update(); if (f.t >= 1) { camFly = null; insKey = ''; fitDirty = true; }
   }
   window.__rpStartStop = () => startStop();
   // ── power: the page redraws at full rate only while something is moving or you are interacting; otherwise a slow heartbeat ──
@@ -1681,33 +1725,55 @@ body.rp-focus #rp-now { display:block; }
     dispatchEvent(new Event('resize')); if (announce) toast(low ? 'Power saver on: lower resolution and fewer redraws.' : 'Full quality on.'); wake();
   }
   const togglePower = () => setQuality(!window.__rpLow, true);
-  // Fit the whole scene (deck, crate and cover) into the free area between the bars and panels, so nothing is ever hidden behind the search bar or the side panel
-  let insKey = '', fitDirty = true, compiled = false; const bootT = performance.now(), bootRefits = [250, 900, 2200]; const fvt = new THREE.Vector3();
-  const FIT_PTS = [-216, 330].flatMap(x => [-36, 312].flatMap(y => [0, 112].map(z => W(x, y, z))));
+  // Fit the whole scene (deck, crate and cover) into the free area between the bars and panels, so nothing is ever hidden behind the side panel or the buttons
+  const bootT = performance.now(), bootRefits = [250, 900, 2200];
+  function initCamera() {                                                          // the default view, set once before the first picture
+    camInit = true; camera.position.copy(HOME).addScaledVector(VIEW_DIR.default, VIEW_DIST * aspectK()); controls.target.copy(HOME); camera.lookAt(HOME); controls.update(); fitDirty = true;
+  }
   function stepInset() {
     if (!compiled) { compiled = true; try { renderer.compile(scene, camera); } catch (e) {} }                // build every shader up front so nothing pops in
+    if (!camInit && active === ID) initCamera();
     while (bootRefits.length && performance.now() - bootT > bootRefits[0]) { bootRefits.shift(); fitDirty = true; }
     if (camFly || NP.open) return;                                                  // wait for a camera move to finish; the lyrics view covers the scene anyway
-    const focus = document.body.classList.contains('rp-focus'), Wd = innerWidth, Ht = innerHeight; let Lf = 20, Rr = 20, Tp = 14, Bt = 14;
-    if (!focus) {
-      const vis = el => el && el.offsetParent !== null && getComputedStyle(el).visibility !== 'hidden';
-      const ctl = document.getElementById('ctl'), top = document.getElementById('top'), ui = document.getElementById('rp-ui'), dock = document.getElementById('rp-dock');
-      if (vis(ctl)) Rr = Wd - ctl.getBoundingClientRect().left + 16;
-      Tp = (vis(top) ? top.getBoundingClientRect().bottom : 0) + 18;
-      Bt = vis(dock) ? Ht - dock.getBoundingClientRect().top + 18 : 20;
-    }
-    const k = [Wd, Ht, Lf, Rr, Tp, Bt, focus, camera === ortho].join('|'); if (k === insKey && !fitDirty) return; insKey = k; fitDirty = false;
-    const cam = camera; cam.clearViewOffset(); cam.zoom = 1; cam.lookAt(controls.target); cam.updateProjectionMatrix(); cam.updateMatrixWorld(true);       // point it at the scene first: in the very first frame it has not been aimed yet
-    let mnx = 1e9, mxx = -1e9, mny = 1e9, mxy = -1e9;
-    FIT_PTS.forEach(p => { fvt.copy(p).project(cam); mnx = Math.min(mnx, fvt.x); mxx = Math.max(mxx, fvt.x); mny = Math.min(mny, fvt.y); mxy = Math.max(mxy, fvt.y); });
-    if (!(mxx - mnx > 1e-4) || !(mxy - mny > 1e-4) || !isFinite(mxx + mnx + mxy + mny)) { fitDirty = true; return; }
-    const Wf = Wd - Lf - Rr, Hf = Ht - Tp - Bt, z = Math.max(0.35, Math.min(3, Math.min(2 * Wf / Wd / (mxx - mnx), 2 * Hf / Ht / (mxy - mny)) * 0.97));
-    cam.zoom = z; cam.updateProjectionMatrix();
-    const cxN = (mnx + mxx) / 2 * z, cyN = (mny + mxy) / 2 * z, fx = (Lf + Wd - Rr) / Wd - 1, fy = -((Tp + Ht - Bt) / Ht - 1);   // centre the scene in the free area
-    cam.setViewOffset(Wd, Ht, -(fx - cxN) * Wd / 2, (fy - cyN) * Ht / 2, Wd, Ht); cam.updateProjectionMatrix();
+    const r = freeRect(), k = [r.Wd, r.Ht, r.Lf, r.Rr, r.Tp, r.Bt, r.focus].join('|'); if (k === insKey && !fitDirty) return;
+    const f = fitFor(camera.position, controls.target, r); if (!f) { fitDirty = true; return; }
+    insKey = k; fitDirty = false; applyFit(f, r);
   }
   function setFocus(on) { if (window.__rpSetFocus) window.__rpSetFocus(on); }
   function updateNow() { if (!window.__rpNow) return; window.__rpNow(track ? track.title : 'Needle Drop', track ? `${track.artist} · ${fmt(pos())} / ${fmt(dur())}` : `Iso-Glow Sessions · default record · ${fmt(pos())} / ${fmt(dur())}`, Math.min(1, pos() / dur())); }
+    // ── colour helpers ──
+    const DEF_PAL = ['#ff3fa4', '#d4208f', '#ff9a2e', '#5b46c9', '#ff7cc0'];
+    const rgb2hsl = (R, G, B) => { R /= 255; G /= 255; B /= 255; const mx = Math.max(R, G, B), mn = Math.min(R, G, B), l = (mx + mn) / 2, d = mx - mn; let h = 0, s = 0;
+      if (d) { s = d / (1 - Math.abs(2 * l - 1)); h = mx === R ? ((G - B) / d) % 6 : mx === G ? (B - R) / d + 2 : (R - G) / d + 4; h *= 60; if (h < 0) h += 360; } return [h, s, l]; };
+    const hsl = (h, s, l) => `hsl(${Math.round(h)} ${Math.round(s * 100)}% ${Math.round(l * 100)}%)`;
+    function palette(img) {                                                          // the four most vivid colours of the cover art
+      if (!img) return DEF_PAL;
+      try { const c = document.createElement('canvas'); c.width = c.height = 24; const x = c.getContext('2d'); x.drawImage(img, 0, 0, 24, 24); const d = x.getImageData(0, 0, 24, 24).data, bins = {};
+        for (let i = 0; i < d.length; i += 4) { const [h, s, l] = rgb2hsl(d[i], d[i + 1], d[i + 2]), w = s * (1 - Math.abs(2 * l - 1)) + 0.04, k = (d[i] >> 6) + '-' + (d[i + 1] >> 6) + '-' + (d[i + 2] >> 6);
+          const b = bins[k] || (bins[k] = { w: 0, r: 0, g: 0, b: 0 }); b.w += w; b.r += d[i] * w; b.g += d[i + 1] * w; b.b += d[i + 2] * w; }
+        const list = Object.values(bins).sort((a, b) => b.w - a.w).map(b => [b.r / b.w, b.g / b.w, b.b / b.w]), out = [];
+        for (const c3 of list) { if (out.every(o => Math.hypot(o[0] - c3[0], o[1] - c3[1], o[2] - c3[2]) > 70)) out.push(c3); if (out.length === 4) break; }
+        const css = out.map(([r, g, b]) => { const [h, s, l] = rgb2hsl(r, g, b); return hsl(h, Math.min(1, s * 1.15 + 0.12), Math.min(0.66, Math.max(0.36, l))); });
+        while (css.length < 4) { const [h, s, l] = rgb2hsl(...(out[0] || [200, 60, 140])); css.push(hsl(h + 38 * css.length, Math.min(1, s + 0.2), 0.52)); }
+        return css; } catch (e) { return DEF_PAL; }
+    }
+    const rng = seed => () => (seed = (seed * 1664525 + 1013904223) >>> 0) / 4294967296;
+    function marble(pal, seedStr, S = 1024) {                                                  // a swirled coloured-vinyl texture
+      const c = document.createElement('canvas'); c.width = c.height = S; const x = c.getContext('2d'), R = S / 2;
+      let seed = 7; for (const ch of seedStr) seed = (seed * 31 + ch.charCodeAt(0)) >>> 0; const rnd = rng(seed), blur = typeof x.filter === 'string';
+      const g = x.createRadialGradient(R, R, 0, R, R, R); g.addColorStop(0, pal[0]); g.addColorStop(1, pal[1]); x.fillStyle = g; x.fillRect(0, 0, S, S);
+      for (let i = 0; i < 52; i++) {
+        const col = pal[Math.floor(rnd() * pal.length)], r0 = R * (0.2 + 0.78 * rnd()), th0 = rnd() * 6.283, span = 0.5 + rnd() * 2.6, amp = R * (0.04 + 0.15 * rnd()), k = 2 + Math.floor(rnd() * 4), ph = rnd() * 6.283;
+        x.globalAlpha = 0.3 + 0.5 * rnd(); x.strokeStyle = col; x.lineWidth = R * (0.03 + 0.17 * rnd()); x.lineCap = 'round'; if (blur) x.filter = `blur(${(R * 0.022 * (0.4 + rnd())).toFixed(1)}px)`;
+        x.beginPath(); for (let s = 0; s <= 64; s++) { const t = s / 64, th = th0 + span * t, rr = r0 + amp * Math.sin(k * th + ph) + R * 0.07 * (t - 0.5); const px = R + rr * Math.cos(th), py = R + rr * Math.sin(th); s ? x.lineTo(px, py) : x.moveTo(px, py); } x.stroke();
+      }
+      x.filter = 'none'; x.globalAlpha = 1; return c;
+    }
+    function discCanvas(t, img) {                                                    // the song's own vinyl colours, made once per song (and again when its cover arrives)
+      if (!t) return null; const k = img ? 1 : 0; if (t.disc && t.disc.k === k) return t.disc.cv;
+      const cv = marble(palette(img), t.title + t.artist, 1024); t.disc = { k, cv }; return cv;
+    }
+
   // ── "Now playing" view, modelled on the reference video: a big marbled disc cropped at the left edge, the tonearm hanging from the top,
   //    a tick dial with a progress marker, and the lyrics on a wheel around the disc (current word highlighted) ──
   const NP = (() => {
@@ -1716,6 +1782,8 @@ body.rp-focus #rp-now { display:block; }
 #rp-np { position:fixed; inset:0; z-index:40; background:#080808; color:#f1f1f1; overflow:hidden; font-family:Inter,-apple-system,"SF Pro Text",system-ui,sans-serif; animation:rpfade .35s ease; }
 #rp-np[hidden] { display:none; }
 #rp-np canvas { position:absolute; inset:0; width:100%; height:100%; cursor:grab; touch-action:none; }
+@keyframes rpwin { from { opacity:0; transform:translateX(3vh) scale(.985); } to { opacity:1; transform:none; } }
+#rp-np .wheel.in { animation:rpwin .65s cubic-bezier(.2,.8,.2,1) both; }
 #rp-np .wheel { position:absolute; inset:0; pointer-events:none; -webkit-mask-image:linear-gradient(to bottom, transparent 3%, #000 15%, #000 84%, transparent 93%); mask-image:linear-gradient(to bottom, transparent 3%, #000 15%, #000 84%, transparent 93%); }
 #rp-np .ln { pointer-events:auto; cursor:pointer; position:absolute; left:0; top:0; transform-origin:0 0; white-space:pre; display:flex; align-items:center; font-family:"JetBrains Mono","Noto Sans Devanagari","SF Mono",ui-monospace,Menlo,Consolas,monospace; font-size:4.25vh; line-height:1.55; will-change:transform,opacity,filter; }
 #rp-np .lb { display:inline-block; width:8.4vh; flex:none; font-size:1.9vh; color:#e8603f; }
@@ -1778,34 +1846,6 @@ body.rp-focus #rp-now { display:block; }
     const sync = root.querySelector('.sync'), syncV = sync.querySelector('em'), mk = root.querySelector('.mk'), layBtn = root.querySelector('.lay');
     const ICON_PAUSE = '<svg viewBox="0 0 16 16"><path d="M4.5 3h2.6v10H4.5zM8.9 3h2.6v10H8.9z"/></svg>', ICON_PLAY = '<svg viewBox="0 0 16 16"><path d="M5 3v10l8-5z"/></svg>';
 
-    // ── colour helpers ──
-    const DEF_PAL = ['#ff3fa4', '#d4208f', '#ff9a2e', '#5b46c9', '#ff7cc0'];
-    const rgb2hsl = (R, G, B) => { R /= 255; G /= 255; B /= 255; const mx = Math.max(R, G, B), mn = Math.min(R, G, B), l = (mx + mn) / 2, d = mx - mn; let h = 0, s = 0;
-      if (d) { s = d / (1 - Math.abs(2 * l - 1)); h = mx === R ? ((G - B) / d) % 6 : mx === G ? (B - R) / d + 2 : (R - G) / d + 4; h *= 60; if (h < 0) h += 360; } return [h, s, l]; };
-    const hsl = (h, s, l) => `hsl(${Math.round(h)} ${Math.round(s * 100)}% ${Math.round(l * 100)}%)`;
-    function palette(img) {                                                          // the four most vivid colours of the cover art
-      if (!img) return DEF_PAL;
-      try { const c = document.createElement('canvas'); c.width = c.height = 24; const x = c.getContext('2d'); x.drawImage(img, 0, 0, 24, 24); const d = x.getImageData(0, 0, 24, 24).data, bins = {};
-        for (let i = 0; i < d.length; i += 4) { const [h, s, l] = rgb2hsl(d[i], d[i + 1], d[i + 2]), w = s * (1 - Math.abs(2 * l - 1)) + 0.04, k = (d[i] >> 6) + '-' + (d[i + 1] >> 6) + '-' + (d[i + 2] >> 6);
-          const b = bins[k] || (bins[k] = { w: 0, r: 0, g: 0, b: 0 }); b.w += w; b.r += d[i] * w; b.g += d[i + 1] * w; b.b += d[i + 2] * w; }
-        const list = Object.values(bins).sort((a, b) => b.w - a.w).map(b => [b.r / b.w, b.g / b.w, b.b / b.w]), out = [];
-        for (const c3 of list) { if (out.every(o => Math.hypot(o[0] - c3[0], o[1] - c3[1], o[2] - c3[2]) > 70)) out.push(c3); if (out.length === 4) break; }
-        const css = out.map(([r, g, b]) => { const [h, s, l] = rgb2hsl(r, g, b); return hsl(h, Math.min(1, s * 1.15 + 0.12), Math.min(0.66, Math.max(0.36, l))); });
-        while (css.length < 4) { const [h, s, l] = rgb2hsl(...(out[0] || [200, 60, 140])); css.push(hsl(h + 38 * css.length, Math.min(1, s + 0.2), 0.52)); }
-        return css; } catch (e) { return DEF_PAL; }
-    }
-    const rng = seed => () => (seed = (seed * 1664525 + 1013904223) >>> 0) / 4294967296;
-    function marble(pal, seedStr) {                                                  // a swirled coloured-vinyl texture
-      const S = 1280, c = document.createElement('canvas'); c.width = c.height = S; const x = c.getContext('2d'), R = S / 2;
-      let seed = 7; for (const ch of seedStr) seed = (seed * 31 + ch.charCodeAt(0)) >>> 0; const rnd = rng(seed), blur = typeof x.filter === 'string';
-      const g = x.createRadialGradient(R, R, 0, R, R, R); g.addColorStop(0, pal[0]); g.addColorStop(1, pal[1]); x.fillStyle = g; x.fillRect(0, 0, S, S);
-      for (let i = 0; i < 52; i++) {
-        const col = pal[Math.floor(rnd() * pal.length)], r0 = R * (0.2 + 0.78 * rnd()), th0 = rnd() * 6.283, span = 0.5 + rnd() * 2.6, amp = R * (0.04 + 0.15 * rnd()), k = 2 + Math.floor(rnd() * 4), ph = rnd() * 6.283;
-        x.globalAlpha = 0.3 + 0.5 * rnd(); x.strokeStyle = col; x.lineWidth = R * (0.03 + 0.17 * rnd()); x.lineCap = 'round'; if (blur) x.filter = `blur(${(R * 0.022 * (0.4 + rnd())).toFixed(1)}px)`;
-        x.beginPath(); for (let s = 0; s <= 64; s++) { const t = s / 64, th = th0 + span * t, rr = r0 + amp * Math.sin(k * th + ph) + R * 0.07 * (t - 0.5); const px = R + rr * Math.cos(th), py = R + rr * Math.sin(th); s ? x.lineTo(px, py) : x.moveTo(px, py); } x.stroke();
-      }
-      x.filter = 'none'; x.globalAlpha = 1; return c;
-    }
     function labelTex(title, artist, pal) {                                          // pale paper label with text round the rim
       const S = 720, c = document.createElement('canvas'); c.width = c.height = S; const x = c.getContext('2d'), R = S / 2, ink = hsl(...rgb2hsl(...[0, 0, 0]).map((v, i) => i === 2 ? 0.2 : v));
       x.save(); x.beginPath(); x.arc(R, R, R, 0, 6.283); x.clip();
@@ -1910,7 +1950,8 @@ body.rp-focus #rp-now { display:block; }
     const rgbOf = css => { try { const c = document.createElement('canvas'); c.width = c.height = 1; const x = c.getContext('2d'); x.fillStyle = css; x.fillRect(0, 0, 1, 1); const d = x.getImageData(0, 0, 1, 1).data; return [d[0], d[1], d[2]]; } catch (e) { return [143, 134, 255]; } };
     // ── state ──
     const clk = { a: -1, s: 0 }, LEAD = 0.08, AHEAD = 0.2;                           // the orb takes off AHEAD seconds before a word, so it lands as the word begins                                        // highlight a hair before the word, so it never looks late
-    let lastSig = '', npStill = false;
+    let lastSig = '', npStill = false, npSwap = null;
+    const ease3 = x => x * x * (3 - 2 * x);
     let layout = 'center'; try { layout = localStorage.getItem('rp-np-layout') || 'center'; } catch (e) {}
     root.classList.toggle('center', layout === 'center');
     let open = false, W = 0, H = 0, dpr = 1, key = '', pal = DEF_PAL, tex = null, lab = null, lyr = defaultLyrics(), els = [], curPos = 0, nudge = 0, lastWord = -1, lastLine = -1, pulse = 0;
@@ -1954,7 +1995,7 @@ body.rp-focus #rp-now { display:block; }
     const setSyncLbl = txt => { const sp = sync.querySelector('span'); if (sp) sp.textContent = txt || 'lyrics timing'; };
     function setTrack() {
       const t = track, img = cur.img; pal = palette(img); palRGB = pal.map(rgbOf); const seed = t ? t.title + t.artist : 'needle drop';
-      tex = marble(pal, seed);
+      tex = t ? discCanvas(t, img) : marble(pal, seed);
       mT.textContent = t ? t.title : 'Needle Drop'; mA.textContent = t ? t.artist : 'Iso-Glow Sessions'; nudge = 0; syncV.textContent = '+0.0s';
       if (!t) { lyr = defaultLyrics(); build(lyr); return; }
       lyr = { lines: [{ label: '', words: [{ text: 'finding', t0: 0, grp: 0 }, { text: 'lyrics…', t0: 1, grp: 0 }], t0: 0, t1: 60 }], off: 0, note: false }; build(lyr);
@@ -1968,12 +2009,13 @@ body.rp-focus #rp-now { display:block; }
 
     // ── drawing ──
     const sheenGrad = () => null;
-    function drawDisc(ang, p, dt, g) {
-      const u = g.u, Cx = g.Cx, Cy = g.Cy, R = 0.469 * u, Rl = 0.173 * u;
+    function drawDisc(ang, p, dt, g, o) {
+      const u = g.u, Cx = g.Cx, Cy = g.Cy, R = 0.469 * u, Rl = 0.173 * u, Tx = (o && o.tx) || tex, Lb = (o && o.lb) || cur.lab;
+      cx.save(); if (o) { cx.globalAlpha = o.a; cx.translate(Cx + (o.dx || 0), Cy + (o.dy || 0)); cx.scale(o.s, o.s); cx.translate(-Cx, -Cy); }
       cx.save(); cx.shadowColor = 'rgba(0,0,0,0.7)'; cx.shadowBlur = 0.045 * u; cx.shadowOffsetX = 0.006 * u; cx.shadowOffsetY = 0.014 * u; cx.fillStyle = '#0a0a0b'; cx.beginPath(); cx.arc(Cx, Cy, R, 0, 6.283); cx.fill(); cx.restore();
       cx.save(); cx.beginPath(); cx.arc(Cx, Cy, R, 0, 6.283); cx.clip();
       const blurA = Math.min(0.05, Math.abs(st.rpm) * 6.283 / 60 * dt * 1.2), n = blurA > 0.004 ? 3 : 1;      // a touch of motion blur while it spins
-      for (let i = 0; i < n; i++) { cx.save(); cx.globalAlpha = n === 1 ? 1 : (i === 0 ? 1 : 0.5 / i); cx.translate(Cx, Cy); cx.rotate(ang - i * blurA); cx.drawImage(tex, -R, -R, 2 * R, 2 * R); cx.restore(); }
+      for (let i = 0; i < n; i++) { cx.save(); cx.globalAlpha = n === 1 ? 1 : (i === 0 ? 1 : 0.5 / i); cx.translate(Cx, Cy); cx.rotate(ang - i * blurA); cx.drawImage(Tx, -R, -R, 2 * R, 2 * R); cx.restore(); }
       cx.lineWidth = 1;                                                              // fine grooves and the pale track gaps
       for (let r = Rl * 1.12; r < R * 0.985; r += 0.0046 * u) { cx.strokeStyle = (Math.round(r / (0.0046 * u)) & 1) ? 'rgba(255,255,255,0.045)' : 'rgba(0,0,0,0.07)'; cx.beginPath(); cx.arc(Cx, Cy, r, 0, 6.283); cx.stroke(); }
       [0.27, 0.315, 0.352, 0.394, 0.43].forEach(f => { cx.strokeStyle = 'rgba(255,235,245,0.26)'; cx.lineWidth = 1.2; cx.beginPath(); cx.arc(Cx, Cy, f * u, 0, 6.283); cx.stroke(); });
@@ -1983,7 +2025,8 @@ body.rp-focus #rp-now { display:block; }
       cx.restore();
       cx.strokeStyle = 'rgba(0,0,0,0.85)'; cx.lineWidth = 2; cx.beginPath(); cx.arc(Cx, Cy, R - 1, 0, 6.283); cx.stroke();
       cx.fillStyle = '#050505'; cx.beginPath(); cx.arc(Cx, Cy, Rl + 0.013 * u, 0, 6.283); cx.fill();      // black bezel, then the label
-      cx.save(); cx.translate(Cx, Cy); cx.rotate(ang); cx.drawImage(cur.lab, -Rl, -Rl, 2 * Rl, 2 * Rl); cx.restore();
+      cx.save(); cx.translate(Cx, Cy); cx.rotate(ang); cx.drawImage(Lb, -Rl, -Rl, 2 * Rl, 2 * Rl); cx.restore();
+      cx.restore();
     }
     function drawDial(p, g) {
       const u = g.u, Cx = g.Cx, Cy = g.Cy, R = 0.469 * u, A = 50 * Math.PI / 180, r1 = R + 0.026 * u;
@@ -2056,15 +2099,23 @@ body.rp-focus #rp-now { display:block; }
     function frame(now, dt) {
       if (W !== innerWidth || H !== innerHeight) resize();
       const k = (track ? track.title + '|' + track.artist : 'def') + (cur.img ? 'i' : '');
-      if (k !== key) { key = k; setTrack(); }
+      if (k !== key) { const had = npAnim && open && !REDUCED; npAnim = false; const old = { tex, lab: nxt.lab }; key = k; setTrack(); if (had) { npSwap = { t: 0, old }; wheel.classList.remove('in'); void wheel.offsetWidth; wheel.classList.add('in'); } }
       if (lyr.note && !lyr.winDur && isFinite(au.duration) && au.duration > 1) { lyr.winDur = true; rewindow(); }          // the clip's real length is known now
       const t = pos(), d = dur(), p = Math.max(0, Math.min(1, t / d)), pn = performance.now();
       if (t !== clk.a) { clk.a = t; clk.s = pn; }                                    // the audio clock only ticks every so often: carry it forward smoothly between ticks
       const rate = track ? au.playbackRate : Math.max(0, st.rpm / 33.333), ahead = playing() ? Math.min(0.12, (pn - clk.s) / 1000 * rate) : 0, T = t + ahead + lyr.off + nudge + LEAD;
-      const sigNow = [rotA.toFixed(3), st.a.toFixed(3), st.lift.toFixed(2), W, H, layout, key, curPos.toFixed(3), M.t.toFixed(2), els.length, T.toFixed(1), lyr.off.toFixed(2), cur.img ? 1 : 0].join('|');
+      const sigNow = [rotA.toFixed(3), st.a.toFixed(3), st.lift.toFixed(2), W, H, layout, key, curPos.toFixed(3), M.t.toFixed(2), els.length, T.toFixed(1), lyr.off.toFixed(2), cur.img ? 1 : 0, npSwap ? npSwap.t.toFixed(2) : ''].join('|');
       if (sigNow === lastSig && st.rpm < 0.02 && !drag) { npStill = true; return; } lastSig = sigNow; npStill = false;          // nothing changed: skip the redraw
       const g = geom(); cx.setTransform(dpr, 0, 0, dpr, 0, 0); cx.clearRect(0, 0, W, H);
-      drawDial(p, g); drawDisc(-rotA, p, dt, g); drawArm(g);
+      drawDial(p, g);
+      if (npSwap) {                                                                  // the old disc slips away to the left and fades; the new one settles in from above, with a ring where it lands
+        npSwap.t += dt; const u = npSwap.t, eo = ease3(Math.min(1, u / 0.5)), en = ease3(Math.max(0, Math.min(1, (u - 0.28) / 0.7)));
+        if (eo < 1) drawDisc(-rotA, p, dt, g, { tx: npSwap.old.tex, lb: npSwap.old.lab, a: 1 - eo, s: 1 + 0.1 * eo, dx: -0.09 * H * eo, dy: 0.02 * H * eo });
+        drawDisc(-rotA, p, dt, g, { a: en, s: 1.18 - 0.18 * en, dx: 0, dy: -0.05 * H * (1 - en) });
+        const rr = Math.max(0, Math.min(1, (u - 0.5) / 0.5)); if (rr > 0 && rr < 1) { cx.save(); cx.strokeStyle = `rgba(255,255,255,${(0.28 * (1 - rr)).toFixed(3)})`; cx.lineWidth = 2; cx.beginPath(); cx.arc(g.Cx, g.Cy, g.R * (1.0 + 0.16 * ease3(rr)), 0, 6.283); cx.stroke(); cx.restore(); }
+        if (u > 1.05) npSwap = null;
+      } else drawDisc(-rotA, p, dt, g);
+      drawArm(g);
       updateWheel(T, dt, g); updateMarker(now, dt, g);
       clB.textContent = fmt2(t); clD.textContent = fmt2(d); setPP(st.on || st.mode === 'play' || st.mode === 'cue');
     }
@@ -2099,13 +2150,13 @@ body.rp-focus #rp-now { display:block; }
     return { frame, toggle, root, moving: () => open && !npStill, get open() { return open; } };
   })();
 
-  themeHooks.push(t => { vinylMat.uniforms.uDark.value = 1; crateMat.color.set(t === 'light' ? 0xcaa57a : 0x5a3e29); pilotMat.color.set(t === 'light' ? 0xd2cec7 : 0x2b2e30); ledMats.forEach(m => m.color.set(t === 'light' ? 0xd2cec7 : 0x2b2e30)); rimMat.color.set(t === 'light' ? 0xa4a9ad : 0x9ba0a5); drawLabel(cur); drawLabel(nxt); drawSleeve(cs); crate.forEach(drawSleeve); render(); });
+  themeHooks.push(t => { vinylMat.uniforms.uDark.value = 1; crateMat.color.set(t === 'light' ? 0xb27a47 : 0x5a3e29); pilotMat.color.set(t === 'light' ? 0x6a6f76 : 0x2b2e30); ledMats.forEach(m => m.color.set(t === 'light' ? 0x6a6f76 : 0x2b2e30)); rimMat.color.set(t === 'light' ? 0xd3d7db : 0x9ba0a5); drawLabel(cur); drawLabel(nxt); drawSleeve(cs); crate.forEach(drawSleeve); render(); });
   drawLabel(cur); drawLabel(nxt); drawSleeve(cs); crate.forEach(drawSleeve); layout(); render();
   return { group: g0, key, click, tick, readout,
     stop: () => { st.on = false; if (st.mode !== 'rest') st.mode = 'return'; render(); },
     demo: () => { if (!busy() && !st.on) startStop(); },
     panel: [['Search a song', '/', () => UI.focus()], ['Start / stop', 'space', startStop], ['33⅓ rpm', '3', () => setSpeed(33.333)], ['45 rpm', '4', () => setSpeed(45)], ['Cue arm', 'C', cue], ['Pitch +', '↑', () => setPitch(st.pitch + 1)], ['Pitch −', '↓', () => setPitch(st.pitch - 1)], ['Default view', 'D', () => setView('default')], ['Top view', 'O', () => setView('top')], ['Front view', 'F', () => setView('front')], ['Lyrics view', 'V', () => NP.toggle()], ['Power saver', 'P', togglePower], ['Hide controls', 'H', () => setFocus(true)]],
-    view: { target: W(110, 130, 22), dist: 9.4 },
+    view: { target: W(110, 130, 22), dist: VIEW_DIST },
     info: '<h2>Record player</h2><p>Type any song or artist in the search bar and pick a result: the platter stops, the old record lifts off and flies away, the album sleeve pops out of the crate of records, the new record slides out of it and is lowered onto the spindle, then the platter spins up, the arm cues itself and the music plays. With no song chosen the blank record plays a built-in lo-fi loop. Songs play as real 30-second previews, and the arm tracks across the groove as it plays. Drag the record to spin or scratch it, drag the pitch slider or the volume knob, or drag the tonearm and drop it anywhere on the record to play from there. 33 / 45 change the speed. H hides every control and leaves just the player and the music. Needs an internet connection for search and audio.</p>',
     hint: '' };
 })() });

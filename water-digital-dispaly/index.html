@@ -158,7 +158,7 @@
   width: 38%;
   height: 38%;
   fill: color-mix(in oklab, var(--_accent) 20%, transparent);
-  transition: fill calc(var(--_motion) * 2) ease;
+  /* Heart animation transition disabled. */
 }
 
 [data-ld-part="like-pond"][data-gl="off"] .hit[aria-pressed="true"] .still {
@@ -166,8 +166,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  [data-ld-part="like-pond"] .num,
-  [data-ld-part="like-pond"][data-gl="off"] .still {
+  [data-ld-part="like-pond"] .num {
     transition: none;
   }
 }
@@ -208,10 +207,12 @@ const smoothstep = (a, b, x) => {
   const t = clamp((x - a) / (b - a));
   return t * t * (3 - 2 * t);
 };
+/* Heart animation easing, disabled with the heart animation.
 const smootherstep = (x) => {
   const t = clamp(x);
   return t * t * t * (t * (t * 6 - 15) + 10);
 };
+*/
 
 function seeded(seed) {
   let a = seed >>> 0;
@@ -531,7 +532,7 @@ precision highp float;
 precision highp sampler2D;
 uniform sampler2D uH, uCaustic, uBake;
 uniform vec2 uRes, uHSize;
-uniform float uUnit, uTime, uHeart, uFlare, uLoose;
+uniform float uUnit, uTime;
 uniform vec3 uDeep, uShallow, uTint, uFloorA, uFloorB, uStone, uVein, uFleck, uLight, uEnvLow, uPage, uGlow, uHot, uCausticC, uShadowC;
 uniform float uShadowA;
 uniform int uDropN;
@@ -579,7 +580,7 @@ vec3 env(vec3 R, float width, float tight, float power) {
   return c;
 }
 
-// ハートの距離場。下は先 (0, 0) から接点 (0.5, 0.5) への辺、上は2つの円。切れ込みは (0, 1)
+/* Heart shape and animation shader, disabled.
 float sdHeart(vec2 p) {
   p.x = abs(p.x);
   float along = p.x + p.y;
@@ -628,6 +629,7 @@ vec4 heartField(vec2 q, float m) {
   float outer = (1.0 - edge) * (exp(gap / 0.01) * 0.62 + exp(gap / 0.055) * 0.16 + exp(gap / 0.2) * 0.03);
   return vec4(fold, fill, outer, edge);
 }
+*/
 
 float depthAt(float r) {
   return 0.14 + 0.42 * (1.0 - smoothstep(0.42, 1.04, r));
@@ -663,6 +665,7 @@ vec3 waterShade(vec2 p, float r, vec4 H) {
   // 明るいところは、線のまま細く。暗いところは、ほんのり残す
   cau = 0.06 * cau + 0.94 * cau * cau * 0.6;
 
+  /* Heart animation rendering, disabled.
   float m = uHeart;
   float w = smoothstep(0.0, 0.3, m) * mix(1.0, smoothstep(0.16, 0.86, m), uLoose);
   vec4 hf = heartField(q, m);
@@ -675,17 +678,23 @@ vec3 waterShade(vec2 p, float r, vec4 H) {
   float inner = hf.y * strand * flare * w;
   float halo = hf.z * flare * w;
   float within = hf.w * w;
+  */
 
   // 光が集まるぶん、まわりは静かに暗くなる
   // 輪郭の外から暗くなり、内は形ができてから色が変わる
+  /* Heart animation dimming, disabled.
   float keep = 1.0 - 0.84 * w * ((1.0 - hf.w) + hf.w * smoothstep(0.45, 0.95, m));
+  */
+  float keep = 1.0;
   vec3 floorLit = albedo * (uLight * 0.055 + uCausticC * cau * keep);
+  /* Heart animation lighting, disabled.
   float grainy = mix(0.55, 1.1, b.g);
   // ハートの中では、残った揺らぎも同じ色に染まる
   floorLit += uGlow * cau * within * smoothstep(0.35, 0.9, m) * 0.34 * grainy * flare;
   floorLit += uGlow * (core * 2.1 + inner * 1.5) * grainy;
   floorLit += uHot * core * core * core * 0.62 * grainy;
   floorLit += uGlow * halo * 0.9;
+  */
 
   // 滴の影
   for (int i = 0; i < uDropN; i++) {
@@ -701,7 +710,9 @@ vec3 waterShade(vec2 p, float r, vec4 H) {
   vec3 body = mix(uDeep, uShallow, smoothstep(0.36, 0.14, D));
   vec3 c = floorLit * trans + body * (1.0 - trans) * (0.38 + 0.26 * textureLod(uCaustic, cuv, 4.4).r * keep);
   // 水の中に漂う光
+  /* Heart animation glow, disabled.
   c += uGlow * (inner * 0.3 + halo * 0.26);
+  */
 
   // 水面の反射。岸のそばでは石が映る
   float ndv = clamp(dot(N, V), 0.0, 1.0);
@@ -771,10 +782,11 @@ vec3 stoneShade(vec2 p, float r) {
   float toWater = smoothstep(tc + 0.14, 0.0, t);
   float dance = textureLod(uCaustic, (p * (1.0 - 0.14 * (1.0 + t))) / (2.0 * FE) + 0.5, 3.4).r;
   c += uCausticC * max(dance - 0.4, 0.0) * toWater * toWater * 0.06 * ao;
-  // 灯ったハートの光が、斜面にほのかに届く
+  /* Heart animation light on the stone rim, disabled.
   float rise = max(dot(N, normalize(vec3(-p, 0.7))), 0.0);
   float reach = (uHeart * uHeart) * (1.0 + uFlare * 0.8);
   c += uGlow * albedo * rise * exp(-t / 0.3) * reach * 0.34;
+  */
   return c;
 }
 
@@ -798,7 +810,10 @@ vec4 bead(vec2 p, vec4 d, float aa) {
   vec2 under = ctr - q * R * 1.8;
   float ur = length(under);
   float clit = textureLod(uCaustic, clamp(under / (2.0 * FE) + 0.5, 0.0, 1.0), 1.6).r;
-  vec3 scene = uDeep * 0.8 + uFloorB * clit * clit * 0.16 + uGlow * uHeart * 0.05;
+  vec3 scene = uDeep * 0.8 + uFloorB * clit * clit * 0.16;
+  /* Heart animation glow in droplets, disabled.
+  scene = uDeep * 0.8 + uFloorB * clit * clit * 0.16 + uGlow * uHeart * 0.05;
+  */
   scene = mix(scene, uStone * 0.7, smoothstep(0.96, 1.04, ur));
   // 球を通った光が、太陽と反対の内側に集まる
   float across = dot(q, -KEY);
@@ -890,7 +905,9 @@ function mount(root) {
   // ---- 状態
   let pressed = button.getAttribute('aria-pressed') === 'true';
   let count = parseInt(numEl.textContent, 10) || 0;
+  /* Heart animation state, disabled.
   const heart = { raw: pressed ? 1 : 0, value: pressed ? 1 : 0, flare: 0, loose: 0, gatherAt: 0, want: pressed ? 1 : 0, wasFull: pressed };
+  */
   const pointer = { x: 0, y: 0, tx: 0, ty: 0, amp: 0, ampT: 0, oldX: 0, oldY: 0, oldAmp: 0, seen: false };
   let focusBump = 0;
   const flights = [];
@@ -903,7 +920,7 @@ function mount(root) {
   let clock = 0;
   let injectDt = 0;
   let accum = 0;
-  // ページを開いた最初の一瞬だけ、ハートが灯っている。すぐにほどけて、ふつうの水面になる
+  /* Initial heart animation, disabled.
   let introUntil = still || pressed ? 0 : 1.2;
   if (introUntil) {
     heart.raw = 1;
@@ -911,6 +928,7 @@ function mount(root) {
     heart.want = 1;
     heart.wasFull = true;
   }
+  */
 
   // ---- トークンを読む
   let motionMs = 240;
@@ -1389,9 +1407,6 @@ function mount(root) {
     pressed = !pressed;
     count += pressed ? 1 : -1;
     if (still || !ready) {
-      heart.raw = pressed ? 1 : 0;
-      heart.value = heart.raw;
-      heart.want = heart.raw;
       reflectState(0);
       wake();
       return;
@@ -1422,15 +1437,17 @@ function mount(root) {
       launchDrop(x, y);
       calm = 0;
     }
+    /* Heart animation response to likes, disabled.
     if (pressed) {
       heart.gatherAt = now + FALL * 1000;
     } else {
       heart.want = 0;
       heart.wasFull = false;
-      if (!burst) {
-        calm = 1;
-        glassy = 1;
-      }
+    }
+    */
+    if (!pressed && !burst) {
+      calm = 1;
+      glassy = 1;
     }
     wake();
   });
@@ -1475,7 +1492,7 @@ function mount(root) {
     clock += dt;
     runDigits(dt);
 
-    // ハート
+    /* Heart animation update, disabled.
     if (introUntil && clock >= introUntil) {
       introUntil = 0;
       if (!pressed) {
@@ -1500,6 +1517,7 @@ function mount(root) {
     heart.flare *= Math.exp(-dt / 0.55);
     const looseWant = heart.want < 0.5 && heart.raw > 0 ? 1 : 0;
     heart.loose += (looseWant - heart.loose) * (1 - Math.exp(-dt * 5));
+    */
 
     // 静まる
     calm = Math.max(0, calm - dt / 1.5);
@@ -1664,9 +1682,11 @@ function mount(root) {
     gl.uniform2f(u.uHSize, SIM_N, SIM_N);
     gl.uniform1f(u.uUnit, shape.unit);
     gl.uniform1f(u.uTime, clock);
+    /* Heart animation uniforms, disabled.
     gl.uniform1f(u.uHeart, heart.value);
     gl.uniform1f(u.uFlare, heart.flare);
     gl.uniform1f(u.uLoose, heart.loose);
+    */
     setVec3(u, 'uDeep', pal.deep);
     setVec3(u, 'uShallow', pal.shallow);
     setVec3(u, 'uTint', pal.tint);
@@ -1773,12 +1793,14 @@ function mount(root) {
     if (still) {
       flights.length = 0;
       sources.length = 0;
+      /* Heart animation reset, disabled.
       introUntil = 0;
       heart.raw = pressed ? 1 : 0;
       heart.want = heart.raw;
       heart.value = heart.raw;
       heart.flare = 0;
       heart.loose = 0;
+      */
       pointer.amp = 0;
       pointer.ampT = 0;
       if (ready) {

@@ -2,6 +2,7 @@
 <div data-ld-part="like-pond" lang="ja">
   <canvas class="pond" aria-hidden="true"></canvas>
   <img class="water-image" data-water-image alt="" aria-hidden="true" hidden>
+  <video class="water-image" data-water-video aria-hidden="true" autoplay muted loop playsinline preload="metadata" hidden></video>
   <button class="hit" type="button" aria-pressed="false" aria-label="いいね 128件">
     <svg class="still" viewBox="0 0 120 110" aria-hidden="true">
       <path d="M60 104C24 76 8 58 8 35 8 18 21 6 37 6c10 0 18 5 23 14C65 11 73 6 83 6c16 0 29 12 29 29 0 23-16 41-52 69Z"></path>
@@ -11,8 +12,8 @@
       <span class="num" data-num>128</span>
     </span>
   </button>
-  <button class="image-upload" data-image-upload type="button">Upload image</button>
-  <input class="image-file" data-image-input type="file" accept="image/*" aria-label="Choose an image for the water">
+  <button class="image-upload" data-image-upload type="button">Upload image or video</button>
+  <input class="image-file" data-image-input type="file" accept="image/*,video/*" aria-label="Choose an image or video for the water">
   <span class="vh" role="status" aria-live="polite" data-status></span>
   <span class="vh" role="status" aria-live="polite" data-image-status></span>
   <span class="probe" aria-hidden="true"></span>
@@ -946,6 +947,7 @@ function mount(root) {
   const canvas = root.querySelector('.pond');
   const button = root.querySelector('.hit');
   const imageOverlay = root.querySelector('[data-water-image]');
+  const videoOverlay = root.querySelector('[data-water-video]');
   const imageUpload = root.querySelector('[data-image-upload]');
   const imageInput = root.querySelector('[data-image-input]');
   const imageStatus = root.querySelector('[data-image-status]');
@@ -953,41 +955,105 @@ function mount(root) {
   const statusEl = root.querySelector('[data-status]');
   const probe = root.querySelector('.probe');
 
-  let imageUrl = '';
-  let pendingImageUrl = '';
+  let activeMediaUrl = '';
+  let activeMediaType = '';
+  let pendingMediaUrl = '';
+  let pendingMediaType = '';
   on(imageUpload, 'click', () => imageInput.click());
   on(imageInput, 'change', () => {
     const file = imageInput.files && imageInput.files[0];
     if (!file) return;
-    if (!file.type.startsWith('image/')) {
-      imageStatus.textContent = 'Choose a valid image file.';
+    const type = file.type.startsWith('image/') ? 'image' : file.type.startsWith('video/') ? 'video' : '';
+    if (!type) {
+      if (pendingMediaUrl) {
+        URL.revokeObjectURL(pendingMediaUrl);
+        pendingMediaUrl = '';
+        pendingMediaType = '';
+        restoreActiveMedia();
+      }
+      imageStatus.textContent = 'Choose a valid image or video file.';
       imageInput.value = '';
       return;
     }
-    if (pendingImageUrl) URL.revokeObjectURL(pendingImageUrl);
-    pendingImageUrl = URL.createObjectURL(file);
-    imageOverlay.src = pendingImageUrl;
-    imageStatus.textContent = 'Loading image...';
+    if (pendingMediaUrl) URL.revokeObjectURL(pendingMediaUrl);
+    pendingMediaUrl = URL.createObjectURL(file);
+    pendingMediaType = type;
+    imageOverlay.hidden = true;
+    videoOverlay.hidden = true;
+    videoOverlay.pause();
+    if (type === 'image') imageOverlay.src = pendingMediaUrl;
+    else {
+      videoOverlay.src = pendingMediaUrl;
+      videoOverlay.load();
+    }
+    imageStatus.textContent = 'Loading media...';
   });
+  const activatePendingMedia = (type, url) => {
+    if (pendingMediaUrl !== url || pendingMediaType !== type) return;
+    if (activeMediaUrl) URL.revokeObjectURL(activeMediaUrl);
+    activeMediaUrl = url;
+    activeMediaType = type;
+    pendingMediaUrl = '';
+    pendingMediaType = '';
+    imageOverlay.hidden = type !== 'image';
+    videoOverlay.hidden = type !== 'video';
+    imageStatus.textContent = `${type === 'video' ? 'Video' : 'Image'} added to the water.`;
+  };
+  const restoreActiveMedia = () => {
+    imageOverlay.hidden = activeMediaType !== 'image';
+    videoOverlay.hidden = activeMediaType !== 'video';
+    if (activeMediaType === 'image') {
+      if (imageOverlay.src !== activeMediaUrl) imageOverlay.src = activeMediaUrl;
+    } else if (activeMediaType === 'video') {
+      if (videoOverlay.src !== activeMediaUrl) {
+        videoOverlay.src = activeMediaUrl;
+        videoOverlay.load();
+      }
+      videoOverlay.play().catch(() => {
+        if (!pendingMediaUrl && activeMediaType === 'video' && videoOverlay.src === activeMediaUrl) {
+          imageStatus.textContent = 'The previous video could not resume playback.';
+        }
+      });
+    }
+  };
   on(imageOverlay, 'load', () => {
-    if (!pendingImageUrl || imageOverlay.src !== pendingImageUrl) return;
-    if (imageUrl) URL.revokeObjectURL(imageUrl);
-    imageUrl = pendingImageUrl;
-    pendingImageUrl = '';
-    imageOverlay.hidden = false;
-    imageStatus.textContent = 'Image added to the water.';
+    if (pendingMediaType === 'image' && imageOverlay.src === pendingMediaUrl) {
+      activatePendingMedia('image', pendingMediaUrl);
+    }
   });
   on(imageOverlay, 'error', () => {
-    if (!pendingImageUrl || imageOverlay.src !== pendingImageUrl) return;
-    URL.revokeObjectURL(pendingImageUrl);
-    pendingImageUrl = '';
+    if (pendingMediaType !== 'image' || imageOverlay.src !== pendingMediaUrl) return;
+    URL.revokeObjectURL(pendingMediaUrl);
+    pendingMediaUrl = '';
+    pendingMediaType = '';
     imageInput.value = '';
-    if (imageUrl) imageOverlay.src = imageUrl;
-    imageStatus.textContent = 'Could not load that image. Choose a different image.';
+    restoreActiveMedia();
+    imageStatus.textContent = 'Could not load that image. Choose a different file.';
+  });
+  on(videoOverlay, 'loadeddata', () => {
+    if (pendingMediaType !== 'video' || videoOverlay.src !== pendingMediaUrl) return;
+    const url = pendingMediaUrl;
+    videoOverlay.play().then(() => {
+      activatePendingMedia('video', url);
+    }).catch(() => {
+      if (pendingMediaUrl !== url || pendingMediaType !== 'video') return;
+      activatePendingMedia('video', url);
+      imageStatus.textContent = 'Video added, but playback could not start.';
+    });
+  });
+  on(videoOverlay, 'error', () => {
+    if (pendingMediaType !== 'video' || videoOverlay.src !== pendingMediaUrl) return;
+    URL.revokeObjectURL(pendingMediaUrl);
+    pendingMediaUrl = '';
+    pendingMediaType = '';
+    imageInput.value = '';
+    restoreActiveMedia();
+    imageStatus.textContent = 'Could not load that video. Choose a different file.';
   });
   cleanups.push(() => {
-    if (pendingImageUrl) URL.revokeObjectURL(pendingImageUrl);
-    if (imageUrl) URL.revokeObjectURL(imageUrl);
+    videoOverlay.pause();
+    if (pendingMediaUrl) URL.revokeObjectURL(pendingMediaUrl);
+    if (activeMediaUrl) URL.revokeObjectURL(activeMediaUrl);
   });
 
   const motionQuery = matchMedia('(prefers-reduced-motion: reduce)');

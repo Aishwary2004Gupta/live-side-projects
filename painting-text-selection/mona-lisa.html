@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="Select the story of the Mona Lisa to reveal the painting in the text."
+    />
+    <title>Mona Lisa</title>
+    <style>
+      :root {
+        --painting: url("https://upload.wikimedia.org/wikipedia/commons/e/ec/Mona_Lisa%2C_by_Leonardo_da_Vinci%2C_from_C2RMF_retouched.jpg");
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        min-height: 100%;
+        margin: 0;
+        background: #fff;
+        color: #111;
+      }
+
+      body {
+        font-family: Georgia, "Times New Roman", serif;
+      }
+
+      #selection-art {
+        position: fixed;
+        z-index: 0;
+        inset: 0;
+        overflow: hidden;
+        pointer-events: none;
+      }
+
+      .selection-patch {
+        position: absolute;
+        background-image: var(--painting);
+        background-repeat: no-repeat;
+      }
+
+      .page {
+        position: relative;
+        z-index: 1;
+        width: min(700px, calc(100% - 48px));
+        margin: 13px auto 32px;
+      }
+
+      .masthead {
+        display: flex;
+        align-items: flex-end;
+        gap: 22px;
+        margin-bottom: 34px;
+      }
+
+      .frame {
+        position: relative;
+        flex: 0 0 195px;
+        width: 195px;
+        height: 166px;
+        padding: 18px;
+        border: 7px solid #a87b17;
+        background: linear-gradient(135deg, #f8d76d, #c18b1d 45%, #e8bd4f 70%, #77520d);
+        box-shadow:
+          inset 0 0 0 3px #f7df8b,
+          inset 0 0 0 6px rgba(100, 68, 11, 0.8),
+          0 3px 8px rgba(0, 0, 0, 0.27);
+        transition: box-shadow 220ms ease, transform 220ms ease;
+      }
+
+      .frame.has-selection {
+        transform: translateY(-2px);
+        box-shadow:
+          inset 0 0 0 3px #fff0a8,
+          inset 0 0 0 6px rgba(100, 68, 11, 0.8),
+          0 0 0 3px rgba(226, 182, 63, 0.42),
+          0 8px 18px rgba(61, 43, 13, 0.3);
+      }
+
+      .frame::before {
+        position: absolute;
+        inset: -7px;
+        border: 2px solid rgba(255, 215, 83, 0.9);
+        content: "";
+        pointer-events: none;
+      }
+
+      .thumbnail {
+        position: relative;
+        width: 100%;
+        height: 100%;
+        background-color: #fff;
+        overflow: hidden;
+      }
+
+      .painting-image {
+        display: block;
+        width: 100%;
+        height: 100%;
+        object-fit: fill;
+        clip-path: inset(0 0 calc(100% - var(--frame-reveal, 100%)) 0);
+        transform: scale(var(--frame-zoom, 1));
+        filter:
+          brightness(var(--frame-brightness, 1))
+          saturate(var(--frame-saturation, 1));
+        transition: clip-path 140ms linear, transform 260ms ease, filter 260ms ease;
+      }
+
+      .caption {
+        padding-bottom: 3px;
+      }
+
+      .caption h1 {
+        margin: 0;
+        font-size: 35px;
+        font-weight: 400;
+        font-style: italic;
+        line-height: 1.08;
+        white-space: nowrap;
+      }
+
+      .caption p {
+        margin: 3px 0 0;
+        color: #5c5752;
+        font-size: 18px;
+        line-height: 1.25;
+      }
+
+      .story {
+        margin: 0;
+        font-size: 19px;
+        line-height: 1.27;
+        text-align: justify;
+        text-align-last: left;
+        user-select: text;
+        cursor: text;
+      }
+
+      .story::selection {
+        color: #fff;
+        background: transparent;
+      }
+
+      @media (max-width: 560px) {
+        .page {
+          width: calc(100% - 32px);
+          margin-top: 16px;
+        }
+
+        .masthead {
+          gap: 16px;
+          margin-bottom: 24px;
+        }
+
+        .frame {
+          flex-basis: 150px;
+          width: 150px;
+          height: 132px;
+          padding: 14px;
+          border-width: 6px;
+        }
+
+        .caption h1 {
+          font-size: clamp(22px, 6vw, 29px);
+        }
+
+        .caption p {
+          font-size: clamp(13px, 3.8vw, 16px);
+        }
+
+        .story {
+          font-size: 17px;
+          line-height: 1.35;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="selection-art" aria-hidden="true"></div>
+    <main class="page">
+      <header class="masthead">
+        <div class="frame" aria-hidden="true">
+          <div class="thumbnail">
+            <img
+              class="painting-image"
+              src="https://upload.wikimedia.org/wikipedia/commons/e/ec/Mona_Lisa%2C_by_Leonardo_da_Vinci%2C_from_C2RMF_retouched.jpg"
+              alt=""
+              draggable="false"
+            />
+          </div>
+        </div>
+        <div class="caption">
+          <h1>Mona Lisa</h1>
+          <p>Leonardo da Vinci, c. 1503–1506</p>
+        </div>
+      </header>
+
+      <p class="story" id="story">
+        The Mona Lisa, painted in Florence in the early sixteenth century, is a
+        portrait of Lisa Gherardini, the wife of Francesco del Giocondo. The
+        painting is celebrated not only for its technical brilliance but also for
+        the mysterious calm with which the sitter regards the viewer. Her hands
+        rest lightly together, her expression is poised and serene, and the soft
+        modeling of her face seems to shift with the light. The background, dark
+        and atmospheric, reduces the world to a quiet depth, allowing the face to
+        dominate the painting with a sense of stillness and presence.
+
+        Leonardo da Vinci used oil paint to build the figure gradually, blending
+        the shadows and flesh tones with subtle transitions that create an almost
+        living softness. The landscape behind her is painted with a restrained,
+        almost dreamlike clarity, and the same delicate handling can be seen in
+        the folds of her sleeves and the texture of her skin. Rather than fixing
+        her in a rigid pose, the artist gives her an active presence, as though
+        she has just turned toward the observer and paused in the middle of a
+        thought.
+
+        Since it entered the collections of the Louvre in the early nineteenth
+        century, the painting has become one of the world’s most famous works of
+        art. It has been admired, copied, studied, and endlessly debated. The
+        mysterious smile, often described as enigmatic, has inspired generations
+        of viewers and artists alike. In a time when portraiture often served to
+        assert status and authority, Leonardo’s portrait feels different: intimate,
+        inward, and almost quietly conversational. The image carries both a sense
+        of humanity and a sense of distance, and that tension is part of what
+        makes it endure.
+
+        Over the centuries, the Mona Lisa has been the subject of scientific,
+        artistic, and cultural fascination. It is at once a masterpiece of
+        realism and a study in ambiguity. The more one looks, the more its subtle
+        changes of expression seem to emerge, as if the painting itself were
+        alive in response to attention. To see it is to feel how a portrait can
+        become more than a likeness: it can become a meditation on memory,
+        perception, and the unknowable depth of a human face.
+      </p>
+    </main>
+
+    <script>
+      const story = document.querySelector("#story");
+      const frame = document.querySelector(".frame");
+      const thumbnail = document.querySelector(".thumbnail");
+      const selectionArt = document.querySelector("#selection-art");
+      const totalTextLength = story.textContent.replace(/\s+/g, " ").trim().length;
+      let isSelecting = false;
+      let hasStartedSelection = false;
+
+      function clearFrame() {
+        frame.classList.remove("has-selection");
+        thumbnail.style.setProperty("--frame-reveal", "0%");
+        thumbnail.style.setProperty("--frame-zoom", "1");
+        thumbnail.style.setProperty("--frame-brightness", "1");
+        thumbnail.style.setProperty("--frame-saturation", "1");
+      }
+
+      function beginTextSelection(event) {
+        if (event.button !== 0) return;
+
+        isSelecting = true;
+        hasStartedSelection = true;
+        selectionArt.replaceChildren();
+        clearFrame();
+      }
+
+      function finishTextSelection() {
+        if (!isSelecting) return;
+        window.setTimeout(() => {
+          isSelecting = false;
+          revealSelection();
+        }, 0);
+      }
+
+      function revealSelection() {
+        const selection = window.getSelection();
+        const range =
+          selection && selection.toString().length > 0
+            ? selection.getRangeAt(0)
+            : null;
+
+        selectionArt.replaceChildren();
+
+        if (!range || !story.contains(range.commonAncestorContainer)) {
+          if (!isSelecting && hasStartedSelection) clearFrame();
+          return;
+        }
+
+        hasStartedSelection = true;
+        const textBounds = story.getBoundingClientRect();
+        const selectedText = selection.toString().replace(/\s+/g, " ").trim();
+        const coverage = Math.min(1, selectedText.length / totalTextLength);
+        const lineRects = Array.from(range.getClientRects()).filter(
+          (rect) => rect.width > 0 && rect.height > 0,
+        );
+
+        for (const rect of lineRects) {
+          const patch = document.createElement("span");
+          patch.className = "selection-patch";
+          patch.style.left = `${rect.left}px`;
+          patch.style.top = `${rect.top}px`;
+          patch.style.width = `${rect.width}px`;
+          patch.style.height = `${rect.height}px`;
+          patch.style.backgroundSize = `${textBounds.width}px ${textBounds.height}px`;
+          patch.style.backgroundPosition =
+            `${textBounds.left - rect.left}px ${textBounds.top - rect.top}px`;
+          selectionArt.append(patch);
+        }
+
+        const focus = Math.sqrt(coverage);
+        thumbnail.style.setProperty("--frame-reveal", `${coverage * 100}%`);
+        thumbnail.style.setProperty(
+          "--frame-zoom",
+          `${1 + focus * 0.035}`,
+        );
+        thumbnail.style.setProperty(
+          "--frame-brightness",
+          `${1 + focus * 0.1}`,
+        );
+        thumbnail.style.setProperty(
+          "--frame-saturation",
+          `${1 + focus * 0.2}`,
+        );
+        frame.classList.toggle("has-selection", selectedText.length > 0);
+      }
+
+      story.addEventListener("pointerdown", beginTextSelection);
+      document.addEventListener("pointerup", finishTextSelection);
+      document.addEventListener("pointercancel", finishTextSelection);
+      document.addEventListener("selectionchange", revealSelection);
+      window.addEventListener("scroll", revealSelection, { passive: true });
+      window.addEventListener("resize", revealSelection);
+    </script>
+  </body>
+</html>

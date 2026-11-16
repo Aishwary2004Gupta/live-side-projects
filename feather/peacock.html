@@ -96,12 +96,13 @@ const rim2=new THREE.DirectionalLight(0xffe9a8,1.1);rim2.position.set(8,5,-8);sc
  scene.add(trunks,leaves)}
 
 /* ---------- procedural textures ---------- */
-function featherTexture(seed,sy){
- const r=mul(seed),W=256,H=640,[c,g]=cv(W,H),cx=W/2,eyeY=H*.27;g.lineCap='round';
- for(let y=H;y>0;y-=1.5){const t=1-y/H;if(t<.46&&r()>.38)continue;
-  const hue=52+58*Math.sin(Math.PI*Math.min(1,t*1.05))+r()*14,L=24+r()*24+t*8;
-  for(const s of[-1,1]){const len=cx*(.72+.28*r());g.strokeStyle=`hsla(${hue},${50+r()*25}%,${L}%,.92)`;g.lineWidth=1.3;
+function featherTexture(seed,sy,plain=false){
+ const r=mul(seed),W=256,H=640,[c,g]=cv(W*2,H*2),cx=W/2,eyeY=H*.27;g.scale(2,2);g.lineCap='round';
+ for(let y=H;y>0;y-=1.5){const t=1-y/H;if(t<(plain?.9:.46)&&r()>(plain?.5:.38))continue;
+  const hue=plain?18+r()*22:52+58*Math.sin(Math.PI*Math.min(1,t*1.05))+r()*14,L=plain?20+r()*16:24+r()*24+t*8;
+  for(const s of[-1,1]){const len=cx*(.72+.28*r());g.strokeStyle=`hsla(${hue},${plain?28+r()*12:50+r()*25}%,${L}%,.92)`;g.lineWidth=1.1;
    g.beginPath();g.moveTo(cx,y);g.quadraticCurveTo(cx+s*len*.5,y-4,cx+s*len,y-14-r()*12);g.stroke()}}
+ if(plain){g.strokeStyle='rgba(205,190,160,.8)';g.lineWidth=2.4;g.beginPath();g.moveTo(cx,H);g.lineTo(cx,0);g.stroke();return tex(c)}
  g.save();g.translate(cx,eyeY);g.scale(1,sy);
  const e=(rx,ry,fill,dy=0)=>{g.fillStyle=fill;g.beginPath();g.ellipse(0,dy,rx,ry,0,0,6.2832);g.fill()};
  e(124,150,'#5f8a22');e(116,142,'#d2cb4c');e(109,135,'#b8b6c4');e(103,129,'#7aa33a');
@@ -119,9 +120,9 @@ function featherTexture(seed,sy){
 function skinTex(base,hi,rep,rs=6){const[c,g]=cv(256,256);g.fillStyle=base;g.fillRect(0,0,256,256);const r=mul(7);g.lineWidth=1.4;
  for(let y=0;y<256;y+=rs)for(let x=(y/rs%2)*rs;x<256;x+=rs*2){g.strokeStyle=hi;g.globalAlpha=.2+r()*.4;g.beginPath();g.arc(x,y,rs*1.1,.2,Math.PI-.2);g.stroke()}
  return tex(c,rep)}
-function wingTex(){const[c,g]=cv(256,256),r=mul(9);g.fillStyle='#4a2f16';g.fillRect(0,0,256,256);
- for(let y=0;y<256;y+=16){g.fillStyle=(y/16)%3?'#9a6a30':'#2d5c33';g.globalAlpha=.85;g.fillRect(0,y,256,6+r()*5)}
- g.globalAlpha=.3;for(let i=0;i<1500;i++){g.fillStyle=r()>.5?'#e6cf8a':'#1b1208';g.fillRect(r()*256,r()*256,1,6)}return tex(c,[2,2])}
+function wingTex(){const[c,g]=cv(256,256),r=mul(9);g.fillStyle='#c9b48e';g.fillRect(0,0,256,256);
+ for(let y=0;y<256;y+=10){g.strokeStyle=r()>.3?'#2b1b0e':'#6b4a26';g.lineWidth=2+r()*2.5;g.globalAlpha=.85;g.beginPath();for(let x=0;x<=256;x+=8)g.lineTo(x,y+Math.sin(x*.09+y)*3);g.stroke()}
+ g.globalAlpha=.25;for(let i=0;i<1800;i++){g.fillStyle=r()>.5?'#fff2cf':'#1b1208';g.fillRect(r()*256,r()*256,1,5)}return tex(c,[2,2])}
 
 /* ---------- curved feather geometry ---------- */
 function featherGeo(len,wid,bend){
@@ -130,15 +131,18 @@ function featherGeo(len,wid,bend){
   p.setXYZ(i,u*wid*w,t*len,-bend*t*t*len)}
  g.computeVertexNormals();g.computeBoundingSphere();return g}
 
+/* view-dependent structural-colour shift: blues turn teal/green at grazing angles */
+function shimmer(m,k){m.onBeforeCompile=sh=>{sh.fragmentShader=sh.fragmentShader.replace('#include <map_fragment>',`#include <map_fragment>
+ {float fr=1.-abs(dot(normalize(vNormal),normalize(vViewPosition)));diffuseColor.rgb=mix(diffuseColor.rgb,diffuseColor.gbr*vec3(1.,1.15,1.25),smoothstep(.25,.95,fr)*${k.toFixed(2)});}`)}}
 /* ---------- Feather: own pivot, geometry, material, interaction ---------- */
 const BASE=new THREE.Vector3(0,1.18,-.72);
 class Feather{
  constructor(o,tex_,depth){
   Object.assign(this,o);this.h=0;this.hT=0;this.k=0;this.kT=0;this.ph=Math.random()*6.283;
   this.pivot=new THREE.Group();this.pivot.position.copy(BASE);
-  this.geo=featherGeo(o.len,o.wid,.07);
-  this.mat=new THREE.MeshPhysicalMaterial({map:tex_,alphaTest:.45,side:THREE.DoubleSide,roughness:.42,metalness:.3,iridescence:.75,iridescenceIOR:1.7,iridescenceThicknessRange:[150,520],emissive:0xffffff,emissiveMap:tex_,emissiveIntensity:.04,envMapIntensity:1});
-  this.mesh=new THREE.Mesh(this.geo,this.mat);this.mesh.castShadow=true;this.mesh.customDepthMaterial=depth;this.mesh.position.z=o.layer;this.mesh.userData.f=this;
+  this.geo=featherGeo(o.len,o.wid,.1);
+  this.mat=new THREE.MeshPhysicalMaterial({map:tex_,bumpMap:tex_,bumpScale:.8,alphaTest:.45,side:THREE.DoubleSide,roughness:.42,metalness:.3,iridescence:.75,iridescenceIOR:1.7,iridescenceThicknessRange:[150,520],emissive:0xffffff,emissiveMap:tex_,emissiveIntensity:.04,envMapIntensity:1});
+  shimmer(this.mat,.5);this.mesh=new THREE.Mesh(this.geo,this.mat);this.mesh.castShadow=true;this.mesh.customDepthMaterial=depth;this.mesh.position.z=o.layer;this.mesh.userData.f=this;
   this.glow=new THREE.Mesh(this.geo,new THREE.MeshBasicMaterial({map:tex_,color:0x74fff0,transparent:true,opacity:0,alphaTest:.3,blending:THREE.AdditiveBlending,depthWrite:false,side:THREE.DoubleSide,fog:false}));
   this.glow.scale.set(1.14,1.015,1);this.glow.position.z=o.layer+.004;this.glow.raycast=()=>{};this.glow.renderOrder=2;
   this.pivot.add(this.mesh,this.glow);
@@ -174,6 +178,9 @@ class Peacock{
    const oA=(i/(row.n-1)-.5)*2*row.span,v=(r()*4)|0;
    const f=new Feather({len:row.len,wid:row.wid,oA,oT:row.oT+(r()-.5)*.03,cA:oA*.07+(r()-.5)*.02,cT:row.cT+(r()-.5)*.05,d:Math.abs(oA)/1.42,jit:(r()-.5)*.03,layer:row.layer+i*.002},texes[v],depths[v]);
    this.root.add(f.pivot);this.feathers.push(f);this.meshes.push(f.mesh)}});
+  // plain brown support feathers behind the eyed train
+  const pT=[5,6].map(q=>featherTexture(q*13,.4717,true)),pD=pT.map(t=>new THREE.MeshDepthMaterial({depthPacking:THREE.RGBADepthPacking,map:t,alphaTest:.45,side:THREE.DoubleSide}));
+  for(let i=0;i<23;i++){const oA=(i/22-.5)*3,v=i&1,f=new Feather({len:3.9,wid:.62,oA,oT:-.26,cA:oA*.07,cT:-1.95,d:Math.abs(oA)/1.5,jit:(r()-.5)*.04,layer:-.12-i*.002},pT[v],pD[v]);this.root.add(f.pivot);this.feathers.push(f);this.meshes.push(f.mesh)}
  }
  buildBody(){
   const R=this.root;
@@ -191,7 +198,7 @@ class Peacock{
    for(let j=0;j<=rad;j++){const a=j/rad*6.2832,c=-Math.cos(a),s=Math.sin(a)*.86;pos.push(P.x+rr*s,P.y+rr*c*N.y,P.z+rr*c*N.z);uv.push(j/rad*3,t*5)}}
   for(let j=1;j<=seg;j++)for(let i=1;i<=rad;i++){const a=(rad+1)*(j-1)+i-1,b=(rad+1)*j+i-1,c=(rad+1)*j+i,d=(rad+1)*(j-1)+i;idx.push(a,b,d,b,c,d)}
   const ng=new THREE.BufferGeometry();ng.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));ng.setAttribute('uv',new THREE.Float32BufferAttribute(uv,2));ng.setIndex(idx);ng.computeVertexNormals();
-  const neckM=blue(0xffffff,.28);neckM.color.set(0x7fc4ff);this.neck.add(new THREE.Mesh(ng,neckM));
+  const neckM=blue(0xffffff,.28);neckM.color.set(0x7fc4ff);shimmer(neckM,.35);this.neck.add(new THREE.Mesh(ng,neckM));
   this.head=new THREE.Group();this.head.position.set(0,1.38,.3);this.neck.add(this.head);
   const headM=new THREE.MeshPhysicalMaterial({color:0x1670d8,metalness:.4,roughness:.35,clearcoat:.5,iridescence:.6});
   const skull=new THREE.Mesh(new THREE.SphereGeometry(.14,28,20),headM);skull.scale.set(.95,1,1.2);this.head.add(skull);

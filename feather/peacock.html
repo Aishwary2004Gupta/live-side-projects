@@ -69,7 +69,7 @@ const cv=(w,h)=>{const c=document.createElement('canvas');c.width=w;c.height=h;r
 const tex=(c,rep)=>{const t=new THREE.CanvasTexture(c);t.colorSpace=THREE.SRGBColorSpace;t.anisotropy=8;if(rep){t.wrapS=t.wrapT=THREE.RepeatWrapping;t.repeat.set(rep[0],rep[1])}return t};
 
 /* ---------- settings (all driven from the control panel) ---------- */
-const cfg={openTime:3.2,spread:1,lean:0,rattle:true,wind:true,windAmt:1,vib:1,ripple:1,roam:true,speed:.95,turn:1.2,pause:2.5,radius:5,stride:1,clickWalk:true,gaze:true,gazeSpeed:1,follow:true,autoRot:false,rotSpeed:.5,blur:.07,exposure:1.08,grassWind:1,grassH:1};
+const cfg={openTime:3.2,spread:1,lean:0,rattle:true,wind:true,windAmt:1,vib:1,ripple:1,roam:true,speed:.95,turn:1.2,pause:2.5,radius:5,stride:1,clickWalk:true,gaze:true,gazeSpeed:1,follow:true,autoRot:false,rotSpeed:.5,blur:.07,exposure:1.08,grassWind:1,grassH:1,pickFeathers:false,headWave:1};
 /* ---------- renderer / scene ---------- */
 const renderer=new THREE.WebGLRenderer({antialias:true,powerPreference:'high-performance'});
 renderer.setPixelRatio(Math.min(devicePixelRatio,2));
@@ -232,7 +232,7 @@ class Peacock{
  constructor(){
   this.root=new THREE.Group();scene.add(this.root);this.feathers=[];this.meshes=[];
   this.buildTail();this.buildBody();this.root.traverse(o=>{if(o.isMesh&&!o.userData.f&&o.material&&!o.customDepthMaterial)o.castShadow=true});
-  this.hd=0;this.spd=0;this.ph=0;this.amp=0;this.st='idle';this.stT=1.2;this.wp=new THREE.Vector3();this.uPh={value:0};this.uAm={value:0};this.lookY=0;this.lookT=0;this.lookTime=2;this.blinkTime=3;this.blink=-1;
+  this.cw=0;this.cv=0;this.pvx=0;this.uCw={value:new THREE.Vector2()};this.hd=0;this.spd=0;this.ph=0;this.amp=0;this.st='idle';this.stT=1.2;this.wp=new THREE.Vector3();this.uPh={value:0};this.uAm={value:0};this.lookY=0;this.lookT=0;this.lookTime=2;this.blinkTime=3;this.blink=-1;
  }
  buildTail(){
   const texes=[1,2,3,4].map(s=>featherTexture(s*17,.595)),depths=texes.map(t=>new THREE.MeshDepthMaterial({depthPacking:THREE.RGBADepthPacking,map:t,alphaTest:.45,side:THREE.DoubleSide}));
@@ -258,12 +258,13 @@ class Peacock{
   const mat=new THREE.MeshPhysicalMaterial({vertexColors:true,roughness:.52,metalness:.08,clearcoat:.25,clearcoatRoughness:.35,side:THREE.DoubleSide,envMapIntensity:.9});
   shimmer(mat,.3,'color_fragment');const sh0=mat.onBeforeCompile;this.uL={value:0};this.uN={value:0};
   mat.onBeforeCompile=sh=>{sh0(sh);sh.uniforms.uLook=this.uL;
-   sh.uniforms.uNod=this.uN;sh.uniforms.uPh=this.uPh;sh.uniforms.uAm=this.uAm;
-   sh.vertexShader=sh.vertexShader.replace('#include <common>',`uniform float uLook,uNod,uPh,uAm;
+   sh.uniforms.uNod=this.uN;sh.uniforms.uPh=this.uPh;sh.uniforms.uAm=this.uAm;sh.uniforms.uCw=this.uCw;
+   sh.vertexShader=sh.vertexShader.replace('#include <common>',`uniform float uLook,uNod,uPh,uAm;uniform vec2 uCw;
 vec3 hrot(vec3 p,vec3 pv,float wy,float wp){p-=pv;float a=uLook*wy,c=cos(a),s=sin(a);p=vec3(c*p.x+s*p.z,p.y,-s*p.x+c*p.z);float b=uNod*wp,d=cos(b),e=sin(b);p=vec3(p.x,d*p.y-e*p.z,e*p.y+d*p.z);return p+pv;}
 #include <common>`).replace('#include <beginnormal_vertex>',`#include <beginnormal_vertex>
  objectNormal=hrot(objectNormal,vec3(0.),smoothstep(.3,.58,position.y),smoothstep(.45,.6,position.y));`).replace('#include <begin_vertex>',`#include <begin_vertex>
  transformed=hrot(transformed,vec3(0.,.5,.41),smoothstep(.3,.58,position.y),smoothstep(.45,.6,position.y));
+ {float wc=smoothstep(.655,.715,position.y);wc*=wc;transformed.xz+=uCw*.06*wc;transformed.y-=length(uCw)*.012*wc;}
  {float lw=1.-smoothstep(.05,.24,position.y),sg=position.x>0.?1.:-1.,ph=uPh+(sg>0.?3.14159:0.);transformed.z+=sin(ph)*uAm*.05*lw;transformed.y+=max(0.,cos(ph))*uAm*.028*lw;}`)};
   this.model=new THREE.Group();this.model.scale.setScalar(4);this.model.position.set(0,0,-.5);
   const mesh=new THREE.Mesh(g,mat);mesh.castShadow=true;mesh.receiveShadow=true;mesh.frustumCulled=false;this.model.add(mesh);this.root.add(this.model);
@@ -274,17 +275,18 @@ vec3 hrot(vec3 p,vec3 pv,float wy,float wp){p-=pv;float a=uLook*wy,c=cos(a),s=si
   const R=this.root,P=R.position;this.stT-=dt;
   if(this.st==='idle'&&this.stT<0&&cfg.roam){const a=Math.random()*6.2832,d=Math.sqrt(Math.random())*cfg.radius;this.wp.set(Math.cos(a)*d,0,Math.sin(a)*d);if(this.wp.distanceTo(P)<1.8)this.wp.sub(P).setLength(2.4).add(P);this.st='walk'}
   let want=0,turn=0;
+  if(this.st==='walk'&&!cfg.roam&&!this.man){this.st='idle';this.stT=0}   // roaming switched off: cancel the wander, stand still
   if(this.st==='walk'){const dx=this.wp.x-P.x,dz=this.wp.z-P.z,dist=Math.hypot(dx,dz);let err=Math.atan2(dx,dz)-this.hd;err=Math.atan2(Math.sin(err),Math.cos(err));
    this.hd+=clamp(err,-cfg.turn*dt,cfg.turn*dt);turn=Math.abs(err)>.05?.4:0;want=Math.abs(err)<.5?clamp(dist/1.2,.35,1):0;
-   if(dist<.2){this.st='idle';this.stT=cfg.pause*(.5+Math.random())}}
-  this.spd+=(want*cfg.speed-this.spd)*(1-Math.exp(-dt*3));
+   if(dist<.2){this.st='idle';this.man=false;this.stT=cfg.pause*(.5+Math.random())}}
+  this.spd+=(want*cfg.speed-this.spd)*(1-Math.exp(-dt*(want>0?3:9)));
   P.x+=Math.sin(this.hd)*this.spd*dt;P.z+=Math.cos(this.hd)*this.spd*dt;const r=Math.hypot(P.x,P.z);if(r>6){P.x*=6/r;P.z*=6/r}
   const tg=this.spd<.05?turn:0;this.amp+=(clamp(this.spd/.95+tg,0,1)-this.amp)*(1-Math.exp(-dt*5));
   this.ph+=dt*(6.8*this.spd/.95+3.2*tg);
   R.rotation.y=this.hd;P.y=(1-Math.cos(this.ph*2))*.012*this.amp;
   this.uPh.value=this.ph;this.uAm.value=this.amp*cfg.stride;if(this.model)this.model.rotation.z=Math.sin(this.ph)*.025*this.amp;
  }
- goTo(v){this.wp.copy(v);this.wp.y=0;this.st='walk'}
+ goTo(v){this.wp.copy(v);this.wp.y=0;this.st='walk';this.man=true}
  update(dt,t,open,wind){
   this.walk(dt);
   this.shT=(this.shT||0)-dt;if(open>=1&&cfg.rattle&&this.shT<0){this.shT=6+Math.random()*5;this.shiv=1;for(const f of this.feathers)f.kick((Math.random()-.5)*.3,(Math.random()-.5)*.2)}
@@ -293,6 +295,14 @@ vec3 hrot(vec3 p,vec3 pv,float wy,float wp){p-=pv;float a=uLook*wy,c=cos(a),s=si
   if(!this.model)return;
   const br=Math.sin(t*1.7);this.model.scale.set(4,4*(1+.01*br),4*(1+.004*br));
   this.lookTime-=dt;if(this.lookTime<0){this.lookT=(Math.random()-.5)*1.1;this.lookTime=3+Math.random()*4}
+  {let over=0,raw=0;                                       // cursor over the head? its sideways speed drives a spring-damped crest sway
+   if(performance.now()-gz.t<5000){gv.set(gz.x,gz.y,.5).unproject(camera).sub(camera.position).normalize();
+    const sh=Math.sin(this.hd),ch=Math.cos(this.hd);HS.center.set(this.root.position.x+1.2*sh,2.62,this.root.position.z+1.2*ch);HR.origin.copy(camera.position);HR.direction.copy(gv);over=HR.intersectsSphere(HS)?1:0;
+    raw=this.pgx===undefined?0:clamp((gz.x-this.pgx)/Math.max(dt,1e-3),-5,5)}
+   this.pgx=gz.x;this.pvx+=(raw-this.pvx)*(1-Math.exp(-dt*10));
+   const fo=over*this.pvx*4*cfg.headWave+Math.sin(t*1.7)*.35;this.cv+=(-24*this.cw-4.5*this.cv+fo)*dt;this.cw=clamp(this.cw+this.cv*dt,-1.4,1.4);
+   camera.updateMatrixWorld();const rg=gq.setFromMatrixColumn(camera.matrixWorld,0),h1=Math.sin(this.hd),h2=Math.cos(this.hd);
+   this.uCw.value.set(this.cw*(rg.x*h2-rg.z*h1),this.cw*(rg.x*h1+rg.z*h2))}
   let ty=this.lookT,tn=Math.sin(t*.5)*.05;
   if(cfg.gaze&&performance.now()-gz.t<5000){                       // follow the cursor while it is active
    gv.set(gz.x,gz.y,.5).unproject(camera).sub(camera.position).normalize();
@@ -304,7 +314,7 @@ vec3 hrot(vec3 p,vec3 pv,float wy,float wp){p-=pv;float a=uLook*wy,c=cos(a),s=si
   this.uL.value=this.lookY;this.uN.value=this.nod;
  }
 }
-const gz={x:0,y:0,t:-1e9},gv=new THREE.Vector3(),gq=new THREE.Vector3(),HEAD=new THREE.Vector3(0,2.52,1.22);
+const gz={x:0,y:0,t:-1e9},gv=new THREE.Vector3(),gq=new THREE.Vector3(),HEAD=new THREE.Vector3(0,2.52,1.22),HS=new THREE.Sphere(new THREE.Vector3(),.5),HR=new THREE.Ray();
 addEventListener('pointermove',e=>{gz.x=e.clientX/innerWidth*2-1;gz.y=-(e.clientY/innerHeight)*2+1;gz.t=performance.now()});
 const peacock=new Peacock();
 
@@ -320,7 +330,7 @@ home();controls.addEventListener('start',()=>view.time=0);
 const $=id=>document.getElementById(id),stEl=$('state'),stTx=$('stateText');
 /* ---------- control panel ---------- */
 const refs=[],DEF=JSON.parse(JSON.stringify(cfg)),el=(t,c,h)=>{const e=document.createElement(t);if(c)e.className=c;if(h!=null)e.innerHTML=h;return e};
-function applyCfg(){scene.backgroundBlurriness=cfg.blur;renderer.toneMappingExposure=cfg.exposure;controls.autoRotate=cfg.autoRot;controls.autoRotateSpeed=cfg.rotSpeed*2;gU.uGW.value=cfg.grassWind;if(gU.mesh)gU.mesh.scale.y=cfg.grassH}
+function applyCfg(){scene.backgroundBlurriness=cfg.blur;renderer.toneMappingExposure=cfg.exposure;controls.autoRotate=cfg.autoRot;controls.autoRotateSpeed=cfg.rotSpeed*2;gU.uGW.value=cfg.grassWind;if(gU.mesh)gU.mesh.scale.y=cfg.grassH;if(!cfg.pickFeathers)for(const f of peacock.feathers){f.kT=0;f.hT=0}}
 const sld=(label,key,min,max,step,dec=2)=>{const w=el('label','sl'),f=el('i'),out=el('output'),inp=el('input');w.append(f,el('span','',label),out,inp);Object.assign(inp,{type:'range',min,max,step});
  const sync=()=>{inp.value=cfg[key];out.textContent=(+cfg[key]).toFixed(dec);f.style.width=(cfg[key]-min)/(max-min)*100+'%'};inp.oninput=()=>{cfg[key]=+inp.value;sync();applyCfg()};refs.push(sync);sync();return w};
 const tgl=(label,key)=>{const b=el('button','tg',`<span>${label}</span><i></i>`);b.type='button';const sync=()=>{b.classList.toggle('on',!!cfg[key]);b.setAttribute('aria-pressed',!!cfg[key])};b.onclick=()=>{cfg[key]=!cfg[key];sync();applyCfg()};refs.push(sync);sync();return b};
@@ -332,13 +342,13 @@ const sec=(title,rows,open=true)=>{const d=el('div','sec'),h=el('button','sh',`<
  acts.append(btn('Open feathers','bOpen'),btn('Close feathers','bClose'),btn('Auto display','bAuto'),btn('Reset','bReset'));
  body.append(acts,
   sec('Tail',[sld('Open time (s)','openTime',1,8,.1,1),sld('Fan spread','spread',.6,1.15,.01),sld('Fan lean','lean',-.3,.3,.01),tgl('Auto rattle','rattle')]),
-  sec('Feather motion',[tgl('Wind','wind'),sld('Wind strength','windAmt',0,2.5,.05),sld('Vibration','vib',0,3,.05),sld('Touch ripple','ripple',0,2.5,.05)]),
+  sec('Feather motion',[tgl('Wind','wind'),sld('Wind strength','windAmt',0,2.5,.05),sld('Vibration','vib',0,3,.05),sld('Touch ripple','ripple',0,2.5,.05),tgl('Pick feathers (click)','pickFeathers')]),
   sec('Movement',[tgl('Roam around','roam'),sld('Walk speed','speed',.3,1.8,.05),sld('Turn speed','turn',.4,3,.05),sld('Pause (s)','pause',.3,8,.1,1),sld('Roam radius','radius',1,5.5,.1,1),sld('Stride','stride',.4,1.6,.05),tgl('Click grass to walk','clickWalk'),btn('Walk somewhere now',null,()=>{const a=Math.random()*6.2832,d=Math.sqrt(Math.random())*cfg.radius;peacock.goTo(new THREE.Vector3(Math.cos(a)*d,0,Math.sin(a)*d))},'wide')]),
-  sec('Head',[tgl('Look at cursor','gaze'),sld('Look speed','gazeSpeed',.3,3,.05)]),
+  sec('Head',[tgl('Look at cursor','gaze'),sld('Look speed','gazeSpeed',.3,3,.05),sld('Head wave','headWave',0,2.5,.05)]),
   sec('Camera',[tgl('Follow the bird','follow'),tgl('Auto-rotate','autoRot'),sld('Rotate speed','rotSpeed',.1,3,.05)],false),
   sec('Scene',[sld('Background blur','blur',0,.4,.01),sld('Exposure','exposure',.5,1.8,.01),sld('Grass wind','grassWind',0,3,.05),sld('Grass height','grassH',.5,1.8,.05)],false),
   btn('Reset settings',null,()=>{Object.assign(cfg,DEF);refs.forEach(f=>f());applyCfg()},'wide'),
-  el('div','foot','Drag to orbit · scroll to zoom<br>Hover or click feathers · double-click to focus<br>Click the grass to send the peacock there'));
+  el('div','foot','Drag to orbit · scroll to zoom<br>Wave the cursor over the head to sway the crest<br>Click the grass to send the peacock there'));
  panel.append(head,body);setOpen(innerWidth>=900);applyCfg()}
 function setTarget(v){target=v;frame(v)}
 function setState(){const s=open<=0&&target===0?'Closed':open>=1&&target===1?'Fully Open':target===1?'Opening':'Closing';
@@ -360,8 +370,8 @@ const gPlane=new THREE.Plane(new THREE.Vector3(0,1,0),0),gHit=new THREE.Vector3(
 cvs.addEventListener('pointerleave',()=>{if(hover)hover.hT=0;hover=null;cvs.style.cursor=''});
 cvs.addEventListener('pointerdown',e=>{down={x:e.clientX,y:e.clientY,t:performance.now()}});
 cvs.addEventListener('pointerup',e=>{if(!down)return;const moved=Math.hypot(e.clientX-down.x,e.clientY-down.y),dt=performance.now()-down.t;down=null;
- if(moved<6&&dt<500){setPtr(e);const f=pick();if(f){f.kT=f.kT?0:1;f.kick(.5,.7)}else if(cfg.clickWalk){ray.setFromCamera(ptr,camera);if(ray.ray.intersectPlane(gPlane,gHit)&&Math.hypot(gHit.x,gHit.z)<PR-1)peacock.goTo(gHit)}}});
-cvs.addEventListener('dblclick',e=>{setPtr(e);const f=pick();if(f){f.mesh.updateWorldMatrix(true,false);view.t.copy(f.mesh.localToWorld(new THREE.Vector3(0,f.len*.73,0)));view.d=3.4;view.time=3}});
+ if(moved<6&&dt<500){setPtr(e);const f=pick();if(f){if(cfg.pickFeathers){f.kT=f.kT?0:1;f.kick(.5,.7)}}else if(cfg.clickWalk){ray.setFromCamera(ptr,camera);if(ray.ray.intersectPlane(gPlane,gHit)&&Math.hypot(gHit.x,gHit.z)<PR-1)peacock.goTo(gHit)}}});
+cvs.addEventListener('dblclick',e=>{setPtr(e);const f=pick();if(f&&cfg.pickFeathers){f.mesh.updateWorldMatrix(true,false);view.t.copy(f.mesh.localToWorld(new THREE.Vector3(0,f.len*.73,0)));view.d=3.4;view.time=3}});
 
 /* ---------- main loop ---------- */
 const clock=new THREE.Clock(),lastRP=new THREE.Vector3();
@@ -372,7 +382,7 @@ function loop(){
  setState();
  if(auto&&(lastState==='Closed'||lastState==='Fully Open')){autoT+=dt;if(autoT>(lastState==='Closed'?1.4:3.4))setTarget(target?0:1)}
  windAmt+=((cfg.wind?1:0)-windAmt)*(1-Math.exp(-dt*2));
- if(ptrDirty){ptrDirty=false;const f=pick();if(f!==hover){if(hover)hover.hT=0;if(f){f.hT=1;f.kick(clamp(ptrDx*.012,-.45,.45)||.12,.4)}hover=f;cvs.style.cursor=f?'pointer':''}}
+ if(ptrDirty){ptrDirty=false;const f=pick();if(f!==hover){if(hover)hover.hT=0;if(f){if(cfg.pickFeathers)f.hT=1;f.kick(clamp(ptrDx*.012,-.45,.45)||.12,.4)}hover=f;cvs.style.cursor=f&&cfg.pickFeathers?'pointer':''}}
  peacock.update(dt,t,open,windAmt*cfg.windAmt);
  {const rp=peacock.root.position,dx=rp.x-lastRP.x,dz=rp.z-lastRP.z;if(cfg.follow){controls.target.x+=dx;controls.target.z+=dz;camera.position.x+=dx;camera.position.z+=dz}lastRP.copy(rp);
   gU.uTime.value=t;gU.uBird.value.set(rp.x+Math.sin(peacock.hd)*.5,0,rp.z+Math.cos(peacock.hd)*.5);aoG.position.set(rp.x,0,rp.z);aoG.rotation.y=peacock.hd}

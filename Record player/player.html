@@ -149,7 +149,7 @@ body.rp-ready #rp-loading { opacity:0; pointer-events:none; }
 </div>
 <div class="ui" id="info"><h2>Click any part</h2><p>Drag to orbit, scroll to zoom, right-drag to pan. ↑ ↓ climb and descend once the rotor is at speed.</p></div>
 <div class="ui" id="hint">L lights · E engines · ↑↓ climb · C cabin lights · D doors · I iso · T theme</div>
-<!-- <a class="ui" id="credit" href="https://iso-glow.vercel.app" target="_blank" rel="noopener">Made with ISO-GLOW ↗</a> -->
+<a class="ui" id="credit" href="https://iso-glow.vercel.app" target="_blank" rel="noopener">Made with ISO-GLOW ↗</a>
 <div class="ui" id="read"></div>
 
 <script type="module">
@@ -962,11 +962,12 @@ FIGS3D.push({ id: 'rp', name: 'Record player', mod: (() => {
           float tv = dot(T, V), sv = sqrt(max(1.0 - tv * tv, 0.0));               // light is reflected by the grooves in a cone around their tangent, so only wedges of the disc catch it
           float l1 = dot(T, uL1), l2 = dot(T, uL2);
           float k1 = max(sqrt(max(1.0 - l1 * l1, 0.0)) * sv - l1 * tv, 0.0), k2 = max(sqrt(max(1.0 - l2 * l2, 0.0)) * sv - l2 * tv, 0.0);
-          float lobe = 0.72 * (pow(k1, 22.0) * 0.42 + pow(k1, 150.0) * 0.72 + pow(k2, 22.0) * 0.18 + pow(k2, 150.0) * 0.30);
+          float lobe = 0.55 * (pow(k1, 26.0) * 0.32 + pow(k1, 150.0) * 0.55 + pow(k2, 26.0) * 0.13 + pow(k2, 150.0) * 0.22);
           lobe *= mix(0.5, 1.0, smoothstep(0.2, 0.45, rad)) * mix(0.6 + 0.4 * rd, 1.0, sm);
-          cd += vec3(0.92, 0.94, 0.98) * lobe * zone;
+          float ff = fwidth(rad * 1100.0), streak = mix(0.62 + 0.38 * sin(rad * 1100.0), 0.85, smoothstep(0.4, 1.0, ff));     // thin lines inside the sheen
+          cd += vec3(0.84, 0.86, 0.9) * lobe * zone * mix(1.0, 1.7, uMix) * streak;
           cd += vec3(0.05) * sm * zone * (0.4 + lobe);
-          cd += vec3(0.10) * pow(1.0 - max(dot(N, V), 0.0), 3.0) * (1.0 - zone);
+          cd += vec3(0.10 + 0.12 * uMix) * pow(1.0 - max(dot(N, V), 0.0), 3.0) * (1.0 - zone);
           cd += vec3(0.6) * pow(max(dot(N, normalize(uL1 + V)), 0.0), 70.0) * 0.18 * (1.0 - zone);
           cd += vec3(0.012) * max(dot(N, uL1), 0.0);
           cd += vec3(0.07) * (1.0 - smoothstep(0.0, 0.004, abs(rad - 0.1763)));  // bezel around the label
@@ -1562,7 +1563,7 @@ body.rp-focus #rp-now { display:block; }
         <span>Camera views: default, top, front</span><em><kbd>D</kbd> <kbd>O</kbd> <kbd>F</kbd></em>
         <span>Lyrics view: rotating disc in the middle, lyrics all around it (<kbd>L</kbd> switches the layout)</span><em><kbd>V</kbd></em>
         <span>Lyrics a little off? Click the line you are hearing (or use the arrow keys); it is remembered for that song</span><em><kbd>↑</kbd> <kbd>↓</kbd></em>
-        <span>Power saver: lower resolution and fewer redraws (good for laptops on battery and phones)</span><em><kbd>P</kbd></em>
+        <span>Power saver: sharper edges and resolution are traded for less heat and battery use. It draws at 30 frames a second instead of 60, at lower resolution, with softer edge smoothing (phones and low-power computers start in it)</span><em><kbd>P</kbd></em>
         <span>Hide every control, leaving just the player and the music</span><em><kbd>H</kbd></em>
         <span>Light / dark theme</span><em><kbd>T</kbd></em>
         <span>Open or close this help</span><em><kbd>?</kbd></em>
@@ -1722,10 +1723,9 @@ body.rp-focus #rp-now { display:block; }
   function setQuality(low, announce) {
     window.__rpLow = low; window.__rpDprCap = low ? 1.25 : 2; try { localStorage.setItem('rp-quality', low ? 'low' : 'high'); } catch (e) {}
     renderer.setPixelRatio(Math.min(devicePixelRatio, window.__rpDprCap)); [composer.renderTarget1, composer.renderTarget2].forEach(rt => { if (rt) { rt.samples = low ? 2 : 4; rt.dispose(); } });
-    dispatchEvent(new Event('resize')); if (announce) toast(low ? 'Power saver on: lower resolution and fewer redraws.' : 'Full quality on.'); wake();
+    dispatchEvent(new Event('resize')); if (announce) toast(low ? 'Power saver on: 30 frames a second, lower resolution, less battery and heat.' : 'Full quality on: 60 frames a second, full resolution.'); wake();
   }
   const togglePower = () => setQuality(!window.__rpLow, true);
-window.__rpTogglePower = togglePower;
   // Fit the whole scene (deck, crate and cover) into the free area between the bars and panels, so nothing is ever hidden behind the side panel or the buttons
   const bootT = performance.now(), bootRefits = [250, 900, 2200];
   function initCamera() {                                                          // the default view, set once before the first picture
@@ -1827,47 +1827,39 @@ window.__rpTogglePower = togglePower;
 @keyframes rppopw { 0% { transform:translateY(0) scale(.86); } 38% { transform:translateY(-.24em) scale(1.16); } 100% { transform:none; } }
 #rp-np.center .lb { width:6.2vh; font-size:1.6vh; }
 #rp-np .lay { position:absolute; left:calc(2.2vw + 5vh); top:2.6vh; height:3.6vh; padding:0 1.3vh; border:1px solid rgba(255,255,255,.14); border-radius:1.8vh; background:transparent; color:#8d8d8d; cursor:pointer; font:1.3vh/1 inherit; letter-spacing:.08em; opacity:.5; }
-#rp-np .lay:hover, #rp-np .thm:hover, #rp-np .pwr:hover { opacity:1; color:#fff; }
-#rp-np .lay, #rp-np .thm, #rp-np .pwr, #rp-np .hide-ui { opacity:1; }
-#rp-np .close, #rp-np .lay, #rp-np .srch, #rp-np .thm, #rp-np .pwr { opacity:1; }
-#rp-np.center .close, #rp-np.center .lay, #rp-np.center .srch, #rp-np.center .thm, #rp-np.center .pwr { left:2.2vw; right:auto; }
-#rp-np:not(.center) .close, #rp-np:not(.center) .lay, #rp-np:not(.center) .srch, #rp-np:not(.center) .thm, #rp-np:not(.center) .pwr { right:2.2vw; left:auto; }
-#rp-np.center .close { left:2.2vw; } #rp-np:not(.center) .close { right:2.2vw; }
-#rp-np.center .lay { left:calc(2.2vw + 5vh); } #rp-np:not(.center) .lay { right:calc(2.2vw + 5vh); }
-#rp-np.center .srch { left:calc(2.2vw + 5vh + 11.5vh); } #rp-np:not(.center) .srch { right:calc(2.2vw + 5vh + 11.5vh); }
-#rp-np.center .thm { left:calc(2.2vw + 5vh + 20.5vh); } #rp-np:not(.center) .thm { right:calc(2.2vw + 5vh + 20.5vh); }
-#rp-np.center .pwr { left:calc(2.2vw + 5vh + 25.5vh); } #rp-np:not(.center) .pwr { right:calc(2.2vw + 5vh + 25.5vh); }
-#rp-np.center .meta { right:4vw; left:auto; text-align:right; }
-#rp-np:not(.center) .meta { left:4vw; right:auto; text-align:left; }
-#rp-np.center .sync { left:2.2vw; right:auto; } #rp-np:not(.center) .sync { right:2.2vw; left:auto; }
-#rp-np .thm, #rp-np .pwr, #rp-np .hide-ui { position:absolute; top:2.6vh; width:3.6vh; height:3.6vh; border:1px solid rgba(255,255,255,.14); border-radius:50%; background:transparent; color:#8d8d8d; cursor:pointer; font:1.3vh/1 inherit; letter-spacing:.08em; }
-#rp-np .hide-ui { top:auto; bottom:3.4vh; width:3.4vh; height:3.4vh; }
-#rp-np.center .hide-ui { right:4vw; } #rp-np:not(.center) .hide-ui { left:4vw; }
-#rp-np .thm:hover, #rp-np .pwr:hover, #rp-np .hide-ui:hover { color:#fff; border-color:rgba(255,255,255,.4); }
-#rp-np.clean .meta, #rp-np.clean .close, #rp-np.clean .lay, #rp-np.clean .srch, #rp-np.clean .thm, #rp-np.clean .pwr, #rp-np.clean .tp, #rp-np.clean .sync, #rp-np.clean .clock { opacity:0; pointer-events:none; transition:opacity .2s; }
-#rp-np.clean .hide-ui { opacity:1; pointer-events:auto; }
-:root[data-theme="light"] #rp-np { background:#e8e4db; color:#25282b; }
-:root[data-theme="light"] #rp-np .meta b { color:#16181a; } :root[data-theme="light"] #rp-np .meta span { color:#6a6e73; }
-:root[data-theme="light"] #rp-np .w { color:#8a8f94; } :root[data-theme="light"] #rp-np .w.past { color:#1c1e20; }
-:root[data-theme="light"] #rp-np .w.was { color:#000; background:rgba(0,0,0,.06); }
-:root[data-theme="light"] #rp-np .ln.off .w { color:#6a6e73; } :root[data-theme="light"] #rp-np .ln.off.nx .w { color:#a8acb0; }
-:root[data-theme="light"] #rp-np .lb { color:#c0492a; }
-:root[data-theme="light"] #rp-np .close, :root[data-theme="light"] #rp-np .lay,
-:root[data-theme="light"] #rp-np .srch, :root[data-theme="light"] #rp-np .thm,
-:root[data-theme="light"] #rp-np .pwr, :root[data-theme="light"] #rp-np .hide-ui { color:#5a5f64; border-color:rgba(0,0,0,.14); }
-:root[data-theme="light"] #rp-np .tp button { color:#5a5f64; } :root[data-theme="light"] #rp-np .tp button:hover { color:#111; }
-:root[data-theme="light"] #rp-np .clock { color:#7a7f84; } :root[data-theme="light"] #rp-np .clock b { color:#1c1e20; }
-:root[data-theme="light"] #rp-np .sync { color:#7a7f84; } :root[data-theme="light"] #rp-np .sync button { color:#5a5f64; border-color:rgba(0,0,0,.14); }
-@media (max-width:720px) { #rp-np .lb { width:5vh; } }`;
+#rp-np .lay:hover { opacity:1; color:#fff; }
+@media (max-width:720px) { #rp-np .lb { width:5vh; } }
+/* ---- theme (dark / light), clearly visible buttons, and button positions that depend on the layout ---- */
+#rp-np { --np-bg:#080808; --np-ink:#f1f1f1; --np-dim:#a2a2a2; --np-past:#f4f4f4; --np-fut:#4c4c4c; --np-off:#c4c4c4; --np-nx:#6a6a6a; --np-btn-bg:rgba(255,255,255,.12); --np-btn-bgh:rgba(255,255,255,.22); --np-btn-line:rgba(255,255,255,.42); --np-btn-ink:#f4f4f4; --np-card:rgba(18,18,20,.96); --np-grp:rgba(255,255,255,.06); --np-was:rgba(255,255,255,.08); --np-clock:#8e8e8e; background:var(--np-bg); color:var(--np-ink); }
+:root[data-theme="light"] #rp-np { --np-bg:#ece8df; --np-ink:#1b1d21; --np-dim:#585d64; --np-past:#1b1d21; --np-fut:#a7a195; --np-off:#42454c; --np-nx:#9f998d; --np-btn-bg:rgba(0,0,0,.07); --np-btn-bgh:rgba(0,0,0,.14); --np-btn-line:rgba(0,0,0,.38); --np-btn-ink:#1f2227; --np-card:rgba(251,249,244,.97); --np-grp:rgba(0,0,0,.055); --np-was:rgba(0,0,0,.08); --np-clock:#6a675f; }
+#rp-np .w { color:var(--np-fut); } #rp-np .w.past { color:var(--np-past); } #rp-np .w.was { color:var(--np-ink); background:var(--np-was); } #rp-np .gp { background:var(--np-grp); }
+#rp-np .ln.off .w { color:var(--np-off); } #rp-np .ln.off.nx .w { color:var(--np-nx); }
+#rp-np .meta b { color:var(--np-ink); } #rp-np .meta span { color:var(--np-dim); }
+#rp-np .clock { color:var(--np-clock); } #rp-np .clock b { color:var(--np-ink); }
+#rp-np .tp button { color:var(--np-dim); } #rp-np .tp button:hover { color:var(--np-ink); } #rp-np .tp .pp { border-color:var(--np-btn-line); color:var(--np-ink); }
+#rp-np .tp .tip { background:var(--np-card); border-color:var(--np-btn-line); color:var(--np-ink); } #rp-np .tip b { color:var(--np-ink); } #rp-np .tip small, #rp-np .tip span { color:var(--np-dim); }
+#rp-np .topbtns { position:absolute; top:2.6vh; left:2.2vw; z-index:3; display:flex; gap:1.1vh; }
+#rp-np:not(.center) .topbtns { left:auto; right:4vw; }
+#rp-np .topbtns button { position:static; left:auto; top:auto; opacity:1; display:inline-flex; align-items:center; gap:.9vh; height:4.2vh; min-height:30px; padding:0 1.5vh; border:1px solid var(--np-btn-line); border-radius:2.1vh; background:var(--np-btn-bg); color:var(--np-btn-ink); font:500 1.45vh/1 Inter,-apple-system,system-ui,sans-serif; letter-spacing:.08em; cursor:pointer; backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px); width:auto; }
+#rp-np .topbtns button:hover { background:var(--np-btn-bgh); }
+#rp-np .topbtns kbd { font:inherit; font-size:1.1vh; letter-spacing:0; padding:.3vh .7vh; border:1px solid var(--np-btn-line); border-radius:.6vh; color:var(--np-dim); }
+#rp-np:not(.center) .meta { top:9.2vh; }
+#rp-np .sync { color:var(--np-dim); font-size:1.4vh; }
+#rp-np:not(.center) .sync { left:auto; right:4vw; bottom:8.6vh; justify-content:flex-end; }
+#rp-np .sync button { width:3.4vh; height:3.4vh; border:1px solid var(--np-btn-line); background:var(--np-btn-bg); color:var(--np-btn-ink); font-size:1.5vh; opacity:1; }
+#rp-np .sync button:hover { background:var(--np-btn-bgh); color:var(--np-btn-ink); }
+#rp-np .sync .ch { width:auto; padding:0 1.3vh; border-radius:1.7vh; font-size:1.35vh; }
+#rp-np .sync em { color:var(--np-ink); }`;
     document.head.appendChild(css);
     const root = document.createElement('div'); root.id = 'rp-np'; root.hidden = true; root.setAttribute('role', 'region'); root.setAttribute('aria-label', 'Now playing');
     root.innerHTML = `<canvas></canvas><div class="wheel"></div><i class="mk"></i>
       <div class="meta"><b></b><span></span></div>
-      <button class="close" type="button" aria-label="Back to the record player" title="Back (Esc)">✕</button>
-<button class="lay" type="button" title="Switch between disc-in-the-middle and disc-at-the-side (L)">LAYOUT (L)</button>      <button class="srch" type="button" title="Search for another song (/)">SEARCH</button>
-<button class="thm" type="button" title="Light / dark (T)" aria-label="Switch light or dark theme">◐</button>
-<button class="pwr" type="button" title="Power saver: lower resolution, fewer redraws (P)" aria-label="Power saver">⏻</button>
-<button class="hide-ui" type="button" title="Hide or show the controls (H)" aria-label="Hide controls">◐</button>
+      <div class="topbtns">
+        <button class="close" type="button" aria-label="Back to the record player" title="Back to the record player (Esc)">✕ <kbd>Esc</kbd></button>
+        <button class="lay" type="button" title="Switch between disc-in-the-middle and disc-at-the-side (L)">LAYOUT <kbd>L</kbd></button>
+        <button class="srch" type="button" title="Search for another song (/)">SEARCH <kbd>/</kbd></button>
+        <button class="thm" type="button" title="Light or dark (T)" aria-label="Switch between light and dark"><svg viewBox="0 0 16 16" width="14" height="14"><circle cx="8" cy="8" r="6" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M8 2a6 6 0 0 1 0 12z" fill="currentColor"/></svg> <kbd>T</kbd></button>
+      </div>
       <div class="sync" hidden><span>lyrics timing</span><button type="button" data-a="m" aria-label="Lyrics later">−</button><em>+0.0s</em><button type="button" data-a="p" aria-label="Lyrics later">+</button><button type="button" class="ch" data-a="c" title="Try the next chorus" hidden>chorus ⟳</button></div>
       <div class="tp"><button type="button" data-a="prev" aria-label="Play the previous song"><svg viewBox="0 0 16 16"><path d="M3 3h1.6v10H3zM13 3v10L5.6 8z"/></svg><span class="tip"></span></button>
         <button type="button" class="pp" data-a="pp" aria-label="Play or pause"></button>
@@ -1927,7 +1919,7 @@ window.__rpTogglePower = togglePower;
       if (res && res.synced && res.synced.length) {
         const dur = res.dur || 0, last = Math.max(0, dur - 30), blocks = chorusBlocks(res.synced), cands = blocks.map(b => Math.min(last || 1e9, Math.max(0, b.t - 1))); let ci = 0, bd = 1e9;
         blocks.forEach((b, k) => { const d = Math.abs(b.t - dur * 0.42); if (d < bd) { bd = d; ci = k; } });                    // the preview is the chorus: start from the chorus nearest the middle of the song
-        const off = cands.length ? cands[ci] : Math.max(0, Math.min(dur - 30, dur * 0.35)); return { lines: toLines(res.synced), off, note: true, cands, ci, provisional: true }; }
+        const off = cands.length ? cands[ci] : Math.max(0, Math.min(dur - 30, dur * 0.35)); return { lines: toLines(res.synced), off, note: true, cands, ci }; }
       if (res && res.plain) { const arr = res.plain.split('\n').map(s => s.trim()).filter(Boolean).slice(0, 80).map((text, i) => ({ t: i * 3.2, text })); return { lines: toLines(arr), off: 0, note: false, approx: true }; }
       return { lines: [{ label: 'now', words: t.title.split(/\s+/).map((w, k) => ({ text: w, t0: 0, grp: 0 })), t0: 0, t1: 9 }, { label: 'by', words: t.artist.split(/\s+/).map(w => ({ text: w, t0: 0, grp: 0 })), t0: 9, t1: 18 },
         { label: '', words: ['no', 'lyrics', 'found', 'for', 'this', 'song'].map(w => ({ text: w, t0: 0, grp: 0 })), t0: 18, t1: 30 }], off: 0, note: false, none: true };
@@ -1937,6 +1929,11 @@ window.__rpTogglePower = togglePower;
         const hits = j || [], withSync = hits.filter(x => x.syncedLyrics), pool = withSync.length ? withSync : hits; if (!pool.length) return null;
         const want = t.ms ? t.ms / 1000 : 0, hit = want ? pool.slice().sort((x, y) => Math.abs((x.duration || 0) - want) - Math.abs((y.duration || 0) - want))[0] : pool[0];   // the version that is as long as this track
         return { synced: hit.syncedLyrics ? parseLrc(hit.syncedLyrics) : null, plain: hit.plainLyrics, dur: hit.duration }; } catch (e) { return null; }
+    }
+    async function viaRelay(url) {                                                   // public CORS relays, tried in turn (only the preview file's address is sent)
+      const tries = [u => 'https://api.allorigins.win/raw?url=' + encodeURIComponent(u), u => 'https://corsproxy.io/?' + encodeURIComponent(u), u => 'https://thingproxy.freeboard.io/fetch/' + u];
+      for (const mk of tries) { try { const ctl = new AbortController(), tm = setTimeout(() => ctl.abort(), 9000); const r = await fetch(mk(url), { signal: ctl.signal }); clearTimeout(tm); if (!r.ok) continue; const ab = await r.arrayBuffer(); if (ab.byteLength > 20000) return ab; } catch (e) {} }
+      return null;
     }
     function altPreview(t) {
       return new Promise(res => { const cb = 'rpalt' + Date.now(), sc = document.createElement('script'), done = v => { delete window[cb]; sc.remove(); res(v); };
@@ -1949,11 +1946,19 @@ window.__rpTogglePower = togglePower;
       try {
         const ac = getCtx(); let ab = null;
         try { ab = await (await fetch(t.src)).arrayBuffer(); }
-        catch (e1) {                                                                // blocked? look for the same song's Deezer preview, and play that one instead if it can be read
-          const alt = await altPreview(t); if (!alt) return null; ab = await (await fetch(alt)).arrayBuffer(); if (!(window.__rpUseAlt && window.__rpUseAlt(t, alt))) return null; }
+        catch (e1) {
+          ab = await viaRelay(t.src);                                               // the browser blocks reading it: a public relay lets us read the very same file that is playing
+          if (!ab) { const alt = await altPreview(t); if (!alt) return null; ab = await (await fetch(alt)).arrayBuffer(); if (!(window.__rpUseAlt && window.__rpUseAlt(t, alt))) return null; }   // last resort: another copy that can be read, played instead
+        }
         const buf = await new Promise((ok, no) => ac.decodeAudioData(ab, ok, no));
-        const x = buf.getChannelData(0), sr = buf.sampleRate, hop = Math.round(sr * 0.01), win = Math.round(sr * 0.02), n = Math.floor((x.length - win) / hop), dur = buf.duration;
-        const e = new Float32Array(n); for (let i = 0; i < n; i++) { let sum = 0; const o = i * hop; for (let j = 1; j < win; j++) { const d = x[o + j] - x[o + j - 1]; sum += d * d; } e[i] = Math.sqrt(sum / win); }   // energy of the voice-and-above band
+        let x = buf.getChannelData(0), banded = false; const sr = buf.sampleRate;
+        if (buf.numberOfChannels > 1) { const rch = buf.getChannelData(1), m = new Float32Array(x.length); for (let i = 0; i < m.length; i++) m[i] = (x[i] + rch[i]) * 0.5; x = m; }   // the voice sits in the middle
+        const OC = globalThis.OfflineAudioContext || globalThis.webkitOfflineAudioContext;
+        if (OC) { try { const oc = new OC(1, x.length, sr), mb = oc.createBuffer(1, x.length, sr); mb.copyToChannel(x, 0); const src = oc.createBufferSource(); src.buffer = mb;
+            const hp = oc.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 250; const lp = oc.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 3800;
+            src.connect(hp); hp.connect(lp); lp.connect(oc.destination); src.start(); x = (await oc.startRendering()).getChannelData(0); banded = true; } catch (e2) {} }          // keep only the range where voices live
+        const hop = Math.round(sr * 0.01), win = Math.round(sr * 0.02), n = Math.floor((x.length - win) / hop), dur = buf.duration;
+        const e = new Float32Array(n); for (let i = 0; i < n; i++) { let sum = 0; const o = i * hop; if (banded) { for (let j = 0; j < win; j++) { const d = x[o + j]; sum += d * d; } } else { for (let j = 1; j < win; j++) { const d = x[o + j] - x[o + j - 1]; sum += d * d; } } e[i] = Math.sqrt(sum / win); }
         const sm = new Float32Array(n); for (let i = 0; i < n; i++) { let sum = 0, c = 0; for (let k = -4; k <= 4; k++) { const j = i + k; if (j >= 0 && j < n) { sum += e[j]; c++; } } sm[i] = sum / c; }
         const nov = new Float32Array(n); for (let i = 5; i < n - 5; i++) nov[i] = Math.max(0, sm[i + 4] - sm[i - 4]);                                  // how fast the sound swells
         let mean = 0; for (const v of nov) mean += v; mean /= n; let sd = 0; for (const v of nov) sd += (v - mean) * (v - mean); sd = Math.sqrt(sd / n) || 1;
@@ -1966,13 +1971,13 @@ window.__rpTogglePower = togglePower;
           starts.forEach((ts, i) => { const u = ts - off, nx = i + 1 < starts.length ? starts[i + 1] - off : u + 4; if (u < 0.4 || nx > dur - 0.2) return;
             const c = Math.round(u / 0.01); let m = 0; for (let k = -12; k <= 12; k++) { const v = nov[c + k] || 0; if (v > m) m = v; } on += (m - mean) / sd; cnt++;
             const sing = Math.min(nx - u, 6) - 0.5, a1 = avg(u + 0.2, u + Math.max(0.5, sing)), g1 = nx - u > 7 ? avg(u + 6.4, nx - 0.2) : null; if (a1 != null) { act += a1 - (g1 == null ? 0 : g1 * 0.5); ac++; } });
-          return cnt >= 2 ? (on / cnt + 0.8 * (ac ? act / ac : 0)) * Math.min(1, cnt / 4) : -9; };
+          return cnt >= 2 ? (on + 0.8 * act) / Math.sqrt(cnt) : -9; };                 // total evidence: a window that explains more of the clip wins
         const scores = []; for (let off = 0; off <= maxOff; off += 0.1) scores.push(score(off));
         let bi = 0; scores.forEach((v, i) => { if (v > scores[bi]) bi = i; }); const sorted = scores.slice().sort((p, q) => p - q), med = sorted[Math.floor(sorted.length / 2)];
-        let cOff = null, cBest = -9; chorusBlocks(synced).forEach(b => { for (let off = Math.max(0, b.t - 10); off <= Math.min(maxOff, b.t + 3); off += 0.1) { const v = score(off) + 0.12 - 0.003 * Math.abs(b.t - (songDur || 0) * 0.42); if (v > cBest) { cBest = v; cOff = off; } } });
-        let best, bs; if (cOff != null && cBest >= 0.5 && cBest >= scores[bi] * 0.85) { best = cOff; bs = cBest; }
-        else if (scores[bi] >= 0.45 && scores[bi] - med >= 0.35) { best = bi * 0.1; bs = scores[bi]; }
-        else return null;                                                        // not convincing: keep the chorus guess for (let off = Math.max(0, best - 0.5); off <= Math.min(maxOff, best + 0.5); off += 0.02) { const v = score(off); if (v > bs) { bs = v; best = off; } }
+        let cOff = null, cBest = -9; chorusBlocks(synced).forEach(b => { for (let off = Math.max(0, b.t - 10); off <= Math.min(maxOff, b.t + 3); off += 0.1) { const v = score(off) + 0.4 - 0.01 * Math.abs(b.t - (songDur || 0) * 0.42); if (v > cBest) { cBest = v; cOff = off; } } });
+        let best, bs; if (cOff != null && cBest >= 0.6 && cBest >= scores[bi] * 0.9) { best = cOff; bs = cBest; }          // a chorus-aligned fit that is nearly as good as the best fit anywhere wins
+        else if (scores[bi] >= 0.6 && scores[bi] - med >= 0.6) { best = bi * 0.1; bs = scores[bi]; }
+        else return null;                                                          // not convincing: keep the chorus guess for (let off = Math.max(0, best - 0.5); off <= Math.min(maxOff, best + 0.5); off += 0.02) { const v = score(off); if (v > bs) { bs = v; best = off; } }
         return Math.max(0, best - 0.07);
       } catch (err) { return null; }
     }
@@ -2012,7 +2017,7 @@ window.__rpTogglePower = togglePower;
     const syncKeyOf = t => 'rp-sync:' + (t.artist + '|' + t.title).toLowerCase();
     const loadSync = t => { try { const v = localStorage.getItem(syncKeyOf(t)); return v == null ? null : +v; } catch (e) { return null; } };
     const saveSync = () => { try { if (track) localStorage.setItem(syncKeyOf(track), String(lyr.off)); } catch (e) {} };
-    const showAdj = () => { const a = lyr.adj || 0; syncV.textContent = (a >= 0 ? '+' : '') + a.toFixed(1) + 's'; };
+    const showAdj = () => { syncV.textContent = 'clip from ' + fmt2(Math.max(0, lyr.off || 0)); };
     function rewindow(force) {                                                      // keep only the lines that are sung during the clip, and rebuild when the clip's position changes
       if (!lyr.note || !lyr.all) { if (force) build(lyr); return; }
       const span = isFinite(au.duration) && au.duration > 1 ? au.duration : 30, o = lyr.off;
@@ -2029,15 +2034,15 @@ window.__rpTogglePower = togglePower;
     function setTrack() {
       const t = track, img = cur.img; pal = palette(img); palRGB = pal.map(rgbOf); const seed = t ? t.title + t.artist : 'needle drop';
       tex = t ? discCanvas(t, img) : marble(pal, seed);
-      mT.textContent = t ? t.title : 'Needle Drop'; mA.textContent = t ? t.artist : 'Iso-Glow Sessions'; nudge = 0; syncV.textContent = '+0.0s';
+      mT.textContent = t ? t.title : 'Needle Drop'; mA.textContent = t ? t.artist : 'Iso-Glow Sessions'; nudge = 0; syncV.textContent = '';
       if (!t) { lyr = defaultLyrics(); build(lyr); return; }
       lyr = { lines: [{ label: '', words: [{ text: 'finding', t0: 0, grp: 0 }, { text: 'lyrics…', t0: 1, grp: 0 }], t0: 0, t1: 60 }], off: 0, note: false }; build(lyr);
       const mine = t; prep(mine); setSyncLbl('finding the timing…');
       mine.lyricsP.then(res => { if (track !== mine) return; lyr = lyricsFrom(res, mine); lyr.all = lyr.lines; const saved = loadSync(mine);
         if (saved != null && (lyr.note || lyr.approx)) { lyr.off = saved; lyr.user = true; rewindow(true); showAdj(); setSyncLbl('your timing'); return; }
-        rewindow(true);
-        setSyncLbl(lyr.note ? (lyr.cands && lyr.cands.length ? 'starting from the chorus…' : 'finding the timing…') : lyr.approx ? 'timing is approximate · click the line you hear' : '');
-        mine.syncP.then(off => { if (track !== mine || !lyr.note || lyr.user) return; if (off != null) { lyr.off = off; lyr.provisional = false; rewindow(); setSyncLbl('in sync with the song'); } else setSyncLbl(lyr.cands && lyr.cands.length > 1 ? 'chorus guess · off? press ⟳ or click the line you hear' : 'timing is approximate · click the line you hear'); }); });
+        rewindow(true); showAdj();
+        setSyncLbl(lyr.note ? (lyr.cands && lyr.cands.length ? 'finding where the clip starts…' : 'finding the timing…') : lyr.approx ? 'timing is approximate · click the line you hear' : '');
+        mine.syncP.then(off => { if (track !== mine || !lyr.note || lyr.user) return; if (off != null) { lyr.off = off; rewindow(); showAdj(); setSyncLbl('found where the clip starts · in sync'); } else setSyncLbl(lyr.cands && lyr.cands.length > 1 ? 'couldn’t read the audio · guessed a chorus · try chorus ⟳ or click the line you hear' : 'couldn’t read the audio · click the line you hear'); }); });
     }
 
     // ── drawing ──
@@ -2053,19 +2058,14 @@ window.__rpTogglePower = togglePower;
       for (let r = Rl * 1.12; r < R * 0.985; r += 0.0046 * u) { cx.strokeStyle = (Math.round(r / (0.0046 * u)) & 1) ? 'rgba(255,255,255,0.045)' : 'rgba(0,0,0,0.07)'; cx.beginPath(); cx.arc(Cx, Cy, r, 0, 6.283); cx.stroke(); }
       [0.27, 0.315, 0.352, 0.394, 0.43].forEach(f => { cx.strokeStyle = 'rgba(255,235,245,0.26)'; cx.lineWidth = 1.2; cx.beginPath(); cx.arc(Cx, Cy, f * u, 0, 6.283); cx.stroke(); });
       if (cx.createConicGradient) {
-  const a0 = -0.5 + ang;
-  const g = cx.createConicGradient(a0, Cx, Cy);
-  [[0,0],[0.03,0.10],[0.06,0.46],[0.10,0.16],[0.14,0],[0.48,0],[0.50,0.08],[0.53,0.36],[0.57,0.12],[0.61,0],[1,0]]
-    .forEach(([s, a]) => g.addColorStop(s, `rgba(255,255,255,${a})`));
-  const gm = cx.createConicGradient(a0 + 0.02, Cx, Cy);
-  [[0,0],[0.05,0],[0.075,0.22],[0.10,0],[1,0]].forEach(([s,a]) => gm.addColorStop(s, `rgba(255,255,255,${a})`));
-  cx.save(); cx.beginPath(); cx.arc(Cx, Cy, R*0.985, 0, 6.283); cx.clip();
-  cx.fillStyle = g; cx.fillRect(Cx - R, Cy - R, 2 * R, 2 * R);
-  cx.globalCompositeOperation = 'lighter'; cx.fillStyle = gm; cx.fillRect(Cx - R, Cy - R, 2 * R, 2 * R);
-  cx.globalCompositeOperation = 'source-over'; cx.restore();
-}
+        const stops = [[0, 0], [0.03, 0], [0.07, 0.34], [0.115, 0.5], [0.165, 0.32], [0.21, 0], [0.5, 0], [0.53, 0], [0.575, 0.26], [0.62, 0.4], [0.67, 0.24], [0.715, 0], [1, 0]];
+        const soft = cx.createConicGradient(-0.5, Cx, Cy), fine = cx.createConicGradient(-0.5, Cx, Cy);
+        stops.forEach(([p, a]) => { soft.addColorStop(p, `rgba(255,255,255,${(a * 0.55).toFixed(3)})`); fine.addColorStop(p, `rgba(255,255,255,${Math.min(0.85, a * 1.5).toFixed(3)})`); });
+        cx.fillStyle = soft; cx.fillRect(Cx - R, Cy - R, 2 * R, 2 * R);              // the broad sheen
+        cx.strokeStyle = fine; cx.lineWidth = 1; for (let r = Rl * 1.14; r < R * 0.975; r += 0.0052 * u) { cx.beginPath(); cx.arc(Cx, Cy, r, 0, 6.283); cx.stroke(); }          // thin bright grooves inside the sheen, as on real vinyl
+      }
       const v = cx.createRadialGradient(Cx, Cy, R * 0.9, Cx, Cy, R); v.addColorStop(0, 'rgba(0,0,0,0)'); v.addColorStop(0.9, 'rgba(0,0,0,0.28)'); v.addColorStop(1, 'rgba(0,0,0,0.55)'); cx.fillStyle = v; cx.fillRect(Cx - R, Cy - R, 2 * R, 2 * R);
-      cx.strokeStyle = 'rgba(255,255,255,0.16)'; cx.lineWidth = 1.5; cx.beginPath(); cx.arc(Cx, Cy, R - 3, 0.2, 1.4); cx.stroke(); cx.beginPath(); cx.arc(Cx, Cy, R - 3, 3.4, 4.6); cx.stroke();
+      cx.strokeStyle = 'rgba(255,255,255,0.30)'; cx.lineWidth = 2; cx.beginPath(); cx.arc(Cx, Cy, R - 3, 0.2, 1.4); cx.stroke(); cx.beginPath(); cx.arc(Cx, Cy, R - 3, 3.4, 4.6); cx.stroke();
       cx.restore();
       cx.strokeStyle = 'rgba(0,0,0,0.85)'; cx.lineWidth = 2; cx.beginPath(); cx.arc(Cx, Cy, R - 1, 0, 6.283); cx.stroke();
       cx.fillStyle = '#050505'; cx.beginPath(); cx.arc(Cx, Cy, Rl + 0.013 * u, 0, 6.283); cx.fill();      // black bezel, then the label
@@ -2074,7 +2074,7 @@ window.__rpTogglePower = togglePower;
     }
     function drawDial(p, g) {
       const u = g.u, Cx = g.Cx, Cy = g.Cy, R = 0.469 * u, A = 50 * Math.PI / 180, r1 = R + 0.026 * u;
-      cx.save(); cx.strokeStyle = 'rgba(255,255,255,0.10)'; cx.lineWidth = 1; cx.beginPath(); cx.arc(Cx, Cy, R + 0.046 * u, -A, A); cx.stroke();
+      cx.save(); cx.strokeStyle = theme === 'light' ? 'rgba(0,0,0,0.20)' : 'rgba(255,255,255,0.10)'; cx.lineWidth = 1; cx.beginPath(); cx.arc(Cx, Cy, R + 0.046 * u, -A, A); cx.stroke();
       for (let a = -50; a <= 50.01; a += 2) { const w = Math.exp(-Math.pow(a / 15, 2)), len = (0.010 + 0.042 * w) * u, rad = a * Math.PI / 180, c = Math.cos(rad), s = Math.sin(rad);
         const r = Math.round(74 + (255 - 74) * w), g = Math.round(74 + (96 - 74) * w), b = Math.round(74 + (112 - 74) * w); cx.strokeStyle = `rgba(${r},${g},${b},${0.55 + 0.45 * w})`; cx.lineWidth = Math.max(1, 0.0018 * u * (1 + w));
         cx.beginPath(); cx.moveTo(Cx + c * r1, Cy + s * r1); cx.lineTo(Cx + c * (r1 + len), Cy + s * (r1 + len)); cx.stroke(); }
@@ -2148,7 +2148,7 @@ window.__rpTogglePower = togglePower;
       const t = pos(), d = dur(), p = Math.max(0, Math.min(1, t / d)), pn = performance.now();
       if (t !== clk.a) { clk.a = t; clk.s = pn; }                                    // the audio clock only ticks every so often: carry it forward smoothly between ticks
       const rate = track ? au.playbackRate : Math.max(0, st.rpm / 33.333), ahead = playing() ? Math.min(0.12, (pn - clk.s) / 1000 * rate) : 0, T = t + ahead + lyr.off + nudge + LEAD;
-      const sigNow = [rotA.toFixed(3), st.a.toFixed(3), st.lift.toFixed(2), W, H, layout, key, curPos.toFixed(3), M.t.toFixed(2), els.length, T.toFixed(1), lyr.off.toFixed(2), cur.img ? 1 : 0, npSwap ? npSwap.t.toFixed(2) : ''].join('|');
+      const sigNow = [rotA.toFixed(3), st.a.toFixed(3), st.lift.toFixed(2), W, H, layout, key, curPos.toFixed(3), M.t.toFixed(2), els.length, T.toFixed(1), lyr.off.toFixed(2), cur.img ? 1 : 0, npSwap ? npSwap.t.toFixed(2) : '', theme].join('|');
       if (sigNow === lastSig && st.rpm < 0.02 && !drag) { npStill = true; return; } lastSig = sigNow; npStill = false;          // nothing changed: skip the redraw
       const g = geom(); cx.setTransform(dpr, 0, 0, dpr, 0, 0); cx.clearRect(0, 0, W, H);
       drawDial(p, g);
@@ -2167,11 +2167,8 @@ window.__rpTogglePower = togglePower;
     // ── interaction ──
     const toggle = on => { open = on === undefined ? !open : on; root.hidden = !open; if (open) { resize(); key = ''; if (document.activeElement) document.activeElement.blur(); } };
     const setLayout = l => { layout = l; root.classList.toggle('center', l === 'center'); try { localStorage.setItem('rp-np-layout', l); } catch (e) {} fit(); M.el = null; };
-layBtn.addEventListener('click', () => setLayout(layout === 'center' ? 'side' : 'center'));
-root.querySelector('.thm').addEventListener('click', () => setTheme(theme === 'dark' ? 'light' : 'dark'));
-root.querySelector('.pwr').addEventListener('click', () => { if (window.__rpTogglePower) window.__rpTogglePower(); });
-const hideBtn = root.querySelector('.hide-ui');
-hideBtn.addEventListener('click', () => { root.classList.toggle('clean'); });    root.querySelector('.close').addEventListener('click', () => toggle(false));
+    layBtn.addEventListener('click', () => setLayout(layout === 'center' ? 'side' : 'center'));
+    root.querySelector('.close').addEventListener('click', () => toggle(false));
     let ppState = null; const setPP = on => { if (ppState === on) return; ppState = on; ppB.innerHTML = on ? ICON_PAUSE : ICON_PLAY; };      // only touch the button when its icon really changes, or a click can be lost
     const esc = (tag, cls, txt) => { const e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; };
     function fillTip(b) {                                                            // hover preview of the previous / next song
@@ -2184,20 +2181,13 @@ hideBtn.addEventListener('click', () => { root.classList.toggle('clean'); });   
     tp.addEventListener('pointerdown', e => { const b = e.target.closest('button'); if (!b || e.button !== 0) return; e.preventDefault(); tpAt = performance.now(); tpAct(b.dataset.a); });      // act on the press itself: no waiting for the click
     tp.addEventListener('click', e => { const b = e.target.closest('button'); if (!b || performance.now() - tpAt < 700) return; tpAct(b.dataset.a); });                   // keyboard activation
     tp.querySelectorAll('button').forEach(b => { b.addEventListener('pointerenter', () => fillTip(b)); b.addEventListener('focus', () => fillTip(b)); });
+    root.querySelector('.thm').addEventListener('click', () => { const b = document.getElementById('theme'); if (b) b.click(); });
     root.querySelector('.srch').addEventListener('click', () => { if (window.__rpSearch) window.__rpSearch(); });
     sync.addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; if (b.dataset.a === 'c') nextChorus(); else adjust(b.dataset.a === 'p' ? 0.5 : -0.5); });
     wheel.addEventListener('click', e => { const el = e.target.closest('.ln'); if (!el) return; alignTo(els.findIndex(o => o.el === el)); });
-addEventListener('keydown', e => {
-  if (!open) return;
-  const typing = e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable);
-  if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); toggle(false); }
-  else if (!typing && (e.key === 'l' || e.key === 'L')) { setLayout(layout === 'center' ? 'side' : 'center'); }
-  else if (!typing && e.key === '[') { adjust(-0.5); }
-  else if (!typing && e.key === ']') { adjust(0.5); }
-  else if (!typing && e.key === 'h' || e.key === 'H') { if (!typing) root.classList.toggle('clean'); }
-  else if (!typing && e.key === 'ArrowDown') { e.preventDefault(); e.stopPropagation(); alignTo(idxNow + 1); }
-  else if (!typing && e.key === 'ArrowUp') { e.preventDefault(); e.stopPropagation(); alignTo(idxNow - 1); }
-}, true);    cv.addEventListener('pointerdown', e => { if (e.button !== 0) return; const g = geom(), dx = e.clientX - g.Cx, dy = e.clientY - g.Cy; if (Math.hypot(dx, dy) > g.R || busy()) return; cv.setPointerCapture(e.pointerId); cv.style.cursor = 'grabbing'; drag = { kind: 'spin2d', a: Math.atan2(dy, dx), dAng: 0, moved: true, x: e.clientX, y: e.clientY }; });
+    addEventListener('keydown', e => { if (!open) return; const tg = e.target; if ((tg && (tg.tagName === 'INPUT' || tg.tagName === 'TEXTAREA' || tg.isContentEditable)) || e.ctrlKey || e.metaKey || e.altKey) return;       // typing a song name must not trigger shortcuts
+      if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); toggle(false); } else if (e.key === 'l' || e.key === 'L') { setLayout(layout === 'center' ? 'side' : 'center'); } else if (e.key === '[' || e.key === ']') adjust(e.key === ']' ? 0.5 : -0.5); else if (e.key === 'ArrowDown') { e.preventDefault(); e.stopPropagation(); alignTo(idxNow + 1); } else if (e.key === 'ArrowUp') { e.preventDefault(); e.stopPropagation(); alignTo(idxNow - 1); } }, true);
+    cv.addEventListener('pointerdown', e => { if (e.button !== 0) return; const g = geom(), dx = e.clientX - g.Cx, dy = e.clientY - g.Cy; if (Math.hypot(dx, dy) > g.R || busy()) return; cv.setPointerCapture(e.pointerId); cv.style.cursor = 'grabbing'; drag = { kind: 'spin2d', a: Math.atan2(dy, dx), dAng: 0, moved: true, x: e.clientX, y: e.clientY }; });
     cv.addEventListener('pointermove', e => { if (!drag || drag.kind !== 'spin2d') return; const g = geom(), a = Math.atan2(e.clientY - g.Cy, e.clientX - g.Cx), d = ((a - drag.a) + Math.PI * 3) % (Math.PI * 2) - Math.PI; rotA -= d; drag.dAng -= d; drag.a = a; });
     const up = () => { if (drag && drag.kind === 'spin2d') { drag = null; cv.style.cursor = ''; } };
     cv.addEventListener('pointerup', up); cv.addEventListener('pointercancel', up);
